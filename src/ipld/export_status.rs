@@ -230,6 +230,12 @@ impl ChainExportGuard {
         output
     }
 
+    /// Records a terminal outcome without consuming the guard, for holders that can't use
+    /// [`Self::finish`].
+    pub fn record_outcome(&self, outcome: ChainExportState, error: Option<String>) {
+        CHAIN_EXPORT_STATUS.record_outcome(outcome, error);
+    }
+
     /// A cancellation observed by [`Self::run_cancellable`] wins over `result`, so
     /// callers need no cancellation special-casing.
     pub fn finish<T>(self, result: anyhow::Result<T>) -> anyhow::Result<T> {

@@ -503,7 +503,7 @@ pub struct BackfillGuard {
     cancellation_token: CancellationToken,
     counters: Arc<BackfillCounters>,
     // Held for the lifetime of the backfill to exclude exports and snapshot GC.
-    _export_guard: crate::ipld::ChainExportGuard,
+    export_guard: crate::ipld::ChainExportGuard,
 }
 
 impl BackfillGuard {
@@ -524,7 +524,7 @@ impl BackfillGuard {
         Ok(Self {
             cancellation_token,
             counters,
-            _export_guard: export_guard,
+            export_guard,
         })
     }
 
@@ -535,9 +535,15 @@ impl BackfillGuard {
     /// Records the terminal outcome for the backfill.
     pub fn finish<T>(self, result: anyhow::Result<T>) -> anyhow::Result<T> {
         match &result {
-            Ok(_) => BACKFILL_STATUS.record_outcome(ChainExportState::Succeeded, None),
+            Ok(_) => {
+                BACKFILL_STATUS.record_outcome(ChainExportState::Succeeded, None);
+                self.export_guard
+                    .record_outcome(ChainExportState::Succeeded, None);
+            }
             Err(e) => {
-                BACKFILL_STATUS.record_outcome(ChainExportState::Failed, Some(format!("{e:#}")))
+                BACKFILL_STATUS.record_outcome(ChainExportState::Failed, Some(format!("{e:#}")));
+                self.export_guard
+                    .record_outcome(ChainExportState::Failed, Some(format!("{e:#}")));
             }
         }
         result
@@ -571,6 +577,8 @@ impl BackfillGuard {
 
     fn record_cancelled(&self) {
         BACKFILL_STATUS.record_outcome(ChainExportState::Cancelled, None);
+        self.export_guard
+            .record_outcome(ChainExportState::Cancelled, None);
     }
 }
 
