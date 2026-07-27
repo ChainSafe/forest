@@ -2498,7 +2498,49 @@ fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
     // Test eth_call API errors
     tests.extend(eth_call_api_err_tests(shared_tipset.epoch()));
 
+    // Test eth_call / eth_estimateGas from a non-existent sender (#7394)
+    tests.extend(eth_call_estimate_skip_sender_tests(shared_tipset.epoch()));
+
     Ok(tests)
+}
+
+/// Regression tests for <https://github.com/ChainSafe/forest/issues/7394>: `eth_call` and
+/// `eth_estimateGas` must work when the sender is not a valid Filecoin message sender. A
+/// fresh Ethereum address that has never transacted has no actor on chain, yet
+/// Geth-compatible tooling still expects these calls to succeed (an ephemeral placeholder
+/// sender is created for them).
+fn eth_call_estimate_skip_sender_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
+    // A deterministic address that is overwhelmingly unlikely to exist on chain.
+    let nonexistent = EthAddress::from_str("0x00000000000000000000000000000000dead0000")
+        .expect("valid eth address");
+
+    let mut tests = Vec::new();
+    for api_path in [ApiPaths::V1, ApiPaths::V2] {
+        let msg = EthCallMessage {
+            from: Some(nonexistent),
+            to: Some(nonexistent),
+            ..EthCallMessage::default()
+        };
+
+        let eth_call_request =
+            EthCall::request((msg.clone(), BlockNumberOrHash::from_block_number(epoch)))
+                .unwrap()
+                .with_api_path(api_path);
+        tests.push(
+            RpcTest::identity(eth_call_request)
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+
+        let eth_estimate_gas_request =
+            EthEstimateGas::request((msg, Some(BlockNumberOrHash::BlockNumber(epoch.into()))))
+                .unwrap()
+                .with_api_path(api_path);
+        tests.push(
+            RpcTest::identity(eth_estimate_gas_request)
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        );
+    }
+    tests
 }
 
 fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
