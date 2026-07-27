@@ -103,13 +103,12 @@ pub async fn offline_rpc_state(
         state_manager.chain_config().eth_chain_id,
         message_pool.subscriber(),
     ));
-    services.spawn({
-        let eth_event_handler = eth_event_handler.clone();
-        async move {
-            eth_event_handler.run_filter_gc().await;
-            Ok(())
-        }
-    });
+    if let Some(ttl) = eth_event_handler.filter_ttl() {
+        services.spawn({
+            let eth_event_handler = eth_event_handler.clone();
+            async move { eth_event_handler.run_filter_gc(ttl).await }
+        });
+    }
     Ok((
         RPCState {
             state_manager,

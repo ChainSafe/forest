@@ -126,8 +126,6 @@ pub struct EthEventHandler {
     pub filter_store: Option<Arc<dyn FilterStore>>,
     pub max_filter_results: usize,
     pub max_filter_height_range: ChainEpoch,
-    /// Filters idle for longer than this are removed,
-    /// `None` disables expiry.
     filter_ttl: Option<Duration>,
     event_filter_manager: Option<Arc<EventFilterManager>>,
     tipset_filter_manager: Option<Arc<TipSetFilterManager>>,
@@ -205,27 +203,25 @@ impl EthEventHandler {
         }
     }
 
-    /// Periodically removes filters idle for longer than the configured TTL,
-    /// sweeping every [`FILTER_GC_INTERVAL`] or every TTL, whichever is shorter.
-    /// Returns immediately when expiry is disabled; otherwise never returns.
-    pub async fn run_filter_gc(&self) {
-        let Some(ttl) = self.filter_ttl else {
-            return;
-        };
+    /// TTL after which idle filters are removed; `None` when expiry is disabled.
+    pub fn filter_ttl(&self) -> Option<Duration> {
+        self.filter_ttl
+    }
+
+    /// Periodically removes filters idle for longer than `ttl`, sweeping every
+    /// [`FILTER_GC_INTERVAL`] or every `ttl`, whichever is shorter.
+    pub async fn run_filter_gc(&self, ttl: Duration) -> ! {
         let period = ttl.min(FILTER_GC_INTERVAL);
         let mut interval = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
         loop {
             interval.tick().await;
-            self.sweep_expired();
+            self.sweep_expired(ttl);
         }
     }
 
-    /// One sweep pass: removes every filter idle for longer than the configured
-    /// TTL from the store and from its manager. No-op when expiry is disabled.
-    fn sweep_expired(&self) {
-        let Some(ttl) = self.filter_ttl else {
-            return;
-        };
+    /// One sweep pass: removes every filter idle for longer than `ttl` from
+    /// the store and from its manager.
+    fn sweep_expired(&self, ttl: Duration) {
         let Some(filter_store) = &self.filter_store else {
             return;
         };
@@ -1348,7 +1344,7 @@ mod tests {
 
         // everything has been idle for longer than the TTL
         tokio::time::advance(TEST_TTL + Duration::from_secs(1)).await;
-        handler.sweep_expired();
+        handler.sweep_expired(TEST_TTL);
 
         // the filters are gone from the store...
         let store = handler.filter_store.as_ref().unwrap();
@@ -1378,7 +1374,7 @@ mod tests {
         // 30 minutes later, the never-polled filter has crossed the TTL
         // (75 minutes idle) while the polled one has not (30 minutes idle)
         tokio::time::advance(Duration::from_mins(30)).await;
-        handler.sweep_expired();
+        handler.sweep_expired(TEST_TTL);
 
         assert!(store.get(&idle_id).is_err(), "idle filter should expire");
         assert!(
@@ -1393,7 +1389,7 @@ mod tests {
         let id = handler.eth_new_block_filter().unwrap();
         let _gc = tokio::spawn({
             let handler = handler.clone();
-            async move { handler.run_filter_gc().await }
+            async move { handler.run_filter_gc(TEST_TTL).await }
         });
         tokio::task::yield_now().await; // let the spawned loop start its interval now
 
@@ -1410,7 +1406,7 @@ mod tests {
         let id = handler.eth_new_block_filter().unwrap();
         let _gc = tokio::spawn({
             let handler = handler.clone();
-            async move { handler.run_filter_gc().await }
+            async move { handler.run_filter_gc(ttl).await }
         });
         tokio::task::yield_now().await; // let the spawned loop start its interval now
 
@@ -1424,14 +1420,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn run_filter_gc_exits_when_expiry_disabled() {
-        use futures::FutureExt as _;
-        let handler = handler_with_ttl(Duration::ZERO);
-        assert!(
-            handler.run_filter_gc().now_or_never().is_some(),
-            "must complete on the first poll instead of looping forever"
-        );
+    #[test]
+    fn zero_ttl_disables_filter_expiry() {
+        assert!(handler_with_ttl(Duration::ZERO).filter_ttl().is_none());
     }
 
     #[test]
