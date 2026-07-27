@@ -31,7 +31,7 @@
 
 ### Added
 
-- [#7408](https://github.com/ChainSafe/forest/pull/7408): Impl `Forest.IndexBackfill`, `Forest.IndexBackfillStatus` and `Forest.IndexBackfillCancel` RPC methods and the `forest-cli index backfill` command to back-fill the chain index (Ethereum mappings, events, block blooms) through the running daemon, so the node no longer needs to be stopped. An interrupted or cancelled run can be continued with `--resume`.
+- [#7408](https://github.com/ChainSafe/forest/pull/7408): Impl `Forest.IndexBackfill`, `Forest.IndexBackfillStatus` and `Forest.IndexBackfillCancel` RPC methods and the `forest-cli index backfill` command to back-fill the chain index (Ethereum mappings, events, block blooms) through the running daemon, so the node no longer needs to be stopped. An interrupted or cancelled run can be resumed with `--resume`.
 
 ### Changed
 
