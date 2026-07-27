@@ -1875,6 +1875,15 @@ async fn eth_estimate_gas(
     // gas estimation actually run.
     msg.gas_limit = 0;
 
+    // Geth allows eth_estimateGas from senders that Filecoin's explicit path rejects. An
+    // EVM-contract sender fails the FVM's account-type check, and a sender that does not
+    // exist on chain has no nonce to read. Detect both up front and estimate on the
+    // skip-sender-validation path, which applies the message implicitly (contract sender)
+    // or creates an ephemeral placeholder first (non-existent sender).
+    if sender_needs_skip_validation(ctx, msg.from, &tipset).await {
+        return eth_estimate_gas_skip_sender(ctx, msg, tipset).await;
+    }
+
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
         Err(server_err) => {
             // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
@@ -1899,10 +1908,46 @@ async fn eth_estimate_gas(
             Err(err.context("failed to estimate gas").into())
         }
         Ok(gassed_msg) => {
-            let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
+            let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into(), false).await?;
             Ok(expected_gas.into())
         }
     }
+}
+
+/// Returns `true` if the sender is an EVM contract or does not exist on chain, in which case
+/// `eth_call`/`eth_estimateGas` must run with sender validation skipped (matching Geth).
+async fn sender_needs_skip_validation(ctx: &Ctx, from: FilecoinAddress, tipset: &Tipset) -> bool {
+    let Ok(TipsetState { state_root, .. }) = ctx.state_manager.load_tipset_state(tipset).await
+    else {
+        return false;
+    };
+    match ctx.state_manager.get_actor(&from, state_root) {
+        // Sender exists but is an EVM contract: not a valid explicit sender.
+        Ok(Some(actor)) => is_evm_actor(&actor.code),
+        // Sender does not exist on chain: no nonce to read on the explicit path.
+        Ok(None) => true,
+        // Could not resolve the sender; let the strict path decide.
+        Err(_) => false,
+    }
+}
+
+/// Estimates gas for a message whose sender is a contract or does not exist on chain,
+/// mirroring the normal path: an initial estimate on the skip-sender-validation path, the
+/// overestimation multiplier, then a gas search so nested calls get the limit they need.
+async fn eth_estimate_gas_skip_sender(
+    ctx: &Ctx,
+    mut msg: Message,
+    tipset: Tipset,
+) -> Result<EthUint64, ServerError> {
+    let tsk: ApiTipsetKey = tipset.key().clone().into();
+    let gas_limit =
+        gas::GasEstimateGasLimit::estimate_gas_limit_skip_sender_validation(ctx, msg.clone(), &tsk)
+            .await?;
+    let gas_limit = ((gas_limit as f64) * ctx.mpool.gas_limit_overestimation()) as u64;
+    msg.set_gas_limit(gas_limit.min(BLOCK_GAS_LIMIT));
+
+    let expected_gas = eth_gas_search(ctx, msg, &tsk, true).await?;
+    Ok(expected_gas.into())
 }
 
 async fn apply_message(
@@ -1919,11 +1964,34 @@ async fn apply_message(
         return Err(crate::state_manager::Error::ExpensiveFork { epoch: ts.epoch() }.into());
     }
 
-    let (invoc_res, _) = ctx
+    let apply = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
-        .await
-        .context("failed to apply on state with gas")?;
+        .apply_on_state_with_gas(tipset.clone(), msg.clone(), VMFlush::Skip)
+        .await;
+
+    // Geth allows eth_call/eth_estimateGas from senders that Filecoin's explicit path
+    // rejects. A sender that is an EVM contract surfaces as a `SysErrSenderInvalid` receipt;
+    // a sender that does not exist on chain surfaces as a `SenderValidationFailed` error.
+    // In either case, retry with sender validation skipped.
+    let sender_invalid: ExitCode = fvm_shared4::error::ExitCode::SYS_SENDER_INVALID.into();
+    let needs_skip = match &apply {
+        Ok((invoc_res, _)) => invoc_res
+            .msg_rct
+            .as_ref()
+            .is_some_and(|receipt| ExitCode::from(receipt.exit_code()) == sender_invalid),
+        Err(e) => e
+            .downcast_ref::<crate::state_manager::Error>()
+            .is_some_and(|e| matches!(e, crate::state_manager::Error::SenderValidationFailed(_))),
+    };
+
+    let (invoc_res, _) = if needs_skip {
+        ctx.state_manager
+            .apply_on_state_with_gas_skip_sender_validation(tipset, msg, VMFlush::Skip)
+            .await
+            .context("failed to apply on state with gas (skip sender validation)")?
+    } else {
+        apply.context("failed to apply on state with gas")?
+    };
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -1946,9 +2014,22 @@ async fn apply_message(
     Ok(invoc_res)
 }
 
-pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> anyhow::Result<u64> {
-    let (_invoc_res, apply_ret, prior_messages, ts) =
-        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
+pub async fn eth_gas_search(
+    data: &Ctx,
+    msg: Message,
+    tsk: &ApiTipsetKey,
+    skip_sender_validation: bool,
+) -> anyhow::Result<u64> {
+    let (_invoc_res, apply_ret, prior_messages, ts) = if skip_sender_validation {
+        gas::GasEstimateGasLimit::estimate_call_with_gas_skip_sender_validation(
+            data,
+            msg.clone(),
+            tsk,
+        )
+        .await?
+    } else {
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?
+    };
     if apply_ret.msg_receipt().exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
@@ -1964,7 +2045,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
             })
         )
     }) {
-        let ret = gas_search(data, &msg, prior_messages, ts).await?;
+        let ret = gas_search(data, &msg, prior_messages, ts, skip_sender_validation).await?;
         Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
     } else {
         anyhow::bail!(
@@ -1984,6 +2065,7 @@ async fn gas_search(
     msg: &Message,
     prior_messages: Arc<Vec<ChainMessage>>,
     ts: Tipset,
+    skip_sender_validation: bool,
 ) -> anyhow::Result<u64> {
     let mut high = msg.gas_limit;
     let mut low = msg.gas_limit;
@@ -1994,12 +2076,23 @@ async fn gas_search(
         prior_messages: Arc<Vec<ChainMessage>>,
         ts: Tipset,
         limit: u64,
+        skip_sender_validation: bool,
     ) -> anyhow::Result<bool> {
         msg.gas_limit = limit;
-        let (_invoc_res, apply_ret, _, _) = data
-            .state_manager
-            .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
-            .await?;
+        let (_invoc_res, apply_ret, _, _) = if skip_sender_validation {
+            data.state_manager
+                .call_with_gas_skip_sender_validation(
+                    msg.into(),
+                    prior_messages,
+                    Some(ts),
+                    VMFlush::Skip,
+                )
+                .await?
+        } else {
+            data.state_manager
+                .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
+                .await?
+        };
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
 
@@ -2010,6 +2103,7 @@ async fn gas_search(
             prior_messages.shallow_clone(),
             ts.shallow_clone(),
             high,
+            skip_sender_validation,
         )
         .await?
         {
@@ -2028,6 +2122,7 @@ async fn gas_search(
             prior_messages.shallow_clone(),
             ts.shallow_clone(),
             median,
+            skip_sender_validation,
         )
         .await?
         {

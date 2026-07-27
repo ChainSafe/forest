@@ -208,8 +208,29 @@ impl RpcMethod<2> for GasEstimateGasLimit {
 impl GasEstimateGasLimit {
     pub async fn estimate_call_with_gas(
         data: &Ctx,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
+        Self::estimate_call_with_gas_inner(data, msg, tsk, false).await
+    }
+
+    /// Same as [`Self::estimate_call_with_gas`] but skips sender validation, so
+    /// `eth_estimateGas` can estimate calls from EVM-contract senders or from addresses
+    /// that do not yet exist on chain. See
+    /// [`crate::state_manager::StateManager::call_with_gas_skip_sender_validation`].
+    pub async fn estimate_call_with_gas_skip_sender_validation(
+        data: &Ctx,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+    ) -> anyhow::Result<(InvocResult, ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
+        Self::estimate_call_with_gas_inner(data, msg, tsk, true).await
+    }
+
+    async fn estimate_call_with_gas_inner(
+        data: &Ctx,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
+        skip_sender_validation: bool,
     ) -> anyhow::Result<(InvocResult, ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
@@ -246,22 +267,54 @@ impl GasEstimateGasLimit {
             _ => msg.into(),
         };
 
-        let (invoc_res, apply_ret, _, _) = data
-            .state_manager
-            .call_with_gas(
-                chain_msg,
-                prior_messages.shallow_clone(),
-                Some(ts.shallow_clone()),
-                VMFlush::Skip,
-            )
-            .await?;
+        let (invoc_res, apply_ret, _, _) = if skip_sender_validation {
+            data.state_manager
+                .call_with_gas_skip_sender_validation(
+                    chain_msg,
+                    prior_messages.shallow_clone(),
+                    Some(ts.shallow_clone()),
+                    VMFlush::Skip,
+                )
+                .await?
+        } else {
+            data.state_manager
+                .call_with_gas(
+                    chain_msg,
+                    prior_messages.shallow_clone(),
+                    Some(ts.shallow_clone()),
+                    VMFlush::Skip,
+                )
+                .await?
+        };
         Ok((invoc_res, apply_ret, prior_messages, ts))
     }
 
     pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
-            .await
-            .context("gas estimation failed")?;
+        Self::estimate_gas_limit_inner(data, msg, tsk, false).await
+    }
+
+    /// Same as [`Self::estimate_gas_limit`] but skips sender validation. Used by
+    /// `eth_estimateGas` for EVM-contract or non-existent senders.
+    pub async fn estimate_gas_limit_skip_sender_validation(
+        data: &Ctx,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+    ) -> Result<i64> {
+        Self::estimate_gas_limit_inner(data, msg, tsk, true).await
+    }
+
+    async fn estimate_gas_limit_inner(
+        data: &Ctx,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+        skip_sender_validation: bool,
+    ) -> Result<i64> {
+        let (res, ..) = if skip_sender_validation {
+            Self::estimate_call_with_gas_skip_sender_validation(data, msg, tsk).await
+        } else {
+            Self::estimate_call_with_gas(data, msg, tsk).await
+        }
+        .context("gas estimation failed")?;
         match res.msg_rct {
             Some(rct) => {
                 anyhow::ensure!(

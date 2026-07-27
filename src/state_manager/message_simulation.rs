@@ -7,8 +7,9 @@ use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::message::{MessageRead as _, MessageReadWrite as _};
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
+use crate::shim::address::Address;
 use crate::shim::executor::ApplyRet;
-use crate::shim::message::Message;
+use crate::shim::message::{METHOD_SEND, Message};
 use crate::state_migration::run_state_migrations;
 use std::time::Duration;
 use tracing::instrument;
@@ -188,13 +189,44 @@ impl StateManager {
         msg: Message,
         vm_flush: VMFlush,
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
+        self.apply_on_state_with_gas_inner(tipset, msg, vm_flush, false)
+            .await
+    }
+
+    /// Same as [`Self::apply_on_state_with_gas`] but skips sender validation, letting
+    /// `eth_call`/`eth_estimateGas` simulate calls from EVM-contract senders or from
+    /// addresses that do not yet exist on chain. See
+    /// [`Self::call_with_gas_skip_sender_validation`].
+    pub async fn apply_on_state_with_gas_skip_sender_validation(
+        &self,
+        tipset: Option<Tipset>,
+        msg: Message,
+        vm_flush: VMFlush,
+    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
+        self.apply_on_state_with_gas_inner(tipset, msg, vm_flush, true)
+            .await
+    }
+
+    async fn apply_on_state_with_gas_inner(
+        &self,
+        tipset: Option<Tipset>,
+        msg: Message,
+        vm_flush: VMFlush,
+        skip_sender_validation: bool,
+    ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
         let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (_invoc_res, apply_ret, duration, state_root) = self
-            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush)
+            .call_with_gas_inner(
+                chain_msg,
+                Default::default(),
+                Some(ts),
+                vm_flush,
+                skip_sender_validation,
+            )
             .await?;
 
         Ok((
@@ -216,10 +248,44 @@ impl StateManager {
     /// messages and returns the values computed in the VM.
     pub async fn call_with_gas(
         &self,
+        message: ChainMessage,
+        prior_messages: Arc<Vec<ChainMessage>>,
+        tipset: Option<Tipset>,
+        vm_flush: VMFlush,
+    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
+        self.call_with_gas_inner(message, prior_messages, tipset, vm_flush, false)
+            .await
+    }
+
+    /// Same as [`Self::call_with_gas`] but skips sender validation, mirroring Geth's
+    /// behavior so `eth_call`/`eth_estimateGas` can simulate calls from EVM-contract
+    /// senders or from addresses that do not yet exist on chain.
+    ///
+    /// - Sender missing: apply an implicit zero-value send so the FVM instantiates an
+    ///   ephemeral placeholder actor for the address, then run the message on the explicit
+    ///   path so gas accounting matches a real first send from a fresh account.
+    /// - Sender present but not a valid sender type (e.g. an EVM contract): run the message
+    ///   on the implicit path, which skips the account-type, nonce and balance checks.
+    ///
+    /// Nothing is persisted; this operates on the VM's in-memory buffered state.
+    pub async fn call_with_gas_skip_sender_validation(
+        &self,
+        message: ChainMessage,
+        prior_messages: Arc<Vec<ChainMessage>>,
+        tipset: Option<Tipset>,
+        vm_flush: VMFlush,
+    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
+        self.call_with_gas_inner(message, prior_messages, tipset, vm_flush, true)
+            .await
+    }
+
+    async fn call_with_gas_inner(
+        &self,
         mut message: ChainMessage,
         prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
+        skip_sender_validation: bool,
     ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
@@ -236,7 +302,7 @@ impl StateManager {
         tokio::task::spawn_blocking(move || {
             // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
             // FVM, but that introduces some constraints, and possible deadlocks.
-            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
+            let applied = stacker::grow(64 << 20, || -> anyhow::Result<_> {
                 let mut vm = VM::new(
                     ExecutionContext {
                         heaviest_tipset: ts.clone(),
@@ -261,19 +327,75 @@ impl StateManager {
                     vm.apply_message(msg)?;
                 }
 
-                let from_actor = vm
+                let maybe_from_actor = vm
                     .get_actor(&message.from())
-                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
-                    .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?;
+
+                let (from_actor, sender_created) = match maybe_from_actor {
+                    Some(actor) => (actor, false),
+                    None if skip_sender_validation => {
+                        // The sender does not exist on chain. Apply an implicit zero-value send
+                        // to the address: the FVM assigns it an ID address and instantiates a
+                        // placeholder actor, exactly as a real first transfer would. A nonce-0
+                        // placeholder is a valid message sender, so the message itself is then
+                        // applied on the explicit path, keeping gas accounting identical to a
+                        // real first send from a fresh account.
+                        let placeholder_send = Message {
+                            from: Address::SYSTEM_ACTOR,
+                            to: message.from(),
+                            method_num: METHOD_SEND,
+                            gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
+                            ..Default::default()
+                        };
+                        let (create_ret, _) = vm.apply_implicit_message(&placeholder_send)?;
+                        let exit_code = create_ret.msg_receipt().exit_code();
+                        if !exit_code.is_success() {
+                            anyhow::bail!(
+                                "creating ephemeral sender placeholder for {} failed with exit code {exit_code:?}",
+                                message.from()
+                            );
+                        }
+                        let actor = vm
+                            .get_actor(&message.from())
+                            .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
+                            .ok_or_else(|| {
+                                Error::Other(
+                                    "ephemeral sender placeholder missing after creation".to_string(),
+                                )
+                            })?;
+                        (actor, true)
+                    }
+                    // Sender missing under strict validation. Signal to the caller via `None`
+                    // so the typed `SenderValidationFailed` error survives (it would otherwise
+                    // be flattened by the anyhow -> Error conversion below).
+                    None => return Ok(None),
+                };
 
                 message.set_sequence(from_actor.sequence);
-                let (ret, duration) = vm.apply_message(&message)?;
+                let (ret, duration) = if skip_sender_validation && !sender_created {
+                    // The sender exists but is not a valid message sender (e.g. an EVM
+                    // contract): apply on the implicit path, which skips the account-type,
+                    // nonce and balance checks.
+                    vm.apply_implicit_message(message.message())?
+                } else {
+                    vm.apply_message(&message)?
+                };
                 let state_root = match vm_flush {
                     VMFlush::Flush => Some(vm.flush()?),
                     VMFlush::Skip => None,
                 };
-                Ok((ret, duration, state_root))
+                Ok(Some((ret, duration, state_root)))
             })?;
+
+            let (ret, duration, state_cid) = match applied {
+                Some(applied) => applied,
+                None => {
+                    return Err(Error::SenderValidationFailed(format!(
+                        "sender {} not found on chain",
+                        message.from()
+                    )));
+                }
+            };
 
             Ok((
                 InvocResult::new(message.message().clone(), &ret),

@@ -18,6 +18,10 @@ pub enum Error {
         "required historical state unavailable: refusing explicit call due to state fork at epoch {epoch}"
     )]
     ExpensiveFork { epoch: ChainEpoch },
+    /// The sender actor does not exist on chain or is not a valid sender type. Control flow
+    /// only: `eth_call`/`eth_estimateGas` use it to retry with sender validation skipped.
+    #[error("sender validation failed: {0}")]
+    SenderValidationFailed(String),
     /// Other state manager error
     #[error("{0}")]
     Other(String),
