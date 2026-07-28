@@ -2952,13 +2952,29 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
     }
 }
 
+#[derive(Clone, Debug, GetSize)]
+struct CachedReceipt {
+    // `None` is a negatively cached "not found" result.
+    receipt: Option<EthTxReceipt>,
+    // Head this result was computed against. Mutable entries (`None` and
+    // non-final receipts) are only valid while the head is unchanged.
+    head_key: TipsetKey,
+    // A finalized receipt is immutable, so it is never invalidated.
+    finalized: bool,
+}
+
+fn is_finalized(ctx: &Ctx, receipt_epoch: ChainEpoch) -> bool {
+    let head_epoch = ctx.chain_store().heaviest_tipset().epoch();
+    receipt_epoch <= head_epoch - ctx.chain_config().policy.chain_finality
+}
+
 async fn get_eth_transaction_receipt_with_cache(
     ctx: Ctx,
     tx_hash: EthHash,
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<EthTxReceipt>, ServerError> {
-    static CACHE: LazyLock<SizeTrackingCache<EthHash, EthTxReceipt>> = LazyLock::new(|| {
+    static CACHE: LazyLock<SizeTrackingCache<EthHash, CachedReceipt>> = LazyLock::new(|| {
         const DEFAULT_CACHE_SIZE: NonZeroUsize = nonzero!(10000usize); // ~12.5MiB on mainnet
         let cache_size = env_or_default(
             "FOREST_ETH_TRANSACTION_RECEIPT_CACHE_SIZE",
@@ -2967,41 +2983,53 @@ async fn get_eth_transaction_receipt_with_cache(
         SizeTrackingCache::new_with_metrics("eth_transaction_receipt", cache_size)
     });
 
-    enum TmpError {
-        NotFound,
-        Error(ServerError),
+    let head = ctx.chain_store().heaviest_tipset();
+    let head_key = head.key().clone();
+
+    // Drop stale mutable entries so they are recomputed at the new head; any
+    // head change (advance or same-epoch reorg) yields a different key.
+    if CACHE
+        .peek(&tx_hash)
+        .is_some_and(|e| !e.finalized && e.head_key != head_key)
+    {
+        CACHE.remove(&tx_hash);
     }
 
-    // Do not update cache when not found by returning an error
-    match CACHE
+    // A genuine error bypasses the cache; both `Some` and `None` are cached.
+    let CachedReceipt { receipt, .. } = CACHE
         .get_or_insert_async(&tx_hash, {
             let ctx = ctx.shallow_clone();
+            let head_key = head_key.clone();
             async move {
-                let receipt = get_eth_transaction_receipt(ctx, tx_hash, limit, cancellation_token)
-                    .await
-                    .map_err(TmpError::Error)?
-                    .ok_or(TmpError::NotFound)?;
-                Ok(receipt)
+                let receipt = get_eth_transaction_receipt(
+                    ctx.shallow_clone(),
+                    tx_hash,
+                    limit,
+                    cancellation_token,
+                )
+                .await?;
+                let finalized = receipt
+                    .as_ref()
+                    .is_some_and(|r| is_finalized(&ctx, r.block_number.0));
+                Ok::<_, ServerError>(CachedReceipt {
+                    receipt,
+                    head_key,
+                    finalized,
+                })
             }
         })
-        .await
-    {
-        Ok(r) => {
-            let Some(max_lookback_epoch_inclusive) = StateManager::max_lookback_epoch_inclusive(
-                ctx.chain_store().heaviest_tipset().epoch(),
-                limit,
-            ) else {
-                return Ok(None);
-            };
-            if r.block_number.0 >= max_lookback_epoch_inclusive {
-                Ok(Some(r))
-            } else {
-                // Cache hit but beyond the lookback limit
-                Ok(None)
-            }
-        }
-        Err(TmpError::NotFound) => Ok(None),
-        Err(TmpError::Error(e)) => Err(e),
+        .await?;
+
+    let Some(r) = receipt else { return Ok(None) };
+    let Some(max_lookback_epoch_inclusive) =
+        StateManager::max_lookback_epoch_inclusive(head.epoch(), limit)
+    else {
+        return Ok(None);
+    };
+    if r.block_number.0 >= max_lookback_epoch_inclusive {
+        Ok(Some(r))
+    } else {
+        Ok(None)
     }
 }
 
