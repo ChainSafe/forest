@@ -2954,7 +2954,7 @@ impl RpcMethod<2> for FilecoinAddressToEthAddress {
 
 #[derive(Clone, Debug, GetSize)]
 struct CachedReceipt {
-    // `None` is a negatively cached "not found" result.
+    // `None` means "not found" by a full search.
     receipt: Option<EthTxReceipt>,
     // Head this result was computed against. Mutable entries (`None` and
     // non-final receipts) are only valid while the head is unchanged.
@@ -2986,8 +2986,7 @@ async fn get_eth_transaction_receipt_with_cache(
     let head = ctx.chain_store().heaviest_tipset();
     let head_key = head.key().clone();
 
-    // Drop stale mutable entries so they are recomputed at the new head; any
-    // head change (advance or same-epoch reorg) yields a different key.
+    // Drop stale mutable entries so they are recomputed at the new head.
     if CACHE
         .peek(&tx_hash)
         .is_some_and(|e| !e.finalized && e.head_key != head_key)
@@ -2995,8 +2994,13 @@ async fn get_eth_transaction_receipt_with_cache(
         CACHE.remove(&tx_hash);
     }
 
-    // A genuine error bypasses the cache; both `Some` and `None` are cached.
-    let CachedReceipt { receipt, .. } = CACHE
+    enum Uncacheable {
+        // A bounded search found nothing; the receipt may still exist.
+        NotFoundWithinLimit,
+        Error(ServerError),
+    }
+
+    let receipt = match CACHE
         .get_or_insert_async(&tx_hash, {
             let ctx = ctx.shallow_clone();
             let head_key = head_key.clone();
@@ -3007,30 +3011,32 @@ async fn get_eth_transaction_receipt_with_cache(
                     limit,
                     cancellation_token,
                 )
-                .await?;
+                .await
+                .map_err(Uncacheable::Error)?;
+                if receipt.is_none() && limit.is_some() {
+                    return Err(Uncacheable::NotFoundWithinLimit);
+                }
                 let finalized = receipt
                     .as_ref()
                     .is_some_and(|r| is_finalized(&ctx, r.block_number.0));
-                Ok::<_, ServerError>(CachedReceipt {
+                Ok::<_, Uncacheable>(CachedReceipt {
                     receipt,
                     head_key,
                     finalized,
                 })
             }
         })
-        .await?;
+        .await
+    {
+        Ok(CachedReceipt { receipt, .. }) => receipt,
+        Err(Uncacheable::NotFoundWithinLimit) => None,
+        Err(Uncacheable::Error(e)) => return Err(e),
+    };
 
     let Some(r) = receipt else { return Ok(None) };
-    let Some(max_lookback_epoch_inclusive) =
-        StateManager::max_lookback_epoch_inclusive(head.epoch(), limit)
-    else {
-        return Ok(None);
-    };
-    if r.block_number.0 >= max_lookback_epoch_inclusive {
-        Ok(Some(r))
-    } else {
-        Ok(None)
-    }
+    let within_lookback = StateManager::max_lookback_epoch_inclusive(head.epoch(), limit)
+        .is_some_and(|max| r.block_number.0 >= max);
+    Ok(within_lookback.then_some(r))
 }
 
 async fn get_eth_transaction_receipt(
