@@ -2963,8 +2963,7 @@ struct CachedReceipt {
     finalized: bool,
 }
 
-fn is_finalized(ctx: &Ctx, receipt_epoch: ChainEpoch) -> bool {
-    let head_epoch = ctx.chain_store().heaviest_tipset().epoch();
+fn is_finalized(ctx: &Ctx, head_epoch: ChainEpoch, receipt_epoch: ChainEpoch) -> bool {
     receipt_epoch <= head_epoch - ctx.chain_config().policy.chain_finality
 }
 
@@ -2985,14 +2984,10 @@ async fn get_eth_transaction_receipt_with_cache(
 
     let head = ctx.chain_store().heaviest_tipset();
     let head_key = head.key().clone();
+    let head_epoch = head.epoch();
 
     // Drop stale mutable entries so they are recomputed at the new head.
-    if CACHE
-        .peek(&tx_hash)
-        .is_some_and(|e| !e.finalized && e.head_key != head_key)
-    {
-        CACHE.remove(&tx_hash);
-    }
+    CACHE.remove_if(&tx_hash, |e| !e.finalized && e.head_key != head_key);
 
     enum Uncacheable {
         // A bounded search found nothing; the receipt may still exist.
@@ -3013,12 +3008,12 @@ async fn get_eth_transaction_receipt_with_cache(
                 )
                 .await
                 .map_err(Uncacheable::Error)?;
-                if receipt.is_none() && limit.is_some() {
+                if receipt.is_none() && limit.is_some_and(|limit| limit > 0) {
                     return Err(Uncacheable::NotFoundWithinLimit);
                 }
                 let finalized = receipt
                     .as_ref()
-                    .is_some_and(|r| is_finalized(&ctx, r.block_number.0));
+                    .is_some_and(|r| is_finalized(&ctx, head.epoch(), r.block_number.0));
                 Ok::<_, Uncacheable>(CachedReceipt {
                     receipt,
                     head_key,
@@ -3034,7 +3029,7 @@ async fn get_eth_transaction_receipt_with_cache(
     };
 
     let Some(r) = receipt else { return Ok(None) };
-    let within_lookback = StateManager::max_lookback_epoch_inclusive(head.epoch(), limit)
+    let within_lookback = StateManager::max_lookback_epoch_inclusive(head_epoch, limit)
         .is_some_and(|max| r.block_number.0 >= max);
     Ok(within_lookback.then_some(r))
 }
