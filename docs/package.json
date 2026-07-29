@@ -30,14 +30,14 @@
     "mermaid": "^11.15.0",
     "prettier": "^3.8.4",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@docusaurus/mdx-loader": "^3.10.1",
+    "@docusaurus/mdx-loader": "^3.10.2",
     "@docusaurus/module-type-aliases": "^3.10.2",
     "@docusaurus/tsconfig": "^3.10.2",
-    "@docusaurus/types": "^3.10.1",
+    "@docusaurus/types": "^3.10.2",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
