@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::db::MemoryDB;
+use crate::rpc::eth::types::CallSource;
 use crate::shim::executor::StampedEvent;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 
@@ -343,7 +344,7 @@ async fn replay_is_served_from_the_tipset_trace_cache() {
         (Cid::default().into(), vec![Arc::new(cached.clone())]),
     );
 
-    let replayed = sm.replay(ts, mcid).await.unwrap();
+    let replayed = sm.replay(ts, mcid, CallSource::External).await.unwrap();
     assert_eq!(replayed, cached);
 }
 
@@ -366,7 +367,11 @@ async fn replay_of_message_absent_from_cached_trace_fails_without_executing() {
         .insert(ts.key().clone(), (Cid::default().into(), vec![]));
 
     let err = sm
-        .replay(ts, Cid::from_cbor_blake2b256(&"absent-message").unwrap())
+        .replay(
+            ts,
+            Cid::from_cbor_blake2b256(&"absent-message").unwrap(),
+            CallSource::External,
+        )
         .await
         .unwrap_err();
     // "failed to replay" is the message-not-found contract exposed via RPC.
