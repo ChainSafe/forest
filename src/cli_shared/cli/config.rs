@@ -43,6 +43,7 @@ impl Default for DaemonConfig {
 /// Structure that defines events configuration
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+#[serde(default)]
 pub struct EventsConfig {
     /// Caps the events returned by event-filter queries used by the actor
     /// events API and the Ethereum event and receipt APIs (`eth_getLogs`,
@@ -60,6 +61,9 @@ pub struct EventsConfig {
     pub max_filter_results: usize,
     /// Maximum block-range span (in epochs) accepted in event-filter queries.
     pub max_filter_height_range: ChainEpoch,
+    /// Installed `eth` filters idle for longer than this many
+    /// seconds are removed. Set to `0` to never expire filters.
+    pub filter_ttl_secs: u64,
 }
 
 impl Default for EventsConfig {
@@ -67,6 +71,7 @@ impl Default for EventsConfig {
         Self {
             max_filter_results: 10000,
             max_filter_height_range: 2880,
+            filter_ttl_secs: 3600,
         }
     }
 }

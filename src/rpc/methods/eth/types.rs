@@ -17,6 +17,13 @@ pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
 const UNCOMPRESSED_PUBLIC_KEY_SIZE: usize = 65;
 
+/// Source of a method call
+#[derive(Debug, Copy, Clone)]
+pub enum CallSource {
+    Internal,
+    External,
+}
+
 #[derive(
     Eq,
     Hash,

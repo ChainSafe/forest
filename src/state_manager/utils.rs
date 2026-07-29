@@ -359,6 +359,8 @@ pub mod state_compute {
         use super::*;
         #[cfg(feature = "cargo-test")]
         use crate::chain_sync::tipset_syncer::validate_tipset;
+        #[cfg(feature = "cargo-test")]
+        use crate::rpc::eth::types::CallSource;
 
         #[tokio::test(flavor = "multi_thread")]
         async fn test_list_state_snapshot_files() {
@@ -402,7 +404,10 @@ pub mod state_compute {
                 .expect("test tipset must contain messages")
                 .cid();
 
-            let replayed = sm.replay(ts.clone(), msg_cid).await.unwrap();
+            let replayed = sm
+                .replay(ts.clone(), msg_cid, CallSource::External)
+                .await
+                .unwrap();
             assert_eq!(replayed.msg_cid, msg_cid);
 
             let (_, trace) = sm
@@ -417,7 +422,10 @@ pub mod state_compute {
 
             // A second replay of the same tipset must not re-execute it.
             let misses = sm.trace_cache.misses();
-            let replayed_again = sm.replay(ts.clone(), msg_cid).await.unwrap();
+            let replayed_again = sm
+                .replay(ts.clone(), msg_cid, CallSource::External)
+                .await
+                .unwrap();
             assert_eq!(replayed_again, replayed);
             assert_eq!(sm.trace_cache.misses(), misses);
         }

@@ -25,6 +25,7 @@ use crate::networks::{self, ChainConfig};
 use crate::prelude::*;
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
+use crate::rpc::eth::types::CallSource;
 use crate::rpc::start_rpc;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
@@ -378,6 +379,10 @@ fn maybe_prefill_rpc_caches(
                         // Skip if the node is catching up to avoid unnecessary work, as the head may be changing rapidly.
                         continue;
                     }
+                    Ok(tsk) if state_manager.chain_store().heaviest_tipset().key() != &tsk => {
+                        // Skip if the tipset has already been superseded
+                        continue;
+                    }
                     Ok(tsk) => {
                         let state_manager = state_manager.shallow_clone();
                         let cancellation_token = cancellation_token.clone();
@@ -386,6 +391,7 @@ fn maybe_prefill_rpc_caches(
                                 .run_until_cancelled(prefill_rpc_caches_for_tipset(
                                     state_manager,
                                     tsk,
+                                    cancellation_token.clone(),
                                 ))
                                 .await
                         });
@@ -400,7 +406,11 @@ fn maybe_prefill_rpc_caches(
     }
 }
 
-async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetKey) {
+async fn prefill_rpc_caches_for_tipset(
+    state_manager: StateManager,
+    tsk: TipsetKey,
+    cancellation_token: CancellationToken,
+) {
     match state_manager.chain_index().load_required_tipset(&tsk) {
         Ok(ts) => {
             {
@@ -408,6 +418,30 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 if let Err(e) = state_manager.load_executed_tipset(&ts).await {
                     warn!("failed to load executed tipset for cache warmup: {e:#}");
                     return; // Skip when state computation fails
+                }
+            }
+            {
+                // Warms both the FVM-replay cache and the parity-trace cache,
+                // since `eth_trace_block` calls `execution_trace` internally.
+                // Note that we do not block the loop here as the trace computation can be expensive.
+                // Also, we skip this tipset when it has already been superseded
+                if state_manager.chain_store().heaviest_tipset().key() == ts.key() {
+                    tokio::spawn({
+                        let state_manager = state_manager.shallow_clone();
+                        let ts = ts.shallow_clone();
+                        async move {
+                            if let Some(Err(e)) = cancellation_token
+                                .run_until_cancelled(crate::rpc::eth::eth_trace_block(
+                                    &state_manager,
+                                    &ts,
+                                    CallSource::Internal,
+                                ))
+                                .await
+                            {
+                                warn!("failed to call `eth_trace_block` for cache warmup: {e:#}");
+                            }
+                        }
+                    });
                 }
             }
             for tx_info in [crate::rpc::eth::TxInfo::Full, crate::rpc::eth::TxInfo::Hash] {
@@ -419,13 +453,6 @@ async fn prefill_rpc_caches_for_tipset(state_manager: StateManager, tsk: TipsetK
                 .await
                 {
                     warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
-                }
-            }
-            {
-                // Warms both the FVM-replay cache and the parity-trace cache,
-                // since `eth_trace_block` calls `execution_trace` internally.
-                if let Err(e) = crate::rpc::eth::eth_trace_block(&state_manager, &ts).await {
-                    warn!("failed to call `eth_trace_block` for cache warmup: {e:#}");
                 }
             }
             {
@@ -559,6 +586,12 @@ fn maybe_start_rpc_service(
             ctx.chain_config().eth_chain_id,
             mpool.subscriber(),
         ));
+        if let Some(ttl) = eth_event_handler.filter_ttl() {
+            services.spawn({
+                let eth_event_handler = eth_event_handler.clone();
+                async move { eth_event_handler.run_filter_gc(ttl).await }
+            });
+        }
         if is_env_truthy("FOREST_JWT_DISABLE_EXP_VALIDATION") {
             warn!(
                 "JWT expiration validation is disabled; this significantly weakens security and should only be used in tightly controlled environments"

@@ -3538,7 +3538,7 @@ impl RpcMethod<1> for EthTraceBlock {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
-        eth_trace_block(&ctx.state_manager, &ts)
+        eth_trace_block(&ctx.state_manager, &ts, CallSource::External)
             .await
             .map(NotNullVec)
     }
@@ -3548,8 +3548,9 @@ impl RpcMethod<1> for EthTraceBlock {
 async fn execute_tipset_traces(
     state_manager: &StateManager,
     ts: &Tipset,
+    source: CallSource,
 ) -> Result<(StateTree<DbImpl>, Vec<trace::TipsetTraceEntry>), ServerError> {
-    let (state_root, raw_traces) = state_manager.execution_trace(ts).await?;
+    let (state_root, raw_traces) = state_manager.execution_trace(ts, source).await?;
     let state = state_manager.get_state_tree(&state_root)?;
 
     // Resolve every non-system message's tx hash in parallel. Each lookup is
@@ -3604,6 +3605,7 @@ fn non_system_traces_with_positions(
 pub(crate) async fn eth_trace_block(
     state_manager: &StateManager,
     ts: &Tipset,
+    source: CallSource,
 ) -> Result<Vec<EthBlockTrace>, ServerError> {
     // 64 most-recent blocks; bounded by count, not bytes (a few MiB on mainnet,
     // see the `cache_eth_trace_block_size` metric).
@@ -3616,7 +3618,7 @@ pub(crate) async fn eth_trace_block(
     let block_cid = ts.key().cid()?;
     let traces = ETH_TRACE_BLOCK_CACHE
         .get_or_insert_async(&CidWrapper::from(block_cid), async move {
-            let (state, entries) = execute_tipset_traces(state_manager, ts).await?;
+            let (state, entries) = execute_tipset_traces(state_manager, ts, source).await?;
             let block_hash: EthHash = block_cid.into();
             let mut all_traces = vec![];
 
@@ -3665,6 +3667,7 @@ impl RpcMethod<2> for EthDebugTraceTransaction {
             tx_hash,
             opts,
             &cancellation_token,
+            CallSource::External,
         )
         .await
     }
@@ -3676,6 +3679,7 @@ async fn debug_trace_transaction(
     tx_hash: String,
     opts: GethDebugTracingOptions,
     cancellation_token: &CancellationToken,
+    source: CallSource,
 ) -> Result<GethTrace, ServerError> {
     let tracer = match &opts.tracer {
         Some(t) => t.clone(),
@@ -3752,7 +3756,7 @@ async fn debug_trace_transaction(
         return Ok(GethTrace::PreState(frame));
     }
 
-    let (state, entries) = execute_tipset_traces(&ctx.state_manager, &ts).await?;
+    let (state, entries) = execute_tipset_traces(&ctx.state_manager, &ts, source).await?;
     let entry = entries
         .into_iter()
         .find(|e| e.tx_hash == eth_hash)
@@ -3956,7 +3960,7 @@ impl RpcMethod<1> for EthTraceTransaction {
             .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
             .await?;
 
-        let traces = eth_trace_block(&ctx.state_manager, &ts)
+        let traces = eth_trace_block(&ctx.state_manager, &ts, CallSource::External)
             .await?
             .into_iter()
             .filter(|trace| trace.transaction_hash == eth_hash)
@@ -3996,7 +4000,7 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts)
+        eth_trace_replay_block_transactions(&ctx, &ts, CallSource::External)
             .await
             .map(NotNullVec)
     }
@@ -4005,8 +4009,9 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
 async fn eth_trace_replay_block_transactions(
     ctx: &Ctx,
     ts: &Tipset,
+    source: CallSource,
 ) -> Result<Vec<EthReplayBlockTransactionTrace>, ServerError> {
-    let (state, entries) = execute_tipset_traces(&ctx.state_manager, ts).await?;
+    let (state, entries) = execute_tipset_traces(&ctx.state_manager, ts, source).await?;
 
     let mut all_traces = vec![];
     for entry in entries {
