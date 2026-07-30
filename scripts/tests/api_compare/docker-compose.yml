@@ -119,7 +119,7 @@ services:
     user: 0:0
     command:
       - |
-        set -euxo pipefail
+        set -euo pipefail
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
         # Backfill the index db through the running daemon (no node restart required) and wait
