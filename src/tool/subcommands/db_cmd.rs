@@ -175,7 +175,7 @@ impl DBCommands {
                 let hamt_root = *hamt_car.header_v1().roots.first();
                 let hamt: Hamt<_, TipsetKey, ChainEpoch> =
                     Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)?;
-                println!("Loaded tipset lookup hamt...");
+                println!("Loaded tipset lookup hamt");
 
                 let db_root_path = if let Some(db) = db {
                     db
@@ -190,11 +190,7 @@ impl DBCommands {
                     load_all_forest_cars(&db, &forest_car_db_dir)?;
                     db
                 };
-                let pb = ProgressBar::new_spinner().with_style(
-                    ProgressStyle::with_template("{spinner} {pos} blocks imported")
-                        .expect("indicatif template must be valid"),
-                );
-                pb.enable_steady_tick(std::time::Duration::from_millis(100));
+                println!("Validating tipset lookup hamt...");
                 hamt.for_each_cacheless(|&epoch, tsk| {
                     let ts = Tipset::load_required(&db, tsk)?;
                     anyhow::ensure!(
@@ -202,7 +198,16 @@ impl DBCommands {
                         "epochs do not match, {epoch} in hamt, {} in database",
                         ts.epoch()
                     );
-                    db.set_tipset_key_at_epoch(&ts)?;
+                    anyhow::Ok(())
+                })?;
+                println!("Sucessfully validated tipset lookup hamt");
+                let pb = ProgressBar::new_spinner().with_style(
+                    ProgressStyle::with_template("{spinner} {pos} blocks imported")
+                        .expect("indicatif template must be valid"),
+                );
+                pb.enable_steady_tick(std::time::Duration::from_millis(100));
+                hamt.for_each_cacheless(|&epoch, tsk| {
+                    db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
                     pb.inc(1);
                     anyhow::Ok(())
                 })?;
