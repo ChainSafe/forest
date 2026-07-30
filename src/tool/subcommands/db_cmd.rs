@@ -200,9 +200,9 @@ impl DBCommands {
                     );
                     anyhow::Ok(())
                 })?;
-                println!("Sucessfully validated tipset lookup hamt");
+                println!("Successfully validated tipset lookup hamt");
                 let pb = ProgressBar::new_spinner().with_style(
-                    ProgressStyle::with_template("{spinner} {pos} blocks imported")
+                    ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
