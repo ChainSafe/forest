@@ -665,7 +665,7 @@ mod tests {
             .external_addresses()
             .map(|addr| {
                 let mut addr = addr.clone();
-                addr.push(multiaddr::Protocol::P2p(b_peer_id));
+                addr.push(Protocol::P2p(b_peer_id));
                 addr
             })
             .collect();

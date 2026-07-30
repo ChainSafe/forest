@@ -36,7 +36,6 @@
 //! - Add and move progressively to new API (Iterator, Streams), and removed deprecated usage of [`WithProgressRaw`]
 //! - Add a more accurate ETA etc
 
-use educe::Educe;
 use human_repr::HumanCount as _;
 use humantime::format_duration;
 use pin_project_lite::pin_project;
@@ -96,8 +95,7 @@ impl<S> WithProgress<S> {
     }
 }
 
-#[derive(Clone, Educe)]
-#[educe(Debug)]
+#[derive(Clone, derive_more::Debug)]
 pub struct Progress {
     completed_items: u64,
     total_items: Option<u64>,
@@ -106,7 +104,7 @@ pub struct Progress {
     last_logged: Instant,
     message: String,
     item_type: ItemType,
-    #[educe(Debug(ignore))]
+    #[debug(skip)]
     callback: Option<Arc<dyn Fn(String) + Send + Sync>>,
 }
 
