@@ -138,6 +138,7 @@ generate_markdown_section "forest-tool" "db"
 generate_markdown_section "forest-tool" "db stats"
 generate_markdown_section "forest-tool" "db destroy"
 generate_markdown_section "forest-tool" "db import"
+generate_markdown_section "forest-tool" "db import-tipset-lookup"
 
 generate_markdown_section "forest-tool" "car"
 generate_markdown_section "forest-tool" "car concat"
