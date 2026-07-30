@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use libp2p::Multiaddr;
+use libp2p::{Multiaddr, multiaddr};
 
 pub trait MultiaddrExt: Sized {
     fn without_p2p(self) -> Self;
