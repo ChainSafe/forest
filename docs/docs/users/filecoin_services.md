@@ -25,6 +25,7 @@ Actively-maintained repositories that are part of the Forest project are:
 - [forest](https://github.com/ChainSafe/forest) - the central repository containing Forest node implementation, relevant tests and documentation.
 - [forest-iac](https://github.com/ChainSafe/forest-iac) - Infrastructure as Code for deploying Forest nodes, mirroring important Filecoin assets and other services supporting Forest development.
 - [fil-actor-states](https://github.com/ChainSafe/fil-actor-states) - state-only version of the [Filecoin actors](https://github.com/filecoin-project/builtin-actors), following semver versioning and providing a stable interface for Forest and other Filecoin implementations.
+
 </p>
 </details>
 
