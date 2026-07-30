@@ -6828,7 +6828,7 @@ components:
       type: object
       properties:
         allowNearHead:
-          description: "Allow indexing revert-prone tipsets within `CHAIN_FINALITY` of the head."
+          description: "Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By\ndefault the walk is clamped to the EC-finalized epoch."
           type: boolean
           default: false
         from:

@@ -13,7 +13,6 @@ use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -355,7 +354,7 @@ pub struct BackfillOptions {
     /// When `true`, missing tipset state is recomputed (expensive); when `false`, such tipsets
     /// are skipped and reported. Online backfill default this to `false` to avoid starving sync.
     pub allow_recompute: bool,
-    /// When `false`, the walk start is clamped to `head - CHAIN_FINALITY` so that revert-prone
+    /// When `false`, the walk start is clamped to the EC-finalized epoch so that revert-prone
     /// near-head tipsets are not indexed.
     pub allow_near_head: bool,
     /// Number of tipsets to process between commits/checkpoints.
@@ -463,7 +462,7 @@ impl BackfillStatus {
         let mut inner = self.inner.lock();
         anyhow::ensure!(
             !inner.is_running(),
-            "an index backfill is already running; check `forest-cli index backfill --status`",
+            "an index backfill is already running; check `forest-cli index backfill-status`",
         );
         let counters = Arc::new(BackfillCounters::default());
         *inner = BackfillStatusInner {
@@ -532,20 +531,19 @@ impl BackfillGuard {
         self.cancellation_token.clone()
     }
 
-    /// Records the terminal outcome for the backfill.
+    /// Records the backfill outcome; the export guard is only held for mutual exclusion, so it is
+    /// reset to `Idle`.
     pub fn finish<T>(self, result: anyhow::Result<T>) -> anyhow::Result<T> {
         match &result {
             Ok(_) => {
                 BACKFILL_STATUS.record_outcome(ChainExportState::Succeeded, None);
-                self.export_guard
-                    .record_outcome(ChainExportState::Succeeded, None);
             }
             Err(e) => {
                 BACKFILL_STATUS.record_outcome(ChainExportState::Failed, Some(format!("{e:#}")));
-                self.export_guard
-                    .record_outcome(ChainExportState::Failed, Some(format!("{e:#}")));
             }
         }
+        self.export_guard
+            .record_outcome(ChainExportState::Idle, None);
         result
     }
 
@@ -578,7 +576,7 @@ impl BackfillGuard {
     fn record_cancelled(&self) {
         BACKFILL_STATUS.record_outcome(ChainExportState::Cancelled, None);
         self.export_guard
-            .record_outcome(ChainExportState::Cancelled, None);
+            .record_outcome(ChainExportState::Idle, None);
     }
 }
 
@@ -597,7 +595,7 @@ pub fn read_backfill_checkpoint(
     Ok(state_manager
         .db()
         .read_obj::<ChainEpoch>(BACKFILL_CHECKPOINT_KEY)?
-        .filter(|epoch| *epoch != ChainEpoch::MIN))
+        .filter(|epoch| *epoch >= 0))
 }
 
 fn write_backfill_checkpoint(
@@ -610,11 +608,8 @@ fn write_backfill_checkpoint(
 }
 
 fn clear_backfill_checkpoint(state_manager: &StateManager) -> anyhow::Result<()> {
-    // Persist a sentinel rather than deleting: the settings store has no typed delete here and a
-    // stale checkpoint is only used as a resume hint, which the caller validates against the range.
-    state_manager
-        .db()
-        .write_obj(BACKFILL_CHECKPOINT_KEY, &ChainEpoch::MIN)
+    // Write `-1`, which `read_backfill_checkpoint` treats as "no checkpoint".
+    write_backfill_checkpoint(state_manager, -1)
 }
 
 async fn process_ts(
@@ -710,7 +705,7 @@ pub async fn backfill_db(
 /// online `Forest.IndexBackfill` RPC method.
 ///
 /// Beyond the plain chain walk it:
-/// - clamps the start below `CHAIN_FINALITY` unless [`BackfillOptions::allow_near_head`] is set,
+/// - clamps the start to the EC-finalized epoch unless [`BackfillOptions::allow_near_head`] is set,
 /// - commits and checkpoints in batches of [`BackfillOptions::batch_size`] so a large range is not
 ///   a single transaction and can be resumed,
 /// - honors `cancel` between tipsets,
@@ -737,8 +732,7 @@ pub async fn run_backfill(
     let start_ts = if options.allow_near_head {
         from_ts.shallow_clone()
     } else {
-        let head_epoch = state_manager.heaviest_tipset().epoch();
-        let safe_epoch = head_epoch.saturating_sub(CHAIN_FINALITY);
+        let safe_epoch = state_manager.chain_store().ec_calculator_finalized_epoch();
         if from_ts.epoch() > safe_epoch {
             state_manager
                 .chain_index()

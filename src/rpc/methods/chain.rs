@@ -619,7 +619,8 @@ pub struct IndexBackfillParams {
     /// be computed are skipped and reported rather than aborting the run.
     #[serde(default)]
     pub recompute: bool,
-    /// Allow indexing revert-prone tipsets within `CHAIN_FINALITY` of the head.
+    /// Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By
+    /// default the walk is clamped to the EC-finalized epoch.
     #[serde(default)]
     pub allow_near_head: bool,
     /// Resume from the persisted checkpoint of a previous run instead of starting at the chain

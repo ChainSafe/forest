@@ -837,7 +837,7 @@ Options:
           Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run
 
       --allow-near-head
-          Also index revert-prone tipsets within `CHAIN_FINALITY` of the head. By default the walk is clamped below finality
+          Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By default the walk is clamped to the EC-finalized epoch
 
       --resume
           Resume from the persisted checkpoint of a previous run instead of starting at the chain head. Ignored when `--from` is given

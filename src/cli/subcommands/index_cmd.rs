@@ -34,8 +34,8 @@ pub enum IndexCommands {
         /// can't be computed are skipped and reported rather than aborting the run.
         #[arg(long)]
         recompute: bool,
-        /// Also index revert-prone tipsets within `CHAIN_FINALITY` of the head. By default the
-        /// walk is clamped below finality.
+        /// Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By
+        /// default the walk is clamped to the EC-finalized epoch.
         #[arg(long)]
         allow_near_head: bool,
         /// Resume from the persisted checkpoint of a previous run instead of starting at the chain
