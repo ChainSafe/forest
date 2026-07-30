@@ -327,7 +327,8 @@ impl Tipset {
     /// Fetch a tipset from the blockstore. This calls fails if the tipset is
     /// missing or invalid.
     pub fn load_required(store: &impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
-        Tipset::load(store, tsk)?.context("Required tipset missing from database")
+        Tipset::load(store, tsk)?
+            .with_context(|| format!("Required tipset missing from database, tipset key: {tsk}"))
     }
 
     /// Returns epoch of the tipset.
