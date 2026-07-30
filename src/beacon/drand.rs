@@ -117,7 +117,14 @@ impl BeaconSchedule {
             let mut out = Vec::new();
             for covered_epoch in (parent_epoch + 1)..=epoch {
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
-                out.push(curr_beacon.entry(round).await?);
+                out.push(
+                    curr_beacon
+                        .entry(round)
+                        .await
+                        .context(format!(
+                            "failed to fetch beacon entry for epoch {covered_epoch}, round {round}"
+                        ))?,
+                );
             }
             Ok(out)
         } else {
