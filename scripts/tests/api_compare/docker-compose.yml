@@ -57,10 +57,6 @@ services:
           --import-mode=symlink \
           --halt-after-import
 
-        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
-        # backfill the index db
-        forest-tool index backfill --from $$SNAPSHOT_EPOCH --n-tipsets 200 --chain ${CHAIN}
-
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
           --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT}
@@ -108,6 +104,27 @@ services:
         set -euxo pipefail
         export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         echo $MINER_WORKER_KEY | forest-wallet --remote-wallet import
+  forest-index-backfill:
+    depends_on:
+      forest-rpc-ready:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    entrypoint: ["/bin/bash", "-c"]
+    user: 0:0
+    command:
+      - |
+        set -euo pipefail
+        export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        SNAPSHOT_EPOCH="$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1)"
+        # Backfill the index db through the running daemon (no node restart required) and wait
+        # for it to finish before the API comparison runs.
+        forest-cli index backfill --from $$SNAPSHOT_EPOCH --n-tipsets 200 --recompute --allow-near-head
   api-serve:
     profiles:
       - include-offline-rpc
@@ -254,6 +271,8 @@ services:
         condition: service_completed_successfully
       forest-rpc-ready:
         condition: service_completed_successfully
+      forest-index-backfill:
+        condition: service_completed_successfully
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -298,6 +317,8 @@ services:
       forest-via-gateway:
         condition: service_healthy
       forest-wallet-import:
+        condition: service_completed_successfully
+      forest-index-backfill:
         condition: service_completed_successfully
     build:
       context: ../../../.

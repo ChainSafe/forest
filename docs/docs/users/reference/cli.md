@@ -797,6 +797,81 @@ Options:
   -h, --help                       Print help
 ```
 
+### `forest-cli index`
+
+```
+Manage the chain index
+
+Usage: forest-cli index <COMMAND>
+
+Commands:
+  backfill         Backfill the chain index (Ethereum mappings, events, block blooms) using the running node
+  backfill-status  Show the status of the current (or last) index backfill
+  backfill-cancel  Cancel the in-progress index backfill
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli index backfill`
+
+```
+Backfill the chain index (Ethereum mappings, events, block blooms) using the running node.
+
+Unlike `forest-tool index backfill`, this does not require the node to be stopped: the running daemon performs the backfill through its own database handle.
+
+Usage: forest-cli index backfill [OPTIONS]
+
+Options:
+      --from <FROM>
+          Starting tipset epoch for back-filling (inclusive). Defaults to the chain head, unless `--resume` is given and a resume checkpoint exists
+
+      --to <TO>
+          Ending tipset epoch for back-filling (inclusive)
+
+      --n-tipsets <N_TIPSETS>
+          Number of tipsets to back-fill
+
+      --recompute
+          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run
+
+      --allow-near-head
+          Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By default the walk is clamped to the EC-finalized epoch
+
+      --resume
+          Resume from the persisted checkpoint of a previous run instead of starting at the chain head. Ignored when `--from` is given
+
+      --no-wait
+          Trigger the backfill and return immediately without waiting for completion
+
+  -h, --help
+          Print help (see a summary with '-h')
+```
+
+### `forest-cli index backfill-status`
+
+```
+Show the status of the current (or last) index backfill
+
+Usage: forest-cli index backfill-status [OPTIONS]
+
+Options:
+      --wait  Wait until the backfill completes, showing progress
+  -h, --help  Print help
+```
+
+### `forest-cli index backfill-cancel`
+
+```
+Cancel the in-progress index backfill
+
+Usage: forest-cli index backfill-cancel
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-cli send`
 
 ```

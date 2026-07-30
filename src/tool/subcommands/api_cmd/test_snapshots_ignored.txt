@@ -86,6 +86,9 @@ Forest.ChainGetMinBaseFee
 Forest.ChainGetTipsetByParentState
 Forest.EthDebugTraceTransaction
 Forest.EthTraceCall
+Forest.IndexBackfill
+Forest.IndexBackfillCancel
+Forest.IndexBackfillStatus
 Forest.NetChainExchange
 Forest.NetInfo
 Forest.SnapshotGC
