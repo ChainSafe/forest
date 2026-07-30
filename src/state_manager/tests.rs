@@ -383,3 +383,21 @@ fn replay_of_message_absent_from_cached_trace_fails_without_executing(#[case] so
         "expected the not-found replay error, got: {err}"
     );
 }
+
+#[tokio::test]
+async fn load_executed_tipset_uncached_never_populates_the_tipset_state_cache() {
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    assert!(sm.cache.get(ts.key()).is_none());
+
+    // Recompute disallowed: state output is missing, so this errors without caching anything.
+    let _ = sm.load_executed_tipset_uncached(&ts, false).await;
+    assert!(sm.cache.get(ts.key()).is_none());
+
+    // Recompute allowed: the tipset is unexecutable, so this also errors, and must still leave
+    // the cache untouched.
+    let _ = sm.load_executed_tipset_uncached(&ts, true).await;
+    assert!(
+        sm.cache.get(ts.key()).is_none(),
+        "uncached backfill load must not populate the tipset-state cache"
+    );
+}
