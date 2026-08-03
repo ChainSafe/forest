@@ -101,6 +101,23 @@ impl StateManager {
             .await
     }
 
+    /// Load an executed tipset without reading from or populating the cache. Errors on a missing
+    /// state output unless `allow_state_compute` is true.
+    pub async fn load_executed_tipset_uncached(
+        &self,
+        ts: &Tipset,
+        allow_state_compute: bool,
+    ) -> anyhow::Result<ExecutedTipset> {
+        let policy = if allow_state_compute {
+            StateRecomputePolicy::Allowed
+        } else {
+            StateRecomputePolicy::Disallowed
+        };
+        let receipt_ts = self.chain_store().load_child_tipset(ts).await?;
+        self.load_executed_tipset_inner(ts, receipt_ts.as_ref(), policy)
+            .await
+    }
+
     async fn load_executed_tipset_with_cache(
         &self,
         ts: &Tipset,

@@ -27,6 +27,26 @@
 
 ### Breaking
 
+- [#7339](https://github.com/ChainSafe/forest/issues/7339): Forest-owned RPC methods now use `camelCase` field names consistently in requests and responses: `Forest.SyncStatus`, `Forest.NetInfo`, `Forest.ChainExport`, `Forest.ChainExportDiff`, `Forest.ChainExportStatus`, `Forest.StateActorInfo`, `Forest.StateCompute` and `Filecoin.ChainExport` (e.g. `num_peers` → `numPeers`, `start_epoch` → `startEpoch`, `StateRoot` → `stateRoot`). The named parameters of `Filecoin.StateMinerInitialPledgeForSector` are now `sectorDuration`, `sectorSize`, `verifiedSize` and `tipsetKey` (positional calls are unaffected). The generated OpenRPC document is now tested for casing regressions.
+
+### Added
+
+- [#7426](https://github.com/ChainSafe/forest/pull/7426): Added `forest-tool db import-tipset-lookup` for importing a tipset lookup snapshot.
+
+- [#7408](https://github.com/ChainSafe/forest/pull/7408): Impl `Forest.IndexBackfill`, `Forest.IndexBackfillStatus` and `Forest.IndexBackfillCancel` RPC methods and the `forest-cli index backfill` command to back-fill the chain index (Ethereum mappings, events, block blooms) through the running daemon, so the node no longer needs to be stopped. An interrupted or cancelled run can be resumed with `--resume`.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.35.0 "Shravan"
+
+Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
+
+### Breaking
+
 - [#7374](https://github.com/ChainSafe/forest/pull/7374): Bounded `nEpochs` in `Forest.StateCompute` RPC method to 2000 which can be overriden by `FOREST_STATE_COMPUTE_MAX_RANGE`.
 
 - [#7383](https://github.com/ChainSafe/forest/pull/7383): `Forest.ChainExportStatus` now reports a `state` (`Idle`/`Running`/`Succeeded`/`Cancelled`/`Failed`) and the export `kind` (`Snapshot`/`DiffSnapshot`/`SnapshotGc`), along with the `error` of a failed export. The `exporting`, `cancelled` and `succeeded` booleans were removed. `forest-cli snapshot export-status --wait` now exits with an error when the watched export fails.
@@ -35,9 +55,11 @@
 
 - [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
 
+- [#7265](https://github.com/ChainSafe/forest/issues/7265): Expire installed `eth` filters that have not been polled for longer than a TTL. The TTL defaults to one hour (Lotus parity) and is configurable via `filter_ttl_secs` in the `[events]` config section or the `FOREST_FILTER_TTL_SECS` environment variable, `0` disables expiry.
+
 ### Changed
 
-### Removed
+- [#7405](https://github.com/ChainSafe/forest/pull/7405): `Filecoin.StateReplay` is now served from the shared tipset trace cache, so replaying every transaction of a block executes the tipset once instead of once per call. Tipset replays triggered by RPC (`StateReplay`, `trace_*`, `debug_trace*`) are now bounded to half the available CPUs by default, configurable via `FOREST_RPC_REPLAY_CONCURRENCY`.
 
 ### Fixed
 
