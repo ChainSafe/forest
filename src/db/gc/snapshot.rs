@@ -135,7 +135,7 @@ impl SnapshotGarbageCollector {
         }
     }
 
-    pub async fn scheduler_loop(&self) {
+    pub async fn scheduler_loop(&self) -> ! {
         let snap_gc_interval_epochs = std::env::var("FOREST_SNAPSHOT_GC_INTERVAL_EPOCHS")
             .ok()
             .and_then(|i| i.parse().ok())
@@ -182,6 +182,12 @@ impl SnapshotGarbageCollector {
         }
     }
 
+    /// Whether a snapshot GC run is currently in progress. Index backfill checks this to avoid
+    /// reading historical state/blocks while the GC is reclaiming graph columns.
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::Relaxed)
+    }
+
     pub fn trigger(&self) -> anyhow::Result<flume::Receiver<anyhow::Result<()>>> {
         if self.running.load(Ordering::Relaxed) {
             anyhow::bail!("snap gc has already been running");
@@ -200,14 +206,7 @@ impl SnapshotGarbageCollector {
             tracing::warn!("snap gc has already been running");
             return;
         }
-        let result = match self.export_snapshot().await {
-            Ok(()) => self.cleanup_after_snapshot_export().await,
-            Err(e) => {
-                // Unsubscribe on failure path
-                self.db().unsubscribe_write_ops();
-                Err(e)
-            }
-        };
+        let result = self.export_snapshot().await;
         if let Err(e) = &result {
             tracing::error!("{e:#}");
         }
@@ -220,7 +219,13 @@ impl SnapshotGarbageCollector {
 
     async fn export_snapshot(&self) -> anyhow::Result<()> {
         let chain_export_guard = ChainExportGuard::try_start_export(ChainExportKind::SnapshotGc)?;
-        let result = self.export_snapshot_inner(&chain_export_guard).await;
+        let result = match self.export_snapshot_inner(&chain_export_guard).await {
+            Ok(()) => self.cleanup_after_snapshot_export().await,
+            Err(e) => {
+                self.db().unsubscribe_write_ops();
+                Err(e)
+            }
+        };
         chain_export_guard.finish(result)
     }
 

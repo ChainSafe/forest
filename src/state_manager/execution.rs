@@ -7,6 +7,7 @@ use super::state_computation::{
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{CalledAt, VMTrace};
+use crate::rpc::eth::types::CallSource;
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
 use anyhow::{Context as _, bail};
 use num_traits::identities::Zero;
@@ -21,9 +22,14 @@ impl StateManager {
     /// Lotus, which halts at the target message, this executes the whole
     /// tipset — the coalescing depends on it, don't port the halt back.
     /// Consequently, failures after the target message also fail the replay.
-    pub async fn replay(&self, ts: Tipset, mcid: Cid) -> Result<ApiInvocResult, Error> {
+    pub async fn replay(
+        &self,
+        ts: Tipset,
+        mcid: Cid,
+        source: CallSource,
+    ) -> Result<ApiInvocResult, Error> {
         let (_, trace) = self
-            .execution_trace(&ts)
+            .execution_trace(&ts, source)
             .await
             .map_err(|e| Error::Other(format!("unexpected error during execution : {e}")))?;
         trace
@@ -202,11 +208,15 @@ impl StateManager {
     pub async fn execution_trace(
         &self,
         tipset: &Tipset,
+        source: CallSource,
     ) -> anyhow::Result<(Cid, Vec<Arc<ApiInvocResult>>)> {
         let key = tipset.key();
         let (state_root, invoc_trace) = self
             .trace_cache
-            .get_or_insert_async(key, self.execution_trace_inner(tipset.shallow_clone()))
+            .get_or_insert_async(
+                key,
+                self.execution_trace_inner(tipset.shallow_clone(), source),
+            )
             .await?;
         Ok((state_root.into(), invoc_trace))
     }
@@ -214,8 +224,13 @@ impl StateManager {
     async fn execution_trace_inner(
         &self,
         tipset: Tipset,
+        source: CallSource,
     ) -> anyhow::Result<(CidWrapper, Vec<Arc<ApiInvocResult>>)> {
-        let permit = self.replay_permit().await;
+        // Internal calls like cache prefilling should not compete the semaphore
+        let permit = match source {
+            CallSource::External => Some(self.replay_permit().await),
+            CallSource::Internal => None,
+        };
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;

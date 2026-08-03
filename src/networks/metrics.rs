@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use educe::Educe;
 use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeMetric},
@@ -13,15 +12,14 @@ use prometheus_client::{
 use super::calculate_expected_epoch;
 use crate::{networks::ChainConfig, shim::clock::ChainEpoch};
 
-#[derive(Educe, derive_more::Constructor)]
-#[educe(Debug)]
+#[derive(derive_more::Constructor, derive_more::Debug)]
 pub struct NetworkHeightCollector<F>
 where
     F: Fn() -> ChainEpoch,
 {
     block_delay_secs: u32,
     genesis_timestamp: u64,
-    #[educe(Debug(ignore))]
+    #[debug(skip)]
     get_chain_head_height: Arc<F>,
 }
 
@@ -65,17 +63,16 @@ where
     }
 }
 
-#[derive(Educe, derive_more::Constructor)]
-#[educe(Debug)]
+#[derive(derive_more::Constructor, derive_more::Debug)]
 pub struct NetworkVersionCollector<F1, F2>
 where
     F1: Fn() -> ChainEpoch,
     F2: Fn() -> u64,
 {
     chain_config: Arc<ChainConfig>,
-    #[educe(Debug(ignore))]
+    #[debug(skip)]
     get_chain_head_height: Arc<F1>,
-    #[educe(Debug(ignore))]
+    #[debug(skip)]
     get_chain_head_actor_version: Arc<F2>,
 }
 

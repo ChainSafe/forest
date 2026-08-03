@@ -86,6 +86,10 @@ pub enum Subcommand {
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
 
+    /// Manage the chain index
+    #[command(subcommand)]
+    Index(IndexCommands),
+
     /// Print node info
     #[command(subcommand)]
     Info(InfoCommand),
@@ -103,9 +107,6 @@ pub enum Subcommand {
 
     /// Wait for lotus API to come online
     WaitApi(WaitApiCommand),
-
-    #[command(subcommand)]
-    Index(IndexCommands),
 }
 
 impl Subcommand {

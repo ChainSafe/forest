@@ -31,6 +31,10 @@
 
 ### Added
 
+- [#7426](https://github.com/ChainSafe/forest/pull/7426): Added `forest-tool db import-tipset-lookup` for importing a tipset lookup snapshot.
+
+- [#7408](https://github.com/ChainSafe/forest/pull/7408): Impl `Forest.IndexBackfill`, `Forest.IndexBackfillStatus` and `Forest.IndexBackfillCancel` RPC methods and the `forest-cli index backfill` command to back-fill the chain index (Ethereum mappings, events, block blooms) through the running daemon, so the node no longer needs to be stopped. An interrupted or cancelled run can be resumed with `--resume`.
+
 ### Changed
 
 ### Removed
@@ -50,6 +54,8 @@ Non-mandatory release for all node operators. It includes some fixes and improve
 ### Added
 
 - [#7376](https://github.com/ChainSafe/forest/pull/7376): Added `--augmented-snapshot` and `--tipset-lookup` to `forest-cli snapshot export`.
+
+- [#7265](https://github.com/ChainSafe/forest/issues/7265): Expire installed `eth` filters that have not been polled for longer than a TTL. The TTL defaults to one hour (Lotus parity) and is configurable via `filter_ttl_secs` in the `[events]` config section or the `FOREST_FILTER_TTL_SECS` environment variable, `0` disables expiry.
 
 ### Changed
 

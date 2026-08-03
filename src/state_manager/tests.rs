@@ -3,8 +3,10 @@
 
 use super::*;
 use crate::db::MemoryDB;
+use crate::rpc::eth::types::CallSource;
 use crate::shim::executor::StampedEvent;
 use fil_actors_shared::fvm_ipld_amt::Amt;
+use rstest::rstest;
 
 fn create_raw_event_v4(emitter: u64, key: &str) -> fvm_shared4::event::StampedEvent {
     fvm_shared4::event::StampedEvent {
@@ -328,8 +330,10 @@ fn state_manager_with_unexecutable_tipset() -> (StateManager, Tipset) {
     (sm, ts)
 }
 
-#[tokio::test]
-async fn replay_is_served_from_the_tipset_trace_cache() {
+#[rstest]
+#[case(CallSource::External)]
+#[case(CallSource::Internal)]
+fn replay_is_served_from_the_tipset_trace_cache(#[case] source: CallSource) {
     use crate::utils::cid::CidCborExt;
 
     let (sm, ts) = state_manager_with_unexecutable_tipset();
@@ -343,7 +347,7 @@ async fn replay_is_served_from_the_tipset_trace_cache() {
         (Cid::default().into(), vec![Arc::new(cached.clone())]),
     );
 
-    let replayed = sm.replay(ts, mcid).await.unwrap();
+    let replayed = tokio_test::block_on(sm.replay(ts, mcid, source)).unwrap();
     assert_eq!(replayed, cached);
 }
 
@@ -357,21 +361,43 @@ async fn replay_permits_are_sized_by_configured_concurrency() {
     assert_eq!(sm.replay_semaphore.available_permits(), permits - 1);
 }
 
-#[tokio::test]
-async fn replay_of_message_absent_from_cached_trace_fails_without_executing() {
+#[rstest]
+#[case(CallSource::External)]
+#[case(CallSource::Internal)]
+fn replay_of_message_absent_from_cached_trace_fails_without_executing(#[case] source: CallSource) {
     use crate::utils::cid::CidCborExt;
 
     let (sm, ts) = state_manager_with_unexecutable_tipset();
     sm.trace_cache
         .insert(ts.key().clone(), (Cid::default().into(), vec![]));
 
-    let err = sm
-        .replay(ts, Cid::from_cbor_blake2b256(&"absent-message").unwrap())
-        .await
-        .unwrap_err();
+    let err = tokio_test::block_on(sm.replay(
+        ts,
+        Cid::from_cbor_blake2b256(&"absent-message").unwrap(),
+        source,
+    ))
+    .unwrap_err();
     // "failed to replay" is the message-not-found contract exposed via RPC.
     assert!(
         matches!(err, Error::Other(ref s) if s == "failed to replay"),
         "expected the not-found replay error, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn load_executed_tipset_uncached_never_populates_the_tipset_state_cache() {
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    assert!(sm.cache.get(ts.key()).is_none());
+
+    // Recompute disallowed: state output is missing, so this errors without caching anything.
+    let _ = sm.load_executed_tipset_uncached(&ts, false).await;
+    assert!(sm.cache.get(ts.key()).is_none());
+
+    // Recompute allowed: the tipset is unexecutable, so this also errors, and must still leave
+    // the cache untouched.
+    let _ = sm.load_executed_tipset_uncached(&ts, true).await;
+    assert!(
+        sm.cache.get(ts.key()).is_none(),
+        "uncached backfill load must not populate the tipset-state cache"
     );
 }

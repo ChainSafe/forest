@@ -12,6 +12,7 @@ use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::FilecoinSnapshotMetadata;
 use crate::prelude::*;
+use crate::utils::db::car_stream::CarV1Header;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use itertools::Either;
 use positioned_io::ReadAt;
@@ -54,6 +55,14 @@ impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
             ErrorKind::InvalidData,
             "input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)",
         ))
+    }
+
+    pub fn header_v1(&self) -> &CarV1Header {
+        match self {
+            AnyCar::Forest(forest) => forest.header_v1(),
+            AnyCar::Plain(plain) => plain.header_v1(),
+            AnyCar::Memory(mem) => mem.header_v1(),
+        }
     }
 
     pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {

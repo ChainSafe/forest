@@ -26,7 +26,7 @@ pub mod version;
 
 use anyhow::{Context as _, bail};
 use futures::Future;
-use multiaddr::{Multiaddr, Protocol};
+use libp2p::multiaddr::{Multiaddr, Protocol};
 use std::{str::FromStr, time::Duration};
 use tokio::time::sleep;
 use tracing::error;

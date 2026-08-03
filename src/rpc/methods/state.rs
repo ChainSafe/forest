@@ -17,6 +17,7 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::prelude::*;
+use crate::rpc::eth::types::CallSource;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
@@ -157,7 +158,10 @@ impl RpcMethod<2> for StateReplay {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        Ok(ctx.state_manager.replay(tipset, message_cid).await?)
+        Ok(ctx
+            .state_manager
+            .replay(tipset, message_cid, CallSource::External)
+            .await?)
     }
 }
 
