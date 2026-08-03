@@ -25,7 +25,6 @@ use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use smallvec::SmallVec;
 use tracing::debug;
 use url::Url;
 
@@ -89,11 +88,12 @@ impl BeaconSchedule {
             if cb_epoch != pb_epoch {
                 // Fork logic, take entries from the last two rounds of the new beacon.
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
-                
-                let mut out: SmallVec::<[BeaconEntry; 2]> = SmallVec::new();
-                out.push(curr_beacon.entry(round - 1).await?);
-                out.push(curr_beacon.entry(round).await?);
-                return Ok(out.to_vec());
+
+                let out = vec![
+                    curr_beacon.entry(round - 1).await?,
+                    curr_beacon.entry(round).await?,
+                ];
+                return Ok(out);
             }
         }
 
@@ -119,14 +119,7 @@ impl BeaconSchedule {
         if curr_beacon.network().is_unchained() {
             for covered_epoch in (parent_epoch + 1)..=epoch {
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
-                out.push(
-                    curr_beacon
-                        .entry(round)
-                        .await
-                        .with_context(|| {
-                            format!("failed to fetch beacon entry for epoch {covered_epoch}, round {round}")
-                        })?,
-                );
+                out.push(curr_beacon.entry(round).await?);
             }
             Ok(out.to_vec())
         } else {
