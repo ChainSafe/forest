@@ -49,8 +49,10 @@ use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
+use std::num::NonZeroU32;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 use store::*;
 use tokio_util::task::AbortOnDropHandle;
@@ -773,6 +775,28 @@ pub enum ParsedFilterTipsets {
     Key(TipsetKey),
 }
 
+impl ParsedFilterTipsets {
+    /// Returns true if the filter's tipset range is larger than the threshold for prefering SQL query.
+    pub fn is_large_range_for_sql(&self) -> bool {
+        static LARGE_RANGE_THRESHOLD: LazyLock<NonZeroU32> = LazyLock::new(|| {
+            std::env::var("FOREST_RPC_SQL_RANGE_THRESHOLD")
+            .ok()
+            .and_then(|i| {
+                i.parse().ok().inspect(|i| {
+                    tracing::info!("RPC SQL range threshold set to {i} from `FOREST_RPC_SQL_RANGE_THRESHOLD`");
+                })
+            }).unwrap_or(nonzero!(500_u32))
+        });
+
+        if let ParsedFilterTipsets::Range(range) = self {
+            let range_size = *range.end() - *range.start();
+            range_size >= i64::from(LARGE_RANGE_THRESHOLD.get())
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
@@ -897,6 +921,7 @@ mod tests {
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
+    use rstest::rstest;
     use std::str::FromStr;
 
     #[test]
@@ -1743,5 +1768,28 @@ mod tests {
             assert_eq!(event.reverted, expected_reverted);
             assert_eq!(event.emitter_addr, Address::new_id(1234));
         }
+    }
+
+    #[rstest]
+    #[case(0..=0, false)]
+    #[case(0..=1, false)]
+    #[case(0..=499, false)]
+    #[case(0..=500, true)]
+    #[case(0..=501, true)]
+    fn test_is_large_range_for_sql_range(
+        #[case] range: RangeInclusive<ChainEpoch>,
+        #[case] expected: bool,
+    ) {
+        let filter = ParsedFilterTipsets::Range(range);
+        assert_eq!(filter.is_large_range_for_sql(), expected);
+    }
+
+    #[test]
+    fn test_is_large_range_for_sql_no_range() {
+        let filter = ParsedFilterTipsets::Hash(EthHash::default());
+        assert!(!filter.is_large_range_for_sql());
+
+        let filter = ParsedFilterTipsets::Key(nunny::vec![Cid::default()].into());
+        assert!(!filter.is_large_range_for_sql());
     }
 }
