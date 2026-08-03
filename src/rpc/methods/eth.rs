@@ -1890,7 +1890,7 @@ async fn eth_estimate_gas(
             // guts of EthCall). This will give us an ethereum specific error with revert
             // information.
             msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            let err = match apply_message(ctx, Some(tipset), msg).await {
+            let err = match apply_message(ctx, None, msg).await {
                 Ok(_) => Error::msg(server_err.to_string()),
                 Err(e)
                     if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {

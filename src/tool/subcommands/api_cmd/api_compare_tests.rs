@@ -1638,34 +1638,33 @@ fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
 fn eth_call_estimate_skip_sender_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = Vec::new();
 
-    let contract = EthAddress::from_filecoin_address(&Address::from_str(EVM_ADDRESS)?)?;
-    let senders = [contract, generate_eth_random_address()?];
+    let to = EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")?;
+    let calldata: EthBytes =
+        "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6".parse()?;
+
+    let contract_sender = EthAddress::from_filecoin_address(&Address::from_str(EVM_ADDRESS)?)?;
+    let senders = [contract_sender, generate_eth_random_address()?];
 
     for from in senders {
         let msg = EthCallMessage {
             from: Some(from),
-            to: Some(contract),
+            to: Some(to),
+            data: Some(calldata.clone()),
             ..EthCallMessage::default()
         };
 
         for api_path in [ApiPaths::V1, ApiPaths::V2] {
-            tests.push(
-                RpcTest::identity(
-                    EthCall::request((msg.clone(), BlockNumberOrHash::from_block_number(epoch)))?
-                        .with_api_path(api_path),
-                )
-                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-            );
-            tests.push(
-                RpcTest::identity(
-                    EthEstimateGas::request((
-                        msg.clone(),
-                        Some(BlockNumberOrHash::from_block_number(epoch)),
-                    ))?
+            tests.push(RpcTest::identity(
+                EthCall::request((msg.clone(), BlockNumberOrHash::from_block_number(epoch)))?
                     .with_api_path(api_path),
-                )
-                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-            );
+            ));
+            tests.push(RpcTest::identity(
+                EthEstimateGas::request((
+                    msg.clone(),
+                    Some(BlockNumberOrHash::from_block_number(epoch)),
+                ))?
+                .with_api_path(api_path),
+            ));
         }
     }
 
