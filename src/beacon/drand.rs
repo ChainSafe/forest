@@ -25,6 +25,7 @@ use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
 use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
+use smallvec::SmallVec;
 use tracing::debug;
 use url::Url;
 
@@ -88,10 +89,11 @@ impl BeaconSchedule {
             if cb_epoch != pb_epoch {
                 // Fork logic, take entries from the last two rounds of the new beacon.
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
-                let mut entries = Vec::with_capacity(2);
-                entries.push(curr_beacon.entry(round - 1).await?);
-                entries.push(curr_beacon.entry(round).await?);
-                return Ok(entries);
+                
+                let mut out: SmallVec::<[BeaconEntry; 2]> = SmallVec::new();
+                out.push(curr_beacon.entry(round - 1).await?);
+                out.push(curr_beacon.entry(round).await?);
+                return Ok(out.to_vec());
             }
         }
 
@@ -113,8 +115,8 @@ impl BeaconSchedule {
             prev.round()
         };
 
+        let mut out: SmallVec::<[BeaconEntry; 2]> = SmallVec::new();
         if curr_beacon.network().is_unchained() {
-            let mut out = Vec::new();
             for covered_epoch in (parent_epoch + 1)..=epoch {
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
                 out.push(
@@ -126,10 +128,9 @@ impl BeaconSchedule {
                         ))?,
                 );
             }
-            Ok(out)
+            Ok(out.to_vec())
         } else {
             let mut cur = max_round;
-            let mut out = Vec::new();
             while cur > prev_round {
                 // Push all entries from rounds elapsed since the last chain epoch.
                 let entry = curr_beacon.entry(cur).await?;
@@ -137,7 +138,7 @@ impl BeaconSchedule {
                 out.push(entry);
             }
             out.reverse();
-            Ok(out)
+            Ok(out.to_vec())
         }
     }
 
