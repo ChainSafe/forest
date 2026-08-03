@@ -41,6 +41,8 @@
 
 ### Fixed
 
+- [#7435](https://github.com/ChainSafe/forest/pull/7435): `eth_call` and `eth_estimateGas` now accept a `from` address that is an EVM contract or that doesn't exist on chain, matching Lotus/Geth.
+
 ## Forest v0.35.0 "Shravan"
 
 Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
