@@ -1635,6 +1635,43 @@ fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
     tests
 }
 
+fn eth_call_estimate_skip_sender_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = Vec::new();
+
+    let contract = EthAddress::from_filecoin_address(&Address::from_str(EVM_ADDRESS)?)?;
+    let senders = [contract, generate_eth_random_address()?];
+
+    for from in senders {
+        let msg = EthCallMessage {
+            from: Some(from),
+            to: Some(contract),
+            ..EthCallMessage::default()
+        };
+
+        for api_path in [ApiPaths::V1, ApiPaths::V2] {
+            tests.push(
+                RpcTest::identity(
+                    EthCall::request((msg.clone(), BlockNumberOrHash::from_block_number(epoch)))?
+                        .with_api_path(api_path),
+                )
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            );
+            tests.push(
+                RpcTest::identity(
+                    EthEstimateGas::request((
+                        msg.clone(),
+                        Some(BlockNumberOrHash::from_block_number(epoch)),
+                    ))?
+                    .with_api_path(api_path),
+                )
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            );
+        }
+    }
+
+    Ok(tests)
+}
+
 fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
     store: &DB,
     shared_tipset: &Tipset,
@@ -2497,6 +2534,9 @@ fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
 
     // Test eth_call API errors
     tests.extend(eth_call_api_err_tests(shared_tipset.epoch()));
+
+    // Test eth_call/eth_estimateGas from contract and non-existent senders
+    tests.extend(eth_call_estimate_skip_sender_tests(shared_tipset.epoch())?);
 
     Ok(tests)
 }

@@ -18,9 +18,22 @@ pub enum Error {
         "required historical state unavailable: refusing explicit call due to state fork at epoch {epoch}"
     )]
     ExpensiveFork { epoch: ChainEpoch },
+    /// Sender doesn't exist or isn't a valid sender type.
+    #[error("sender validation failed")]
+    SenderValidationFailed,
     /// Other state manager error
     #[error("{0}")]
     Other(String),
+}
+
+/// Whether to enforce the FVM sender checks.
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq)]
+pub enum SenderValidation {
+    /// Enforce the FVM explicit-path sender checks.
+    #[default]
+    Enforce,
+    /// Skip sender validation for EVM contracts and non-existent senders.
+    Skip,
 }
 
 impl Error {

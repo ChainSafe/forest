@@ -64,7 +64,9 @@ use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
+use crate::state_manager::{
+    ExecutedMessage, ExecutedTipset, SenderValidation, StateManager, TipsetState, VMFlush,
+};
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1875,6 +1877,10 @@ async fn eth_estimate_gas(
     // gas estimation actually run.
     msg.gas_limit = 0;
 
+    if resolve_sender_validation(ctx, &msg.from, &tipset).await == SenderValidation::Skip {
+        return eth_estimate_gas_skip_sender(ctx, msg, tipset).await;
+    }
+
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
         Err(server_err) => {
             // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
@@ -1899,10 +1905,70 @@ async fn eth_estimate_gas(
             Err(err.context("failed to estimate gas").into())
         }
         Ok(gassed_msg) => {
-            let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
+            let expected_gas = eth_gas_search(
+                ctx,
+                gassed_msg,
+                &tipset.key().into(),
+                SenderValidation::Enforce,
+            )
+            .await?;
             Ok(expected_gas.into())
         }
     }
+}
+
+/// Returns [`SenderValidation::Skip`] for an EVM-contract or non-existent sender, which the FVM
+/// can't validate. Defaults to [`SenderValidation::Enforce`].
+async fn resolve_sender_validation(
+    ctx: &Ctx,
+    from: &FilecoinAddress,
+    tipset: &Tipset,
+) -> SenderValidation {
+    let Ok(state) = ctx.state_manager.load_tipset_state(tipset).await else {
+        return SenderValidation::Enforce;
+    };
+    match ctx.state_manager.get_actor(from, state.state_root) {
+        Ok(None) => SenderValidation::Skip,
+        Ok(Some(actor)) if is_evm_actor(&actor.code) => SenderValidation::Skip,
+        _ => SenderValidation::Enforce,
+    }
+}
+
+/// Estimates gas for a contract or non-existent sender, skipping sender validation.
+async fn eth_estimate_gas_skip_sender(
+    ctx: &Ctx,
+    mut msg: Message,
+    tipset: Tipset,
+) -> Result<EthUint64, ServerError> {
+    let tsk: ApiTipsetKey = tipset.key().clone().into();
+
+    let gas_limit = match gas::GasEstimateGasLimit::estimate_gas_limit(
+        ctx,
+        msg.clone(),
+        &tsk,
+        SenderValidation::Skip,
+    )
+    .await
+    {
+        Ok(gas_limit) => gas_limit,
+        Err(estimate_err) => {
+            msg.set_gas_limit(BLOCK_GAS_LIMIT);
+            if let Err(e) = apply_message(ctx, Some(tipset), msg).await
+                && e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
+            {
+                return Err(e.into());
+            }
+            return Err(estimate_err.context("failed to estimate gas").into());
+        }
+    };
+
+    let gas_limit =
+        ((gas_limit as f64 * ctx.mpool.gas_limit_overestimation()) as u64).min(BLOCK_GAS_LIMIT);
+    msg.set_gas_limit(gas_limit);
+
+    let expected_gas = eth_gas_search(ctx, msg, &tsk, SenderValidation::Skip).await?;
+    Ok(expected_gas.into())
 }
 
 async fn apply_message(
@@ -1919,11 +1985,34 @@ async fn apply_message(
         return Err(crate::state_manager::Error::ExpensiveFork { epoch: ts.epoch() }.into());
     }
 
-    let (invoc_res, _) = ctx
+    let result = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
-        .await
-        .context("failed to apply on state with gas")?;
+        .apply_on_state_with_gas(
+            tipset.clone(),
+            msg.clone(),
+            VMFlush::Skip,
+            SenderValidation::Enforce,
+        )
+        .await;
+
+    let needs_skip = match &result {
+        Err(e) => e
+            .downcast_ref::<crate::state_manager::Error>()
+            .is_some_and(|e| matches!(e, crate::state_manager::Error::SenderValidationFailed)),
+        Ok((invoc_res, _)) => invoc_res
+            .msg_rct
+            .as_ref()
+            .is_some_and(|rct| rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID),
+    };
+
+    let (invoc_res, _) = if needs_skip {
+        ctx.state_manager
+            .apply_on_state_with_gas(tipset, msg, VMFlush::Skip, SenderValidation::Skip)
+            .await
+            .context("failed to apply on state with gas (skip sender validation)")?
+    } else {
+        result.context("failed to apply on state with gas")?
+    };
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -1946,9 +2035,15 @@ async fn apply_message(
     Ok(invoc_res)
 }
 
-pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> anyhow::Result<u64> {
+pub async fn eth_gas_search(
+    data: &Ctx,
+    msg: Message,
+    tsk: &ApiTipsetKey,
+    sender_validation: SenderValidation,
+) -> anyhow::Result<u64> {
     let (_invoc_res, apply_ret, prior_messages, ts) =
-        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, sender_validation)
+            .await?;
     if apply_ret.msg_receipt().exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
@@ -1964,7 +2059,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
             })
         )
     }) {
-        let ret = gas_search(data, &msg, prior_messages, ts).await?;
+        let ret = gas_search(data, &msg, prior_messages, ts, sender_validation).await?;
         Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
     } else {
         anyhow::bail!(
@@ -1984,6 +2079,7 @@ async fn gas_search(
     msg: &Message,
     prior_messages: Arc<Vec<ChainMessage>>,
     ts: Tipset,
+    sender_validation: SenderValidation,
 ) -> anyhow::Result<u64> {
     let mut high = msg.gas_limit;
     let mut low = msg.gas_limit;
@@ -1994,11 +2090,18 @@ async fn gas_search(
         prior_messages: Arc<Vec<ChainMessage>>,
         ts: Tipset,
         limit: u64,
+        sender_validation: SenderValidation,
     ) -> anyhow::Result<bool> {
         msg.gas_limit = limit;
         let (_invoc_res, apply_ret, _, _) = data
             .state_manager
-            .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
+            .call_with_gas(
+                msg.into(),
+                prior_messages,
+                Some(ts),
+                VMFlush::Skip,
+                sender_validation,
+            )
             .await?;
         Ok(apply_ret.msg_receipt().exit_code().is_success())
     }
@@ -2010,6 +2113,7 @@ async fn gas_search(
             prior_messages.shallow_clone(),
             ts.shallow_clone(),
             high,
+            sender_validation,
         )
         .await?
         {
@@ -2028,6 +2132,7 @@ async fn gas_search(
             prior_messages.shallow_clone(),
             ts.shallow_clone(),
             median,
+            sender_validation,
         )
         .await?
         {
@@ -3845,7 +3950,12 @@ impl RpcMethod<3> for EthTraceCall {
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(Some(ts.shallow_clone()), msg.clone(), VMFlush::Flush)
+            .apply_on_state_with_gas(
+                Some(ts.shallow_clone()),
+                msg.clone(),
+                VMFlush::Flush,
+                SenderValidation::Enforce,
+            )
             .await
             .context("failed to apply message")?;
         let post_state_root =
