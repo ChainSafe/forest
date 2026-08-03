@@ -1,6 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use itertools::Itertools;
+
 use crate::{
     beacon::{
         Beacon, BeaconEntry, BeaconPoint, BeaconSchedule, ChainInfo, DrandBeacon, DrandConfig,
@@ -169,7 +171,7 @@ async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
             .await
             .unwrap();
 
-        let rounds: Vec<u64> = entries.iter().map(BeaconEntry::round).collect();
+        let rounds: Vec<u64> = entries.iter().map(BeaconEntry::round).collect_vec();
 
         assert_eq!(
             rounds, expected_rounds,
