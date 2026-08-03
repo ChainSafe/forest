@@ -171,7 +171,7 @@ async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
             .await
             .unwrap();
 
-        let rounds: Vec<u64> = entries.iter().map(BeaconEntry::round).collect_vec();
+        let rounds = entries.iter().map(BeaconEntry::round).collect_vec();
 
         assert_eq!(
             rounds, expected_rounds,

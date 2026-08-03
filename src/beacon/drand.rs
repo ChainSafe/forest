@@ -115,7 +115,7 @@ impl BeaconSchedule {
             prev.round()
         };
 
-        let mut out: SmallVec::<[BeaconEntry; 2]> = SmallVec::new();
+        let mut out = Vec::with_capacity(2);
         if curr_beacon.network().is_unchained() {
             for covered_epoch in (parent_epoch + 1)..=epoch {
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
@@ -123,9 +123,9 @@ impl BeaconSchedule {
                     curr_beacon
                         .entry(round)
                         .await
-                        .context(format!(
-                            "failed to fetch beacon entry for epoch {covered_epoch}, round {round}"
-                        ))?,
+                        .with_context(|| {
+                            format!("failed to fetch beacon entry for epoch {covered_epoch}, round {round}")
+                        })?,
                 );
             }
             Ok(out.to_vec())
