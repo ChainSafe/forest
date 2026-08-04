@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.34.1
+  version: 0.35.0
 methods:
   - name: Filecoin.AuthNew
     description: Creates a new JWT authentication token with the given permissions.
@@ -426,6 +426,37 @@ methods:
     params: []
     result:
       name: Forest.ChainExportCancel.Result
+      required: true
+      schema:
+        type: boolean
+    paramStructure: by-position
+  - name: Forest.IndexBackfill
+    description: "Starts a chain index backfill (Ethereum mappings, events, block blooms) over an epoch range using the running node, returning immediately. Poll `Forest.IndexBackfillStatus` for progress. Only one backfill may run at a time, and it never overlaps snapshot export or the snapshot GC."
+    params:
+      - name: params
+        required: true
+        schema:
+          $ref: "#/components/schemas/IndexBackfillParams"
+    result:
+      name: Forest.IndexBackfill.Result
+      required: true
+      schema:
+        type: "null"
+    paramStructure: by-position
+  - name: Forest.IndexBackfillStatus
+    description: Returns the progress and status of the in-progress (or last) index backfill.
+    params: []
+    result:
+      name: Forest.IndexBackfillStatus.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ApiIndexBackfillStatus"
+    paramStructure: by-position
+  - name: Forest.IndexBackfillCancel
+    description: "Cancels the in-progress index backfill, returning whether one was running."
+    params: []
+    result:
+      name: Forest.IndexBackfillCancel.Result
       required: true
       schema:
         type: boolean
@@ -3974,22 +4005,22 @@ methods:
   - name: Filecoin.StateMinerInitialPledgeForSector
     description: "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset."
     params:
-      - name: sector_duration
+      - name: sectorDuration
         required: true
         schema:
           type: integer
           format: int64
-      - name: sector_size
+      - name: sectorSize
         required: true
         schema:
           $ref: "#/components/schemas/SectorSize"
-      - name: verified_size
+      - name: verifiedSize
         required: true
         schema:
           type: integer
           format: uint64
           minimum: 0
-      - name: tipset_key
+      - name: tipsetKey
         required: true
         schema:
           type:
@@ -4922,7 +4953,7 @@ components:
     ApiExportStatus:
       type: object
       properties:
-        current_epoch:
+        currentEpoch:
           type: integer
           format: int64
         error:
@@ -4938,10 +4969,10 @@ components:
         progress:
           type: number
           format: double
-        start_epoch:
+        startEpoch:
           type: integer
           format: int64
-        start_time:
+        startTime:
           type:
             - string
             - "null"
@@ -4951,8 +4982,8 @@ components:
       required:
         - state
         - progress
-        - start_epoch
-        - current_epoch
+        - startEpoch
+        - currentEpoch
     ApiF3ParticipationLease:
       description: "defines the lease granted to a storage provider for\nparticipating in F3 consensus, detailing the session identifier, issuer,\nsubject, and the expiration instance."
       type: object
@@ -4984,6 +5015,49 @@ components:
         - MinerID
         - FromInstance
         - ValidityTerm
+    ApiIndexBackfillStatus:
+      description: "Progress and status of the in-daemon index backfill, returned by [`IndexBackfillStatus`]."
+      type: object
+      properties:
+        currentEpoch:
+          type: integer
+          format: int64
+        error:
+          type:
+            - string
+            - "null"
+        indexed:
+          type: integer
+          format: uint64
+          minimum: 0
+        progress:
+          type: number
+          format: double
+        skipped:
+          type: integer
+          format: uint64
+          minimum: 0
+        startEpoch:
+          type: integer
+          format: int64
+        startTime:
+          type:
+            - string
+            - "null"
+          format: date-time
+        state:
+          $ref: "#/components/schemas/ChainExportState"
+        targetEpoch:
+          type: integer
+          format: int64
+      required:
+        - state
+        - progress
+        - startEpoch
+        - currentEpoch
+        - targetEpoch
+        - indexed
+        - skipped
     ApiInvocResult:
       type: object
       properties:
@@ -5405,30 +5479,33 @@ components:
         - description: A lite snapshot export performed by the automatic snapshot GC.
           type: string
           const: SnapshotGc
+        - description: "An index backfill requested via `Forest.IndexBackfill`. It holds the same single-flight\nslot as exports and the snapshot GC so that these heavy DB operations never overlap."
+          type: string
+          const: IndexBackfill
     ChainExportParams:
       type: object
       properties:
-        dry_run:
+        dryRun:
           type: boolean
         epoch:
           type: integer
           format: int64
-        output_path:
+        outputPath:
           type: string
-        recent_roots:
+        recentRoots:
           type: integer
           format: int64
-        skip_checksum:
+        skipChecksum:
           type: boolean
-        tipset_keys:
+        tipsetKeys:
           $ref: "#/components/schemas/Nullable_Array_of_Cid"
       required:
         - epoch
-        - recent_roots
-        - output_path
-        - tipset_keys
-        - skip_checksum
-        - dry_run
+        - recentRoots
+        - outputPath
+        - tipsetKeys
+        - skipChecksum
+        - dryRun
     ChainExportState:
       description: "Transitions only through [`ChainExportGuard`]: `Running` while a guard is held, then\nexactly one terminal state once it drops. `Idle`: no export has run since node start."
       type: string
@@ -6508,7 +6585,7 @@ components:
         from:
           type: integer
           format: int64
-        output_path:
+        outputPath:
           type: string
         to:
           type: integer
@@ -6517,41 +6594,41 @@ components:
         - from
         - to
         - depth
-        - output_path
+        - outputPath
     ForestChainExportParams:
       type: object
       properties:
-        augmented_snapshot:
+        augmentedSnapshot:
           description: Generate a separate snapshot that contains augmented data (message receipts and events)
           type: boolean
           default: false
-        dry_run:
+        dryRun:
           type: boolean
         epoch:
           type: integer
           format: int64
-        include_events:
+        includeEvents:
           description: Include events in the output snapshot
           type: boolean
           default: false
-        include_receipts:
+        includeReceipts:
           description: Include message receipts in the output snapshot
           type: boolean
           default: false
-        include_tipset_keys:
+        includeTipsetKeys:
           type: boolean
           default: false
-        output_path:
+        outputPath:
           type: string
-        recent_roots:
+        recentRoots:
           type: integer
           format: int64
-        skip_checksum:
+        skipChecksum:
           type: boolean
-        tipset_keys:
+        tipsetKeys:
           $ref: "#/components/schemas/Nullable_Array_of_Cid"
           default: ~
-        tipset_lookup:
+        tipsetLookup:
           description: Generate a separate snapshot that contains tipset lookup
           type: boolean
           default: false
@@ -6560,29 +6637,29 @@ components:
       required:
         - version
         - epoch
-        - recent_roots
-        - output_path
-        - skip_checksum
-        - dry_run
+        - recentRoots
+        - outputPath
+        - skipChecksum
+        - dryRun
     ForestComputeStateOutput:
       type: object
       properties:
-        Epoch:
+        epoch:
           type: integer
           format: int64
-        StateRoot:
+        stateRoot:
           $ref: "#/components/schemas/Cid"
-        TipsetKey:
+        tipsetKey:
           $ref: "#/components/schemas/NonEmpty_Array_of_Cid"
       required:
-        - StateRoot
-        - Epoch
-        - TipsetKey
+        - stateRoot
+        - epoch
+        - tipsetKey
     ForkSyncInfo:
       description: Contains information about a specific chain/fork the node is actively tracking or syncing.
       type: object
       properties:
-        last_updated:
+        lastUpdated:
           description: Last time status for this fork was updated.
           type:
             - string
@@ -6591,33 +6668,33 @@ components:
         stage:
           description: The current stage of processing for this fork.
           $ref: "#/components/schemas/ForkSyncStage"
-        start_time:
+        startTime:
           description: When processing for this fork started.
           type:
             - string
             - "null"
           format: date-time
-        target_epoch:
+        targetEpoch:
           description: The target epoch for this synchronization task.
           type: integer
           format: int64
-        target_sync_epoch_start:
+        targetSyncEpochStart:
           description: "The lowest epoch that still needs processing (fetching or validating) for this target.\nThis helps indicate the start of the current sync range."
           type: integer
           format: int64
-        target_tipset_key:
+        targetTipsetKey:
           description: The target tipset key for this synchronization task.
           $ref: "#/components/schemas/NonEmpty_Array_of_Cid"
-        validated_chain_head_epoch:
+        validatedChainHeadEpoch:
           description: "The epoch of the heaviest fully validated tipset on the node's main chain.\nThis shows overall node progress, distinct from fork-specific progress."
           type: integer
           format: int64
       required:
-        - target_tipset_key
-        - target_epoch
-        - target_sync_epoch_start
+        - targetTipsetKey
+        - targetEpoch
+        - targetSyncEpochStart
         - stage
-        - validated_chain_head_epoch
+        - validatedChainHeadEpoch
     ForkSyncStage:
       description: Represents the stage of processing for a specific chain fork being tracked.
       oneOf:
@@ -6958,6 +7035,41 @@ components:
         - RebroadcastBackoffExponent
         - RebroadcastBackoffSpread
         - RebroadcastBackoffMax
+    IndexBackfillParams:
+      description: "Parameters for [`IndexBackfill`]."
+      type: object
+      properties:
+        allowNearHead:
+          description: "Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By\ndefault the walk is clamped to the EC-finalized epoch."
+          type: boolean
+          default: false
+        from:
+          description: "Starting epoch, inclusive. Defaults to the chain head, unless `resume` is set and a\npersisted resume checkpoint exists."
+          type:
+            - integer
+            - "null"
+          format: int64
+        nTipsets:
+          description: "Number of tipsets to backfill. Mutually exclusive with `to`."
+          type:
+            - integer
+            - "null"
+          format: uint64
+          minimum: 0
+        recompute:
+          description: "Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't\nbe computed are skipped and reported rather than aborting the run."
+          type: boolean
+          default: false
+        resume:
+          description: "Resume from the persisted checkpoint of a previous run instead of starting at the chain\nhead. Ignored when `from` is given."
+          type: boolean
+          default: false
+        to:
+          description: "Ending epoch, inclusive. Mutually exclusive with `n_tipsets`."
+          type:
+            - integer
+            - "null"
+          format: int64
     KeyInfo:
       type: object
       properties:
@@ -7300,37 +7412,37 @@ components:
     NetInfoResult:
       type: object
       properties:
-        num_connections:
+        numConnections:
           type: integer
           format: uint32
           minimum: 0
-        num_established:
+        numEstablished:
           type: integer
           format: uint32
           minimum: 0
-        num_peers:
+        numPeers:
           type: integer
           format: uint
           minimum: 0
-        num_pending:
+        numPending:
           type: integer
           format: uint32
           minimum: 0
-        num_pending_incoming:
+        numPendingIncoming:
           type: integer
           format: uint32
           minimum: 0
-        num_pending_outgoing:
+        numPendingOutgoing:
           type: integer
           format: uint32
           minimum: 0
       required:
-        - num_peers
-        - num_connections
-        - num_pending
-        - num_pending_incoming
-        - num_pending_outgoing
-        - num_established
+        - numPeers
+        - numConnections
+        - numPending
+        - numPendingIncoming
+        - numPendingOutgoing
+        - numEstablished
     NetworkParams:
       type: object
       properties:
@@ -7976,26 +8088,26 @@ components:
     StateActorCodeCidsOutput:
       type: object
       properties:
-        ActorCids:
+        actorCids:
           $ref: "#/components/schemas/Map_of_Cid"
-        ActorVersion:
+        actorVersion:
           type: string
-        Bundle:
+        bundle:
           $ref: "#/components/schemas/Cid"
-        Manifest:
+        manifest:
           $ref: "#/components/schemas/Cid"
-        NetworkVersion:
+        networkVersion:
           $ref: "#/components/schemas/NetworkVersion"
-        NetworkVersionRevision:
+        networkVersionRevision:
           type: integer
           format: int64
       required:
-        - NetworkVersion
-        - NetworkVersionRevision
-        - ActorVersion
-        - Manifest
-        - Bundle
-        - ActorCids
+        - networkVersion
+        - networkVersionRevision
+        - actorVersion
+        - manifest
+        - bundle
+        - actorCids
     StateDiff:
       description: State diff containing all account changes from a transaction.
       type: object
@@ -8015,30 +8127,30 @@ components:
       description: "Contains information about the current status of the node's synchronization process."
       type: object
       properties:
-        active_forks:
+        activeForks:
           description: List of active fork synchronization tasks the node is currently handling.
           type: array
           items:
             $ref: "#/components/schemas/ForkSyncInfo"
-        current_head_epoch:
+        currentHeadEpoch:
           description: "The epoch of the heaviest validated tipset on the node's main chain."
           type: integer
           format: int64
-        current_head_key:
+        currentHeadKey:
           description: The tipset key of the current heaviest validated tipset.
           $ref: "#/components/schemas/NonEmpty_Array_of_Cid"
-        epochs_behind:
+        epochsBehind:
           description: "Estimated number of epochs the node is behind the network head.\nCan be negative if the node is slightly ahead, due to estimation variance."
           type: integer
           format: int64
-        last_updated:
+        lastUpdated:
           description: Last time this status report was generated.
           type: string
           format: date-time
-        network_head_epoch:
+        networkHeadEpoch:
           type: integer
           format: int64
-        node_start_time:
+        nodeStartTime:
           description: When the node process started.
           type: string
           format: date-time
@@ -8047,13 +8159,13 @@ components:
           $ref: "#/components/schemas/NodeSyncStatus2"
       required:
         - status
-        - current_head_epoch
-        - current_head_key
-        - network_head_epoch
-        - epochs_behind
-        - active_forks
-        - node_start_time
-        - last_updated
+        - currentHeadEpoch
+        - currentHeadKey
+        - networkHeadEpoch
+        - epochsBehind
+        - activeForks
+        - nodeStartTime
+        - lastUpdated
     Ticket:
       type: object
       properties:

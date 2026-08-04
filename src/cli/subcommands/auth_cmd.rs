@@ -4,6 +4,7 @@
 use crate::rpc::{self, auth::AuthNewParams, prelude::*};
 use chrono::Duration;
 use clap::Subcommand;
+use libp2p::multiaddr;
 
 use super::print_rpc_res_bytes;
 

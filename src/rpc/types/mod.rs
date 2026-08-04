@@ -566,6 +566,7 @@ impl From<StampedEvent> for Event {
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct ApiExportStatus {
     pub state: crate::ipld::ChainExportState,
     /// `None` if and only if no export has run since the node started.

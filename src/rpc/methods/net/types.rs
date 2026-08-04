@@ -28,6 +28,7 @@ impl AddrInfo {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct NetInfoResult {
     pub num_peers: usize,
     pub num_connections: u32,

@@ -30,6 +30,9 @@ pub enum ChainExportKind {
     DiffSnapshot,
     /// A lite snapshot export performed by the automatic snapshot GC.
     SnapshotGc,
+    /// An index backfill requested via `Forest.IndexBackfill`. It holds the same single-flight
+    /// slot as exports and the snapshot GC so that these heavy DB operations never overlap.
+    IndexBackfill,
 }
 
 /// Transitions only through [`ChainExportGuard`]: `Running` while a guard is held, then
@@ -225,6 +228,12 @@ impl ChainExportGuard {
             CHAIN_EXPORT_STATUS.record_outcome(ChainExportState::Cancelled, None);
         }
         output
+    }
+
+    /// Records a terminal outcome without consuming the guard, for holders that can't use
+    /// [`Self::finish`].
+    pub fn record_outcome(&self, outcome: ChainExportState, error: Option<String>) {
+        CHAIN_EXPORT_STATUS.record_outcome(outcome, error);
     }
 
     /// A cancellation observed by [`Self::run_cancellable`] wins over `result`, so

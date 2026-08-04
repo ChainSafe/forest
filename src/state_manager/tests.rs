@@ -3,8 +3,10 @@
 
 use super::*;
 use crate::db::MemoryDB;
+use crate::rpc::eth::types::CallSource;
 use crate::shim::executor::StampedEvent;
 use fil_actors_shared::fvm_ipld_amt::Amt;
+use rstest::rstest;
 
 fn create_raw_event_v4(emitter: u64, key: &str) -> fvm_shared4::event::StampedEvent {
     fvm_shared4::event::StampedEvent {
@@ -302,4 +304,100 @@ fn repair_tipset_lookup_clears_caches_when_entries_repaired() {
     );
     assert_eq!(sm.repair_tipset_lookup().unwrap(), 0);
     assert!(sm.cache.get(&tsk).is_some());
+}
+
+/// A state manager over a dummy chain plus a fake epoch-1 tipset whose parent
+/// state does not exist in the store, so any attempt to execute it fails.
+fn state_manager_with_unexecutable_tipset() -> (StateManager, Tipset) {
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader, Tipset};
+    use crate::chain::ChainStore;
+    use crate::networks::ChainConfig;
+    use crate::test_utils::dummy_ticket;
+
+    let db = Arc::new(MemoryDB::default());
+    let genesis = CachingBlockHeader::new(RawBlockHeader {
+        timestamp: 7777,
+        ..Default::default()
+    });
+    let cs = ChainStore::new(db, Arc::new(ChainConfig::default()), genesis).unwrap();
+    let sm = StateManager::new(cs).unwrap();
+    let ts = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+        parents: sm.chain_store().heaviest_tipset().key().clone(),
+        ticket: dummy_ticket(1),
+        epoch: 1,
+        ..Default::default()
+    }));
+    (sm, ts)
+}
+
+#[rstest]
+#[case(CallSource::External)]
+#[case(CallSource::Internal)]
+fn replay_is_served_from_the_tipset_trace_cache(#[case] source: CallSource) {
+    use crate::utils::cid::CidCborExt;
+
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    let mcid = Cid::from_cbor_blake2b256(&"target-message").unwrap();
+    let cached = crate::rpc::state::ApiInvocResult {
+        msg_cid: mcid,
+        ..Default::default()
+    };
+    sm.trace_cache.insert(
+        ts.key().clone(),
+        (Cid::default().into(), vec![Arc::new(cached.clone())]),
+    );
+
+    let replayed = tokio_test::block_on(sm.replay(ts, mcid, source)).unwrap();
+    assert_eq!(replayed, cached);
+}
+
+#[tokio::test]
+async fn replay_permits_are_sized_by_configured_concurrency() {
+    let (sm, _) = state_manager_with_unexecutable_tipset();
+    let permits = StateManager::replay_concurrency();
+    assert_eq!(sm.replay_semaphore.available_permits(), permits);
+
+    let _held = sm.replay_permit().await;
+    assert_eq!(sm.replay_semaphore.available_permits(), permits - 1);
+}
+
+#[rstest]
+#[case(CallSource::External)]
+#[case(CallSource::Internal)]
+fn replay_of_message_absent_from_cached_trace_fails_without_executing(#[case] source: CallSource) {
+    use crate::utils::cid::CidCborExt;
+
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    sm.trace_cache
+        .insert(ts.key().clone(), (Cid::default().into(), vec![]));
+
+    let err = tokio_test::block_on(sm.replay(
+        ts,
+        Cid::from_cbor_blake2b256(&"absent-message").unwrap(),
+        source,
+    ))
+    .unwrap_err();
+    // "failed to replay" is the message-not-found contract exposed via RPC.
+    assert!(
+        matches!(err, Error::Other(ref s) if s == "failed to replay"),
+        "expected the not-found replay error, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn load_executed_tipset_uncached_never_populates_the_tipset_state_cache() {
+    let (sm, ts) = state_manager_with_unexecutable_tipset();
+    assert!(sm.cache.get(ts.key()).is_none());
+
+    // Recompute disallowed: state output is missing, so this errors without caching anything.
+    let _ = sm.load_executed_tipset_uncached(&ts, false).await;
+    assert!(sm.cache.get(ts.key()).is_none());
+
+    // Recompute allowed: the tipset is unexecutable, so this also errors, and must still leave
+    // the cache untouched.
+    let _ = sm.load_executed_tipset_uncached(&ts, true).await;
+    assert!(
+        sm.cache.get(ts.key()).is_none(),
+        "uncached backfill load must not populate the tipset-state cache"
+    );
 }

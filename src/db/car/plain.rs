@@ -173,6 +173,10 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
         }
     }
 
+    pub fn header_v1(&self) -> &CarV1Header {
+        &self.header_v1
+    }
+
     pub fn metadata(&self) -> Option<&FilecoinSnapshotMetadata> {
         self.metadata
             .get_or_init(|| {
