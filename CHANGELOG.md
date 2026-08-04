@@ -37,6 +37,8 @@
 
 ### Changed
 
+- [#7412](https://github.com/ChainSafe/forest/issues/7412): Quicknet "unchained" logic fetch the `max_beacon_round` for all covered epochs
+
 ### Removed
 
 ### Fixed
