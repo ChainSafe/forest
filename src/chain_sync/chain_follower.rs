@@ -33,11 +33,13 @@ use crate::{
     prelude::*,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
+    utils::misc::env::env_or_default_logged,
 };
 use arc_swap::ArcSwap;
 use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::{
     borrow::Cow,
@@ -260,7 +262,7 @@ async fn chain_follower(
                             network.shallow_clone(),
                             state_manager.chain_store().shallow_clone(),
                             Some(source),
-                            TipsetKey::from(request.heaviest_tip_set.clone()),
+                            TipsetKey::from(request.heaviest_tip_set),
                             tipset_sender.clone(),
                             cancellation_token.clone(),
                             Some(permit),
@@ -578,11 +580,13 @@ fn handle_peer_disconnected_event(network: &SyncNetworkContext, peer_id: PeerId)
 /// Uncapped, a flood spawns fetches without bound, each pinning a blocking-pool
 /// thread for the chain-exchange timeout (up to 60 seconds). Excess is dropped, not queued.
 static MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES: LazyLock<usize> = LazyLock::new(|| {
-    std::env::var("FOREST_MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .filter(|n| *n > 0)
-        .unwrap_or(16)
+    // `.min` keeps an oversized override from panicking `Semaphore::new`.
+    env_or_default_logged(
+        "FOREST_MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES",
+        nonzero!(16_usize),
+    )
+    .get()
+    .min(Semaphore::MAX_PERMITS)
 });
 
 /// Fetches a tipset off the event loop, forwarding a success into `tipset_sender`
@@ -598,14 +602,18 @@ fn spawn_tipset_fetch(
 ) {
     tokio::spawn(async move {
         let _permit = permit;
-        let fetch = get_full_tipset(&network, &chain_store, peer_id, &tipset_keys);
-        match cancellation_token.run_until_cancelled(fetch).await {
-            Some(Ok(tipset)) => {
-                let _ = tipset_sender.send_async(tipset).await;
-            }
-            Some(Err(e)) => debug!("Querying full tipset failed: {e}"),
-            None => {}
-        }
+        // Fetch and forward both run inside the cancellation scope so a shutdown
+        // aborts a send blocked on a full channel, releasing the permit promptly.
+        cancellation_token
+            .run_until_cancelled(async {
+                match get_full_tipset(&network, &chain_store, peer_id, &tipset_keys).await {
+                    Ok(tipset) => {
+                        let _ = tipset_sender.send_async(tipset).await;
+                    }
+                    Err(e) => debug!("Querying full tipset failed: {e}"),
+                }
+            })
+            .await;
     });
 }
 
