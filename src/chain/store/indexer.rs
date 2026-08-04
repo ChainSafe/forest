@@ -105,7 +105,7 @@ impl SqliteIndexer {
 
     /// Acquires write lock. Note that `WAL` (Write-Ahead Logging) mode is enabled to allow
     /// concurrent reads to occur while a single write transaction is active
-    pub async fn aquire_write_lock(&self) -> tokio::sync::MutexGuard<'_, ()> {
+    pub async fn acquire_write_lock(&self) -> tokio::sync::MutexGuard<'_, ()> {
         self.lock.lock().await
     }
 
@@ -129,7 +129,7 @@ impl SqliteIndexer {
     ) -> anyhow::Result<()> {
         loop {
             let HeadChanges { reverts, applies } = head_changes_rx.recv().await?;
-            let _lock = self.aquire_write_lock().await;
+            let _lock = self.acquire_write_lock().await;
             for ts in reverts {
                 if let Err(e) = self.revert_tipset(&ts).await {
                     tracing::warn!(
@@ -161,7 +161,7 @@ impl SqliteIndexer {
     }
 
     async fn gc(&self) {
-        let _lock = self.aquire_write_lock().await;
+        let _lock = self.acquire_write_lock().await;
         tracing::info!("starting index gc");
         let head = self.cs.heaviest_tipset();
         let removal_epoch = head.epoch() - self.options.gc_retention_epochs - 10; // 10 is for some grace period
@@ -174,6 +174,7 @@ impl SqliteIndexer {
             "gc'ing all (reverted and non-reverted) tipsets before epoch {removal_epoch}"
         );
         match sqlx::query(self.stmts.remove_tipsets_before_height)
+            .bind(removal_epoch)
             .execute(&self.db)
             .await
         {
@@ -203,6 +204,7 @@ impl SqliteIndexer {
 
         tracing::info!("gc'ing eth hashes older than {gc_retention_days} days");
         match sqlx::query(self.stmts.remove_eth_hashes_older_than)
+            .bind(format!("-{gc_retention_days} day"))
             .execute(&self.db)
             .await
         {
@@ -219,7 +221,7 @@ impl SqliteIndexer {
     }
 
     pub async fn populate(&self) -> anyhow::Result<()> {
-        let _lock = self.aquire_write_lock().await;
+        let _lock = self.acquire_write_lock().await;
         let start = Instant::now();
         let head = self.cs.heaviest_tipset();
         tracing::info!(
@@ -252,7 +254,7 @@ impl SqliteIndexer {
         backfill: bool,
     ) -> anyhow::Result<ChainIndexValidation> {
         let _lock = if backfill {
-            Some(self.aquire_write_lock().await)
+            Some(self.acquire_write_lock().await)
         } else {
             None
         };

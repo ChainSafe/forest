@@ -12,6 +12,7 @@ use crate::rpc::eth::{
 use crate::rpc::types::EventEntry;
 use crate::shim::address::Protocol;
 use ahash::HashSet;
+use futures::StreamExt as _;
 use sqlx::{Arguments as _, FromRow};
 use std::borrow::Cow;
 
@@ -45,14 +46,14 @@ impl SqliteIndexer {
         let bs = self.cs.db();
         let mut qb = filter.to_query_builder()?;
         let query = qb.build();
-        let results = query.fetch_all(self.db()).await?;
+        let mut results = query.fetch(self.db());
         let mut current_id = -1;
         let mut last_height = -1;
         let mut tipsets_seen = 0;
         let mut collected_events = vec![];
         let mut ce = None;
-        for row in results {
-            let event = EventRow::from_row(&row).inspect_err(|e| {
+        while let Some(row) = results.next().await {
+            let event = EventRow::from_row(&row?).inspect_err(|e| {
                 tracing::warn!("{e}");
             })?;
             // The query returns all entries for all matching events; create a new CollectedEvent each time we see a new id.
