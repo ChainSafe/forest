@@ -121,7 +121,7 @@ impl BeaconSchedule {
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
                 out.push(curr_beacon.entry(round).await?);
             }
-            Ok(out.to_vec())
+            Ok(out)
         } else {
             let mut cur = max_round;
             while cur > prev_round {
@@ -131,7 +131,7 @@ impl BeaconSchedule {
                 out.push(entry);
             }
             out.reverse();
-            Ok(out.to_vec())
+            Ok(out)
         }
     }
 

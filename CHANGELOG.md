@@ -37,11 +37,11 @@
 
 ### Changed
 
-- [#7412](https://github.com/ChainSafe/forest/issues/7412): Changes quicknet "unchained" logic to fetch the `max_beacon_round` for all covered epochs
-
 ### Removed
 
 ### Fixed
+
+- [#7412](https://github.com/ChainSafe/forest/issues/7412): Fixes quicknet "unchained" logic to fetch the `max_beacon_round` for all covered epochs
 
 ## Forest v0.35.0 "Shravan"
 
