@@ -10,7 +10,7 @@ pushd "${PARENT_PATH}"
 source .env
 
 # This should not be needed in GH. It is useful for running locally.
-docker compose down --remove-orphans
+docker compose --profile "*" down --remove-orphans
 docker compose rm -f
 # Cleanup data volumes
 docker volume rm -f devnet_lotus-data
