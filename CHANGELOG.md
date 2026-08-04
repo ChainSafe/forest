@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#6720](https://github.com/ChainSafe/forest/pull/6720): Added SQL index and `forest-cli index validate-backfill`(Compatible with `lotus index validate-backfill`) for backfilling the SQL index.
+
 - [#7426](https://github.com/ChainSafe/forest/pull/7426): Added `forest-tool db import-tipset-lookup` for importing a tipset lookup snapshot.
 
 - [#7408](https://github.com/ChainSafe/forest/pull/7408): Impl `Forest.IndexBackfill`, `Forest.IndexBackfillStatus` and `Forest.IndexBackfillCancel` RPC methods and the `forest-cli index backfill` command to back-fill the chain index (Ethereum mappings, events, block blooms) through the running daemon, so the node no longer needs to be stopped. An interrupted or cancelled run can be resumed with `--resume`.
