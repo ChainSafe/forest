@@ -33,17 +33,23 @@ use crate::{
     prelude::*,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
+    utils::misc::env::env_or_default_logged,
 };
 use arc_swap::ArcSwap;
 use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
+use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::{
     borrow::Cow,
+    sync::LazyLock,
     time::{Duration, Instant},
 };
-use tokio::{sync::Notify, task::JoinSet};
+use tokio::{
+    sync::{Notify, OwnedSemaphorePermit, Semaphore},
+    task::JoinSet,
+};
 use tokio_util::sync::CancellationToken;
 
 pub struct ChainFollower {
@@ -175,6 +181,7 @@ impl ChainFollower {
             &self.state_manager,
             self.bad_blocks.shallow_clone(),
             self.net_handler.shallow_clone(),
+            self.tipset_sender.clone(),
             self.tipset_receiver.shallow_clone(),
             &self.network,
             &self.mem_pool,
@@ -202,6 +209,7 @@ async fn chain_follower(
     state_manager: &StateManager,
     bad_block_cache: Option<BadBlockCache>,
     network_rx: Arc<flume::Receiver<NetworkEvent>>,
+    tipset_sender: flume::Sender<FullTipset>,
     tipset_receiver: Arc<flume::Receiver<FullTipset>>,
     network: &SyncNetworkContext,
     mem_pool: &MessagePool<ChainStore>,
@@ -213,6 +221,8 @@ async fn chain_follower(
 
     let seen_block_cache = SeenBlockCache::default();
 
+    let hello_fetch_limiter = Arc::new(Semaphore::new(*MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES));
+
     let mut set = JoinSet::new();
     let cancellation_token = CancellationToken::new();
     let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
@@ -220,14 +230,14 @@ async fn chain_follower(
     // Increment metrics, update peer information, and forward tipsets to the state machine.
     set.spawn({
         let state_manager = state_manager.shallow_clone();
-        let state_changed = state_changed.shallow_clone();
-        let state_machine = state_machine.shallow_clone();
         let network = network.shallow_clone();
         let mem_pool = mem_pool.shallow_clone();
         let genesis = genesis.shallow_clone();
         let bad_block_cache = bad_block_cache.shallow_clone();
         let seen_block_cache = seen_block_cache.shallow_clone();
         let cancellation_token = cancellation_token.clone();
+        let hello_fetch_limiter = hello_fetch_limiter.shallow_clone();
+        let tipset_sender = tipset_sender.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -240,17 +250,23 @@ async fn chain_follower(
                     cancellation_token.clone(),
                 );
 
-                let Ok(tipset) = (match event {
+                // Fetches are spawned, never awaited here: an unresponsive peer
+                // would otherwise stall the loop and back up the unbounded event queue.
+                match event {
                     NetworkEvent::HelloResponseOutbound { request, source } => {
-                        let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
-                        get_full_tipset(
-                            &network,
-                            state_manager.chain_store(),
+                        let Ok(permit) = hello_fetch_limiter.shallow_clone().try_acquire_owned() else {
+                            debug!(%source, "dropping hello-triggered tipset fetch: too many in flight");
+                            continue;
+                        };
+                        spawn_tipset_fetch(
+                            network.shallow_clone(),
+                            state_manager.chain_store().shallow_clone(),
                             Some(source),
-                            &tipset_keys,
-                        )
-                        .await
-                        .inspect_err(|e| debug!("Querying full tipset failed: {e}"))
+                            TipsetKey::from(request.heaviest_tip_set),
+                            tipset_sender.clone(),
+                            cancellation_token.clone(),
+                            Some(permit),
+                        );
                     }
                     NetworkEvent::PubsubMessage { message } => match message {
                         PubsubMessage::Block(b) => {
@@ -272,24 +288,24 @@ async fn chain_follower(
                                 continue;
                             }
                             let key = TipsetKey::from(nunny::vec![*b.header.cid()]);
-                            get_full_tipset(&network, cs, None, &key).await
+                            // Not rate-limited: gossip blocks are signed and peer-scored.
+                            spawn_tipset_fetch(
+                                network.shallow_clone(),
+                                cs.shallow_clone(),
+                                None,
+                                key,
+                                tipset_sender.clone(),
+                                cancellation_token.clone(),
+                                None,
+                            );
                         }
                         PubsubMessage::Message(m) => {
                             if let Err(why) = mem_pool.add(m).await {
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
-                            continue;
                         }
                     },
-                    _ => continue,
-                }) else {
-                    continue;
-                };
-                {
-                    state_machine
-                        .lock()
-                        .update(SyncEvent::NewFullTipsets(vec![tipset]));
-                    state_changed.notify_one();
+                    _ => {}
                 }
             }
         }
@@ -555,6 +571,50 @@ async fn handle_peer_connected_event(
 fn handle_peer_disconnected_event(network: &SyncNetworkContext, peer_id: PeerId) {
     network.peer_manager().remove_peer(&peer_id);
     network.peer_manager().unmark_peer_bad(&peer_id);
+}
+
+/// Concurrency cap for tipset fetches triggered by an inbound `hello`.
+///
+/// A `hello` is unauthenticated, and its sender controls both the tipset we
+/// fetch and, by stalling the chain-exchange, how long the fetch blocks.
+/// Uncapped, a flood spawns fetches without bound, each pinning a blocking-pool
+/// thread for the chain-exchange timeout (up to 60 seconds). Excess is dropped, not queued.
+static MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES: LazyLock<usize> = LazyLock::new(|| {
+    // `.min` keeps an oversized override from panicking `Semaphore::new`.
+    env_or_default_logged(
+        "FOREST_MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES",
+        nonzero!(16_usize),
+    )
+    .get()
+    .min(Semaphore::MAX_PERMITS)
+});
+
+/// Fetches a tipset off the event loop, forwarding a success into `tipset_sender`
+/// (the same channel miner tipsets use). Any `permit` is held for the fetch.
+fn spawn_tipset_fetch(
+    network: SyncNetworkContext,
+    chain_store: ChainStore,
+    peer_id: Option<PeerId>,
+    tipset_keys: TipsetKey,
+    tipset_sender: flume::Sender<FullTipset>,
+    cancellation_token: CancellationToken,
+    permit: Option<OwnedSemaphorePermit>,
+) {
+    tokio::spawn(async move {
+        let _permit = permit;
+        // Fetch and forward both run inside the cancellation scope so a shutdown
+        // aborts a send blocked on a full channel, releasing the permit promptly.
+        cancellation_token
+            .run_until_cancelled(async {
+                match get_full_tipset(&network, &chain_store, peer_id, &tipset_keys).await {
+                    Ok(tipset) => {
+                        let _ = tipset_sender.send_async(tipset).await;
+                    }
+                    Err(e) => debug!("Querying full tipset failed: {e}"),
+                }
+            })
+            .await;
+    });
 }
 
 pub async fn get_full_tipset(
