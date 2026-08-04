@@ -154,31 +154,32 @@ impl RawBlockHeader {
         }
 
         // We skip verifying the genesis entry when randomness is "chained".
-        if curr_beacon.network().is_chained() && prev_entry.round() == 0 {
+        if curr_beacon.network().is_chained() {
             // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
             // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
-            return Ok(());
-        }
-
-        let last = match self.beacon_entries.last() {
-            Some(last) => last,
-            None => {
-                return Err(Error::Validation(
-                    "Block must include at least 1 beacon entry".into(),
-                ));
+            if prev_entry.round() == 0 {
+                return Ok(());
             }
-        };
-
-        if last.round() != max_round {
-            return Err(Error::Validation(
-                format!(
-                    "expected final beacon entry in block to be at round {}, got: {}",
-                    max_round,
-                    last.round()
-                )
-                .into(),
-            ));
         }
+
+        if curr_beacon.network().is_unchained() {
+            for (idx, beacon_entry) in self.beacon_entries.iter().enumerate() {
+                let lookup_epoch = parent_epoch + (idx + 1) as i64;
+                let expected_round = curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
+                if beacon_entry.round() != expected_round {
+                    return Err(Error::Validation(
+                        format!("expected max round for epoch {} to be {}, got: {}",
+                            lookup_epoch,
+                            expected_round,
+                            beacon_entry.round(),
+                        )
+                        .into(),
+                    ));
+                }
+            }
+        }
+        
+        
 
         if !curr_beacon
             .verify_entries(&self.beacon_entries, prev_entry)
@@ -431,5 +432,10 @@ mod tests {
             ),
             *FILECOIN_GENESIS_CID
         );
+    }
+
+    #[test]
+    fn test_validate_block_drand_when_prev_epoch_gaps() {
+        
     }
 }
