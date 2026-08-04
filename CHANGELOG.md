@@ -41,6 +41,8 @@
 
 ### Fixed
 
+- [#7412](https://github.com/ChainSafe/forest/issues/7412): Block validation on quicknet now rejects headers whose beacon entries do not cover every epoch since the parent tipset
+
 ## Forest v0.35.0 "Shravan"
 
 Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
