@@ -1,4 +1,4 @@
-293
+294
 Algorand/M
 API's
 API/SM
@@ -285,6 +285,7 @@ VM/SM
 VPS
 VRF
 WASM
+wantlist/S
 webapp/S
 WebAssembly
 WebSocket

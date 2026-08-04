@@ -4,19 +4,51 @@
 //! Request manager implementation that is optimized for `filecoin` network
 //! usage
 
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 use crate::cid_collections::CidHashMap;
 use crate::prelude::*;
+use crate::utils::misc::env::env_or_default_logged;
 use ahash::HashSet;
 use flume::TryRecvError;
 use futures::StreamExt;
 use libp2p::PeerId;
+use nonzero_ext::nonzero;
 use parking_lot::RwLock;
+use tokio::sync::Semaphore;
 
 use crate::libp2p_bitswap::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
+
+/// Bounds the queue of computed wantlist responses awaiting send by the swarm
+/// loop. A `Block` response can carry up to
+/// [`MAX_BUF_SIZE`](crate::libp2p_bitswap::internals::codec::MAX_BUF_SIZE), so an
+/// unbounded queue could buffer gigabytes under a flood of block requests for
+/// large stored blocks. When the channel is full the (already blocking) serve
+/// task waits, holding its permit and so shedding further inbound serves.
+const SERVE_RESPONSE_CHANNEL_CAP: usize = 128;
+
+/// Maximum wantlist entries served from a single inbound bitswap message.
+///
+/// The peer picks the entry count, bounded only by
+/// [`MAX_BUF_SIZE`](crate::libp2p_bitswap::internals::codec::MAX_BUF_SIZE) (~47k
+/// entries), and each is a blockstore read; serving them all in one message is
+/// an unbounded burst of DB IO. Well-behaved peers that want more simply
+/// re-request.
+const MAX_WANTLIST_ENTRIES_SERVED: usize = 1024;
+
+/// Concurrent inbound wantlist serves allowed at once. Each holds a blocking
+/// thread while it reads the blockstore, so this bounds blocking-pool usage
+/// under a flood. Excess serves are dropped; the peer can re-request.
+static MAX_CONCURRENT_INBOUND_WANTLIST_SERVES: LazyLock<usize> = LazyLock::new(|| {
+    env_or_default_logged(
+        "FOREST_MAX_CONCURRENT_INBOUND_WANTLIST_SERVES",
+        nonzero!(8_usize),
+    )
+    .get()
+});
 
 pub type ValidatePeerCallback = dyn Fn(PeerId) -> bool + Send + Sync;
 
@@ -38,6 +70,11 @@ pub struct BitswapRequestManager {
     // channel for outbound `block` requests
     outbound_block_request_tx: flume::Sender<(PeerId, Cid)>,
     outbound_block_request_rx: flume::Receiver<(PeerId, Cid)>,
+    // responses to inbound wantlists, computed off the swarm loop and sent from it
+    serve_response_tx: flume::Sender<(PeerId, Cid, BitswapResponse)>,
+    serve_response_rx: flume::Receiver<(PeerId, Cid, BitswapResponse)>,
+    // bounds concurrent off-loop wantlist serving
+    inbound_serve_limiter: Arc<Semaphore>,
     peers: RwLock<HashSet<PeerId>>,
     response_channels: RwLock<CidHashMap<ResponseChannels>>,
 }
@@ -78,6 +115,63 @@ impl BitswapRequestManager {
         ];
         futures::stream::select_all(streams)
     }
+
+    /// Responses to inbound wantlists, computed off the swarm loop by
+    /// [`Self::serve_inbound_requests`]. Each item must be sent with
+    /// [`BitswapBehaviour::send_response`].
+    pub fn outbound_serve_response_stream(
+        &self,
+    ) -> impl futures::stream::Stream<Item = (PeerId, Cid, BitswapResponse)> + '_ {
+        self.serve_response_rx.stream()
+    }
+
+    /// Serves an inbound wantlist off the swarm loop: the blockstore reads run
+    /// on a blocking task (bounded by [`MAX_CONCURRENT_INBOUND_WANTLIST_SERVES`],
+    /// dropped when saturated) and the responses are streamed back via
+    /// [`Self::outbound_serve_response_stream`] for the loop to send. Keeping the
+    /// reads off the loop is what stops a large wantlist from stalling all p2p.
+    pub(in crate::libp2p_bitswap) fn serve_inbound_requests<S>(
+        self: &Arc<Self>,
+        store: &S,
+        peer: PeerId,
+        requests: Vec<BitswapRequest>,
+    ) where
+        S: BitswapStoreRead + ShallowClone + Send + Sync + 'static,
+    {
+        if requests.is_empty() {
+            return;
+        }
+
+        let Ok(permit) = self
+            .inbound_serve_limiter
+            .shallow_clone()
+            .try_acquire_owned()
+        else {
+            debug!(%peer, "dropping inbound bitswap wantlist: too many serves in flight");
+            return;
+        };
+        if requests.len() > MAX_WANTLIST_ENTRIES_SERVED {
+            debug!(
+                %peer,
+                "truncating inbound bitswap wantlist from {} to {MAX_WANTLIST_ENTRIES_SERVED} entries",
+                requests.len(),
+            );
+        }
+        let store = store.shallow_clone();
+        let serve_response_tx = self.serve_response_tx.clone();
+        task::spawn_blocking(move || {
+            let _permit = permit;
+            for request in requests.into_iter().take(MAX_WANTLIST_ENTRIES_SERVED) {
+                if let Some(response) = handle_inbound_request(&store, &request)
+                    && serve_response_tx
+                        .send((peer, request.cid, response))
+                        .is_err()
+                {
+                    break; // receiver gone (shutdown)
+                }
+            }
+        });
+    }
 }
 
 impl Default for BitswapRequestManager {
@@ -85,6 +179,7 @@ impl Default for BitswapRequestManager {
         let (outbound_have_request_tx, outbound_have_request_rx) = flume::unbounded();
         let (outbound_cancel_request_tx, outbound_cancel_request_rx) = flume::unbounded();
         let (outbound_block_request_tx, outbound_block_request_rx) = flume::unbounded();
+        let (serve_response_tx, serve_response_rx) = flume::bounded(SERVE_RESPONSE_CHANNEL_CAP);
         Self {
             outbound_have_request_tx,
             outbound_have_request_rx,
@@ -92,6 +187,11 @@ impl Default for BitswapRequestManager {
             outbound_cancel_request_rx,
             outbound_block_request_tx,
             outbound_block_request_rx,
+            serve_response_tx,
+            serve_response_rx,
+            inbound_serve_limiter: Arc::new(Semaphore::new(
+                *MAX_CONCURRENT_INBOUND_WANTLIST_SERVES,
+            )),
             peers: RwLock::new(HashSet::new()),
             response_channels: RwLock::new(CidHashMap::new()),
         }
@@ -100,7 +200,7 @@ impl Default for BitswapRequestManager {
 
 impl BitswapRequestManager {
     /// Hook the `bitswap` network event into the [`BitswapRequestManager`]
-    pub fn handle_event<S: BitswapStoreRead>(
+    pub fn handle_event<S: BitswapStoreRead + ShallowClone + Send + Sync + 'static>(
         self: &Arc<Self>,
         bitswap: &mut BitswapBehaviour,
         store: &S,
