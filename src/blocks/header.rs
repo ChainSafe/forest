@@ -154,21 +154,64 @@ impl RawBlockHeader {
         }
 
         // We skip verifying the genesis entry when randomness is "chained".
-        if curr_beacon.network().is_chained() {
+        if curr_beacon.network().is_chained() && prev_entry.round() == 0 {
             // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
             // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
-            if prev_entry.round() == 0 {
-                return Ok(());
-            }
+            return Ok(());
         }
 
+        let last = match self.beacon_entries.last() {
+            Some(last) => last,
+            None => {
+                return Err(Error::Validation(
+                    "Block must include at least 1 beacon entry".into(),
+                ));
+            }
+        };
+
+        if last.round() != max_round {
+            return Err(Error::Validation(
+                format!(
+                    "expected final beacon entry in block to be at round {}, got: {}",
+                    max_round,
+                    last.round()
+                )
+                .into(),
+            ));
+        }
+
+        // An unchained beacon carries no link between consecutive entries, so nothing
+        // but these checks ties them to the epochs they are supposed to cover. A block
+        // covers every epoch since its parent - normally just its own, but null rounds
+        // can happen and it must carry exactly one entry per covered epoch, in
+        // ascending order.
         if curr_beacon.network().is_unchained() {
-            for (idx, beacon_entry) in self.beacon_entries.iter().enumerate() {
-                let lookup_epoch = parent_epoch + (idx + 1) as i64;
-                let expected_round = curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
+            let covered_epochs = self.epoch - parent_epoch;
+            let found_entries = i64::try_from(self.beacon_entries.len())
+                .map_err(|_| Error::Validation("too many beacon entries".into()))?;
+            if found_entries != covered_epochs {
+                return Err(Error::Validation(
+                    format!(
+                        "expected {covered_epochs} beacon entries for epochs {}..={}, got: {found_entries}",
+                        parent_epoch + 1,
+                        self.epoch,
+                    )
+                    .into(),
+                ));
+            }
+
+            // Lengths match, so `zip` pairs every entry with the epoch it must cover.
+            for (beacon_entry, lookup_epoch) in self
+                .beacon_entries
+                .iter()
+                .zip((parent_epoch + 1)..=self.epoch)
+            {
+                let expected_round =
+                    curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
                 if beacon_entry.round() != expected_round {
                     return Err(Error::Validation(
-                        format!("expected max round for epoch {} to be {}, got: {}",
+                        format!(
+                            "expected max round for epoch {} to be {}, got: {}",
                             lookup_epoch,
                             expected_round,
                             beacon_entry.round(),
@@ -178,8 +221,6 @@ impl RawBlockHeader {
                 }
             }
         }
-        
-        
 
         if !curr_beacon
             .verify_entries(&self.beacon_entries, prev_entry)
@@ -353,7 +394,10 @@ impl<'de> Deserialize<'de> for CachingBlockHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon};
+    use crate::beacon::{
+        BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon,
+        tests::drand::new_beacon_quicknet,
+    };
     use crate::blocks::{CachingBlockHeader, Error};
     use crate::shim::clock::ChainEpoch;
     use crate::shim::{address::Address, version::NetworkVersion};
@@ -434,8 +478,41 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_validate_block_drand_when_prev_epoch_gaps() {
-        
+    #[tokio::test]
+    async fn validate_block_drand_accepts_correct_entries_quicknet() {
+        // (parent epoch, its beacon round, block epoch, rounds the header must carry)
+        let cases = [
+            // no gaps, expected only a single entry
+            (6216199, 30662992, 6216200, vec![30663002]),
+            // one gap (6216199) so the block 6216200 should have its and the 6216199 beacon entries
+            (6216198, 30662982, 6216200, vec![30662992, 30663002]),
+        ];
+
+        let schedule = BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())]);
+
+        for (parent_epoch, prev_round, epoch, rounds) in cases {
+            let (_, curr_beacon) = schedule.beacon_for_epoch(epoch).unwrap();
+
+            // fetch the real entries so BLS verifies correctly
+            let mut beacon_entries = Vec::with_capacity(rounds.len());
+            for round in rounds {
+                beacon_entries.push(curr_beacon.entry(round).await.unwrap());
+            }
+
+            // Unchained verification never reads `prev_entry`, only its round is used
+            // to decide whether drand has ticked since the parent.
+            let prev_entry = BeaconEntry::new(prev_round, vec![]);
+
+            let header = RawBlockHeader {
+                miner_address: Address::new_id(0),
+                epoch,
+                beacon_entries,
+                ..Default::default()
+            };
+
+            header
+                .validate_block_drand(NetworkVersion::V22, &schedule, parent_epoch, &prev_entry)
+                .unwrap_or_else(|e| panic!("epoch {epoch}, parent {parent_epoch}: {e}"));
+        }
     }
 }
