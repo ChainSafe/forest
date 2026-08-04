@@ -58,7 +58,7 @@ pub enum IndexCommands {
     },
     /// Cancel the in-progress index backfill.
     BackfillCancel {},
-    /// validates the chain index entries for each epoch in descending order in the specified range, checking for missing or
+    /// validates the SQL chain index entries for each epoch in descending order in the specified range, checking for missing or
     /// inconsistent entries (i.e. the indexed data does not match the actual chain state). If '--backfill' is enabled
     /// (which it is by default), it will attempt to backfill any missing entries using the `ChainValidateIndex` API.
     ValidateBackfill {
