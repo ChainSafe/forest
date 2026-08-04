@@ -219,11 +219,11 @@ impl GasEstimateGasLimit {
         let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
         let from_a = match sender_validation {
             SenderValidation::Skip => msg.from,
-            SenderValidation::Enforce => {
-                data.state_manager
-                    .resolve_to_deterministic_address(msg.from, &curr_ts)
-                    .await?
-            }
+            SenderValidation::Enforce => data
+                .state_manager
+                .resolve_to_deterministic_address(msg.from, &curr_ts)
+                .await
+                .map_err(|_| crate::state_manager::Error::SenderValidationFailed)?,
         };
 
         let pending = data.mpool.pending_for(&from_a).await;
@@ -275,13 +275,19 @@ impl GasEstimateGasLimit {
             .context("gas estimation failed")?;
         match res.msg_rct {
             Some(rct) => {
-                anyhow::ensure!(
-                    rct.exit_code().is_success(),
+                if rct.exit_code().is_success() {
+                    return Ok(rct.gas_used() as i64);
+                }
+                if sender_validation == SenderValidation::Enforce
+                    && rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
+                {
+                    return Err(crate::state_manager::Error::SenderValidationFailed.into());
+                }
+                anyhow::bail!(
                     "message execution failed: exit code: {}, reason: {}",
                     rct.exit_code().value(),
                     res.error.unwrap_or_default()
-                );
-                Ok(rct.gas_used() as i64)
+                )
             }
             None => Ok(-1),
         }
@@ -315,7 +321,7 @@ pub async fn estimate_message_gas(
     mut msg: Message,
     msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
-) -> Result<Message, ServerError> {
+) -> anyhow::Result<Message> {
     if msg.gas_limit == 0 {
         let gl = GasEstimateGasLimit::estimate_gas_limit(
             data,

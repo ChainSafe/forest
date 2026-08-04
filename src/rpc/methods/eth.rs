@@ -1883,6 +1883,13 @@ async fn eth_estimate_gas(
 
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
         Err(server_err) => {
+            if server_err
+                .downcast_ref::<crate::state_manager::Error>()
+                .is_some_and(|e| matches!(e, crate::state_manager::Error::SenderValidationFailed))
+            {
+                return eth_estimate_gas_skip_sender(ctx, msg, tipset).await;
+            }
+
             // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
             // it just returns an error. That means we can't get the revert reason.
             //
@@ -1890,8 +1897,8 @@ async fn eth_estimate_gas(
             // guts of EthCall). This will give us an ethereum specific error with revert
             // information.
             msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            let err = match apply_message(ctx, None, msg).await {
-                Ok(_) => Error::msg(server_err.to_string()),
+            let err = match apply_message(ctx, Some(tipset), msg).await {
+                Ok(_) => server_err,
                 Err(e)
                     if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
                         matches!(eth_err, EthErrors::ExecutionReverted { .. })
