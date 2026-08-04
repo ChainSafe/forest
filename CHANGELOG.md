@@ -41,7 +41,7 @@
 
 ### Fixed
 
-- [#7412](https://github.com/ChainSafe/forest/issues/7412): Block validation on quicknet now rejects headers whose beacon entries do not cover every epoch since the parent tipset
+- [#7413](https://github.com/ChainSafe/forest/issues/7413): Block validation on quicknet now rejects headers whose beacon entries do not cover every epoch since the parent tipset
 
 ## Forest v0.35.0 "Shravan"
 
