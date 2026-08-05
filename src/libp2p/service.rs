@@ -310,8 +310,9 @@ impl Libp2pService {
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
-        let mut bitswap_serve_response_stream =
-            bitswap_request_manager.outbound_serve_response_stream().fuse();
+        let mut bitswap_serve_response_stream = bitswap_request_manager
+            .outbound_serve_response_stream()
+            .fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let metrics = if libp2p_metrics_enabled() {
             Some(Metrics::new(&mut crate::metrics::collector_registry()))
