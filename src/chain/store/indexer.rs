@@ -575,17 +575,18 @@ impl SqliteIndexer {
                     .await?;
                 for row2 in rows2 {
                     let flags: Vec<u8> = row2.get(0);
-                    if let Some(&flags) = flags.first() {
-                        let key: String = row2.get(1);
-                        let codec: i64 = row2.get(2);
-                        let value: Vec<u8> = row2.get(3);
-                        event.event.entries.push(Entry {
-                            flags: Flags::from_bits_retain(u64::from(flags)),
-                            key,
-                            codec: codec as _,
-                            value,
-                        });
-                    }
+                    let flags = *flags.first().with_context(|| {
+                        format!("index corruption: empty flags blob for event {event_id}")
+                    })?;
+                    let key: String = row2.get(1);
+                    let codec: i64 = row2.get(2);
+                    let value: Vec<u8> = row2.get(3);
+                    event.event.entries.push(Entry {
+                        flags: Flags::from_bits_retain(u64::from(flags)),
+                        key,
+                        codec: codec as _,
+                        value,
+                    });
                 }
                 events.set(i as _, event)?;
             }
@@ -628,7 +629,7 @@ impl SqliteIndexer {
         let recompute = || {
             let tsk_cid = receipt_ts.key().cid()?;
             tracing::warn!(
-                "failed to load receipts for tipset {tsk_cid} (epoch {}); recomputing tipset state",
+                "failed to load message receipts or events for tipset {tsk_cid} (epoch {}); recomputing tipset state",
                 receipt_ts.epoch()
             );
             recompute_tipset_state_func(msg_ts.clone())?;
