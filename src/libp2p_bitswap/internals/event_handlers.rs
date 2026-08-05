@@ -6,6 +6,7 @@ use std::sync::Arc;
 use libp2p::{PeerId, request_response};
 
 use crate::libp2p_bitswap::{request_manager::*, *};
+use crate::prelude::ShallowClone;
 
 #[derive(Debug, Clone)]
 pub enum BitswapInboundResponseEvent {
@@ -13,8 +14,7 @@ pub enum BitswapInboundResponseEvent {
     DataBlock(PeerId, Cid, Vec<u8>),
 }
 
-// Note: This method performs db IO synchronously to reduce complexity
-pub fn handle_event_impl<S: BitswapStoreRead>(
+pub fn handle_event_impl<S: BitswapStoreRead + ShallowClone + Send + Sync + 'static>(
     request_manager: &Arc<BitswapRequestManager>,
     bitswap: &mut BitswapBehaviour,
     store: &S,
@@ -30,13 +30,13 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
                 // Close inbound stream immediately since `go-bitswap` does not read this
                 // stream. responses will be sent over a new outbound request
                 _ = bitswap.inner_mut().send_response(channel, ());
+                // Serving wantlists reads the blockstore per entry; do it off
+                // the swarm loop (`serve_inbound_requests`) so a large wantlist
+                // can't stall all p2p handling. Inbound responses stay inline.
+                let mut requests = Vec::new();
                 for message in request {
                     match message {
-                        BitswapMessage::Request(request) => {
-                            if let Some(response) = handle_inbound_request(store, &request) {
-                                bitswap.send_response(&peer, (request.cid, response));
-                            }
-                        }
+                        BitswapMessage::Request(request) => requests.push(request),
                         BitswapMessage::Response(cid, response) => {
                             if let Some(event) = match response {
                                 BitswapResponse::Have(have) => {
@@ -58,6 +58,7 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
                         }
                     }
                 }
+                request_manager.serve_inbound_requests(store, peer, requests);
             }
             request_response::Message::Response { .. } => {
                 // Left empty by design
@@ -68,7 +69,7 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
     Ok(())
 }
 
-fn handle_inbound_request<S: BitswapStoreRead>(
+pub(in crate::libp2p_bitswap) fn handle_inbound_request<S: BitswapStoreRead>(
     store: &S,
     request: &BitswapRequest,
 ) -> Option<BitswapResponse> {

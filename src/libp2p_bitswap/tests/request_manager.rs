@@ -4,6 +4,7 @@
 #[cfg(test)]
 mod tests {
     use crate::libp2p_bitswap::*;
+    use crate::prelude::ShallowClone;
     use crate::utils::multihash::prelude::*;
     use ahash::HashMap;
     use cid::Cid;
@@ -106,21 +107,25 @@ mod tests {
     ) -> anyhow::Result<()> {
         let request_manager = swarm.behaviour().request_manager();
         let mut outbound_request_stream = request_manager.outbound_request_stream().fuse();
+        let mut serve_response_stream = request_manager.outbound_serve_response_stream().fuse();
         let mut swarm_stream = swarm.fuse();
 
         loop {
             select! {
                 // Hook libp2p swarm events
                 swarm_event_opt = swarm_stream.next() => {
-                    // `store` implements `BitswapStoreRead`
+                    // `store` (an `Arc`) implements `BitswapStoreRead`
                     _ = handle_swarm_event(
                         swarm_stream.get_mut(),
                         swarm_event_opt,
-                        store.as_ref(),
+                        &store,
                     );
                 },
                 request_opt = outbound_request_stream.next() => if let Some((peer, request)) = request_opt {
                     swarm_stream.get_mut().behaviour_mut().send_request(&peer, request);
+                },
+                serve_opt = serve_response_stream.next() => if let Some((peer, cid, response)) = serve_opt {
+                    swarm_stream.get_mut().behaviour_mut().send_response(&peer, (cid, response));
                 },
             }
         }
@@ -129,7 +134,7 @@ mod tests {
     fn handle_swarm_event(
         swarm: &mut Swarm<BitswapBehaviour>,
         swarm_event_opt: Option<SwarmEvent<BitswapBehaviourEvent>>,
-        store: &impl BitswapStoreRead,
+        store: &(impl BitswapStoreRead + ShallowClone + Send + Sync + 'static),
     ) -> anyhow::Result<()> {
         if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {
             let bitswap = &mut swarm.behaviour_mut();
