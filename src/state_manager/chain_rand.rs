@@ -126,7 +126,7 @@ impl ChainRand {
         let mut rand_ts: Tipset = self.get_beacon_randomness_tipset_blocking(epoch, false)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round =
-            beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
+            beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch)?;
 
         for _ in 0..20 {
             let cbe = &rand_ts.block_headers().first().beacon_entries;

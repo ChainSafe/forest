@@ -63,6 +63,16 @@ pub struct ExportResult<D: Digest> {
     pub tipset_lookup: Option<anyhow::Result<Hamt<IndexMapBlockstore, TipsetKey, ChainEpoch>>>,
 }
 
+/// Oldest epoch whose state roots an export walks.
+fn lookup_epoch_limit(
+    tipset_epoch: ChainEpoch,
+    lookup_depth: ChainEpoch,
+) -> anyhow::Result<ChainEpoch> {
+    tipset_epoch
+        .checked_sub(lookup_depth)
+        .with_context(|| format!("recent roots depth {lookup_depth} is out of range"))
+}
+
 /// Exports a Filecoin snapshot in v1 format
 /// See <https://github.com/filecoin-project/FIPs/blob/98e33b9fa306959aa0131519eb4cc155522b2081/FRCs/frc-0108.md#v1-specification>
 pub async fn export<D: Digest, S: CidHashSetLike + Send + Sync + 'static>(
@@ -170,7 +180,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         prefix_data_frames.as_ref().map(|v| v.len()).unwrap_or(0)
     );
 
-    let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
+    let stateroot_lookup_limit = lookup_epoch_limit(tipset.epoch(), lookup_depth)?;
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
@@ -274,7 +284,7 @@ pub async fn export_receipts_events_to_forest_car(
         tipset.epoch(),
     );
 
-    let min_lookup_epoch_exclusive = tipset.epoch() - lookup_depth;
+    let min_lookup_epoch_exclusive = lookup_epoch_limit(tipset.epoch(), lookup_depth)?;
     let ipld_roots = tokio::task::spawn_blocking({
         let tipset = tipset.shallow_clone();
         let db = db.shallow_clone();

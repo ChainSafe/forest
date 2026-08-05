@@ -654,10 +654,26 @@ async fn process_ts(
     Ok(ProcessOutcome::Indexed)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RangeSpec {
     To(ChainEpoch),
     NumTipsets(usize),
+}
+
+impl RangeSpec {
+    /// Both ingresses (`Filecoin.IndexBackfill` and `forest-tool index backfill`) parse the same
+    /// mutually exclusive pair.
+    pub fn new(to: Option<ChainEpoch>, n_tipsets: Option<usize>) -> anyhow::Result<Self> {
+        match (to, n_tipsets) {
+            (Some(to), None) => {
+                anyhow::ensure!(to >= 0, "'to' must not be negative, got {to}.");
+                Ok(Self::To(to))
+            }
+            (None, Some(n)) => Ok(Self::NumTipsets(n)),
+            (None, None) => anyhow::bail!("You must provide either 'to' or 'n_tipsets'."),
+            (Some(_), Some(_)) => anyhow::bail!("'to' and 'n_tipsets' are mutually exclusive."),
+        }
+    }
 }
 
 impl std::fmt::Display for RangeSpec {

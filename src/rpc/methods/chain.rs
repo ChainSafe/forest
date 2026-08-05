@@ -344,6 +344,11 @@ async fn export_chain_inner(
         dry_run,
     } = params;
 
+    anyhow::ensure!(
+        recent_roots >= 0,
+        "recentRoots must not be negative, got {recent_roots}."
+    );
+
     let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
     let start_ts = ctx
         .chain_index()
@@ -602,7 +607,7 @@ impl RpcMethod<0> for ForestChainExportCancel {
 }
 
 /// Parameters for [`IndexBackfill`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexBackfillParams {
     /// Starting epoch, inclusive. Defaults to the chain head, unless `resume` is set and a
@@ -727,15 +732,10 @@ impl RpcMethod<1> for IndexBackfill {
 fn index_backfill_range_spec(
     params: &IndexBackfillParams,
 ) -> Result<crate::daemon::db_util::RangeSpec, ServerError> {
-    use crate::daemon::db_util::RangeSpec;
-    match (params.to, params.n_tipsets) {
-        (Some(x), None) => Ok(RangeSpec::To(x)),
-        (None, Some(x)) => Ok(RangeSpec::NumTipsets(x as usize)),
-        (None, None) => Err(anyhow::anyhow!("You must provide either 'to' or 'n_tipsets'.").into()),
-        (Some(_), Some(_)) => {
-            Err(anyhow::anyhow!("'to' and 'n_tipsets' are mutually exclusive.").into())
-        }
-    }
+    let n_tipsets = params.n_tipsets.map(|n| n as usize);
+    Ok(crate::daemon::db_util::RangeSpec::new(
+        params.to, n_tipsets,
+    )?)
 }
 
 async fn run_index_backfill_inner(
@@ -1491,11 +1491,12 @@ impl ChainGetTipSetFinalityStatus {
         head: &Tipset,
         depth: i64,
     ) -> i64 {
-        if depth >= 0 {
-            (head.epoch() - depth).max(0)
+        let depth = if depth >= 0 {
+            depth
         } else {
-            (head.epoch() - chain_config.policy.chain_finality).max(0)
-        }
+            chain_config.policy.chain_finality
+        };
+        (head.epoch() - depth).max(0)
     }
 
     fn get_ec_finality_threshold_depth_with_cache(
@@ -1542,13 +1543,8 @@ impl ChainGetTipSetFinalityStatus {
             chain.push(ts.len() as i64);
             if let Ok(parent) = chain_index.load_required_tipset(ts.parents()) {
                 // insert 0 for null rounds
-                if let Ok(n_null_tipsets_to_pad) = usize::try_from(ts.epoch() - parent.epoch() - 1)
-                    && n_null_tipsets_to_pad > 0
-                {
-                    let target_len =
-                        (chain.len().saturating_add(n_null_tipsets_to_pad)).min(chain_len);
-                    chain.resize(target_len, 0);
-                }
+                let pad = usize::try_from(ts.epoch() - parent.epoch() - 1).unwrap_or_default();
+                chain.resize(chain.len().saturating_add(pad).min(chain_len), 0);
                 ts = parent;
             } else {
                 break;
@@ -2087,6 +2083,7 @@ fn quickcheck(val: PathChange) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::daemon::db_util::RangeSpec;
     use crate::{
         blocks::{Chain4U, RawBlockHeader, chain4u},
         db::{
@@ -2096,7 +2093,27 @@ mod tests {
         networks::{self, ChainConfig},
     };
     use PathChange::{Apply, Revert};
+    use rstest::rstest;
     use std::sync::Arc;
+
+    #[rstest]
+    #[case(Some(0), None, Some(RangeSpec::To(0)))]
+    #[case(Some(-1), None, None)]
+    #[case(None, Some(10), Some(RangeSpec::NumTipsets(10)))]
+    #[case(None, None, None)]
+    #[case(Some(10), Some(10), None)]
+    fn index_backfill_range_spec_validates_params(
+        #[case] to: Option<ChainEpoch>,
+        #[case] n_tipsets: Option<u64>,
+        #[case] expected: Option<RangeSpec>,
+    ) {
+        let params = IndexBackfillParams {
+            to,
+            n_tipsets,
+            ..Default::default()
+        };
+        assert_eq!(index_backfill_range_spec(&params).ok(), expected);
+    }
 
     #[test]
     fn revert_to_ancestor_linear() {
