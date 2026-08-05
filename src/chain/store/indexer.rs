@@ -56,7 +56,7 @@ impl SqliteIndexerOptions {
     fn validate(&self) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.gc_retention_epochs == 0 || self.gc_retention_epochs >= EPOCHS_IN_DAY,
-            "gc retention epochs must be 0 or greater than {EPOCHS_IN_DAY}"
+            "gc retention epochs must be 0 or no less than {EPOCHS_IN_DAY}"
         );
         Ok(())
     }
@@ -439,7 +439,9 @@ impl SqliteIndexer {
             "index corruption: reverted events found for an executed tipset {tsk_cid} at height {}",
             ts.epoch()
         );
-        let executed_messages = self.load_executed_messages(ts, &execution_ts)?;
+        let executed_messages = self
+            .load_executed_messages(ts.shallow_clone(), execution_ts.shallow_clone())
+            .await?;
         anyhow::ensure!(
             executed_messages.len() as u64 == indexed_tipset_data.indexed_messages_count,
             "message count mismatch for height {}: chainstore has {}, index has {}",
@@ -589,16 +591,33 @@ impl SqliteIndexer {
         }
     }
 
-    fn load_executed_messages(
+    async fn load_executed_messages(
         &self,
+        msg_ts: Tipset,
+        receipt_ts: Tipset,
+    ) -> anyhow::Result<Vec<ExecutedMessage>> {
+        let cs = self.cs.shallow_clone();
+        let recompute_tipset_state_func = self.recompute_tipset_state_func.clone();
+        tokio::task::spawn_blocking(move || {
+            Self::load_executed_messages_blocking(
+                &cs,
+                recompute_tipset_state_func.as_ref(),
+                &msg_ts,
+                &receipt_ts,
+            )
+        })
+        .await?
+    }
+
+    fn load_executed_messages_blocking(
+        cs: &ChainStore,
+        recompute_tipset_state_func: Option<&RecomputeTipsetStateFunc>,
         msg_ts: &Tipset,
         receipt_ts: &Tipset,
     ) -> anyhow::Result<Vec<ExecutedMessage>> {
-        let recompute_tipset_state_func = self
-            .recompute_tipset_state_func
-            .as_ref()
-            .context("recompute_tipset_state_func not set")?;
-        let msgs = self.cs.messages_for_tipset(msg_ts)?;
+        let recompute_tipset_state_func =
+            recompute_tipset_state_func.context("recompute_tipset_state_func not set")?;
+        let msgs = cs.messages_for_tipset(msg_ts)?;
         if msgs.is_empty() {
             return Ok(vec![]);
         }
@@ -616,15 +635,14 @@ impl SqliteIndexer {
             );
             anyhow::Ok(())
         };
-        let receipts =
-            match Receipt::get_receipts(self.cs.db(), *receipt_ts.parent_message_receipts()) {
-                Ok(receipts) => receipts,
-                Err(_) => {
-                    recompute()?;
-                    recomputed = true;
-                    Receipt::get_receipts(self.cs.db(), *receipt_ts.parent_message_receipts())?
-                }
-            };
+        let receipts = match Receipt::get_receipts(cs.db(), *receipt_ts.parent_message_receipts()) {
+            Ok(receipts) => receipts,
+            Err(_) => {
+                recompute()?;
+                recomputed = true;
+                Receipt::get_receipts(cs.db(), *receipt_ts.parent_message_receipts())?
+            }
+        };
         anyhow::ensure!(
             msgs.len() == receipts.len(),
             "mismatching message and receipt counts ({} msgs, {} rcts)",
@@ -634,13 +652,13 @@ impl SqliteIndexer {
         let mut executed = Vec::with_capacity(msgs.len());
         for (message, receipt) in msgs.iter().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
-                Some(match StampedEvent::get_events(self.cs.db(), &events_root) {
+                Some(match StampedEvent::get_events(cs.db(), &events_root) {
                     Ok(events) => events,
                     Err(e) if recomputed => return Err(e),
                     Err(_) => {
                         recompute()?;
                         recomputed = true;
-                        StampedEvent::get_events(self.cs.db(), &events_root)?
+                        StampedEvent::get_events(cs.db(), &events_root)?
                     }
                 })
             } else {
@@ -790,7 +808,8 @@ impl SqliteIndexer {
             return Ok(());
         }
         let executed_messages = self
-            .load_executed_messages(msg_ts, execution_ts)
+            .load_executed_messages(msg_ts.shallow_clone(), execution_ts.shallow_clone())
+            .await
             .map_err(|e| anyhow::anyhow!("failed to load executed message: {e}"))?;
         let mut event_count = 0;
         let mut address_lookups = HashMap::default();

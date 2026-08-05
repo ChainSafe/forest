@@ -476,6 +476,24 @@ methods:
           - $ref: "#/components/schemas/Tipset"
           - type: "null"
     paramStructure: by-position
+  - name: Filecoin.ChainValidateIndex
+    description: "Validates the chain index at the given epoch, optionally backfill when missing"
+    params:
+      - name: epoch
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: backfill
+        required: true
+        schema:
+          type: boolean
+    result:
+      name: Filecoin.ChainValidateIndex.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/ChainIndexValidation"
+    paramStructure: by-position
   - name: Filecoin.Session
     description: Returns a UUID that uniquely identifies this node for the current session.
     params: []
@@ -5515,6 +5533,45 @@ components:
         - Succeeded
         - Cancelled
         - Failed
+    ChainIndexValidation:
+      type: object
+      properties:
+        Backfilled:
+          description: whether missing data was successfully backfilled into the index during validation
+          type: boolean
+        Height:
+          description: the epoch height at which the validation is performed.
+          type: integer
+          format: int64
+        IndexedEventEntriesCount:
+          description: the number of indexed event entries for the canonical tipset at this epoch
+          type: integer
+          format: uint64
+          minimum: 0
+        IndexedEventsCount:
+          description: the number of indexed events for the canonical tipset at this epoch
+          type: integer
+          format: uint64
+          minimum: 0
+        IndexedMessagesCount:
+          description: the number of indexed messages for the canonical tipset at this epoch
+          type: integer
+          format: uint64
+          minimum: 0
+        IsNullRound:
+          description: if the epoch corresponds to a null round and therefore does not have any indexed messages or events
+          type: boolean
+        TipSetKey:
+          description: the key of the canonical tipset for this epoch
+          $ref: "#/components/schemas/Nullable_Array_of_Cid"
+      required:
+        - TipSetKey
+        - Height
+        - IndexedMessagesCount
+        - IndexedEventsCount
+        - IndexedEventEntriesCount
+        - Backfilled
+        - IsNullRound
     ChangedType:
       description: Represents a changed value with before and after states.
       type: object
