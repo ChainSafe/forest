@@ -4,7 +4,7 @@
 use super::*;
 use crate::blocks::TipsetKey;
 use crate::prelude::*;
-use crate::rpc::eth::filter::ensure_filter_cap;
+use crate::rpc::eth::filter::{SkipEvent, ensure_filter_cap};
 use crate::rpc::eth::{
     CollectedEvent,
     filter::{ActorEventBlock, ParsedFilter, ParsedFilterTipsets},
@@ -42,6 +42,7 @@ impl SqliteIndexer {
         &self,
         filter: IndexerEventFilter,
         max_filter_results: usize,
+        skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
         let bs = self.cs.db();
         let mut qb = filter.to_query_builder()?;
@@ -71,10 +72,12 @@ impl SqliteIndexer {
 
                 current_id = event.id;
                 let tsk_cid = Cid::read_bytes(event.tipset_key_cid.as_slice())?;
-                let emitter_addr = if event.emitter_addr.is_empty() {
-                    Address::new_id(event.emitter_id)
-                } else {
+                let emitter_addr = if !event.emitter_addr.is_empty() {
                     Address::from_bytes(event.emitter_addr.as_slice())?
+                } else if matches!(skip_event, SkipEvent::OnUnresolvedAddress) {
+                    continue;
+                } else {
+                    Address::new_id(event.emitter_id)
                 };
                 ce = Some(CollectedEvent {
                     event_idx: event.event_index,

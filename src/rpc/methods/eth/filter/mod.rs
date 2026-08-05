@@ -1782,7 +1782,9 @@ mod tests {
     #[case(0..=499, 1000, false)]
     #[case(0..=500, 1000, true)]
     #[case(0..=501, 1000, true)]
+    #[allow(clippy::reversed_empty_ranges)]
     #[case(0..=(-1), 1000, true)]
+    #[allow(clippy::reversed_empty_ranges)]
     #[case(0..=(-1), 100, false)]
     fn test_is_large_range_for_sql_range(
         #[case] range: RangeInclusive<ChainEpoch>,

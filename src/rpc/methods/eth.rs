@@ -3413,6 +3413,7 @@ impl RpcMethod<1> for EthGetLogs {
                 .get_events_for_filter(
                     IndexerEventFilter::try_from(pf)?,
                     ctx.eth_event_handler.max_filter_results,
+                    SkipEvent::OnUnresolvedAddress,
                 )
                 .await
         } else {
