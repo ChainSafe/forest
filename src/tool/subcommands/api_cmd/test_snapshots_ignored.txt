@@ -15,6 +15,7 @@ Filecoin.ChainExport
 Filecoin.ChainGetEvents
 Filecoin.ChainGetFinalizedTipset
 Filecoin.ChainSetHead
+Filecoin.ChainValidateIndex
 Filecoin.EthEstimateGas
 Filecoin.EthGetFilterChanges
 Filecoin.EthGetFilterLogs
