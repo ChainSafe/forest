@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKey;
-use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus, SyncStatusReport};
+use crate::chain_sync::{NodeSyncStatus, SyncStatusReport};
 use crate::rpc::sync::{SnapshotProgressState, SyncStatus};
 use crate::rpc::{self, prelude::*};
 use anyhow::Context;
 use cid::Cid;
 use clap::Subcommand;
 use std::{
-    io::{Write, stdout},
+    io::{BufWriter, Write, stdout},
     time::Duration,
 };
 use tokio::time;
@@ -43,8 +43,11 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let mut stdout = stdout();
-                let mut lines_printed_last_iteration = 0;
+                // Buffered so that the cursor moves, the clear and the whole report
+                // reach the terminal as a single write, leaving no partially redrawn
+                // frame on screen.
+                let mut stdout = BufWriter::new(stdout());
+                let mut rows_printed_last_iteration = 0;
 
                 handle_initial_snapshot_check(&client).await?;
 
@@ -57,16 +60,18 @@ impl SyncCommands {
 
                     wait_for_node_to_start_syncing(&client).await?;
 
-                    clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
+                    clear_previous_lines(&mut stdout, rows_printed_last_iteration)?;
 
-                    let width = dialoguer::console::Term::stdout().size().1 as usize;
-                    lines_printed_last_iteration = print_sync_report_details(&mut stdout, &report, width)
-                        .context("Failed to print sync status report")?;
+                    let width = terminal_width();
+                    rows_printed_last_iteration =
+                        print_sync_report_details(&mut stdout, &report, width)
+                            .context("Failed to print sync status report")?;
                     stdout.flush()?;
 
                     // Exit if synced and not in watch mode.
                     if !watch && report.status == NodeSyncStatus::Synced {
-                        println!("\nSync complete!");
+                        writeln!(stdout, "\nSync complete!")?;
+                        stdout.flush()?;
                         break;
                     }
                 }
@@ -87,10 +92,9 @@ impl SyncCommands {
                     };
                 }
 
-                // Print the status report once, without line counting for clearing
-                let mut stdout = stdout();
-                let width = dialoguer::console::Term::stdout().size().1 as usize;
-                _ = print_sync_report_details(&mut stdout, &sync_status, width)
+                // Print the status report once, without row counting for clearing
+                let mut stdout = BufWriter::new(stdout());
+                _ = print_sync_report_details(&mut stdout, &sync_status, terminal_width())
                     .context("Failed to print sync status report")?;
                 stdout.flush()?;
 
@@ -114,24 +118,29 @@ impl SyncCommands {
     }
 }
 
-/// Prints the sync status report details and returns the number of lines printed.
+/// Width of the terminal in columns, falling back to a sane default when it
+/// cannot be determined (e.g. output is piped).
+fn terminal_width() -> usize {
+    dialoguer::console::Term::stdout().size().1 as usize
+}
+
+/// Writes the sync status report and returns the number of terminal *rows* it
+/// occupies.
+///
+/// Rows, not lines: a line wider than the terminal wraps onto several rows, and
+/// [`clear_previous_lines`] moves the cursor by rows. Counting `writeln!` calls
+/// instead leaves the topmost row of each frame behind on narrow terminals.
+/// See <https://github.com/ChainSafe/forest/issues/7366>.
 fn print_sync_report_details(
-    stdout: &mut std::io::Stdout, 
+    out: &mut impl Write,
     report: &SyncStatusReport,
     term_width: usize,
 ) -> anyhow::Result<usize> {
-    let mut rows = 0;
-
-    // this function writes to stdout + return the amount of rows
-    // required to print the string, depending on the terminal width it
-    // might required more then one row
-    let write_line = |stdout: &mut std::io::Stdout, s: String| -> anyhow::Result<usize> {
-        writeln!(stdout, "{s}")?;
-        Ok(s.chars().count().div_ceil(term_width).max(1))
+    // Writes a single line and reports how many rows it takes up.
+    let write_line = |out: &mut dyn Write, line: String| -> anyhow::Result<usize> {
+        writeln!(out, "{line}")?;
+        Ok(line.chars().count().div_ceil(term_width).max(1))
     };
-
-    rows += write_line(stdout, 
-        format!("Status: {:?} ({} epochs behind)", report.status, report.epochs_behind))?;
 
     let head_key_str = report
         .current_head_key
@@ -139,51 +148,68 @@ fn print_sync_report_details(
         .map(tipset_key_to_string)
         .unwrap_or_else(|| "[unknown]".to_string());
 
-    rows += write_line(stdout, 
-        format!("Node Head: Epoch {} ({})", report.current_head_epoch, head_key_str))?;
+    let mut rows = 0;
 
-    rows += write_line(stdout,
-    format!("Network Head: Epoch {}", report.network_head_epoch))?;
-
-    rows += write_line(stdout, 
-        format!("Last Update: {}", report.last_updated.to_rfc3339()))?;
+    rows += write_line(
+        out,
+        format!(
+            "Status: {:?} ({} epochs behind)",
+            report.status, report.epochs_behind
+        ),
+    )?;
+    rows += write_line(
+        out,
+        format!(
+            "Node Head: Epoch {} ({head_key_str})",
+            report.current_head_epoch
+        ),
+    )?;
+    rows += write_line(
+        out,
+        format!("Network Head: Epoch {}", report.network_head_epoch),
+    )?;
+    rows += write_line(
+        out,
+        format!("Last Update: {}", report.last_updated.to_rfc3339()),
+    )?;
 
     // Print active sync tasks (forks)
     let active_forks = &report.active_forks;
     if active_forks.is_empty() {
-        rows += write_line(stdout, String::from("Active Sync Tasks: None"))?;
+        rows += write_line(out, "Active Sync Tasks: None".into())?;
     } else {
-        rows += write_line(stdout, String::from("Active Sync Tasks:"))?;
+        rows += write_line(out, "Active Sync Tasks:".into())?;
         let mut sorted_forks = active_forks.clone();
         sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
         for fork in &sorted_forks {
-            // Assuming print_fork_sync_info exists and increments line_count internally if needed
-            // If print_fork_sync_info doesn't increment, adjust line_count here.
-            // For simplicity, assuming it behaves as needed or is adjusted elsewhere.
-
-            let total_epochs_for_this_fork = fork.target_epoch.saturating_sub(fork.target_sync_epoch_start);
-            rows += write_line(stdout, format!(
-                "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
-                fork.target_epoch,
-                tipset_key_to_string(&fork.target_tipset_key),
-                fork.stage,
-                fork.target_sync_epoch_start,
-                fork.target_epoch,
-                total_epochs_for_this_fork
-            ))?;
+            let total_epochs_for_this_fork = fork
+                .target_epoch
+                .saturating_sub(fork.target_sync_epoch_start);
+            rows += write_line(
+                out,
+                format!(
+                    "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
+                    fork.target_epoch,
+                    tipset_key_to_string(&fork.target_tipset_key),
+                    fork.stage,
+                    fork.target_sync_epoch_start,
+                    fork.target_epoch,
+                    total_epochs_for_this_fork
+                ),
+            )?;
         }
     }
 
     Ok(rows)
 }
 
-fn clear_previous_lines(stdout: &mut std::io::Stdout, lines: usize) -> anyhow::Result<()> {
-    if lines > 0 {
-        // Move cursor up `lines` times, return to start (\r), clear below
+fn clear_previous_lines(out: &mut impl Write, rows: usize) -> anyhow::Result<()> {
+    if rows > 0 {
+        // Move cursor up `rows` times, return to start (\r), clear below
         write!(
-            stdout,
+            out,
             "\r{}{}",
-            anes::MoveCursorUp(lines as u16),
+            anes::MoveCursorUp(rows as u16),
             anes::ClearBuffer::Below,
         )?;
     }
