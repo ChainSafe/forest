@@ -181,7 +181,6 @@ impl RawBlockHeader {
             ));
         }
 
-
         // An unchained beacon carries no link between consecutive entries, so nothing
         // but these checks ties them to the epochs they are supposed to cover. A block
         // covers every epoch since its parent - normally just its own, but null rounds
@@ -394,6 +393,7 @@ mod tests {
     use crate::utils::multihash::MultihashCode;
     use cid::Cid;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};
+    use rstest::{fixture, rstest};
 
     impl quickcheck::Arbitrary for CachingBlockHeader {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -466,86 +466,98 @@ mod tests {
         );
     }
 
+    #[fixture]
+    #[once]
+    fn schedule() -> BeaconSchedule {
+        BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())])
+    }
+
+    /// A single case for [`validate_beacon_entries_on_quicknet`].
+    #[derive(Debug)]
+    struct BeaconEntriesCase {
+        parent_epoch: ChainEpoch,
+        prev_round: u64,
+        epoch: ChainEpoch,
+        rounds: Vec<u64>,
+        accepted: bool,
+    }
+
+    #[rstest]
+    // no gaps, a single entry is all the block owes
+    #[case::no_null_round(BeaconEntriesCase {
+        parent_epoch: 6216199,
+        prev_round: 30662992,
+        epoch: 6216200,
+        rounds: vec![30663002],
+        accepted: true,
+    })]
+    // one gap (6216199), so the block carries its own entry and 6216199's
+    #[case::null_round_both_entries(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662992, 30663002],
+        accepted: true,
+    })]
+    // the first entry is not the round that epoch 6216199 maps to
+    #[case::null_round_invalid_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662990, 30663002],
+        accepted: false,
+    })]
+    // the null epoch's entry is missing: too few entries for the covered range
+    #[case::null_round_missing_null_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30663002],
+        accepted: false,
+    })]
+    // the block's own entry is missing, so the last entry isn't at `max_round`
+    #[case::null_round_missing_own_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662992],
+        accepted: false,
+    })]
     #[tokio::test]
-    async fn validate_beacon_entries_on_quicknet() {
-        // (case name, parent epoch, its beacon round, block epoch, rounds the header must carry, expect fail)
-        let cases = [
-            (
-                "no null round",
-                6216199,
-                30662992,
-                6216200,
-                vec![30663002],
-                true,
-            ),
-            (
-                "null round, both entries",
-                6216198,
-                30662982,
-                6216200,
-                vec![30662992, 30663002],
-                true,
-            ),
-            (
-                "null round, invalid entry",
-                6216198,
-                30662982,
-                6216200,
-                vec![30662990, 30663002],
-                false,
-            ),
-            (
-                "null round, missing the null epoch's entry",
-                6216198,
-                30662982,
-                6216200,
-                vec![30663002],
-                false,
-            ),
-            (
-                "null round, missing the block's own entry",
-                6216198,
-                30662982,
-                6216200,
-                vec![30662992],
-                false,
-            ),
-        ];
+    async fn validate_beacon_entries_on_quicknet(
+        schedule: &BeaconSchedule,
+        #[case] case: BeaconEntriesCase,
+    ) {
+        let BeaconEntriesCase {
+            parent_epoch,
+            prev_round,
+            epoch,
+            rounds,
+            accepted,
+        } = case;
 
-        let schedule = BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())]);
+        let (_, curr_beacon) = schedule.beacon_for_epoch(epoch).unwrap();
 
-        for (case, parent_epoch, prev_round, epoch, rounds, success) in cases {
-            let (_, curr_beacon) = schedule.beacon_for_epoch(epoch).unwrap();
-
-            // fetch the real entries so BLS verifies correctly
-            let mut beacon_entries = Vec::with_capacity(rounds.len());
-            for round in rounds {
-                beacon_entries.push(curr_beacon.entry(round).await.unwrap());
-            }
-
-            // Unchained verification never reads `prev_entry`, only its round is used
-            // to decide whether drand has ticked since the parent.
-            let prev_entry = BeaconEntry::new(prev_round, vec![]);
-
-            let header = RawBlockHeader {
-                miner_address: Address::new_id(0),
-                epoch,
-                beacon_entries,
-                ..Default::default()
-            };
-
-            let result = header.validate_block_drand(
-                NetworkVersion::V22,
-                &schedule,
-                parent_epoch,
-                &prev_entry,
-            );
-
-            assert_eq!(
-                result.is_ok(),
-                success,
-                "{case} (epoch {epoch}, parent {parent_epoch}): {result:?}"
-            );
+        let mut beacon_entries = Vec::with_capacity(rounds.len());
+        for round in rounds {
+            beacon_entries.push(curr_beacon.entry(round).await.unwrap());
         }
+
+        let prev_entry = BeaconEntry::new(prev_round, vec![]);
+        let header = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            epoch,
+            beacon_entries,
+            ..Default::default()
+        };
+
+        let result =
+            header.validate_block_drand(NetworkVersion::V22, schedule, parent_epoch, &prev_entry);
+
+        assert_eq!(
+            result.is_ok(),
+            accepted,
+            "epoch {epoch}, parent {parent_epoch}: {result:?}"
+        );
     }
 }
