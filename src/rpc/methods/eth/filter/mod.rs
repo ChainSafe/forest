@@ -776,8 +776,9 @@ pub enum ParsedFilterTipsets {
 }
 
 impl ParsedFilterTipsets {
-    /// Returns true if the filter's tipset range is larger than the threshold for prefering SQL query.
-    pub fn is_large_range_for_sql(&self) -> bool {
+    /// Returns true if the filter's tipset range is no less than the threshold for prefering SQL query.
+    /// head epoch is used to determine the effective end of the range when the end is negative.
+    pub fn is_large_range_for_sql(&self, head_epoch: ChainEpoch) -> bool {
         static LARGE_RANGE_THRESHOLD: LazyLock<NonZeroU32> = LazyLock::new(|| {
             std::env::var("FOREST_RPC_SQL_RANGE_THRESHOLD")
             .ok()
@@ -789,7 +790,12 @@ impl ParsedFilterTipsets {
         });
 
         if let ParsedFilterTipsets::Range(range) = self {
-            let range_size = *range.end() - *range.start();
+            let range_end = match *range.end() {
+                // use pending_epoch(head_epoch - 1) as head when end is negative, because the heaviest tipset doesn't have events yet
+                end if end < 0 => (head_epoch - 1).max(0),
+                end => end,
+            };
+            let range_size = range_end - *range.start();
             range_size >= i64::from(LARGE_RANGE_THRESHOLD.get())
         } else {
             false
@@ -1771,25 +1777,28 @@ mod tests {
     }
 
     #[rstest]
-    #[case(0..=0, false)]
-    #[case(0..=1, false)]
-    #[case(0..=499, false)]
-    #[case(0..=500, true)]
-    #[case(0..=501, true)]
+    #[case(0..=0, 1000, false)]
+    #[case(0..=1, 1000, false)]
+    #[case(0..=499, 1000, false)]
+    #[case(0..=500, 1000, true)]
+    #[case(0..=501, 1000, true)]
+    #[case(0..=(-1), 1000, true)]
+    #[case(0..=(-1), 100, false)]
     fn test_is_large_range_for_sql_range(
         #[case] range: RangeInclusive<ChainEpoch>,
+        #[case] head_epoch: ChainEpoch,
         #[case] expected: bool,
     ) {
         let filter = ParsedFilterTipsets::Range(range);
-        assert_eq!(filter.is_large_range_for_sql(), expected);
+        assert_eq!(filter.is_large_range_for_sql(head_epoch), expected);
     }
 
     #[test]
     fn test_is_large_range_for_sql_no_range() {
         let filter = ParsedFilterTipsets::Hash(EthHash::default());
-        assert!(!filter.is_large_range_for_sql());
+        assert!(!filter.is_large_range_for_sql(1000));
 
         let filter = ParsedFilterTipsets::Key(nunny::vec![Cid::default()].into());
-        assert!(!filter.is_large_range_for_sql());
+        assert!(!filter.is_large_range_for_sql(1000));
     }
 }

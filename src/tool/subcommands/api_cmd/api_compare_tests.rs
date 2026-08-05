@@ -602,8 +602,6 @@ fn chain_tests_with_tipset<DB: Blockstore + ShallowClone>(
             .clone()
             .into(),))?),
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
-        RpcTest::basic(ChainValidateIndex::request((tipset.epoch(), true))?),
-        RpcTest::basic(ChainValidateIndex::request((tipset.epoch(), false))?),
     ];
 
     if !offline {
@@ -626,6 +624,8 @@ fn chain_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 },))?,
                 offline,
             ),
+            RpcTest::basic(ChainValidateIndex::request((tipset.epoch(), true))?),
+            RpcTest::basic(ChainValidateIndex::request((tipset.epoch(), false))?),
         ]);
     }
 

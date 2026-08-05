@@ -231,7 +231,10 @@ impl SqliteIndexer {
         let mut tx = self.db.begin().await?;
         let mut total_indexed = 0;
         for ts in head.chain(self.cs.db()) {
-            if let Err(e) = self.index_tipset_with_tx(&mut tx, &ts).await {
+            if let Err(e) = self
+                .index_tipset_and_parent_events_with_tx(&mut tx, &ts)
+                .await
+            {
                 tracing::info!(
                     "stopping chainindex population at epoch {}: {e}",
                     ts.epoch()

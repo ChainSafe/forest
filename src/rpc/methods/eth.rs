@@ -3404,7 +3404,9 @@ impl RpcMethod<1> for EthGetLogs {
                 }
                 e.context("failed to parse events for filter")
             })?;
-        let events = if pf.tipsets.is_large_range_for_sql()
+        let events = if pf
+            .tipsets
+            .is_large_range_for_sql(ctx.chain_store().heaviest_tipset().epoch())
             && let Some(chain_indexer) = ctx.chain_indexer()
         {
             chain_indexer
