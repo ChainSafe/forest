@@ -220,7 +220,7 @@ impl SqliteIndexer {
         }
     }
 
-    pub async fn populate(&self) -> anyhow::Result<()> {
+    pub async fn populate_after_snapshot_import(&self) -> anyhow::Result<()> {
         let _lock = self.acquire_write_lock().await;
         let start = Instant::now();
         let head = self.cs.heaviest_tipset();

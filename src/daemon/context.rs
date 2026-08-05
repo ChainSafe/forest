@@ -58,7 +58,10 @@ impl AppContext {
         let state_manager = create_state_manager(cfg, &db, &chain_cfg).await?;
         let (keystore, admin_jwt) = load_or_create_keystore_and_configure_jwt(opts, cfg).await?;
         let snapshot_progress_tracker = SnapshotProgressTracker::default();
-        let chain_indexer = if cfg.chain_indexer.enable_indexer {
+        let chain_indexer = if cfg.chain_indexer.enable_indexer
+            && !opts.stateless
+            && !state_manager.chain_config().is_devnet()
+        {
             Some(Arc::new(
                 SqliteIndexer::new(
                     crate::utils::sqlite::open_file(db_meta_data.index_db_path()).await?,

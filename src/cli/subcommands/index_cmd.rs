@@ -187,7 +187,9 @@ async fn validate_backfill(
         to <= from,
         "to epoch ({to}) must be less than or equal to from epoch ({from})"
     );
-    let head = ChainHead::call(client, ()).await?;
+    let head = ChainHead::call(client, ())
+        .await
+        .context("failed to get chain head for index validation")?;
     anyhow::ensure!(
         from < head.epoch(),
         "from epoch ({from}) must be less than chain head ({})",
@@ -200,6 +202,7 @@ async fn validate_backfill(
     let mut backfills = 0;
     let mut null_rounds = 0;
     let mut validations = 0;
+    let mut failures = 0usize;
     for epoch in (to..=from).rev() {
         match ChainValidateIndex::call(client, (epoch, backfill)).await {
             Ok(r) => {
@@ -212,10 +215,15 @@ async fn validate_backfill(
                 }
             }
             Err(e) => {
+                failures += 1;
                 tracing::warn!("Failed to validate index at epoch {epoch}: {e}");
             }
         }
     }
+    anyhow::ensure!(
+        failures == 0,
+        "index validation failed with {failures} errors"
+    );
     tracing::info!(
         "done with {backfills} backfills, {null_rounds} null rounds, {validations} validations, took {}",
         humantime::format_duration(start.elapsed())

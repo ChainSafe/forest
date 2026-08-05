@@ -166,7 +166,7 @@ async fn maybe_import_snapshot(
         );
         // populate chain index if enabled
         if let Some(chain_indexer) = &ctx.chain_indexer
-            && let Err(e) = chain_indexer.populate().await
+            && let Err(e) = chain_indexer.populate_after_snapshot_import().await
         {
             tracing::warn!("failed to populate chain index from snapshot: {e}");
         }
