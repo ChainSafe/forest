@@ -203,8 +203,8 @@ impl RawBlockHeader {
             }
 
             // Lengths match, so `zip` pairs every entry with the epoch it must cover.
-            for (beacon_entry, lookup_epoch) in izip!(
-                self.beacon_entries.iter(), (parent_epoch+1)..)
+            for (beacon_entry, lookup_epoch) in
+                izip!(self.beacon_entries.iter(), (parent_epoch + 1)..)
             {
                 let expected_round =
                     curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
@@ -482,11 +482,46 @@ mod tests {
     async fn validate_beacon_entries_on_quicknet() {
         // (acse name, parent epoch, its beacon round, block epoch, rounds the header must carry, expect fail)
         let cases = [
-            ("no null round",                              6216199, 30662992, 6216200, vec![30663002], true),
-            ("null round, both entries",                   6216198, 30662982, 6216200, vec![30662992, 30663002], true),
-            ("null round, invalid entry",                   6216198, 30662982, 6216200, vec![30662990, 30663002], false),
-            ("null round, missing the null epoch's entry", 6216198, 30662982, 6216200, vec![30663002], false),
-            ("null round, missing the block's own entry",  6216198, 30662982, 6216200, vec![30662992], false),
+            (
+                "no null round",
+                6216199,
+                30662992,
+                6216200,
+                vec![30663002],
+                true,
+            ),
+            (
+                "null round, both entries",
+                6216198,
+                30662982,
+                6216200,
+                vec![30662992, 30663002],
+                true,
+            ),
+            (
+                "null round, invalid entry",
+                6216198,
+                30662982,
+                6216200,
+                vec![30662990, 30663002],
+                false,
+            ),
+            (
+                "null round, missing the null epoch's entry",
+                6216198,
+                30662982,
+                6216200,
+                vec![30663002],
+                false,
+            ),
+            (
+                "null round, missing the block's own entry",
+                6216198,
+                30662982,
+                6216200,
+                vec![30662992],
+                false,
+            ),
         ];
 
         let schedule = BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())]);
@@ -511,8 +546,12 @@ mod tests {
                 ..Default::default()
             };
 
-            let result = header
-                .validate_block_drand(NetworkVersion::V22, &schedule, parent_epoch, &prev_entry);
+            let result = header.validate_block_drand(
+                NetworkVersion::V22,
+                &schedule,
+                parent_epoch,
+                &prev_entry,
+            );
 
             assert_eq!(
                 result.is_ok(),
@@ -521,5 +560,4 @@ mod tests {
             );
         }
     }
-
 }
