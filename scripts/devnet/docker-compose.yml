@@ -218,12 +218,13 @@ services:
       - devnet
     ports:
       - ${FOREST_RPC_PORT}:${FOREST_RPC_PORT}
+      - ${FOREST_P2P_PORT}:${FOREST_P2P_PORT}
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
         set -euxo pipefail
         if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
-          cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
+          sed s/__FOREST_P2P_PORT__/${FOREST_P2P_PORT}/ /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
           echo name = \"devnet\" >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
         forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
