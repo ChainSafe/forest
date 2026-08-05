@@ -186,6 +186,7 @@ impl RawBlockHeader {
         // covers every epoch since its parent - normally just its own, but null rounds
         // can happen and it must carry exactly one entry per covered epoch, in
         // ascending order.
+        // ref: https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/beacon/beacon.go#L95
         if curr_beacon.network().is_unchained() {
             let covered_epochs = self.epoch - parent_epoch;
             let found_entries = i64::try_from(self.beacon_entries.len())
