@@ -11,6 +11,8 @@ use libp2p::{
 use smallvec::smallvec;
 
 use crate::libp2p_bitswap::{codec::*, request_manager::*, *};
+#[cfg(test)]
+use crate::prelude::ShallowClone;
 
 /// `libp2p` swarm network behavior event of `bitswap`
 pub type BitswapBehaviourEvent = request_response::Event<BitswapMessages, ()>;
@@ -82,7 +84,7 @@ impl BitswapBehaviour {
 
     /// Hook the `bitswap` network event into its [`BitswapRequestManager`]
     #[cfg(test)]
-    pub fn handle_event<S: BitswapStoreRead>(
+    pub fn handle_event<S: BitswapStoreRead + ShallowClone + Send + Sync + 'static>(
         &mut self,
         store: &S,
         event: BitswapBehaviourEvent,

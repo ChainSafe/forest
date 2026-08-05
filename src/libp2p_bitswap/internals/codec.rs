@@ -14,8 +14,11 @@ use smallvec::SmallVec;
 
 use crate::libp2p_bitswap::{bitswap_pb::mod_Message::BlockPresenceType, prefix::Prefix, *};
 
-// 2MB Block Size according to the specs at https://github.com/ipfs/specs/blob/main/BITSWAP.md
-const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
+/// Maximum size of a single bitswap message we accept, matching the 2 MiB block
+/// size in the [bitswap spec].
+///
+/// [bitswap spec]: https://github.com/ipfs/specs/blob/main/BITSWAP.md
+pub(in crate::libp2p_bitswap) const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
 
 /// The payload of a `bitswap` request. Outbound requests always carry exactly one message
 /// (enforced by the `assert_eq!` in `write_request`) and inbound requests are typically

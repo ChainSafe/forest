@@ -12,7 +12,8 @@ default, running it will expose relevant RPC and P2P ports to the host:
 - 1234 - Lotus RPC,
 - 9090 - Lotus P2P port,
 - 2345 - Miner RPC,
-- 3456 - Forest RPC.
+- 3456 - Forest RPC,
+- 4903 - Forest P2P port.
 
 ## Running the devnet
 
