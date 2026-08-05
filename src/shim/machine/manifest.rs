@@ -263,24 +263,18 @@ pub(crate) use static_assert_contains_matching;
 
 #[cfg(test)]
 mod test {
-    use crate::utils::multihash::prelude::*;
-    use fvm_ipld_encoding::DAG_CBOR;
+    use crate::utils::rand::random_cid;
 
     use super::*;
-
-    fn create_random_cid() -> Cid {
-        let data = rand::random::<[u8; 32]>();
-        Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data))
-    }
 
     fn create_manifest() -> BuiltinActorManifest {
         let builtin2cid = ALL_BUILTINS
             .iter()
-            .map(|&builtin| (builtin, create_random_cid()))
+            .map(|&builtin| (builtin, random_cid()))
             .collect();
         BuiltinActorManifest {
             builtin2cid,
-            actor_list_cid: create_random_cid(),
+            actor_list_cid: random_cid(),
         }
     }
 

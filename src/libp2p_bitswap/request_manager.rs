@@ -37,18 +37,19 @@ const SERVE_RESPONSE_CHANNEL_CAP: usize = 128;
 /// entries), and each is a blockstore read; serving them all in one message is
 /// an unbounded burst of DB IO. Well-behaved peers that want more simply
 /// re-request.
-const MAX_WANTLIST_ENTRIES_SERVED: usize = 1024;
+pub(in crate::libp2p_bitswap) const MAX_WANTLIST_ENTRIES_SERVED: usize = 1024;
 
 /// Concurrent inbound wantlist serves allowed at once. Each holds a blocking
 /// thread while it reads the blockstore, so this bounds blocking-pool usage
 /// under a flood. Excess serves are dropped; the peer can re-request.
-static MAX_CONCURRENT_INBOUND_WANTLIST_SERVES: LazyLock<usize> = LazyLock::new(|| {
-    env_or_default_logged(
-        "FOREST_MAX_CONCURRENT_INBOUND_WANTLIST_SERVES",
-        nonzero!(8_usize),
-    )
-    .get()
-});
+pub(in crate::libp2p_bitswap) static MAX_CONCURRENT_INBOUND_WANTLIST_SERVES: LazyLock<usize> =
+    LazyLock::new(|| {
+        env_or_default_logged(
+            "FOREST_MAX_CONCURRENT_INBOUND_WANTLIST_SERVES",
+            nonzero!(8_usize),
+        )
+        .get()
+    });
 
 pub type ValidatePeerCallback = dyn Fn(PeerId) -> bool + Send + Sync;
 
