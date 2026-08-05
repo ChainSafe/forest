@@ -204,7 +204,7 @@ impl RawBlockHeader {
 
             // Lengths match, so `zip` pairs every entry with the epoch it must cover.
             for (beacon_entry, lookup_epoch) in izip!(
-                self.beacon_entries.iter(), (parent_epoch+1)..=self.epoch)
+                self.beacon_entries.iter(), (parent_epoch+1)..)
             {
                 let expected_round =
                     curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
