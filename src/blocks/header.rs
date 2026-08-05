@@ -181,6 +181,7 @@ impl RawBlockHeader {
             ));
         }
 
+
         // An unchained beacon carries no link between consecutive entries, so nothing
         // but these checks ties them to the epochs they are supposed to cover. A block
         // covers every epoch since its parent - normally just its own, but null rounds
@@ -188,23 +189,10 @@ impl RawBlockHeader {
         // ascending order.
         // ref: https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/beacon/beacon.go#L95
         if curr_beacon.network().is_unchained() {
-            let covered_epochs = self.epoch - parent_epoch;
-            let found_entries = i64::try_from(self.beacon_entries.len())
-                .map_err(|_| Error::Validation("too many beacon entries".into()))?;
-            if found_entries != covered_epochs {
-                return Err(Error::Validation(
-                    format!(
-                        "expected {covered_epochs} beacon entries for epochs {}..={}, got: {found_entries}",
-                        parent_epoch + 1,
-                        self.epoch,
-                    )
-                    .into(),
-                ));
-            }
-
-            // Lengths match, so `zip` pairs every entry with the epoch it must cover.
+            // we already made sure that the last beacon entry matches the current block epoch
+            // now this loop covers a possible gap between parent block and the current block
             for (beacon_entry, lookup_epoch) in
-                izip!(self.beacon_entries.iter(), (parent_epoch + 1)..)
+                izip!(self.beacon_entries.iter(), (parent_epoch + 1)..=self.epoch)
             {
                 let expected_round =
                     curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
@@ -480,7 +468,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_beacon_entries_on_quicknet() {
-        // (acse name, parent epoch, its beacon round, block epoch, rounds the header must carry, expect fail)
+        // (case name, parent epoch, its beacon round, block epoch, rounds the header must carry, expect fail)
         let cases = [
             (
                 "no null round",
