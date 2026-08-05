@@ -59,8 +59,10 @@ impl SyncCommands {
 
                     clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
 
-                    lines_printed_last_iteration = print_sync_report_details(&report)
+                    let width = dialoguer::console::Term::stdout().size().1 as usize;
+                    lines_printed_last_iteration = print_sync_report_details(&mut stdout, &report, width)
                         .context("Failed to print sync status report")?;
+                    stdout.flush()?;
 
                     // Exit if synced and not in watch mode.
                     if !watch && report.status == NodeSyncStatus::Synced {
@@ -86,8 +88,11 @@ impl SyncCommands {
                 }
 
                 // Print the status report once, without line counting for clearing
-                _ = print_sync_report_details(&sync_status)
+                let mut stdout = stdout();
+                let width = dialoguer::console::Term::stdout().size().1 as usize;
+                _ = print_sync_report_details(&mut stdout, &sync_status, width)
                     .context("Failed to print sync status report")?;
+                stdout.flush()?;
 
                 Ok(())
             }
@@ -110,68 +115,66 @@ impl SyncCommands {
 }
 
 /// Prints the sync status report details and returns the number of lines printed.
-fn print_sync_report_details(report: &SyncStatusReport) -> anyhow::Result<usize> {
-    let mut lines_printed_count = 0;
+fn print_sync_report_details(
+    stdout: &mut std::io::Stdout, 
+    report: &SyncStatusReport,
+    term_width: usize,
+) -> anyhow::Result<usize> {
+    let mut rows = 0;
 
-    println!(
-        "Status: {:?} ({} epochs behind)",
-        report.status, report.epochs_behind
-    );
-    lines_printed_count += 1;
+    // this function writes to stdout + return the amount of rows
+    // required to print the string, depending on the terminal width it
+    // might required more then one row
+    let write_line = |stdout: &mut std::io::Stdout, s: String| -> anyhow::Result<usize> {
+        writeln!(stdout, "{s}")?;
+        Ok(s.chars().count().div_ceil(term_width).max(1))
+    };
+
+    rows += write_line(stdout, 
+        format!("Status: {:?} ({} epochs behind)", report.status, report.epochs_behind))?;
 
     let head_key_str = report
         .current_head_key
         .as_ref()
         .map(tipset_key_to_string)
         .unwrap_or_else(|| "[unknown]".to_string());
-    println!(
-        "Node Head: Epoch {} ({})",
-        report.current_head_epoch, head_key_str
-    );
-    lines_printed_count += 1;
 
-    println!("Network Head: Epoch {}", report.network_head_epoch);
-    lines_printed_count += 1;
+    rows += write_line(stdout, 
+        format!("Node Head: Epoch {} ({})", report.current_head_epoch, head_key_str))?;
 
-    println!("Last Update: {}", report.last_updated.to_rfc3339());
-    lines_printed_count += 1;
+    rows += write_line(stdout,
+    format!("Network Head: Epoch {}", report.network_head_epoch))?;
+
+    rows += write_line(stdout, 
+        format!("Last Update: {}", report.last_updated.to_rfc3339()))?;
 
     // Print active sync tasks (forks)
     let active_forks = &report.active_forks;
     if active_forks.is_empty() {
-        println!("Active Sync Tasks: None");
-        lines_printed_count += 1;
+        rows += write_line(stdout, String::from("Active Sync Tasks: None"))?;
     } else {
-        println!("Active Sync Tasks:");
-        lines_printed_count += 1;
+        rows += write_line(stdout, String::from("Active Sync Tasks:"))?;
         let mut sorted_forks = active_forks.clone();
         sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
         for fork in &sorted_forks {
             // Assuming print_fork_sync_info exists and increments line_count internally if needed
             // If print_fork_sync_info doesn't increment, adjust line_count here.
             // For simplicity, assuming it behaves as needed or is adjusted elsewhere.
-            lines_printed_count += print_fork_sync_info(fork)?;
+
+            let total_epochs_for_this_fork = fork.target_epoch.saturating_sub(fork.target_sync_epoch_start);
+            rows += write_line(stdout, format!(
+                "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
+                fork.target_epoch,
+                tipset_key_to_string(&fork.target_tipset_key),
+                fork.stage,
+                fork.target_sync_epoch_start,
+                fork.target_epoch,
+                total_epochs_for_this_fork
+            ))?;
         }
     }
 
-    Ok(lines_printed_count)
-}
-
-/// Prints fork sync info and returns the number of lines printed (expected to be 1).
-fn print_fork_sync_info(fork: &ForkSyncInfo) -> anyhow::Result<usize> {
-    let total_epochs_for_this_fork = fork
-        .target_epoch
-        .saturating_sub(fork.target_sync_epoch_start);
-    println!(
-        "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
-        fork.target_epoch,
-        tipset_key_to_string(&fork.target_tipset_key),
-        fork.stage,
-        fork.target_sync_epoch_start,
-        fork.target_epoch,
-        total_epochs_for_this_fork
-    );
-    Ok(1)
+    Ok(rows)
 }
 
 fn clear_previous_lines(stdout: &mut std::io::Stdout, lines: usize) -> anyhow::Result<()> {
