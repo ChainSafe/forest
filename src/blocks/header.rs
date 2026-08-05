@@ -20,6 +20,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
+use itertools::izip;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
@@ -201,10 +202,8 @@ impl RawBlockHeader {
             }
 
             // Lengths match, so `zip` pairs every entry with the epoch it must cover.
-            for (beacon_entry, lookup_epoch) in self
-                .beacon_entries
-                .iter()
-                .zip((parent_epoch + 1)..=self.epoch)
+            for (beacon_entry, lookup_epoch) in izip!(
+                self.beacon_entries.iter(), (parent_epoch+1)..=self.epoch)
             {
                 let expected_round =
                     curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
@@ -479,18 +478,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn validate_block_drand_accepts_correct_entries_quicknet() {
-        // (parent epoch, its beacon round, block epoch, rounds the header must carry)
+    async fn validate_beacon_entries_on_quicknet() {
+        // (acse name, parent epoch, its beacon round, block epoch, rounds the header must carry, expect fail)
         let cases = [
-            // no gaps, expected only a single entry
-            (6216199, 30662992, 6216200, vec![30663002]),
-            // one gap (6216199) so the block 6216200 should have its and the 6216199 beacon entries
-            (6216198, 30662982, 6216200, vec![30662992, 30663002]),
+            ("no null round",                              6216199, 30662992, 6216200, vec![30663002], true),
+            ("null round, both entries",                   6216198, 30662982, 6216200, vec![30662992, 30663002], true),
+            ("null round, invalid entry",                   6216198, 30662982, 6216200, vec![30662990, 30663002], false),
+            ("null round, missing the null epoch's entry", 6216198, 30662982, 6216200, vec![30663002], false),
+            ("null round, missing the block's own entry",  6216198, 30662982, 6216200, vec![30662992], false),
         ];
 
         let schedule = BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())]);
 
-        for (parent_epoch, prev_round, epoch, rounds) in cases {
+        for (case, parent_epoch, prev_round, epoch, rounds, success) in cases {
             let (_, curr_beacon) = schedule.beacon_for_epoch(epoch).unwrap();
 
             // fetch the real entries so BLS verifies correctly
@@ -510,9 +510,15 @@ mod tests {
                 ..Default::default()
             };
 
-            header
-                .validate_block_drand(NetworkVersion::V22, &schedule, parent_epoch, &prev_entry)
-                .unwrap_or_else(|e| panic!("epoch {epoch}, parent {parent_epoch}: {e}"));
+            let result = header
+                .validate_block_drand(NetworkVersion::V22, &schedule, parent_epoch, &prev_entry);
+
+            assert_eq!(
+                result.is_ok(),
+                success,
+                "{case} (epoch {epoch}, parent {parent_epoch}): {result:?}"
+            );
         }
     }
+
 }
