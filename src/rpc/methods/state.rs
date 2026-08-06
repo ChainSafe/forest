@@ -45,9 +45,7 @@ use crate::shim::{
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::{ExecutedTipset, NO_CALLBACK};
-use crate::state_manager::{
-    MarketBalance, StateManager, circulating_supply::GenesisInfo, utils::structured,
-};
+use crate::state_manager::{MarketBalance, StateManager, utils::structured};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
@@ -1112,12 +1110,10 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         let pledge_collateral = power_state.total_locked();
 
         let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
-            ts.epoch(),
-            ctx.db(),
-            ts.parent_state(),
-        )?;
+        let circ_supply = ctx
+            .state_manager
+            .genesis_info()
+            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
         let initial_pledge = reward_state.initial_pledge_for_power(
             &sector_weight,
             pledge_collateral,
@@ -1968,7 +1964,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().shallow_clone());
+        let genesis_info = ctx.genesis_info().shallow_clone();
         let supply = genesis_info
             .get_state_circulating_supply_with_cache(ctx.db_owned(), ts)
             .await?;
@@ -2018,12 +2014,10 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        Ok(genesis_info.get_vm_circulating_supply_detailed(
-            ts.epoch(),
-            ctx.db(),
-            ts.parent_state(),
-        )?)
+        Ok(ctx
+            .state_manager
+            .genesis_info()
+            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?)
     }
 }
 
@@ -2181,10 +2175,11 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
         let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
 
-        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-
-        let supply =
-            genesis_info.get_vm_circulating_supply(ts.epoch(), ctx.db(), ts.parent_state())?;
+        let supply = ctx.genesis_info().get_vm_circulating_supply(
+            ts.epoch(),
+            ctx.db(),
+            ts.parent_state(),
+        )?;
 
         let power_claim = power_state.total_power();
 
@@ -3388,12 +3383,10 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
 
         let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
 
-        let genesis_info = GenesisInfo::from_chain_config(ctx.chain_config().clone());
-        let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
-            ts.epoch(),
-            ctx.db(),
-            ts.parent_state(),
-        )?;
+        let circ_supply = ctx
+            .state_manager
+            .genesis_info()
+            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
 
         let deal_weight = BigInt::from(0);
         let verified_deal_weight = BigInt::from(verified_size) * sector_duration;

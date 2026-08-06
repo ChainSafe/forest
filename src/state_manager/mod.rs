@@ -17,6 +17,7 @@ mod mining;
 mod state_computation;
 pub mod utils;
 
+use self::circulating_supply::GenesisInfo;
 pub use self::errors::*;
 pub use self::state_computation::{apply_block_messages_blocking, validate_tipsets_blocking};
 use crate::beacon::BeaconSchedule;
@@ -180,6 +181,7 @@ pub struct StateManager {
     id_to_deterministic_address_cache: Option<IdToAddressCache>,
     beacon: Arc<crate::beacon::BeaconSchedule>,
     engine: Arc<MultiEngine>,
+    genesis_info: Arc<GenesisInfo>,
     /// Bounds concurrent RPC-triggered tipset replays, see [`Self::replay_concurrency`].
     replay_semaphore: Arc<tokio::sync::Semaphore>,
 }
@@ -196,6 +198,7 @@ impl ShallowClone for StateManager {
                 .map(ShallowClone::shallow_clone),
             beacon: self.beacon.shallow_clone(),
             engine: self.engine.shallow_clone(),
+            genesis_info: self.genesis_info.shallow_clone(),
             replay_semaphore: self.replay_semaphore.shallow_clone(),
         }
     }
@@ -220,6 +223,9 @@ impl StateManager {
     pub fn new_with_engine(cs: ChainStore, engine: Arc<MultiEngine>) -> anyhow::Result<Self> {
         let genesis = cs.genesis_block_header();
         let beacon = Arc::new(cs.chain_config().get_beacon_schedule(genesis.timestamp));
+        let genesis_info = Arc::new(GenesisInfo::from_chain_config(
+            cs.chain_config().shallow_clone(),
+        ));
 
         Ok(Self {
             cs,
@@ -227,6 +233,7 @@ impl StateManager {
             trace_cache: ForestCache::with_size("tipset_trace", DEFAULT_TRACE_CACHE_SIZE),
             beacon,
             engine,
+            genesis_info,
             id_to_deterministic_address_cache: Some(SizeTrackingCache::new_with_metrics(
                 "id_to_deterministic_address",
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
@@ -402,6 +409,10 @@ impl StateManager {
     /// Returns reference to the state manager's [`ChainConfig`].
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
         self.cs.chain_config()
+    }
+
+    pub fn genesis_info(&self) -> &Arc<GenesisInfo> {
+        &self.genesis_info
     }
 
     pub fn chain_rand(&self, tipset: Tipset) -> ChainRand {
