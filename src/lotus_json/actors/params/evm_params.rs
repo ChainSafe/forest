@@ -178,8 +178,7 @@ impl HasLotusJson for GetStorageAtParams {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        GetStorageAtParams::new(lotus_json.storage_key.to_vec())
-            .expect("expected array to have 32 elements")
+        Self(lotus_json.storage_key)
     }
 }
 crate::test_snapshots!(GetStorageAtParams);

@@ -10,6 +10,19 @@ pub fn new_uuid_v4() -> uuid::Uuid {
     uuid::Builder::from_random_bytes(random_bytes).into_uuid()
 }
 
+/// A random, well-formed [`cid::Cid`] (v1 / DAG-CBOR / Blake2b-256), for tests
+/// that need distinct CIDs without caring about their contents.
+#[cfg(test)]
+pub(crate) fn random_cid() -> cid::Cid {
+    use crate::utils::multihash::prelude::*;
+    let mut digest = [0u8; 32];
+    forest_rng().fill(&mut digest);
+    cid::Cid::new_v1(
+        fvm_ipld_encoding::DAG_CBOR,
+        MultihashCode::Blake2b256.digest(&digest),
+    )
+}
+
 /// A wrapper of [`rand::thread_rng`] that can be overridden by reproducible seeded
 /// [`rand_chacha::ChaChaRng`] via `FOREST_TEST_RNG_FIXED_SEED` environment variable.
 /// This is required for reproducible test cases for normally non-deterministic methods.

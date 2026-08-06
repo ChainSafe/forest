@@ -266,7 +266,7 @@ impl VM {
         match self {
             VM::VM2(fvm_executor) => Ok(fvm_executor
                 .state_tree()
-                .get_actor(&addr.into())?
+                .get_actor(&addr.try_to_v2()?)?
                 .map(ActorState::from)),
             VM::VM3(fvm_executor) => {
                 if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
@@ -424,12 +424,17 @@ impl VM {
     pub fn apply_implicit_message(&mut self, msg: &Message) -> ApplyResult {
         let start = Instant::now();
 
-        // raw_length is not used for Implicit messages.
-        let raw_length = to_vec(msg).expect("encoding error").len();
+        // Every FVM version charges a zero `GasCharge` for `ApplyKind::Implicit` and never reads
+        // `raw_length`, so don't pay to serialize the message just to measure it.
+        let raw_length = 0;
 
         let ret = match self {
             VM::VM2(fvm_executor) => fvm_executor
-                .execute_message(msg.into(), fvm2::executor::ApplyKind::Implicit, raw_length)?
+                .execute_message(
+                    msg.try_into()?,
+                    fvm2::executor::ApplyKind::Implicit,
+                    raw_length,
+                )?
                 .into(),
             VM::VM3(fvm_executor) => fvm_executor
                 .execute_message(msg.into(), fvm3::executor::ApplyKind::Implicit, raw_length)?
@@ -451,11 +456,11 @@ impl VM {
         msg.message().check()?;
 
         let unsigned = msg.message().clone();
-        let raw_length = to_vec(msg).expect("encoding error").len();
+        let raw_length = to_vec(msg)?.len();
         let ret: ApplyRet = match self {
             VM::VM2(fvm_executor) => {
                 let ret = fvm_executor.execute_message(
-                    unsigned.into(),
+                    unsigned.try_into()?,
                     fvm2::executor::ApplyKind::Explicit,
                     raw_length,
                 )?;

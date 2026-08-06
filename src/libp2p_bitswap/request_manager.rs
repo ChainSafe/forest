@@ -11,7 +11,6 @@ use crate::cid_collections::CidHashMap;
 use crate::prelude::*;
 use crate::utils::misc::env::env_or_default_logged;
 use ahash::HashSet;
-use flume::TryRecvError;
 use futures::StreamExt;
 use libp2p::PeerId;
 use nonzero_ext::nonzero;
@@ -37,18 +36,19 @@ const SERVE_RESPONSE_CHANNEL_CAP: usize = 128;
 /// entries), and each is a blockstore read; serving them all in one message is
 /// an unbounded burst of DB IO. Well-behaved peers that want more simply
 /// re-request.
-const MAX_WANTLIST_ENTRIES_SERVED: usize = 1024;
+pub(in crate::libp2p_bitswap) const MAX_WANTLIST_ENTRIES_SERVED: usize = 1024;
 
 /// Concurrent inbound wantlist serves allowed at once. Each holds a blocking
 /// thread while it reads the blockstore, so this bounds blocking-pool usage
 /// under a flood. Excess serves are dropped; the peer can re-request.
-static MAX_CONCURRENT_INBOUND_WANTLIST_SERVES: LazyLock<usize> = LazyLock::new(|| {
-    env_or_default_logged(
-        "FOREST_MAX_CONCURRENT_INBOUND_WANTLIST_SERVES",
-        nonzero!(8_usize),
-    )
-    .get()
-});
+pub(in crate::libp2p_bitswap) static MAX_CONCURRENT_INBOUND_WANTLIST_SERVES: LazyLock<usize> =
+    LazyLock::new(|| {
+        env_or_default_logged(
+            "FOREST_MAX_CONCURRENT_INBOUND_WANTLIST_SERVES",
+            nonzero!(8_usize),
+        )
+        .get()
+    });
 
 pub type ValidatePeerCallback = dyn Fn(PeerId) -> bool + Send + Sync;
 
@@ -226,13 +226,10 @@ impl BitswapRequestManager {
             let mut success = store.contains(&cid).unwrap_or_default();
             if !success {
                 let deadline = start.checked_add(timeout).expect("Infallible");
-                success = task::spawn_blocking({
-                    let store = store.shallow_clone();
-                    move || self.get_block_sync(&store, cid, deadline, validate_peer)
-                })
-                .await
-                .unwrap_or_default();
-                // Spin check db when `get_block_sync` fails fast,
+                success = self
+                    .get_block_inner(&store, cid, deadline, validate_peer)
+                    .await;
+                // Spin check db when `get_block_inner` fails fast,
                 // which means there is other task actually processing the same `cid`
                 while !success && Instant::now() < deadline {
                     task::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
@@ -256,9 +253,9 @@ impl BitswapRequestManager {
         });
     }
 
-    fn get_block_sync(
+    async fn get_block_inner(
         &self,
-        store: &impl BitswapStoreReadWrite,
+        store: &(impl BitswapStoreReadWrite + ShallowClone),
         cid: Cid,
         deadline: Instant,
         validate_peer: Option<Arc<ValidatePeerCallback>>,
@@ -299,52 +296,62 @@ impl BitswapRequestManager {
             }
         }
 
-        let mut success = false;
-        let mut block_data = None;
-        while !success && Instant::now() < deadline {
-            match block_have_rx.try_recv() {
-                Ok(peer) => {
-                    _ = self.outbound_block_request_tx.send((peer, cid));
-                }
-                Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => {
-                    break;
-                }
-            }
-
-            if let Ok(data) = block_saved_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
-                success = true;
-                block_data = data;
-            }
-        }
-
-        if !success && let Ok(data) = block_saved_rx.recv_deadline(deadline) {
-            success = true;
-            block_data = data;
-        }
-
-        if let Some(data) = block_data {
-            success = match Block::new(cid, data) {
-                Ok(block) => match store.insert(&block) {
-                    Ok(()) => {
-                        metrics::message_counter_inbound_response_block_update_db().inc();
-                        true
+        // Wait for the block off the blocking pool: react to `have` offers by
+        // requesting the block, and take the first saved response, bounded by the
+        // deadline. `have_open` stops polling the `have` channel once it closes
+        // while still awaiting a saved response. `biased` keeps a saved response
+        // that arrives right at the deadline from being dropped by a tie.
+        let timeout = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline));
+        tokio::pin!(timeout);
+        let mut have_open = true;
+        let response = loop {
+            tokio::select! {
+                biased;
+                saved = block_saved_rx.recv_async() => break saved.ok(),
+                () = &mut timeout => break None,
+                have = block_have_rx.recv_async(), if have_open => match have {
+                    Ok(peer) => {
+                        _ = self.outbound_block_request_tx.send((peer, cid));
                     }
+                    Err(_) => have_open = false,
+                },
+            }
+        };
+
+        let success = match response {
+            // Block already in the db, nothing to insert.
+            Some(None) => true,
+            // Timed out or channel closed.
+            None => false,
+            // Inserting is blocking db IO with an unbounded tail (lock, commit,
+            // compaction), so it stays off the async runtime.
+            Some(Some(data)) => {
+                let store = store.shallow_clone();
+                task::spawn_blocking(move || match Block::new(cid, data) {
+                    Ok(block) => match store.insert(&block) {
+                        Ok(()) => {
+                            metrics::message_counter_inbound_response_block_update_db().inc();
+                            true
+                        }
+                        Err(e) => {
+                            metrics::message_counter_inbound_response_block_update_db_failure()
+                                .inc();
+                            warn!(
+                                "Failed to update db, cid: {cid}, data: {:?}, error: {e:#}",
+                                block.data()
+                            );
+                            false
+                        }
+                    },
                     Err(e) => {
-                        metrics::message_counter_inbound_response_block_update_db_failure().inc();
-                        warn!(
-                            "Failed to update db, cid: {cid}, data: {:?}, error: {e:#}",
-                            block.data()
-                        );
+                        warn!("Failed to construct block, cid: {cid}, error: {e:#}");
                         false
                     }
-                },
-                Err(e) => {
-                    warn!("Failed to construct block, cid: {cid}, error: {e:#}");
-                    false
-                }
-            };
-        }
+                })
+                .await
+                .unwrap_or(false)
+            }
+        };
 
         // Cleanup
         {
