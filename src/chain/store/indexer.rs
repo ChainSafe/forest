@@ -334,11 +334,12 @@ impl SqliteIndexer {
                 indexed_event_entries_count,
             },
             backfilled,
-        ) = if let Ok(r) = self.get_and_verify_indexed_data(&ts).await {
-            (r, false)
-        } else {
-            self.backfill_missing_tipset(&ts).await?;
-            (self.get_and_verify_indexed_data(&ts).await?, true)
+        ) = match self.get_and_verify_indexed_data(&ts).await {
+            Ok(r) => (r, false),
+            Err(_) if backfill => (self.get_and_verify_indexed_data(&ts).await?, true),
+            Err(e) => anyhow::bail!(
+                "failed to validate indexed data for tipset at height {epoch}(backfill disabled): {e:#?}"
+            ),
         };
         Ok(ChainIndexValidation {
             tip_set_key: ts.key().clone().into(),
