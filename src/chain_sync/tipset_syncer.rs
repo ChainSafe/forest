@@ -421,7 +421,7 @@ async fn check_block_messages(
                          tree: &StateTree<DbImpl>|
      -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
-        let min_gas = price_list.on_chain_message(to_vec(msg).unwrap().len());
+        let min_gas = price_list.on_chain_message(to_vec(msg)?.len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;

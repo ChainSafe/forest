@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 
 use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
@@ -702,6 +702,12 @@ async fn handle_gossip_event(
     }
 }
 
+/// Saturating: these timestamps only feed peer latency estimates, so a skewed clock should degrade
+/// those rather than take the node down.
+fn nanos_since_unix_epoch() -> u64 {
+    u64::try_from(UNIX_EPOCH.elapsed().unwrap_or_default().as_nanos()).unwrap_or(u64::MAX)
+}
+
 async fn handle_hello_event(
     peer_info_map: &HashMap<PeerId, PeerInfo>,
     hello: &mut HelloBehaviour,
@@ -717,12 +723,7 @@ async fn handle_hello_event(
             } => {
                 emit_event(network_sender_out, NetworkEvent::HelloRequestInbound).await;
 
-                let arrival = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("System time before unix epoch")
-                    .as_nanos()
-                    .try_into()
-                    .expect("System time since unix epoch should not exceed u64");
+                let arrival = nanos_since_unix_epoch();
 
                 trace!("Received hello request: {:?}", request);
                 if &request.genesis_cid != genesis_cid {
@@ -737,12 +738,7 @@ async fn handle_hello_event(
                         )
                         .await;
                 } else {
-                    let sent = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .expect("System time before unix epoch")
-                        .as_nanos()
-                        .try_into()
-                        .expect("System time since unix epoch should not exceed u64");
+                    let sent = nanos_since_unix_epoch();
 
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
