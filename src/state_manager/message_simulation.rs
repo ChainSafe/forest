@@ -1,12 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::message::{MessageRead as _, MessageReadWrite as _};
-use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
+use crate::rpc::state::{ApiInvocResult, MessageGasCost};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
@@ -75,7 +74,6 @@ impl StateManager {
         };
 
         let height = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: tipset.shallow_clone(),
@@ -83,7 +81,7 @@ impl StateManager {
                 epoch: height,
                 rand: Box::new(self.chain_rand(tipset.shallow_clone())),
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
-                circ_supply: genesis_info.get_vm_circulating_supply(
+                circ_supply: self.genesis_info().get_vm_circulating_supply(
                     height,
                     self.db(),
                     &state_cid,
@@ -193,7 +191,7 @@ impl StateManager {
         let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
-        let (_invoc_res, apply_ret, duration, state_root) = self
+        let (apply_ret, duration, state_root) = self
             .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush)
             .await?;
 
@@ -220,7 +218,7 @@ impl StateManager {
         prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
-    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
+    ) -> Result<(ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
             .load_tipset_state(&ts)
@@ -231,7 +229,6 @@ impl StateManager {
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
             // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
@@ -244,7 +241,7 @@ impl StateManager {
                         epoch,
                         rand: Box::new(chain_rand),
                         base_fee: ts.block_headers().first().parent_base_fee.clone(),
-                        circ_supply: genesis_info.get_vm_circulating_supply(
+                        circ_supply: this.genesis_info().get_vm_circulating_supply(
                             epoch,
                             this.chain_index().db(),
                             &state_root,
@@ -275,12 +272,7 @@ impl StateManager {
                 Ok((ret, duration, state_root))
             })?;
 
-            Ok((
-                InvocResult::new(message.message().clone(), &ret),
-                ret,
-                duration,
-                state_cid,
-            ))
+            Ok((ret, duration, state_cid))
         })
         .await?
     }

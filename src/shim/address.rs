@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::Context as _;
 use std::{fmt::Display, str::FromStr};
 
 use data_encoding::Encoding;
@@ -182,6 +183,16 @@ impl Address {
 
     pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
         Address_latest::from_bytes(bz).map(Address)
+    }
+
+    /// FVM2 predates FIP-0048, so its `Protocol` has no `Delegated` variant and `f4` addresses have
+    /// no FVM2 representation.
+    ///
+    /// Prefer this over `impl From<&Address> for Address_v2` on any path that can see a
+    /// caller-supplied address, since that can only panic on an `f4` input.
+    pub fn try_to_v2(&self) -> anyhow::Result<Address_v2> {
+        Address_v2::from_bytes(&self.to_bytes())
+            .with_context(|| format!("couldn't convert FVM4 address {self} to an FVM2 address"))
     }
 }
 
@@ -382,10 +393,13 @@ impl From<Address> for Address_v3 {
 }
 
 impl From<&Address> for Address_v2 {
+    /// # Panics
+    /// On `f4` (delegated) addresses, which FVM2 cannot represent. Callers that may see a
+    /// caller-supplied address should use [`Address::try_to_v2`] instead.
     fn from(other: &Address) -> Self {
-        Address_v2::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
-            panic!("Couldn't convert from FVM4 address to FVM2 address: {other}, {e}")
-        })
+        other
+            .try_to_v2()
+            .unwrap_or_else(|e| panic!("Couldn't convert from FVM4 address to FVM2 address: {e:#}"))
     }
 }
 

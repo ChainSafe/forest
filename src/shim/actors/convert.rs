@@ -56,11 +56,6 @@ pub fn from_address_v2_to_v3(addr: AddressV2) -> AddressV3 {
         .expect("Couldn't convert between FVM2 and FVM3 addresses.")
 }
 
-pub fn from_address_v3_to_v2(addr: AddressV3) -> AddressV2 {
-    AddressV2::from_bytes(&addr.to_bytes())
-        .expect("Couldn't convert between FVM3 and FVM2 addresses.")
-}
-
 pub fn from_address_v2_to_v4(addr: AddressV2) -> AddressV4 {
     AddressV4::from_bytes(&addr.to_bytes())
         .expect("Couldn't convert between FVM2 and FVM4 addresses.")
@@ -69,11 +64,6 @@ pub fn from_address_v2_to_v4(addr: AddressV2) -> AddressV4 {
 pub fn from_address_v3_to_v4(addr: AddressV3) -> AddressV4 {
     AddressV4::from_bytes(&addr.to_bytes())
         .expect("Couldn't convert between FVM3 and FVM4 addresses.")
-}
-
-pub fn from_address_v4_to_v2(addr: AddressV4) -> AddressV2 {
-    AddressV2::from_bytes(&addr.to_bytes())
-        .expect("Couldn't convert between FVM4 and FVM2 addresses.")
 }
 
 pub fn from_token_v2_to_v4(token: &TokenAmountV2) -> TokenAmountV4 {

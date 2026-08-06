@@ -532,6 +532,10 @@ impl RPCState {
         self.state_manager.chain_config()
     }
 
+    pub fn genesis_info(&self) -> &Arc<crate::state_manager::circulating_supply::GenesisInfo> {
+        self.state_manager.genesis_info()
+    }
+
     pub fn db(&self) -> &DbImpl {
         self.state_manager.db()
     }
