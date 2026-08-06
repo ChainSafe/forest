@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
@@ -210,7 +209,7 @@ impl GasEstimateGasLimit {
         data: &Ctx,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
-    ) -> anyhow::Result<(InvocResult, ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
+    ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
@@ -246,7 +245,7 @@ impl GasEstimateGasLimit {
             _ => msg.into(),
         };
 
-        let (invoc_res, apply_ret, _, _) = data
+        let (apply_ret, ..) = data
             .state_manager
             .call_with_gas(
                 chain_msg,
@@ -255,25 +254,20 @@ impl GasEstimateGasLimit {
                 VMFlush::Skip,
             )
             .await?;
-        Ok((invoc_res, apply_ret, prior_messages, ts))
+        Ok((apply_ret, prior_messages, ts))
     }
 
     pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk)
+        let (apply_ret, ..) = Self::estimate_call_with_gas(data, msg, tsk)
             .await
             .context("gas estimation failed")?;
-        match res.msg_rct {
-            Some(rct) => {
-                anyhow::ensure!(
-                    rct.exit_code().is_success(),
-                    "message execution failed: exit code: {}, reason: {}",
-                    rct.exit_code().value(),
-                    res.error.unwrap_or_default()
-                );
-                Ok(rct.gas_used() as i64)
-            }
-            None => Ok(-1),
-        }
+        anyhow::ensure!(
+            apply_ret.exit_code().is_success(),
+            "message execution failed: exit code: {}, reason: {}",
+            apply_ret.exit_code().value(),
+            apply_ret.failure_info().unwrap_or_default()
+        );
+        Ok(apply_ret.gas_used() as i64)
     }
 }
 
