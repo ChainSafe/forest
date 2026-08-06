@@ -36,7 +36,7 @@ pub enum ApplyRet {
 
 impl ApplyRet {
     pub fn failure_info(&self) -> Option<String> {
-        delegate_apply_ret!(self => |r| r.failure_info.as_ref().map(|failure| format!("{failure} (RetCode={})", self.msg_receipt().exit_code())))
+        delegate_apply_ret!(self => |r| r.failure_info.as_ref().map(|failure| format!("{failure} (RetCode={})", self.exit_code())))
     }
 
     pub fn miner_tip(&self) -> TokenAmount {
@@ -47,8 +47,22 @@ impl ApplyRet {
         delegate_apply_ret!(self.penalty.borrow().into())
     }
 
+    /// Clones the receipt, `return_data` included. To read a single scalar, prefer
+    /// [`Self::exit_code`] or [`Self::gas_used`].
     pub fn msg_receipt(&self) -> Receipt {
         delegate_apply_ret!(self.msg_receipt.clone().into())
+    }
+
+    pub fn exit_code(&self) -> ExitCode {
+        ExitCode::new(delegate_apply_ret!(self => |r| r.msg_receipt.exit_code.value()))
+    }
+
+    pub fn gas_used(&self) -> u64 {
+        match self {
+            ApplyRet::V2(v2) => v2.msg_receipt.gas_used as u64,
+            ApplyRet::V3(v3) => v3.msg_receipt.gas_used,
+            ApplyRet::V4(v4) => v4.msg_receipt.gas_used,
+        }
     }
 
     pub fn refund(&self) -> TokenAmount {
@@ -67,11 +81,25 @@ impl ApplyRet {
         delegate_apply_ret!(self => |r| r.exec_trace.iter().cloned().map(Into::into).collect())
     }
 
-    pub fn events(&self) -> Vec<StampedEvent> {
+    pub fn into_receipt_and_events(self) -> (Receipt, Option<Vec<StampedEvent>>) {
         match self {
-            ApplyRet::V2(_) => Vec::<StampedEvent>::default(),
-            ApplyRet::V3(v3) => v3.events.iter().cloned().map(Into::into).collect(),
-            ApplyRet::V4(v4) => v4.events.iter().cloned().map(Into::into).collect(),
+            ApplyRet::V2(v2) => (v2.msg_receipt.into(), None),
+            ApplyRet::V3(v3) => {
+                let events = v3
+                    .msg_receipt
+                    .events_root
+                    .is_some()
+                    .then(|| v3.events.into_iter().map(Into::into).collect());
+                (v3.msg_receipt.into(), events)
+            }
+            ApplyRet::V4(v4) => {
+                let events = v4
+                    .msg_receipt
+                    .events_root
+                    .is_some()
+                    .then(|| v4.events.into_iter().map(Into::into).collect());
+                (v4.msg_receipt.into(), events)
+            }
         }
     }
 }
