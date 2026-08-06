@@ -308,29 +308,6 @@ impl PartialEq for GasTrace {
     }
 }
 
-#[derive(PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Message>")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Option<Receipt>>")]
-    pub msg_rct: Option<Receipt>,
-    pub error: Option<String>,
-}
-lotus_json_with_self!(InvocResult);
-
-impl InvocResult {
-    pub fn new(msg: Message, ret: &ApplyRet) -> Self {
-        Self {
-            msg,
-            msg_rct: Some(ret.msg_receipt()),
-            error: ret.failure_info(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorExpiration {

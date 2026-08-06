@@ -6,7 +6,7 @@ use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::message::{MessageRead as _, MessageReadWrite as _};
-use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
+use crate::rpc::state::{ApiInvocResult, MessageGasCost};
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::Message;
 use crate::state_migration::run_state_migrations;
@@ -193,7 +193,7 @@ impl StateManager {
         let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
-        let (_invoc_res, apply_ret, duration, state_root) = self
+        let (apply_ret, duration, state_root) = self
             .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush)
             .await?;
 
@@ -220,7 +220,7 @@ impl StateManager {
         prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
-    ) -> Result<(InvocResult, ApplyRet, Duration, Option<Cid>), Error> {
+    ) -> Result<(ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
             .load_tipset_state(&ts)
@@ -275,12 +275,7 @@ impl StateManager {
                 Ok((ret, duration, state_root))
             })?;
 
-            Ok((
-                InvocResult::new(message.message().clone(), &ret),
-                ret,
-                duration,
-                state_cid,
-            ))
+            Ok((ret, duration, state_cid))
         })
         .await?
     }

@@ -1947,7 +1947,7 @@ async fn apply_message(
 }
 
 pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> anyhow::Result<u64> {
-    let (_invoc_res, apply_ret, prior_messages, ts) =
+    let (apply_ret, prior_messages, ts) =
         gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
     if apply_ret.exit_code().is_success() {
         return Ok(msg.gas_limit());
@@ -1996,7 +1996,7 @@ async fn gas_search(
         limit: u64,
     ) -> anyhow::Result<bool> {
         msg.gas_limit = limit;
-        let (_invoc_res, apply_ret, _, _) = data
+        let (apply_ret, ..) = data
             .state_manager
             .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
             .await?;
