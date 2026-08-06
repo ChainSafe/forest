@@ -1,8 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use itertools::Itertools;
+
 use crate::{
-    beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork},
+    beacon::{
+        Beacon, BeaconEntry, BeaconPoint, BeaconSchedule, ChainInfo, DrandBeacon, DrandConfig,
+        DrandNetwork,
+    },
     shim::version::NetworkVersion,
 };
 use std::borrow::Cow;
@@ -143,4 +148,34 @@ fn test_max_beacon_round_for_epoch_quicknet() {
         round,
         ((1598306400 + 3547000 * 30) - 1692803367 - 30) / 3 + 1
     );
+}
+
+#[tokio::test]
+async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
+    // (parent epoch, its beacon round, block epoch, expected rounds)
+    let cases = [
+        // Null round at 6216199: entries for both 6216199 and 6216200.
+        (6216198, 30662982, 6216200, vec![30662992, 30663002]),
+        // No null round in between: only 6216200's entry.
+        (6216199, 30662992, 6216200, vec![30663002]),
+    ];
+
+    let schedule = BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())]);
+
+    for (prev_epoch, prev_epoch_round, epoch, expected_rounds) in cases {
+        let (_, prev_beacon) = schedule.beacon_for_epoch(prev_epoch).unwrap();
+        let prev_beacon_entry = prev_beacon.entry(prev_epoch_round).await.unwrap();
+
+        let entries = schedule
+            .beacon_entries_for_block(NetworkVersion::V22, epoch, prev_epoch, &prev_beacon_entry)
+            .await
+            .unwrap();
+
+        let rounds = entries.iter().map(BeaconEntry::round).collect_vec();
+
+        assert_eq!(
+            rounds, expected_rounds,
+            "epoch {epoch}, parent {prev_epoch}"
+        );
+    }
 }
