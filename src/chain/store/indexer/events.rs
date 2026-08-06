@@ -132,29 +132,31 @@ impl IndexerEventFilter {
         if let Some(ts_cid) = self.tipset_cid {
             clauses.push("tm.tipset_key_cid=?".into());
             args.add(ts_cid.to_bytes()).map_err(arg_err)?;
-        } else if self.min_height >= 0 && self.min_height == self.max_height {
-            clauses.push("tm.height=?".into());
-            args.add(self.min_height).map_err(arg_err)?;
-        } else if self.min_height >= 0 && self.max_height >= 0 {
-            anyhow::ensure!(
-                self.max_height >= self.min_height,
-                "max_height should not be less that min_height"
-            );
-            clauses.push("tm.height BETWEEN ? AND ?".into());
-            args.add(self.min_height).map_err(arg_err)?;
-            args.add(self.max_height).map_err(arg_err)?;
-        } else if self.min_height >= 0 {
-            clauses.push("tm.height >= ?".into());
-            args.add(self.min_height).map_err(arg_err)?;
-        } else if self.max_height >= 0 {
-            clauses.push("tm.height <= ?".into());
-            args.add(self.max_height).map_err(arg_err)?;
         } else {
-            anyhow::bail!("filter must specify either a tipset or a height range");
+            if self.min_height >= 0 && self.min_height == self.max_height {
+                clauses.push("tm.height=?".into());
+                args.add(self.min_height).map_err(arg_err)?;
+            } else if self.min_height >= 0 && self.max_height >= 0 {
+                anyhow::ensure!(
+                    self.max_height >= self.min_height,
+                    "max_height should not be less that min_height"
+                );
+                clauses.push("tm.height BETWEEN ? AND ?".into());
+                args.add(self.min_height).map_err(arg_err)?;
+                args.add(self.max_height).map_err(arg_err)?;
+            } else if self.min_height >= 0 {
+                clauses.push("tm.height >= ?".into());
+                args.add(self.min_height).map_err(arg_err)?;
+            } else if self.max_height >= 0 {
+                clauses.push("tm.height <= ?".into());
+                args.add(self.max_height).map_err(arg_err)?;
+            } else {
+                anyhow::bail!("filter must specify either a tipset or a height range");
+            }
+            // unless asking for a specific tipset, we never want to see reverted historical events
+            clauses.push("e.reverted=?".into());
+            args.add(false).map_err(arg_err)?;
         }
-        // unless asking for a specific tipset, we never want to see reverted historical events
-        clauses.push("e.reverted=?".into());
-        args.add(false).map_err(arg_err)?;
 
         if let Some(msg_cid) = self.msg_cid {
             clauses.push("tm.message_cid=?".into());
