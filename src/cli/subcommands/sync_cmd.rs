@@ -8,8 +8,9 @@ use crate::rpc::{self, prelude::*};
 use anyhow::Context;
 use cid::Cid;
 use clap::Subcommand;
+use dialoguer::console::{Term, measure_text_width};
 use std::{
-    io::{BufWriter, Write, stdout},
+    io::{Write, stdout},
     time::Duration,
 };
 use tokio::time;
@@ -43,10 +44,9 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                // Buffered so that the cursor moves, the clear and the whole report
-                // reach the terminal as a single write, leaving no partially redrawn
-                // frame on screen.
-                let mut stdout = BufWriter::new(stdout());
+                // Buffered so that the clear and the whole report reach the terminal
+                // as a single write, leaving no partially redrawn frame on screen.
+                let mut term = Term::buffered_stdout();
                 let mut rows_printed_last_iteration = 0;
 
                 handle_initial_snapshot_check(&client).await?;
@@ -60,18 +60,18 @@ impl SyncCommands {
 
                     wait_for_node_to_start_syncing(&client).await?;
 
-                    clear_previous_lines(&mut stdout, rows_printed_last_iteration)?;
+                    clear_previous_lines(&term, rows_printed_last_iteration)?;
 
-                    let width = terminal_width();
+                    let width = terminal_width(&term);
                     rows_printed_last_iteration =
-                        print_sync_report_details(&mut stdout, &report, width)
+                        print_sync_report_details(&mut term, &report, width)
                             .context("Failed to print sync status report")?;
-                    stdout.flush()?;
+                    term.flush()?;
 
                     // Exit if synced and not in watch mode.
                     if !watch && report.status == NodeSyncStatus::Synced {
-                        writeln!(stdout, "\nSync complete!")?;
-                        stdout.flush()?;
+                        writeln!(term, "\nSync complete!")?;
+                        term.flush()?;
                         break;
                     }
                 }
@@ -93,10 +93,11 @@ impl SyncCommands {
                 }
 
                 // Print the status report once, without row counting for clearing
-                let mut stdout = BufWriter::new(stdout());
-                _ = print_sync_report_details(&mut stdout, &sync_status, terminal_width())
+                let mut term = Term::buffered_stdout();
+                let width = terminal_width(&term);
+                _ = print_sync_report_details(&mut term, &sync_status, width)
                     .context("Failed to print sync status report")?;
-                stdout.flush()?;
+                term.flush()?;
 
                 Ok(())
             }
@@ -120,8 +121,8 @@ impl SyncCommands {
 
 /// Width of the terminal in columns, falling back to a sane default when it
 /// cannot be determined (e.g. output is piped).
-fn terminal_width() -> usize {
-    dialoguer::console::Term::stdout().size().1 as usize
+fn terminal_width(term: &Term) -> usize {
+    term.size().1 as usize
 }
 
 /// Writes the sync status report and returns the number of terminal *rows* it
@@ -139,7 +140,7 @@ fn print_sync_report_details(
     // Writes a single line and reports how many rows it takes up.
     let write_line = |out: &mut dyn Write, line: String| -> anyhow::Result<usize> {
         writeln!(out, "{line}")?;
-        Ok(line.chars().count().div_ceil(term_width).max(1))
+        Ok(measure_text_width(&line).div_ceil(term_width).max(1))
     };
 
     let head_key_str = report
@@ -203,16 +204,10 @@ fn print_sync_report_details(
     Ok(rows)
 }
 
-fn clear_previous_lines(out: &mut impl Write, rows: usize) -> anyhow::Result<()> {
-    if rows > 0 {
-        // Move cursor up `rows` times, return to start (\r), clear below
-        write!(
-            out,
-            "\r{}{}",
-            anes::MoveCursorUp(rows as u16),
-            anes::ClearBuffer::Below,
-        )?;
-    }
+/// Clears the `rows` terminal rows written by the previous refresh, leaving the
+/// cursor at the start of the first cleared row so the next report overwrites it.
+fn clear_previous_lines(term: &Term, rows: usize) -> anyhow::Result<()> {
+    term.clear_last_lines(rows)?;
     Ok(())
 }
 
@@ -262,7 +257,7 @@ async fn check_snapshot_progress(
 /// Waits for node initialization to complete (start `Syncing`).
 async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<()> {
     let mut is_msg_printed = false;
-    let mut stdout = stdout();
+    let term = Term::stdout();
     const POLLING_INTERVAL: Duration = Duration::from_secs(1);
 
     loop {
@@ -271,14 +266,14 @@ async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<
             .context("Failed to get sync status while waiting for initialization to complete")?;
 
         if report.status == NodeSyncStatus::Initializing {
-            write!(stdout, "\r🔄 Node syncing is initializing, please wait...")?;
-            stdout.flush()?;
+            term.write_str("\r🔄 Node syncing is initializing, please wait...")?;
+            term.flush()?;
             is_msg_printed = true;
 
             sleep(POLLING_INTERVAL).await;
         } else {
             if is_msg_printed {
-                clear_previous_lines(&mut stdout, 1)
+                term.clear_line()
                     .context("Failed to clear initializing message")?;
             }
 
