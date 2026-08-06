@@ -42,7 +42,7 @@ const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
 ];
 
 /// Genesis information used when calculating circulating supply.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
@@ -58,8 +58,9 @@ impl GenesisInfo {
         let liftoff_height = chain_config.epoch(Height::Liftoff);
         Self {
             vesting: GenesisInfoVesting::new(liftoff_height),
+            genesis_pledge: TokenAmount::zero(),
+            genesis_market_funds: TokenAmount::zero(),
             chain_config,
-            ..GenesisInfo::default()
         }
     }
 
@@ -119,7 +120,7 @@ impl GenesisInfo {
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
     /// calculated differently.
     pub async fn get_state_circulating_supply_with_cache(
-        self,
+        self: Arc<Self>,
         db: impl Blockstore + ShallowClone + Send + Sync + 'static,
         ts: Tipset,
     ) -> anyhow::Result<TokenAmount> {
@@ -242,7 +243,7 @@ impl GenesisInfo {
 
 /// Vesting schedule info. These states are lazily filled, to avoid doing until
 /// needed to calculate circulating supply.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct GenesisInfoVesting {
     genesis: Vec<(ChainEpoch, TokenAmount)>,
     ignition: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,

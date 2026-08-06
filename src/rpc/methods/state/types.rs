@@ -138,7 +138,7 @@ impl MessageGasCost {
         };
         if !cost.is_zero_cost() {
             cost.message = Some(message.cid());
-            cost.gas_used = TokenAmount::from_atto(apply_ret.msg_receipt().gas_used());
+            cost.gas_used = TokenAmount::from_atto(apply_ret.gas_used());
         }
         Ok(cost)
     }
@@ -305,29 +305,6 @@ impl PartialEq for GasTrace {
             && self.total_gas == other.total_gas
             && self.compute_gas == other.compute_gas
             && self.storage_gas == other.storage_gas
-    }
-}
-
-#[derive(PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Message>")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Option<Receipt>>")]
-    pub msg_rct: Option<Receipt>,
-    pub error: Option<String>,
-}
-lotus_json_with_self!(InvocResult);
-
-impl InvocResult {
-    pub fn new(msg: Message, ret: &ApplyRet) -> Self {
-        Self {
-            msg,
-            msg_rct: Some(ret.msg_receipt()),
-            error: ret.failure_info(),
-        }
     }
 }
 
