@@ -20,7 +20,6 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
 use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
-use itertools::izip;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
@@ -181,21 +180,11 @@ impl RawBlockHeader {
             ));
         }
 
-        // An unchained beacon carries no link between consecutive entries, so nothing
-        // but these checks ties them to the epochs they are supposed to cover. A block
-        // covers every epoch since its parent - normally just its own, but null rounds
-        // can happen and it must carry exactly one entry per covered epoch, in
-        // ascending order.
         // ref: https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/beacon/beacon.go#L95
         if curr_beacon.network().is_unchained() {
-            // We already made sure that the last beacon entry matches the current block
-            // epoch, and this loop covers a possible gap between the parent block and
-            // the current one. The epoch range is deliberately unbounded so that every
-            // entry is checked: an entry past `self.epoch` has no epoch to cover and is
-            // rejected against the round of the epoch that would follow this block.
-            for (beacon_entry, lookup_epoch) in
-                izip!(self.beacon_entries.iter(), (parent_epoch + 1)..)
-            {
+            for (idx, beacon_entry) in self.beacon_entries.iter().enumerate() {
+                let lookup_epoch = parent_epoch + 1 + idx as i64;
+
                 let expected_round =
                     curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
                 if beacon_entry.round() != expected_round {
@@ -475,7 +464,6 @@ mod tests {
         BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())])
     }
 
-    /// A single case for [`validate_beacon_entries_on_quicknet`].
     #[derive(Debug)]
     struct BeaconEntriesCase {
         parent_epoch: ChainEpoch,
@@ -486,7 +474,6 @@ mod tests {
     }
 
     #[rstest]
-    // no gaps, a single entry is all the block owes
     #[case::no_null_round(BeaconEntriesCase {
         parent_epoch: 6216199,
         prev_round: 30662992,
@@ -494,7 +481,6 @@ mod tests {
         rounds: vec![30663002],
         accepted: true,
     })]
-    // one gap (6216199), so the block carries its own entry and 6216199's
     #[case::null_round_both_entries(BeaconEntriesCase {
         parent_epoch: 6216198,
         prev_round: 30662982,
@@ -502,7 +488,6 @@ mod tests {
         rounds: vec![30662992, 30663002],
         accepted: true,
     })]
-    // the first entry is not the round that epoch 6216199 maps to
     #[case::null_round_invalid_entry(BeaconEntriesCase {
         parent_epoch: 6216198,
         prev_round: 30662982,
@@ -510,7 +495,6 @@ mod tests {
         rounds: vec![30662990, 30663002],
         accepted: false,
     })]
-    // the null epoch's entry is missing: too few entries for the covered range
     #[case::null_round_missing_null_entry(BeaconEntriesCase {
         parent_epoch: 6216198,
         prev_round: 30662982,
@@ -518,7 +502,6 @@ mod tests {
         rounds: vec![30663002],
         accepted: false,
     })]
-    // the block's own entry is missing, so the last entry isn't at `max_round`
     #[case::null_round_missing_own_entry(BeaconEntriesCase {
         parent_epoch: 6216198,
         prev_round: 30662982,
@@ -526,7 +509,6 @@ mod tests {
         rounds: vec![30662992],
         accepted: false,
     })]
-    // a duplicated final entry: one more entry than the covered range
     #[case::extra_trailing_entry(BeaconEntriesCase {
         parent_epoch: 6216199,
         prev_round: 30662992,
