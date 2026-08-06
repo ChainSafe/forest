@@ -188,10 +188,13 @@ impl RawBlockHeader {
         // ascending order.
         // ref: https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/beacon/beacon.go#L95
         if curr_beacon.network().is_unchained() {
-            // we already made sure that the last beacon entry matches the current block epoch
-            // now this loop covers a possible gap between parent block and the current block
+            // We already made sure that the last beacon entry matches the current block
+            // epoch, and this loop covers a possible gap between the parent block and
+            // the current one. The epoch range is deliberately unbounded so that every
+            // entry is checked: an entry past `self.epoch` has no epoch to cover and is
+            // rejected against the round of the epoch that would follow this block.
             for (beacon_entry, lookup_epoch) in
-                izip!(self.beacon_entries.iter(), (parent_epoch + 1)..=self.epoch)
+                izip!(self.beacon_entries.iter(), (parent_epoch + 1)..)
             {
                 let expected_round =
                     curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
@@ -521,6 +524,21 @@ mod tests {
         prev_round: 30662982,
         epoch: 6216200,
         rounds: vec![30662992],
+        accepted: false,
+    })]
+    // a duplicated final entry: one more entry than the covered range
+    #[case::extra_trailing_entry(BeaconEntriesCase {
+        parent_epoch: 6216199,
+        prev_round: 30662992,
+        epoch: 6216200,
+        rounds: vec![30663002, 30663002],
+        accepted: false,
+    })]
+    #[case::null_round_extra_trailing_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662992, 30663002, 30663002],
         accepted: false,
     })]
     #[tokio::test]
