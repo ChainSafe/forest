@@ -138,7 +138,7 @@ impl MessageGasCost {
         };
         if !cost.is_zero_cost() {
             cost.message = Some(message.cid());
-            cost.gas_used = TokenAmount::from_atto(apply_ret.msg_receipt().gas_used());
+            cost.gas_used = TokenAmount::from_atto(apply_ret.gas_used());
         }
         Ok(cost)
     }

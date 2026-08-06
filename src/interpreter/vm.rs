@@ -367,15 +367,10 @@ impl VM {
                 // Update totals
                 gas_reward += ret.miner_tip();
                 penalty += ret.penalty();
-                let msg_receipt = ret.msg_receipt();
-                receipts.push(msg_receipt.clone());
-
-                events_roots.push(ret.msg_receipt().events_root());
-                if ret.msg_receipt().events_root().is_some() {
-                    events.push(Some(ret.events()));
-                } else {
-                    events.push(None);
-                }
+                let (receipt, msg_events) = ret.into_receipt_and_events();
+                events_roots.push(receipt.events_root());
+                receipts.push(receipt);
+                events.push(msg_events);
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -399,10 +394,10 @@ impl VM {
                     );
                 }
                 // This is more of a sanity check, this should not be able to be hit.
-                if !ret.msg_receipt().exit_code().is_success() {
+                if !ret.exit_code().is_success() {
                     anyhow::bail!(
                         "reward application message failed (exit: {:?})",
-                        ret.msg_receipt().exit_code()
+                        ret.exit_code()
                     );
                 }
 
@@ -500,7 +495,7 @@ impl VM {
         };
         let duration = start.elapsed();
 
-        let exit_code = ret.msg_receipt().exit_code();
+        let exit_code = ret.exit_code();
 
         if !exit_code.is_success() {
             tracing::debug!(?exit_code, "VM message execution failure.")

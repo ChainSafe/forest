@@ -136,10 +136,10 @@ impl StateManager {
                     }
 
                     // This is more of a sanity check, this should not be able to be hit.
-                    if !ret.msg_receipt().exit_code().is_success() {
+                    if !ret.exit_code().is_success() {
                         bail!(
                             "reward application message failed (exit: {:?})",
-                            ret.msg_receipt().exit_code()
+                            ret.exit_code()
                         );
                     }
                 }

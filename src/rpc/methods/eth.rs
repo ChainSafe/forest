@@ -1949,7 +1949,7 @@ async fn apply_message(
 pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> anyhow::Result<u64> {
     let (_invoc_res, apply_ret, prior_messages, ts) =
         gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
-    if apply_ret.msg_receipt().exit_code().is_success() {
+    if apply_ret.exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
 
@@ -1969,7 +1969,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
     } else {
         anyhow::bail!(
             "message execution failed: exit {}, reason: {}",
-            apply_ret.msg_receipt().exit_code(),
+            apply_ret.exit_code(),
             apply_ret.failure_info().unwrap_or_default(),
         );
     }
@@ -2000,7 +2000,7 @@ async fn gas_search(
             .state_manager
             .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
             .await?;
-        Ok(apply_ret.msg_receipt().exit_code().is_success())
+        Ok(apply_ret.exit_code().is_success())
     }
 
     while high < BLOCK_GAS_LIMIT {
