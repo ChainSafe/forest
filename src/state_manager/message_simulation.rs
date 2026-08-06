@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::circulating_supply::GenesisInfo;
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
@@ -75,7 +74,6 @@ impl StateManager {
         };
 
         let height = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: tipset.shallow_clone(),
@@ -83,7 +81,7 @@ impl StateManager {
                 epoch: height,
                 rand: Box::new(self.chain_rand(tipset.shallow_clone())),
                 base_fee: tipset.block_headers().first().parent_base_fee.clone(),
-                circ_supply: genesis_info.get_vm_circulating_supply(
+                circ_supply: self.genesis_info().get_vm_circulating_supply(
                     height,
                     self.db(),
                     &state_cid,
@@ -231,7 +229,6 @@ impl StateManager {
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
             // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
@@ -244,7 +241,7 @@ impl StateManager {
                         epoch,
                         rand: Box::new(chain_rand),
                         base_fee: ts.block_headers().first().parent_base_fee.clone(),
-                        circ_supply: genesis_info.get_vm_circulating_supply(
+                        circ_supply: this.genesis_info().get_vm_circulating_supply(
                             epoch,
                             this.chain_index().db(),
                             &state_root,
