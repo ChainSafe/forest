@@ -336,7 +336,10 @@ impl SqliteIndexer {
             backfilled,
         ) = match self.get_and_verify_indexed_data(&ts).await {
             Ok(r) => (r, false),
-            Err(_) if backfill => (self.get_and_verify_indexed_data(&ts).await?, true),
+            Err(_) if backfill => {
+                self.backfill_missing_tipset(&ts).await?;
+                (self.get_and_verify_indexed_data(&ts).await?, true)
+            }
             Err(e) => anyhow::bail!(
                 "failed to validate indexed data for tipset at height {epoch}(backfill disabled): {e:#?}"
             ),
