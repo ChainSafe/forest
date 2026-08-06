@@ -87,10 +87,12 @@ impl BeaconSchedule {
             if cb_epoch != pb_epoch {
                 // Fork logic, take entries from the last two rounds of the new beacon.
                 let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
-                let mut entries = Vec::with_capacity(2);
-                entries.push(curr_beacon.entry(round - 1).await?);
-                entries.push(curr_beacon.entry(round).await?);
-                return Ok(entries);
+
+                let out = vec![
+                    curr_beacon.entry(round - 1).await?,
+                    curr_beacon.entry(round).await?,
+                ];
+                return Ok(out);
             }
         }
 
@@ -112,13 +114,15 @@ impl BeaconSchedule {
             prev.round()
         };
 
-        // We only ever need one entry after drand quicknet upgrade (FIP-0063)
+        let mut out = Vec::with_capacity(2);
         if curr_beacon.network().is_unchained() {
-            let entry = curr_beacon.entry(max_round).await?;
-            Ok(vec![entry])
+            for covered_epoch in (parent_epoch + 1)..=epoch {
+                let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
+                out.push(curr_beacon.entry(round).await?);
+            }
+            Ok(out)
         } else {
             let mut cur = max_round;
-            let mut out = Vec::new();
             while cur > prev_round {
                 // Push all entries from rounds elapsed since the last chain epoch.
                 let entry = curr_beacon.entry(cur).await?;

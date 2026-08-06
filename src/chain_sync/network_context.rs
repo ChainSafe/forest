@@ -373,10 +373,12 @@ impl SyncNetworkContext {
 
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures
-        // this.
-        let res = tokio::task::spawn_blocking(move || {
-            rx.recv_timeout(Duration::from_millis(CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()))
-        })
+        // this. Awaited rather than `spawn_blocking`d so a slow peer doesn't pin a
+        // blocking-pool thread for the whole timeout.
+        let res = tokio::time::timeout(
+            Duration::from_millis(CHAIN_EXCHANGE_TIMEOUT_MILLIS.get()),
+            rx.recv_async(),
+        )
         .await;
         let res_duration = Instant::now().duration_since(req_pre_time);
         match res {
@@ -445,9 +447,10 @@ impl SyncNetworkContext {
 
         const HELLO_TIMEOUT: Duration = Duration::from_secs(30);
         let sent = Instant::now();
-        let res = tokio::task::spawn_blocking(move || rx.recv_timeout(HELLO_TIMEOUT))
-            .await?
-            .ok();
+        let res = tokio::time::timeout(HELLO_TIMEOUT, rx.recv_async())
+            .await
+            .ok()
+            .and_then(Result::ok);
         Ok((peer_id, sent, res))
     }
 }

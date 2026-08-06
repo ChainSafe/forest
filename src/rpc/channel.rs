@@ -357,7 +357,12 @@ impl RpcModule {
             move |params, pending| {
                 let mut receiver = callback(params);
                 tokio::spawn(async move {
-                    let sink = pending.accept().await.unwrap();
+                    let sink = if let Ok(sink) = pending.accept().await {
+                        sink
+                    } else {
+                        tracing::error!("Failed to accept subscription");
+                        return;
+                    };
                     tracing::debug!("Channel created: chann_id={}", sink.channel_id);
 
                     loop {
