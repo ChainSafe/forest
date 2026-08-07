@@ -14,13 +14,12 @@ use crate::db::db_engine::db_root;
 use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
 use crate::db::{CAR_DB_DIR_NAME, INDEX_DB_DIR_NAME, INDEX_DB_FILE_NAME};
 use crate::genesis::read_genesis_header;
-use crate::interpreter::VMTrace;
 use crate::libp2p::{Keypair, PeerId};
 use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
-use crate::shim::address::{Address, CurrentNetwork};
-use crate::state_manager::{NO_CALLBACK, StateManager};
+use crate::shim::address::CurrentNetwork;
+use crate::state_manager::StateManager;
 use crate::{
     Config, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, JWT_IDENTIFIER, KeyStore,
     KeyStoreConfig,
@@ -65,38 +64,12 @@ impl AppContext {
             Some(Arc::new(
                 SqliteIndexer::new(
                     crate::utils::sqlite::open_file(db_meta_data.index_db_path()).await?,
-                    state_manager.chain_store().shallow_clone(),
+                    state_manager.shallow_clone(),
                     SqliteIndexerOptions::default().with_gc_retention_epochs(i64::from(
                         cfg.chain_indexer.gc_retention_epochs.unwrap_or_default(),
                     )),
                 )
-                .await?
-                .with_actor_to_delegated_address_func(Arc::new({
-                    let state_manager = state_manager.shallow_clone();
-                    move |actor_id, ts| {
-                        let id_addr = Address::new_id(actor_id);
-                        Ok(
-                            match state_manager.get_required_actor(&id_addr, *ts.parent_state()) {
-                                Ok(actor) => actor
-                                    .delegated_address
-                                    .map(Address::from)
-                                    .unwrap_or(id_addr),
-                                Err(_) => id_addr,
-                            },
-                        )
-                    }
-                }))
-                .with_recompute_tipset_state_func(Arc::new({
-                    let state_manager = state_manager.shallow_clone();
-                    move |ts| {
-                        state_manager.compute_tipset_state_blocking(
-                            ts,
-                            NO_CALLBACK,
-                            VMTrace::NotTraced,
-                        )?;
-                        Ok(())
-                    }
-                })),
+                .await?,
             ))
         } else {
             None

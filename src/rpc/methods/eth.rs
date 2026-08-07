@@ -3438,6 +3438,13 @@ impl RpcMethod<1> for EthGetLogs {
             .is_large_range_for_sql(ctx.chain_store().heaviest_tipset().epoch())
             && let Some(chain_indexer) = ctx.chain_indexer()
         {
+            // we can't return events for the heaviest tipset as the transactions in that tipset will be executed
+            // in the next non-null tipset (because of Filecoin's "deferred execution" model)
+            if let ParsedFilterTipsets::Range(range) = &pf.tipsets
+                && *range.end() >= ctx.chain_store().heaviest_tipset().epoch()
+            {
+                return Err(EthErrors::EventsNotYetAvailable.into());
+            }
             chain_indexer
                 .get_events_for_filter(
                     IndexerEventFilter::try_from(pf)?,

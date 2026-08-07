@@ -13,7 +13,8 @@ use sqlx::Row as _;
 
 use crate::{
     blocks::Tipset,
-    chain::{ChainStore, HeadChanges, index::ResolveNullTipset},
+    chain::{HeadChanges, index::ResolveNullTipset},
+    interpreter::VMTrace,
     message::{ChainMessage, SignedMessage},
     prelude::*,
     rpc::{
@@ -26,18 +27,13 @@ use crate::{
         clock::{ChainEpoch, EPOCHS_IN_DAY},
         executor::{Receipt, StampedEvent},
     },
+    state_manager::{NO_CALLBACK, StateManager},
     utils::sqlite,
 };
 use std::{
     ops::DerefMut as _,
-    sync::Arc,
     time::{Duration, Instant},
 };
-
-type ActorToDelegatedAddressFunc =
-    Arc<dyn Fn(ActorID, &Tipset) -> anyhow::Result<Address> + Send + Sync + 'static>;
-
-type RecomputeTipsetStateFunc = Arc<dyn Fn(Tipset) -> anyhow::Result<()> + Send + Sync + 'static>;
 
 type ExecutedMessage = (ChainMessage, Receipt, Option<Vec<StampedEvent>>);
 
@@ -70,17 +66,15 @@ impl SqliteIndexerOptions {
 pub struct SqliteIndexer {
     lock: tokio::sync::Mutex<()>,
     options: SqliteIndexerOptions,
-    cs: ChainStore,
+    sm: StateManager,
     db: sqlx::SqlitePool,
     stmts: PreparedStatements,
-    actor_to_delegated_address_func: Option<ActorToDelegatedAddressFunc>,
-    recompute_tipset_state_func: Option<RecomputeTipsetStateFunc>,
 }
 
 impl SqliteIndexer {
     pub async fn new(
         db: sqlx::SqlitePool,
-        cs: ChainStore,
+        sm: StateManager,
         options: SqliteIndexerOptions,
     ) -> anyhow::Result<Self> {
         options.validate()?;
@@ -95,11 +89,9 @@ impl SqliteIndexer {
         Ok(Self {
             lock: Default::default(),
             options,
-            cs,
+            sm,
             db,
             stmts,
-            actor_to_delegated_address_func: None,
-            recompute_tipset_state_func: None,
         })
     }
 
@@ -113,14 +105,15 @@ impl SqliteIndexer {
         &self.db
     }
 
-    pub fn with_actor_to_delegated_address_func(mut self, f: ActorToDelegatedAddressFunc) -> Self {
-        self.actor_to_delegated_address_func = Some(f);
-        self
-    }
-
-    pub fn with_recompute_tipset_state_func(mut self, f: RecomputeTipsetStateFunc) -> Self {
-        self.recompute_tipset_state_func = Some(f);
-        self
+    fn actor_to_delegated_address(&self, actor_id: ActorID, ts: &Tipset) -> Address {
+        let id_addr = Address::new_id(actor_id);
+        match self.sm.get_required_actor(&id_addr, *ts.parent_state()) {
+            Ok(actor) => actor
+                .delegated_address
+                .map(Address::from)
+                .unwrap_or(id_addr),
+            Err(_) => id_addr,
+        }
     }
 
     pub async fn index_loop(
@@ -163,7 +156,7 @@ impl SqliteIndexer {
     async fn gc(&self) {
         let _lock = self.acquire_write_lock().await;
         tracing::info!("starting index gc");
-        let head = self.cs.heaviest_tipset();
+        let head = self.sm.chain_store().heaviest_tipset();
         let removal_epoch = head.epoch() - self.options.gc_retention_epochs - 10; // 10 is for some grace period
         if removal_epoch <= 0 {
             tracing::info!("no tipsets to gc");
@@ -223,14 +216,14 @@ impl SqliteIndexer {
     pub async fn populate_after_snapshot_import(&self) -> anyhow::Result<()> {
         let _lock = self.acquire_write_lock().await;
         let start = Instant::now();
-        let head = self.cs.heaviest_tipset();
+        let head = self.sm.chain_store().heaviest_tipset();
         tracing::info!(
             "starting to populate chainindex at head epoch {}",
             head.epoch()
         );
         let mut tx = self.db.begin().await?;
         let mut total_indexed = 0;
-        for ts in head.chain(self.cs.db()) {
+        for ts in head.chain(self.sm.db()) {
             if let Err(e) = self
                 .index_tipset_and_parent_events_with_tx(&mut tx, &ts)
                 .await
@@ -261,14 +254,14 @@ impl SqliteIndexer {
         } else {
             None
         };
-        let head = self.cs.heaviest_tipset();
+        let head = self.sm.chain_store().heaviest_tipset();
         anyhow::ensure!(
             epoch < head.epoch(),
             "cannot validate index at epoch {epoch}, can only validate at an epoch less than chain head epoch {}",
             head.epoch()
         );
         let ts = self
-            .cs
+            .sm
             .chain_index()
             .load_required_tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)
             .await?;
@@ -400,11 +393,11 @@ impl SqliteIndexer {
 
     async fn get_next_tipset(&self, ts: &Tipset) -> anyhow::Result<Tipset> {
         let child = self
-            .cs
+            .sm
             .chain_index()
             .load_required_tipset_by_height(
                 ts.epoch() + 1,
-                self.cs.heaviest_tipset(),
+                self.sm.chain_store().heaviest_tipset(),
                 ResolveNullTipset::TakeNewer,
             )
             .await?;
@@ -604,28 +597,19 @@ impl SqliteIndexer {
         msg_ts: Tipset,
         receipt_ts: Tipset,
     ) -> anyhow::Result<Vec<ExecutedMessage>> {
-        let cs = self.cs.shallow_clone();
-        let recompute_tipset_state_func = self.recompute_tipset_state_func.clone();
+        let sm = self.sm.shallow_clone();
         tokio::task::spawn_blocking(move || {
-            Self::load_executed_messages_blocking(
-                &cs,
-                recompute_tipset_state_func.as_ref(),
-                &msg_ts,
-                &receipt_ts,
-            )
+            Self::load_executed_messages_blocking(&sm, &msg_ts, &receipt_ts)
         })
         .await?
     }
 
     fn load_executed_messages_blocking(
-        cs: &ChainStore,
-        recompute_tipset_state_func: Option<&RecomputeTipsetStateFunc>,
+        sm: &StateManager,
         msg_ts: &Tipset,
         receipt_ts: &Tipset,
     ) -> anyhow::Result<Vec<ExecutedMessage>> {
-        let recompute_tipset_state_func =
-            recompute_tipset_state_func.context("recompute_tipset_state_func not set")?;
-        let msgs = cs.messages_for_tipset(msg_ts)?;
+        let msgs = sm.chain_store().messages_for_tipset(msg_ts)?;
         if msgs.is_empty() {
             return Ok(vec![]);
         }
@@ -636,19 +620,19 @@ impl SqliteIndexer {
                 "failed to load message receipts or events for tipset {tsk_cid} (epoch {}); recomputing tipset state",
                 receipt_ts.epoch()
             );
-            recompute_tipset_state_func(msg_ts.clone())?;
+            sm.compute_tipset_state_blocking(msg_ts.clone(), NO_CALLBACK, VMTrace::NotTraced)?;
             tracing::warn!(
                 "successfully recomputed tipset state and loaded events for tipset {tsk_cid} (epoch {})",
                 receipt_ts.epoch()
             );
             anyhow::Ok(())
         };
-        let receipts = match Receipt::get_receipts(cs.db(), *receipt_ts.parent_message_receipts()) {
+        let receipts = match Receipt::get_receipts(sm.db(), *receipt_ts.parent_message_receipts()) {
             Ok(receipts) => receipts,
             Err(_) => {
                 recompute()?;
                 recomputed = true;
-                Receipt::get_receipts(cs.db(), *receipt_ts.parent_message_receipts())?
+                Receipt::get_receipts(sm.db(), *receipt_ts.parent_message_receipts())?
             }
         };
         anyhow::ensure!(
@@ -660,13 +644,13 @@ impl SqliteIndexer {
         let mut executed = Vec::with_capacity(msgs.len());
         for (message, receipt) in msgs.iter().zip(receipts) {
             let events = if let Some(events_root) = receipt.events_root() {
-                Some(match StampedEvent::get_events(cs.db(), &events_root) {
+                Some(match StampedEvent::get_events(sm.db(), &events_root) {
                     Ok(events) => events,
                     Err(e) if recomputed => return Err(e),
                     Err(_) => {
                         recompute()?;
                         recomputed = true;
-                        StampedEvent::get_events(cs.db(), &events_root)?
+                        StampedEvent::get_events(sm.db(), &events_root)?
                     }
                 })
             } else {
@@ -682,7 +666,7 @@ impl SqliteIndexer {
         let tsk_cid_bytes = ts.key().cid()?.to_bytes();
         // Because of deferred execution in Filecoin, events at tipset T are reverted when a tipset T+1 is reverted.
         // However, the tipet `T` itself is not reverted.
-        let pts = Tipset::load_required(self.cs.db(), ts.parents())?;
+        let pts = Tipset::load_required(self.sm.db(), ts.parents())?;
         let events_tsk_cid_bytes = pts.key().cid()?.to_bytes();
         let mut tx = self.db.begin().await?;
         sqlx::query(self.stmts.update_tipset_to_reverted)
@@ -721,7 +705,8 @@ impl SqliteIndexer {
             Ok(())
         } else {
             let msgs = self
-                .cs
+                .sm
+                .chain_store()
                 .messages_for_tipset(ts)
                 .map_err(|e| anyhow::anyhow!("failed to get messages for tipset: {e}"))?;
             if msgs.is_empty() {
@@ -749,7 +734,7 @@ impl SqliteIndexer {
                 }
 
                 for block in ts.block_headers() {
-                    let (_, smsgs) = crate::chain::block_messages(self.cs.db(), block)
+                    let (_, smsgs) = crate::chain::block_messages(self.sm.db(), block)
                         .map_err(|e| anyhow::anyhow!("failed to get messages for block: {e}"))?;
                     for smsg in smsgs.into_iter().filter(SignedMessage::is_delegated) {
                         self.index_signed_message_with_tx(tx, &smsg)
@@ -774,7 +759,7 @@ impl SqliteIndexer {
             // Skip parent if ts is genesis
             return Ok(());
         }
-        let pts = Tipset::load_required(self.cs.db(), ts.parents())?;
+        let pts = Tipset::load_required(self.sm.db(), ts.parents())?;
         // Index the parent tipset if it doesn't exist yet.
         // This is necessary to properly index events produced by executing
         // messages included in the parent tipset by the current tipset (deferred execution).
@@ -793,10 +778,6 @@ impl SqliteIndexer {
         msg_ts: &Tipset,
         execution_ts: &Tipset,
     ) -> anyhow::Result<()> {
-        let actor_to_delegated_address_func = self
-            .actor_to_delegated_address_func
-            .as_ref()
-            .context("indexer can not index events without an address resolver")?;
         // check if we have an event indexed for any message in the `msg_ts` tipset -> if so, there's nothig to do here
         // this makes event inserts idempotent
         let msg_tsk_cid_bytes = msg_ts.key().cid()?.to_bytes();
@@ -846,7 +827,7 @@ impl SqliteIndexer {
                     let addr = if let Some(addr) = address_lookups.get(&emitter) {
                         *addr
                     } else {
-                        let addr = actor_to_delegated_address_func(emitter, execution_ts)?;
+                        let addr = self.actor_to_delegated_address(emitter, execution_ts);
                         address_lookups.insert(emitter, addr);
                         addr
                     };
@@ -918,7 +899,7 @@ impl SqliteIndexer {
         tx: &mut sqlx::SqliteTransaction<'a>,
         smsg: &SignedMessage,
     ) -> anyhow::Result<()> {
-        let (_, eth_tx) = eth_tx_from_signed_eth_message(smsg, self.cs.chain_config().eth_chain_id)
+        let (_, eth_tx) = eth_tx_from_signed_eth_message(smsg, self.sm.chain_config().eth_chain_id)
             .map_err(|e| anyhow::anyhow!("failed to convert filecoin message to eth tx: {e}"))?;
         let tx_hash = EthHash(
             eth_tx

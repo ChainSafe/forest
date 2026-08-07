@@ -44,7 +44,7 @@ impl SqliteIndexer {
         max_filter_results: usize,
         skip_event: SkipEvent,
     ) -> anyhow::Result<Vec<CollectedEvent>> {
-        let bs = self.cs.db();
+        let bs = self.sm.db();
         let mut qb = filter.to_query_builder()?;
         let query = qb.build();
         let mut results = query.fetch(self.db());
