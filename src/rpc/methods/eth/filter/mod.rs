@@ -786,7 +786,9 @@ impl ParsedFilterTipsets {
                 i.parse().ok().inspect(|i| {
                     tracing::info!("RPC SQL range threshold set to {i} from `FOREST_RPC_SQL_RANGE_THRESHOLD`");
                 })
-            }).unwrap_or(nonzero!(500_u32))
+            })
+            // The current default value disables SQL by default as the maximum allowed range is 2880.
+            .unwrap_or(nonzero!(10000_u32))
         });
 
         if let ParsedFilterTipsets::Range(range) = self {
