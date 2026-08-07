@@ -281,9 +281,12 @@ impl ChainStore {
             // Do not publish empty change and check active receivers again
             if !changes.is_empty()
                 && self.head_changes_tx.receiver_count() > 0
+                // head change is only published after tipset validation and the 30s block delay
+                // should be sufficient for any consumer to catch up. If this blocks, the consumer logic
+                // needs to be fixed, e.g. spawning a non-blocking task the process the head changes,
                 && self.head_changes_tx.broadcast_blocking(changes).is_err()
             {
-                debug!("did not publish changes, no active receivers");
+                debug!("no active receivers");
             }
         }
 
