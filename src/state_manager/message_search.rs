@@ -315,71 +315,60 @@ impl StateManager {
             let sm = self.shallow_clone();
             async move {
                 let mut candidate: Option<(Tipset, Receipt)> = initial_candidate;
-                while !cancellation_token.is_cancelled() {
-                    match head_changes_rx.recv().await {
-                        Ok(head_changes) => {
-                            for reverted_ts in head_changes.reverts {
-                                reverted.write().insert(reverted_ts.key().clone());
+                while !cancellation_token.is_cancelled()
+                    && let Some(head_changes) = head_changes_rx.next().await
+                {
+                    for reverted_ts in head_changes.reverts {
+                        reverted.write().insert(reverted_ts.key().clone());
 
-                                if candidate
-                                    .as_ref()
-                                    .is_some_and(|(ts, _)| ts.key() == reverted_ts.key())
-                                {
-                                    candidate = None;
-                                }
-                            }
-                            for applied_ts in head_changes.applies {
-                                reverted.write().remove(applied_ts.key());
+                        if candidate
+                            .as_ref()
+                            .is_some_and(|(ts, _)| ts.key() == reverted_ts.key())
+                        {
+                            candidate = None;
+                        }
+                    }
+                    for applied_ts in head_changes.applies {
+                        reverted.write().remove(applied_ts.key());
 
-                                // Return if `search_back_candidate` meets confidence requirement
-                                if let Some((candidate_ts, candidate_receipt)) =
-                                    search_back_candidate.get()
-                                    && confidence_reached(
-                                        applied_ts.epoch(),
-                                        candidate_ts.epoch(),
-                                        confidence,
-                                    )
-                                    && !reverted.read().contains(candidate_ts.key())
-                                {
-                                    return Ok((
-                                        candidate_ts.shallow_clone(),
-                                        candidate_receipt.clone(),
-                                    ));
-                                }
+                        // Return if `search_back_candidate` meets confidence requirement
+                        if let Some((candidate_ts, candidate_receipt)) = search_back_candidate.get()
+                            && confidence_reached(
+                                applied_ts.epoch(),
+                                candidate_ts.epoch(),
+                                confidence,
+                            )
+                            && !reverted.read().contains(candidate_ts.key())
+                        {
+                            return Ok((candidate_ts.shallow_clone(), candidate_receipt.clone()));
+                        }
 
-                                // Return if the candidate meets confidence requirement
-                                if let Some((candidate_ts, _)) = &candidate
-                                    && confidence_reached(
-                                        applied_ts.epoch(),
-                                        candidate_ts.epoch(),
-                                        confidence,
-                                    )
-                                    && let Some(candidate) = candidate
-                                {
-                                    return Ok(candidate);
-                                }
+                        // Return if the candidate meets confidence requirement
+                        if let Some((candidate_ts, _)) = &candidate
+                            && confidence_reached(
+                                applied_ts.epoch(),
+                                candidate_ts.epoch(),
+                                confidence,
+                            )
+                            && let Some(candidate) = candidate
+                        {
+                            return Ok(candidate);
+                        }
 
-                                let maybe_receipt = sm.tipset_executed_message(
-                                    &applied_ts,
-                                    &message,
-                                    allow_replaced.unwrap_or(true),
-                                )?;
-                                if let Some(receipt) = maybe_receipt {
-                                    if confidence == 0 {
-                                        // Return if there's no confidence requirement
-                                        return Ok((applied_ts, receipt));
-                                    } else {
-                                        // Otherwise set it as candidate
-                                        candidate = Some((applied_ts, receipt));
-                                    }
-                                }
+                        let maybe_receipt = sm.tipset_executed_message(
+                            &applied_ts,
+                            &message,
+                            allow_replaced.unwrap_or(true),
+                        )?;
+                        if let Some(receipt) = maybe_receipt {
+                            if confidence == 0 {
+                                // Return if there's no confidence requirement
+                                return Ok((applied_ts, receipt));
+                            } else {
+                                // Otherwise set it as candidate
+                                candidate = Some((applied_ts, receipt));
                             }
                         }
-                        Err(async_broadcast::RecvError::Overflowed(n)) => {
-                            // This is unexpected as overflow is disabled
-                            error!("unexpected broadcast overflow {n}");
-                        }
-                        Err(async_broadcast::RecvError::Closed) => break,
                     }
                 }
                 Err(Error::other("cancelled"))
