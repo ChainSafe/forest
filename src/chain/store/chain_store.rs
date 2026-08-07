@@ -40,10 +40,9 @@ use std::{
     num::NonZeroUsize,
     sync::atomic::{self, AtomicI64},
 };
-use tokio::sync::broadcast;
 
-// A cap on the size of the future_sink
-const SINK_CAP: usize = 200;
+// Capacity of the head change broadcast channel
+const HEAD_CHANGE_BROADCAST_CHANNEL_CAP: usize = 1000;
 
 // Assume a tipset has 5 blocks on average, we cache 1-day-worth of validated blocks. (5 * 2 * 60 * 24 = 14400)
 const VALIDATED_BLOCKS_CACHE_SIZE: NonZeroUsize = nonzero!(14400usize);
@@ -82,7 +81,10 @@ pub type HeadChanges = PathChanges<Tipset>;
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore {
     /// Publisher for head change events
-    head_changes_tx: broadcast::Sender<HeadChanges>,
+    head_changes_tx: async_broadcast::Sender<HeadChanges>,
+
+    /// Inactive receiver for head change events. This is used to keep the channel alive even if there are no active subscribers.
+    head_changes_rx_inactive: Arc<async_broadcast::InactiveReceiver<HeadChanges>>,
 
     /// Heaviest tipset cache
     heaviest_tipset: Arc<ArcSwap<Tipset>>,
@@ -119,6 +121,7 @@ impl ShallowClone for ChainStore {
     fn shallow_clone(&self) -> Self {
         Self {
             head_changes_tx: self.head_changes_tx.clone(),
+            head_changes_rx_inactive: self.head_changes_rx_inactive.shallow_clone(),
             heaviest_tipset: self.heaviest_tipset.shallow_clone(),
             f3_finalized_tipset: self.f3_finalized_tipset.shallow_clone(),
             ec_calculator_finalized_epoch: self.ec_calculator_finalized_epoch.shallow_clone(),
@@ -142,7 +145,10 @@ impl ChainStore {
         let db = db.into();
         let genesis = genesis.into();
         anyhow::ensure!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
-        let (publisher, _) = broadcast::channel(SINK_CAP);
+        let (mut head_changes_tx, head_changes_rx) =
+            async_broadcast::broadcast(HEAD_CHANGE_BROADCAST_CHANNEL_CAP);
+        head_changes_tx.set_await_active(false);
+        head_changes_tx.set_overflow(false); // Disable overflow to not drop head changes
         let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()
             .context("failed to load head tipset key")?
@@ -166,7 +172,8 @@ impl ChainStore {
             }
         }));
         Ok(Self {
-            head_changes_tx: publisher,
+            head_changes_tx,
+            head_changes_rx_inactive: head_changes_rx.deactivate().into(),
             chain_index,
             tipset_tracker: TipsetTracker::new(db, chain_config.clone()),
             heaviest_tipset,
@@ -254,7 +261,8 @@ impl ChainStore {
         }
 
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
-        if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
+        // Only publish head changes if there are active subscribers.
+        if self.head_changes_tx.receiver_count() > 0 {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {
                 Ok(changes) => changes,
@@ -270,7 +278,7 @@ impl ChainStore {
                     }
                 }
             };
-            if self.head_changes_tx.send(changes).is_err() {
+            if self.head_changes_tx.broadcast_blocking(changes).is_err() {
                 debug!("did not publish changes, no active receivers");
             }
         }
@@ -345,8 +353,8 @@ impl ChainStore {
     }
 
     /// Subscribes head changes.
-    pub fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
-        self.head_changes_tx.subscribe()
+    pub fn subscribe_head_changes(&self) -> async_broadcast::Receiver<HeadChanges> {
+        self.head_changes_tx.new_receiver()
     }
 
     /// Returns a borrowed key-value store instance.

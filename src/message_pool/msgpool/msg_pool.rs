@@ -43,7 +43,7 @@ use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
 use std::num::NonZeroUsize;
 use std::time::Duration;
-use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tokio::{task::JoinSet, time::interval};
 use tracing::warn;
 
 /// Maximum size of a serialized message in bytes. Anti-DoS measure to keep
@@ -550,10 +550,11 @@ where
                                 tracing::warn!("Error changing head: {e}");
                             }
                         }
-                        Err(RecvError::Lagged(e)) => {
-                            warn!("Head change subscriber lagged: skipping {e} events");
+                        Err(async_broadcast::RecvError::Overflowed(n)) => {
+                            // This is unexpected as overflow is disabled
+                            error!("unexpected broadcast overflow {n}");
                         }
-                        Err(RecvError::Closed) => {
+                        Err(async_broadcast::RecvError::Closed) => {
                             break Ok(());
                         }
                     }

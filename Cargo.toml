@@ -37,6 +37,7 @@ anes = "0.2"
 anyhow = { workspace = true }
 arc-swap = "1"
 argon2 = "0.5"
+async-broadcast = "0.7"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-trait = "0.1"
