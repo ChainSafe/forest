@@ -44,7 +44,7 @@ fn new_beacon_mainnet() -> DrandBeacon {
     )
 }
 
-fn new_beacon_quicknet() -> DrandBeacon {
+pub fn new_beacon_quicknet() -> DrandBeacon {
     DrandBeacon::new(
         1598306400,
         30,
