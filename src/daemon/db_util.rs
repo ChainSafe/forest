@@ -725,7 +725,7 @@ pub async fn run_backfill(
     let cancel = guard.cancellation_token();
 
     // Subscribe before the walk so applies/reverts that happen during it are observed.
-    let mut head_rx = state_manager.chain_store().subscribe_head_changes();
+    let mut head_changes_rx = state_manager.chain_store().subscribe_head_changes();
 
     // Optionally clamp the start below finality to avoid indexing revert-prone near-head tipsets.
     let start_ts = if options.allow_near_head {
@@ -807,7 +807,7 @@ pub async fn run_backfill(
     // Re-index tipsets applied during the walk so the canonical mapping wins.
     if !report.cancelled {
         let mut extra: Vec<(SignedMessage, u64)> = vec![];
-        while let Some(changes) = head_rx.next().await {
+        while let Some(changes) = head_changes_rx.next().await {
             for ts in changes.applies {
                 if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
                     tracing::debug!("re-indexing tipset @{} applied during backfill", ts.epoch());
