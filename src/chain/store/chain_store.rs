@@ -261,8 +261,8 @@ impl ChainStore {
         }
 
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
-        // Only publish head changes if there are active subscribers.
-        if self.head_changes_tx.receiver_count() > 0 {
+        // Only publish head changes when there are active subscribers and head is changed.
+        if self.head_changes_tx.receiver_count() > 0 && old_head.key() != head.key() {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {
                 Ok(changes) => changes,

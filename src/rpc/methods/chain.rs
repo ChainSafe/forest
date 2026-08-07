@@ -1139,13 +1139,6 @@ pub fn chain_get_path(
     from: &TipsetKey,
     to: &TipsetKey,
 ) -> anyhow::Result<PathChanges> {
-    if from == to {
-        return Ok(PathChanges {
-            reverts: vec![],
-            applies: vec![],
-        });
-    }
-
     let finality = chain_store.chain_config().policy.chain_finality;
     let mut to_revert = chain_store
         .load_required_tipset_or_heaviest(from)
