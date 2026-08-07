@@ -448,12 +448,7 @@ pub mod hexify {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        #[allow(clippy::indexing_slicing)]
-        if s.len() > 2 && &s[..2] == "0x" {
-            T::from_str_radix(&s[2..], 16).map_err(serde::de::Error::custom)
-        } else {
-            Err(serde::de::Error::custom("Invalid hex"))
-        }
+        crate::utils::encoding::hex::parse_prefixed_int(&s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -689,7 +684,8 @@ mod tests {
 
         self::assert_eq!(de("0x2a").unwrap(), 42);
         self::assert_eq!(de("0x0").unwrap(), 0);
-        for invalid in ["", "0x", "2a", "0xzz", "cthulhu"] {
+        // "0é" is 3 bytes, so slicing a byte-length-checked prefix would panic here.
+        for invalid in ["", "0x", "2a", "0xzz", "cthulhu", "0é", "0x-1"] {
             assert!(de(invalid).is_err(), "{invalid:?} should be rejected");
         }
     }

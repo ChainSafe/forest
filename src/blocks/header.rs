@@ -138,7 +138,9 @@ impl RawBlockHeader {
             }
         }
 
-        let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, self.epoch);
+        let max_round = curr_beacon
+            .max_beacon_round_for_epoch(network_version, self.epoch)
+            .map_err(|e| Error::Validation(format!("{e:#}").into()))?;
         // We don't expect to ever actually meet this condition
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
@@ -185,8 +187,9 @@ impl RawBlockHeader {
             for (idx, beacon_entry) in self.beacon_entries.iter().enumerate() {
                 let lookup_epoch = parent_epoch + 1 + idx as i64;
 
-                let expected_round =
-                    curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
+                let expected_round = curr_beacon
+                    .max_beacon_round_for_epoch(network_version, lookup_epoch)
+                    .map_err(|e| Error::Validation(format!("{e:#}").into()))?;
                 if beacon_entry.round() != expected_round {
                     return Err(Error::Validation(
                         format!(

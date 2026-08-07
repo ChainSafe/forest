@@ -1068,6 +1068,17 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
     }
 }
 
+/// Must be positive: `qa_power_for_weight` divides by it.
+fn sector_duration_from_expiration(
+    expiration: ChainEpoch,
+    epoch: ChainEpoch,
+) -> anyhow::Result<ChainEpoch> {
+    expiration
+        .checked_sub(epoch)
+        .filter(|duration| *duration > 0)
+        .with_context(|| format!("sector expiration {expiration} must be after epoch {epoch}"))
+}
+
 pub enum StateMinerInitialPledgeCollateral {}
 
 impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
@@ -1101,7 +1112,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             ts.epoch(),
             pci.expiration,
         )?;
-        let duration = pci.expiration - ts.epoch();
+        let duration = sector_duration_from_expiration(pci.expiration, ts.epoch())?;
         let sector_weight =
             qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
@@ -1161,10 +1172,10 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             ts.epoch(),
             pci.expiration,
         )?;
-        let duration = pci.expiration - ts.epoch();
         let sector_size = SectorSize::from(sector_size).into();
         let sector_weight =
             if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V16 {
+                let duration = sector_duration_from_expiration(pci.expiration, ts.epoch())?;
                 qa_power_for_weight(sector_size, duration, &w, &vw)
             } else {
                 qa_power_max(sector_size)
@@ -2207,6 +2218,22 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     }
 }
 
+/// How long to wait for `epoch`'s beacon entry, with a 1s clock drift buffer.
+fn beacon_entry_wait(
+    genesis_timestamp: i64,
+    block_delay: i64,
+    epoch: ChainEpoch,
+    now_timestamp: i64,
+) -> anyhow::Result<Duration> {
+    let epoch_timestamp = epoch
+        .checked_mul(block_delay)
+        .and_then(|ts| ts.checked_add(genesis_timestamp))
+        .and_then(|ts| ts.checked_add(1))
+        .with_context(|| format!("epoch {epoch} has no representable timestamp"))?;
+    let seconds = epoch_timestamp.saturating_sub(now_timestamp).max(0);
+    Ok(Duration::from_secs(seconds as u64))
+}
+
 pub enum StateGetBeaconEntry {}
 
 impl RpcMethod<1> for StateGetBeaconEntry {
@@ -2224,23 +2251,19 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        {
-            let genesis_timestamp = ctx.chain_store().genesis_block_header().timestamp as i64;
-            let block_delay = i64::from(ctx.chain_config().block_delay_secs);
-            // Give it a 1s clock drift buffer
-            let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
-            let now_timestamp = chrono::Utc::now().timestamp();
-            match epoch_timestamp.saturating_sub(now_timestamp) {
-                diff if diff > 0 => {
-                    tokio::time::sleep(Duration::from_secs(diff as u64)).await;
-                }
-                _ => {}
-            };
-        }
+        let genesis_timestamp = i64::try_from(ctx.chain_store().genesis_block_header().timestamp)
+            .context("genesis timestamp is out of range")?;
+        tokio::time::sleep(beacon_entry_wait(
+            genesis_timestamp,
+            i64::from(ctx.chain_config().block_delay_secs),
+            epoch,
+            chrono::Utc::now().timestamp(),
+        )?)
+        .await;
 
         let (_, beacon) = ctx.beacon().beacon_for_epoch(epoch)?;
         let network_version = ctx.state_manager.get_network_version(epoch);
-        let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
+        let round = beacon.max_beacon_round_for_epoch(network_version, epoch)?;
         let entry = beacon.entry(round).await?;
         Ok(entry)
     }
@@ -3525,5 +3548,62 @@ impl RpcMethod<0> for StateActorInfo {
         };
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use rstest::rstest;
+
+    const GENESIS: i64 = 1598306400;
+    const BLOCK_DELAY: i64 = crate::shim::clock::EPOCH_DURATION_SECONDS;
+    /// Wall clock at epoch 100.
+    const NOW: i64 = GENESIS + 100 * BLOCK_DELAY;
+
+    #[rstest]
+    #[case(99, Duration::ZERO)]
+    // The 1s clock drift buffer puts the current epoch 1s in the future.
+    #[case(100, Duration::from_secs(1))]
+    #[case(102, Duration::from_secs(61))]
+    fn beacon_entry_wait_until_epoch(#[case] epoch: ChainEpoch, #[case] expected: Duration) {
+        assert_eq!(
+            beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, NOW).unwrap(),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case(i64::MIN)]
+    #[case(i64::MAX)]
+    fn beacon_entry_wait_rejects_unrepresentable_epochs(#[case] epoch: ChainEpoch) {
+        assert!(beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, NOW).is_err());
+    }
+
+    #[quickcheck]
+    fn beacon_entry_wait_no_panic(epoch: ChainEpoch, now_timestamp: i64) {
+        let _ = beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, now_timestamp);
+    }
+
+    #[rstest]
+    #[case(1_000, Some(600))]
+    #[case(401, Some(1))]
+    #[case(400, None)]
+    #[case(399, None)]
+    #[case(i64::MIN, None)]
+    fn sector_duration_from_expiration_requires_positive(
+        #[case] expiration: ChainEpoch,
+        #[case] expected: Option<ChainEpoch>,
+    ) {
+        assert_eq!(
+            sector_duration_from_expiration(expiration, 400).ok(),
+            expected
+        );
+    }
+
+    #[quickcheck]
+    fn sector_duration_from_expiration_no_panic(expiration: ChainEpoch, epoch: ChainEpoch) {
+        let _ = sector_duration_from_expiration(expiration, epoch);
     }
 }

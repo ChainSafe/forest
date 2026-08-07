@@ -6,6 +6,8 @@
 //! call sites keep working. See benchmark results in
 //! <https://github.com/ChainSafe/forest/pull/7395>.
 
+use anyhow::Context as _;
+
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 #[error(transparent)]
 pub struct DecodeError(#[from] faster_hex_private::Error);
@@ -25,6 +27,24 @@ pub fn encode_prefixed(data: impl AsRef<[u8]>) -> String {
     debug_assert!(buf.is_ascii());
     // SAFETY: the prefix and the `hex_encode` output are ASCII.
     unsafe { String::from_utf8_unchecked(buf) }
+}
+
+/// Parses a `0x`-prefixed hex integer, e.g. `0x1a`.
+///
+/// A sign is rejected for every `T`, matching Go's `strconv.ParseUint`.
+pub fn parse_prefixed_int<T>(input: &str) -> anyhow::Result<T>
+where
+    T: num_traits::Num,
+    <T as num_traits::Num>::FromStrRadixErr: std::fmt::Display,
+{
+    let digits = input
+        .strip_prefix("0x")
+        .with_context(|| format!("not a 0x-prefixed hex integer: {input}"))?;
+    anyhow::ensure!(
+        !digits.starts_with(['+', '-']),
+        "signed hex integer: {input}"
+    );
+    T::from_str_radix(digits, 16).map_err(|e| anyhow::anyhow!("invalid hex integer {input}: {e}"))
 }
 
 /// Decodes hex digits (upper, lower or mixed case, no `0x` prefix) into bytes.
@@ -63,6 +83,7 @@ pub mod serde {
 mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
 
     #[quickcheck]
     fn encode_matches_hex_crate(data: Vec<u8>) -> bool {
@@ -134,6 +155,51 @@ mod tests {
     fn decode_rejects_invalid_input() {
         for invalid in ["abc", "00gg", "0x00"] {
             assert!(decode(invalid).is_err(), "{invalid:?} should be rejected");
+        }
+    }
+
+    #[rstest]
+    #[case("0x0", 0)]
+    #[case("0x1a", 26)]
+    #[case("0x1A", 26)]
+    fn parse_prefixed_int_accepts(#[case] input: &str, #[case] expected: u64) {
+        assert_eq!(parse_prefixed_int::<u64>(input).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case("")]
+    #[case("0")]
+    #[case("1a")]
+    #[case("0x")]
+    #[case("0X1a")]
+    #[case("0xg")]
+    #[case(" 0x1")]
+    #[case("0x1 ")]
+    // Multi-byte UTF-8 at the prefix boundary.
+    #[case("0é")]
+    #[case("0x\u{e9}")]
+    #[case("0x-1")]
+    #[case("0x+1")]
+    #[case("0x10000000000000000")]
+    fn parse_prefixed_int_rejects(#[case] input: &str) {
+        assert!(parse_prefixed_int::<u64>(input).is_err());
+        assert!(parse_prefixed_int::<i64>(input).is_err());
+    }
+
+    #[test]
+    fn parse_prefixed_int_is_bounded_by_target_type() {
+        assert_eq!(
+            parse_prefixed_int::<u64>("0x8000000000000000").unwrap(),
+            1 << 63
+        );
+        assert!(parse_prefixed_int::<i64>("0x8000000000000000").is_err());
+    }
+
+    #[quickcheck]
+    fn parse_prefixed_int_no_panic(input: String) {
+        for candidate in [input.clone(), format!("0x{input}")] {
+            let _ = parse_prefixed_int::<u64>(&candidate);
+            let _ = parse_prefixed_int::<i64>(&candidate);
         }
     }
 }
