@@ -269,27 +269,22 @@ impl GasEstimateGasLimit {
         tsk: &ApiTipsetKey,
         sender_validation: SenderValidation,
     ) -> Result<i64> {
-        let (res, ..) = Self::estimate_call_with_gas(data, msg, tsk, sender_validation)
+        let (apply_ret, ..) = Self::estimate_call_with_gas(data, msg, tsk, sender_validation)
             .await
             .context("gas estimation failed")?;
-        match res.msg_rct {
-            Some(rct) => {
-                if rct.exit_code().is_success() {
-                    return Ok(rct.gas_used() as i64);
-                }
-                if sender_validation == SenderValidation::Enforce
-                    && rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
-                {
-                    return Err(crate::state_manager::Error::SenderValidationFailed.into());
-                }
-                anyhow::bail!(
-                    "message execution failed: exit code: {}, reason: {}",
-                    rct.exit_code().value(),
-                    res.failure_info().unwrap_or_default()
-                )
-            }
-            None => Ok(-1),
+        if apply_ret.exit_code().is_success() {
+            return Ok(apply_ret.gas_used() as i64);
         }
+        if sender_validation == SenderValidation::Enforce
+            && apply_ret.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
+        {
+            return Err(crate::state_manager::Error::SenderValidationFailed.into());
+        }
+        anyhow::bail!(
+            "message execution failed: exit code: {}, reason: {}",
+            apply_ret.exit_code().value(),
+            apply_ret.failure_info().unwrap_or_default()
+        )
     }
 }
 

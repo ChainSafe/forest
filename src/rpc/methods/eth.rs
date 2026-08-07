@@ -2042,9 +2042,15 @@ async fn apply_message(
     Ok(invoc_res)
 }
 
-pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey, sender_validation: SenderValidation,) -> anyhow::Result<u64> {
+pub async fn eth_gas_search(
+    data: &Ctx,
+    msg: Message,
+    tsk: &ApiTipsetKey,
+    sender_validation: SenderValidation,
+) -> anyhow::Result<u64> {
     let (apply_ret, prior_messages, ts) =
-        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, sender_validation).await?;
+        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk, sender_validation)
+            .await?;
     if apply_ret.exit_code().is_success() {
         return Ok(msg.gas_limit());
     }

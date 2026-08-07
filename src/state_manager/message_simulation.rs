@@ -199,7 +199,13 @@ impl StateManager {
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_protocol);
 
         let (apply_ret, duration, state_root) = self
-            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush, sender_validation)
+            .call_with_gas(
+                chain_msg,
+                Default::default(),
+                Some(ts),
+                vm_flush,
+                sender_validation,
+            )
             .await?;
 
         Ok((

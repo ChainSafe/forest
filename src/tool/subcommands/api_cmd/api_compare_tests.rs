@@ -1697,8 +1697,18 @@ fn eth_skip_sender_success_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTes
         // `from` is an address that does not exist on chain.
         (Some(non_existent), Some(to), Some(calldata.clone()), None),
         // Same as above, but with gasPrice set — it should be ignored.
-        (Some(contract), Some(to), Some(calldata.clone()), Some(gas_price)),
-        (Some(non_existent), Some(to), Some(calldata.clone()), Some(gas_price)),
+        (
+            Some(contract),
+            Some(to),
+            Some(calldata.clone()),
+            Some(gas_price),
+        ),
+        (
+            Some(non_existent),
+            Some(to),
+            Some(calldata.clone()),
+            Some(gas_price),
+        ),
         // `from` and `to` are the same contract.
         (Some(contract), Some(contract), Some(calldata.clone()), None),
         // No `from` field — should still succeed.
@@ -1724,8 +1734,7 @@ fn eth_skip_sender_insufficient_funds_tests(epoch: ChainEpoch) -> anyhow::Result
     let value = EthBigInt::from(TokenAmount::from_whole(1_000_000));
 
     // Value is higher than the sender's balance.
-    let messages = [contract, non_existent, eoa]
-    .map(|from| EthCallMessage {
+    let messages = [contract, non_existent, eoa].map(|from| EthCallMessage {
         from: Some(from),
         to: Some(to),
         value: Some(value),
