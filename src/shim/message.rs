@@ -134,12 +134,15 @@ impl From<Message_v2> for Message {
     }
 }
 
-impl From<Message> for Message_v2 {
-    fn from(other: Message) -> Self {
-        Self {
+/// Fallible because FVM2 cannot represent `f4` addresses, see [`Address::try_to_v2`].
+impl TryFrom<Message> for Message_v2 {
+    type Error = anyhow::Error;
+
+    fn try_from(other: Message) -> Result<Self, Self::Error> {
+        Ok(Self {
             version: other.version as i64,
-            from: other.from.into(),
-            to: other.to.into(),
+            from: other.from.try_to_v2()?,
+            to: other.to.try_to_v2()?,
             sequence: other.sequence,
             value: other.value.into(),
             method_num: other.method_num,
@@ -147,13 +150,15 @@ impl From<Message> for Message_v2 {
             gas_limit: other.gas_limit as i64,
             gas_fee_cap: other.gas_fee_cap.into(),
             gas_premium: other.gas_premium.into(),
-        }
+        })
     }
 }
 
-impl From<&Message> for Message_v2 {
-    fn from(other: &Message) -> Self {
-        other.clone().into()
+impl TryFrom<&Message> for Message_v2 {
+    type Error = anyhow::Error;
+
+    fn try_from(other: &Message) -> Result<Self, Self::Error> {
+        other.clone().try_into()
     }
 }
 

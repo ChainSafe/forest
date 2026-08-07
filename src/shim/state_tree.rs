@@ -277,7 +277,15 @@ where
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<ActorID>> {
         match self {
-            StateTree::FvmV2(st) => Ok(st.lookup_id(&addr.into())?),
+            StateTree::FvmV2(st) => {
+                // Same guard as `get_actor` above: FVM2 has no `Delegated` protocol, so converting
+                // an `f4` address would panic.
+                anyhow::ensure!(
+                    addr.protocol() != crate::shim::address::Protocol::Delegated,
+                    "Delegated addresses are not supported in FVMv2 state trees"
+                );
+                Ok(st.lookup_id(&addr.into())?)
+            }
             StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
             StateTree::FvmV4(st) => Ok(st.lookup_id(&addr.into())?),
             StateTree::V0(_) => bail!("StateTree::lookup_id not supported on old state trees"),

@@ -538,6 +538,10 @@ impl RPCState {
         self.chain_indexer.as_ref()
     }
 
+    pub fn genesis_info(&self) -> &Arc<crate::state_manager::circulating_supply::GenesisInfo> {
+        self.state_manager.genesis_info()
+    }
+
     pub fn db(&self) -> &DbImpl {
         self.state_manager.db()
     }

@@ -3,9 +3,13 @@
 
 #[cfg(test)]
 mod tests {
+    use crate::libp2p_bitswap::request_manager::{
+        BitswapRequestManager, MAX_CONCURRENT_INBOUND_WANTLIST_SERVES, MAX_WANTLIST_ENTRIES_SERVED,
+    };
     use crate::libp2p_bitswap::*;
     use crate::prelude::ShallowClone;
     use crate::utils::multihash::prelude::*;
+    use crate::utils::rand::random_cid;
     use ahash::HashMap;
     use cid::Cid;
     use futures::StreamExt;
@@ -18,6 +22,8 @@ mod tests {
 
     const TIMEOUT: Duration = Duration::from_secs(5);
     const N_SERVER: usize = 100;
+    /// Window to confirm no *further* serve activity happens (a negative check).
+    const QUIET: Duration = Duration::from_millis(500);
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_manager_e2e_test() {
@@ -88,6 +94,140 @@ mod tests {
                 .unwrap();
             assert!(success);
             assert!(client_store.contains(block_exist.cid()).unwrap());
+        }
+    }
+
+    // Serving caps the entries handled per inbound wantlist, so a giant wantlist
+    // can't turn into an unbounded burst of blockstore reads.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn serve_caps_wantlist_entries_per_message() {
+        let rm = Arc::new(BitswapRequestManager::default());
+        // Empty store + `send_dont_have` makes every (missing) entry respond.
+        let store = TestStore::default();
+
+        let requests = (0..MAX_WANTLIST_ENTRIES_SERVED + 500)
+            .map(|_| BitswapRequest::new_block(random_cid()).send_dont_have(true))
+            .collect();
+        rm.serve_inbound_requests(&store, PeerId::random(), requests);
+
+        // Exactly the cap arrives...
+        take_serve_responses(&rm, MAX_WANTLIST_ENTRIES_SERVED).await;
+        // ...and serving stops there: nothing past the cap is produced.
+        assert_no_serve_response(&rm, "serving must not exceed the per-message entry cap").await;
+    }
+
+    // Concurrent serves are bounded; wantlists past the cap are dropped, not
+    // queued (each serve pins a blocking thread while it reads the store).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn serve_drops_when_concurrency_saturated() {
+        let cap = *MAX_CONCURRENT_INBOUND_WANTLIST_SERVES;
+        let rm = Arc::new(BitswapRequestManager::default());
+        let (entered_tx, entered_rx) = flume::unbounded();
+        let (release_tx, release_rx) = flume::unbounded();
+        let store = Arc::new(GatedStore {
+            entered: entered_tx,
+            release: release_rx,
+        });
+        let peer = PeerId::random();
+
+        let one_block = || vec![BitswapRequest::new_block(random_cid()).send_dont_have(true)];
+
+        // Saturate: `cap` serves each take a permit and block reading the store.
+        for _ in 0..cap {
+            rm.serve_inbound_requests(&store, peer, one_block());
+        }
+        for _ in 0..cap {
+            entered_rx
+                .recv_async()
+                .await
+                .expect("each of the first `cap` serves should run");
+        }
+
+        // The next serve finds no permit and must be dropped, not spawned.
+        rm.serve_inbound_requests(&store, peer, one_block());
+        assert!(
+            tokio::time::timeout(QUIET, entered_rx.recv_async())
+                .await
+                .is_err(),
+            "a serve past the concurrency cap should have been dropped",
+        );
+
+        // Releasing the pinned serves lets exactly `cap` of them respond.
+        for _ in 0..cap {
+            release_tx.send(()).unwrap();
+        }
+        take_serve_responses(&rm, cap).await;
+        // The dropped serve must produce nothing — not be queued and served
+        // once a permit frees.
+        assert_no_serve_response(&rm, "a dropped serve must not be queued and served later").await;
+    }
+
+    // An empty wantlist (a message carrying only responses) is a no-op: it must
+    // not take a serve permit or spawn a task.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn serve_ignores_empty_wantlist() {
+        let rm = Arc::new(BitswapRequestManager::default());
+        let store = TestStore::default();
+        let peer = PeerId::random();
+
+        rm.serve_inbound_requests(&store, peer, vec![]);
+        assert_no_serve_response(&rm, "an empty wantlist must not produce responses").await;
+
+        // A real serve afterwards still works (the empty one wedged nothing).
+        rm.serve_inbound_requests(
+            &store,
+            peer,
+            vec![BitswapRequest::new_block(random_cid()).send_dont_have(true)],
+        );
+        take_serve_responses(&rm, 1).await;
+    }
+
+    /// Waits for exactly `expected` served responses, panicking if they don't
+    /// all arrive within `TIMEOUT`. Deterministic: returns the moment the last
+    /// expected response lands, with no reliance on an idle window.
+    async fn take_serve_responses(rm: &BitswapRequestManager, expected: usize) {
+        let stream = rm.outbound_serve_response_stream();
+        tokio::time::timeout(TIMEOUT, stream.take(expected).count())
+            .await
+            .expect("timed out waiting for served responses");
+    }
+
+    /// Asserts no serve response arrives within the `QUIET` window (a negative
+    /// check that serving produced nothing more).
+    async fn assert_no_serve_response(rm: &BitswapRequestManager, msg: &str) {
+        let mut stream = rm.outbound_serve_response_stream();
+        assert!(
+            tokio::time::timeout(QUIET, stream.next()).await.is_err(),
+            "{msg}"
+        );
+    }
+
+    /// A store whose reads block until released, used to pin serve permits.
+    ///
+    /// This depends on serving doing a synchronous per-entry blockstore read
+    /// while holding its permit; if that changes (e.g. async reads, or skipping
+    /// the store), the gate no longer pins permits and the drop test must adapt.
+    struct GatedStore {
+        entered: flume::Sender<()>,
+        release: flume::Receiver<()>,
+    }
+
+    impl GatedStore {
+        fn enter_and_wait(&self) {
+            let _ = self.entered.send(());
+            let _ = self.release.recv();
+        }
+    }
+
+    impl BitswapStoreRead for GatedStore {
+        fn contains(&self, _: &Cid) -> anyhow::Result<bool> {
+            self.enter_and_wait();
+            Ok(false)
+        }
+
+        fn get(&self, _: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+            self.enter_and_wait();
+            Ok(None)
         }
     }
 
