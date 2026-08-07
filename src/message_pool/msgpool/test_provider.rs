@@ -22,7 +22,7 @@ use std::convert::TryFrom;
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
     pub head_changes_tx: async_broadcast::Sender<HeadChanges>,
-    head_changes_rx_inactive: async_broadcast::InactiveReceiver<HeadChanges>,
+    _head_changes_rx_inactive: async_broadcast::InactiveReceiver<HeadChanges>,
 }
 
 #[derive(Default)]
@@ -47,7 +47,7 @@ impl Default for TestApi {
                 ..TestApiInner::default()
             }),
             head_changes_tx,
-            head_changes_rx_inactive: head_changes_rx.deactivate(),
+            _head_changes_rx_inactive: head_changes_rx.deactivate(),
         }
     }
 }
@@ -62,7 +62,7 @@ impl TestApi {
                 ..TestApiInner::default()
             }),
             head_changes_tx,
-            head_changes_rx_inactive: head_changes_rx.deactivate(),
+            _head_changes_rx_inactive: head_changes_rx.deactivate(),
         }
     }
 
