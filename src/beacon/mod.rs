@@ -10,6 +10,8 @@ pub use drand::*;
 #[cfg(test)]
 pub mod mock_beacon;
 #[cfg(test)]
-mod tests {
-    mod drand;
+pub mod tests {
+    // `pub` so that helpers such as `drand::new_beacon_quicknet` can be shared with
+    // tests in other modules.
+    pub mod drand;
 }
