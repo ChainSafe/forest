@@ -823,15 +823,32 @@ pub async fn run_backfill(
     // Re-index tipsets applied during the walk so the canonical mapping wins.
     if !report.cancelled {
         let mut extra: Vec<(SignedMessage, u64)> = vec![];
-        while let Some(changes) = head_changes_rx.next().await {
-            for ts in changes.applies {
-                if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
-                    tracing::debug!("re-indexing tipset @{} applied during backfill", ts.epoch());
-                    if let Err(e) =
-                        process_ts(&ts, state_manager, &mut extra, options.allow_recompute).await
-                    {
-                        tracing::warn!("failed to re-index applied tipset @{}: {e:#}", ts.epoch());
+        loop {
+            match head_changes_rx.try_recv() {
+                Ok(changes) => {
+                    for ts in changes.applies {
+                        if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
+                            tracing::debug!(
+                                "re-indexing tipset @{} applied during backfill",
+                                ts.epoch()
+                            );
+                            if let Err(e) =
+                                process_ts(&ts, state_manager, &mut extra, options.allow_recompute)
+                                    .await
+                            {
+                                tracing::warn!(
+                                    "failed to re-index applied tipset @{}: {e:#}",
+                                    ts.epoch()
+                                );
+                            }
+                        }
                     }
+                }
+                Err(async_broadcast::TryRecvError::Empty)
+                | Err(async_broadcast::TryRecvError::Closed) => break,
+                Err(async_broadcast::TryRecvError::Overflowed(n)) => {
+                    error!("unexpected head change overflow during backfill: {n} changes lost");
+                    continue;
                 }
             }
         }
