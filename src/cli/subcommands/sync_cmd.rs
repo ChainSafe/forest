@@ -47,7 +47,7 @@ impl SyncCommands {
                 // Buffered so that the clear and the whole report reach the terminal
                 // as a single write, leaving no partially redrawn frame on screen.
                 let mut term = Term::buffered_stdout();
-                let mut rows_printed_last_iteration = 0;
+                let mut last_line_widths = Vec::new();
 
                 handle_initial_snapshot_check(&client).await?;
 
@@ -60,12 +60,13 @@ impl SyncCommands {
 
                     wait_for_node_to_start_syncing(&client).await?;
 
+                    let rows_printed_last_iteration =
+                        rows_for(&last_line_widths, term.size().1 as usize);
+
                     clear_previous_lines(&term, rows_printed_last_iteration)?;
 
-                    let width = terminal_width(&term);
-                    rows_printed_last_iteration =
-                        print_sync_report_details(&mut term, &report, width)
-                            .context("Failed to print sync status report")?;
+                    last_line_widths = print_sync_report_details(&mut term, &report)
+                        .context("Failed to print sync status report")?;
                     term.flush()?;
 
                     // Exit if synced and not in watch mode.
@@ -94,8 +95,7 @@ impl SyncCommands {
 
                 // Print the status report once, without row counting for clearing
                 let mut term = Term::buffered_stdout();
-                let width = terminal_width(&term);
-                _ = print_sync_report_details(&mut term, &sync_status, width)
+                _ = print_sync_report_details(&mut term, &sync_status)
                     .context("Failed to print sync status report")?;
                 term.flush()?;
 
@@ -119,93 +119,74 @@ impl SyncCommands {
     }
 }
 
-/// Width of the terminal in columns, falling back to a sane default when it
-/// cannot be determined (e.g. output is piped).
-fn terminal_width(term: &Term) -> usize {
-    term.size().1 as usize
+// rows_for returns the amount of lines to clean given the current 
+// terminal width (on resize a single printed line can take several terminal lines)
+fn rows_for(line_widths: &[usize], term_width: usize) -> usize {
+    line_widths
+        .iter()
+        .map(|width| width.div_ceil(term_width).max(1))
+        .sum()
 }
 
-/// Writes the sync status report and returns the number of terminal *rows* it
-/// occupies.
-///
-/// Rows, not lines: a line wider than the terminal wraps onto several rows, and
-/// [`clear_previous_lines`] moves the cursor by rows. Counting `writeln!` calls
-/// instead leaves the topmost row of each frame behind on narrow terminals.
-/// See <https://github.com/ChainSafe/forest/issues/7366>.
+/// Writes the sync status report and returns the display width of every line
+/// written, so the caller can convert them to rows against whatever the terminal
+/// width is at the time the frame needs clearing.
 fn print_sync_report_details(
     out: &mut impl Write,
     report: &SyncStatusReport,
-    term_width: usize,
-) -> anyhow::Result<usize> {
-    // Writes a single line and reports how many rows it takes up.
-    let write_line = |out: &mut dyn Write, line: String| -> anyhow::Result<usize> {
-        writeln!(out, "{line}")?;
-        Ok(measure_text_width(&line).div_ceil(term_width).max(1))
-    };
-
+) -> anyhow::Result<Vec<usize>> {
     let head_key_str = report
         .current_head_key
         .as_ref()
         .map(tipset_key_to_string)
         .unwrap_or_else(|| "[unknown]".to_string());
 
-    let mut rows = 0;
-
-    rows += write_line(
-        out,
+    let mut lines = vec![
         format!(
             "Status: {:?} ({} epochs behind)",
             report.status, report.epochs_behind
         ),
-    )?;
-    rows += write_line(
-        out,
         format!(
             "Node Head: Epoch {} ({head_key_str})",
             report.current_head_epoch
         ),
-    )?;
-    rows += write_line(
-        out,
         format!("Network Head: Epoch {}", report.network_head_epoch),
-    )?;
-    rows += write_line(
-        out,
         format!("Last Update: {}", report.last_updated.to_rfc3339()),
-    )?;
+    ];
 
     // Print active sync tasks (forks)
     let active_forks = &report.active_forks;
     if active_forks.is_empty() {
-        rows += write_line(out, "Active Sync Tasks: None".into())?;
+        lines.push("Active Sync Tasks: None".into());
     } else {
-        rows += write_line(out, "Active Sync Tasks:".into())?;
+        lines.push("Active Sync Tasks:".into());
         let mut sorted_forks = active_forks.clone();
         sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
         for fork in &sorted_forks {
             let total_epochs_for_this_fork = fork
                 .target_epoch
                 .saturating_sub(fork.target_sync_epoch_start);
-            rows += write_line(
-                out,
-                format!(
-                    "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
-                    fork.target_epoch,
-                    tipset_key_to_string(&fork.target_tipset_key),
-                    fork.stage,
-                    fork.target_sync_epoch_start,
-                    fork.target_epoch,
-                    total_epochs_for_this_fork
-                ),
-            )?;
+            lines.push(format!(
+                "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
+                fork.target_epoch,
+                tipset_key_to_string(&fork.target_tipset_key),
+                fork.stage,
+                fork.target_sync_epoch_start,
+                fork.target_epoch,
+                total_epochs_for_this_fork
+            ));
         }
     }
 
-    Ok(rows)
+    for line in &lines {
+        writeln!(out, "{line}")?;
+    }
+
+    // Measured in terminal columns, so ANSI escapes are ignored and wide
+    // characters count for two.
+    Ok(lines.iter().map(|line| measure_text_width(line)).collect())
 }
 
-/// Clears the `rows` terminal rows written by the previous refresh, leaving the
-/// cursor at the start of the first cleared row so the next report overwrites it.
 fn clear_previous_lines(term: &Term, rows: usize) -> anyhow::Result<()> {
     term.clear_last_lines(rows)?;
     Ok(())
