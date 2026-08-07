@@ -156,6 +156,7 @@ impl ChainStore {
         let (head_changes_tx_bridge, head_changes_rx_bridge) = flume::unbounded();
         // Warn if the broadcast channel is blocked (timed out after 1 second)
         tokio::spawn(async move {
+            // The loop breaks when the flume channel is closed, which happens when the `ChainStore` is dropped.
             while let Ok(m) = head_changes_rx_bridge.recv_async().await {
                 const TIMEOUT: Duration = Duration::from_secs(1);
                 if tokio::time::timeout(TIMEOUT, head_changes_tx.broadcast_direct(m))
