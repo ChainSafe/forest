@@ -357,9 +357,7 @@ pub mod state_compute {
         //!
 
         use super::*;
-        #[cfg(feature = "cargo-test")]
         use crate::chain_sync::tipset_syncer::validate_tipset;
-        #[cfg(feature = "cargo-test")]
         use crate::rpc::eth::types::CallSource;
 
         #[tokio::test(flavor = "multi_thread")]
@@ -379,7 +377,6 @@ pub mod state_compute {
             state_compute(&sm, ts, &ts_next).await.unwrap();
         }
 
-        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_validate_mainnet_5688000() {
@@ -389,7 +386,6 @@ pub mod state_compute {
             validate_tipset(&sm, fts, None).await.unwrap();
         }
 
-        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_replay_uses_trace_cache_calibnet_3408952() {
@@ -431,7 +427,6 @@ pub mod state_compute {
         }
 
         // Shark state migration
-        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_validate_calibnet_16802() {
@@ -442,7 +437,6 @@ pub mod state_compute {
         }
 
         // Hygge state migration
-        #[cfg(feature = "cargo-test")]
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_validate_calibnet_322356() {
