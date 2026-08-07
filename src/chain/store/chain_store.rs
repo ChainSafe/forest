@@ -39,6 +39,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::{
     num::NonZeroUsize,
     sync::atomic::{self, AtomicI64},
+    time::Duration,
 };
 
 // Capacity of the head change broadcast channel
@@ -80,8 +81,8 @@ pub type HeadChanges = PathChanges<Tipset>;
 /// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore {
-    /// Publisher for head change events
-    head_changes_tx: async_broadcast::Sender<HeadChanges>,
+    /// The non-blocking bridge sender for head change events. This is used to send head changes to the `head_changes_tx` channel.
+    head_changes_tx_bridge: flume::Sender<HeadChanges>,
 
     /// Inactive receiver for head change events. This is used to keep the channel alive even if there are no active subscribers.
     head_changes_rx_inactive: Arc<async_broadcast::InactiveReceiver<HeadChanges>>,
@@ -120,7 +121,7 @@ pub struct ChainStore {
 impl ShallowClone for ChainStore {
     fn shallow_clone(&self) -> Self {
         Self {
-            head_changes_tx: self.head_changes_tx.clone(),
+            head_changes_tx_bridge: self.head_changes_tx_bridge.clone(),
             head_changes_rx_inactive: self.head_changes_rx_inactive.shallow_clone(),
             heaviest_tipset: self.heaviest_tipset.shallow_clone(),
             f3_finalized_tipset: self.f3_finalized_tipset.shallow_clone(),
@@ -149,6 +150,24 @@ impl ChainStore {
             async_broadcast::broadcast(HEAD_CHANGE_BROADCAST_CHANNEL_CAP);
         head_changes_tx.set_await_active(false);
         head_changes_tx.set_overflow(false); // Disable overflow to not drop head changes
+        // Bridge the flume channel to the async_broadcast channel in a background task,
+        // it's unbounded to take the back pressure and not block `set_heaviest_head`
+        // in case `head_changes_tx` is unexpectedly full and blocked.
+        let (head_changes_tx_bridge, head_changes_rx_bridge) = flume::unbounded();
+        // Warn if the broadcast channel is blocked (timed out after 1 second)
+        tokio::spawn(async move {
+            while let Ok(m) = head_changes_rx_bridge.recv_async().await {
+                const TIMEOUT: Duration = Duration::from_secs(1);
+                if tokio::time::timeout(TIMEOUT, head_changes_tx.broadcast_direct(m))
+                    .await
+                    .is_err()
+                {
+                    error!(
+                        "Head change broadcast channel is full. This indicates some consumers are not processing head changes fast enough."
+                    );
+                }
+            }
+        });
         let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()
             .context("failed to load head tipset key")?
@@ -172,7 +191,7 @@ impl ChainStore {
             }
         }));
         Ok(Self {
-            head_changes_tx,
+            head_changes_tx_bridge,
             head_changes_rx_inactive: head_changes_rx.deactivate().into(),
             chain_index,
             tipset_tracker: TipsetTracker::new(db, chain_config.clone()),
@@ -262,7 +281,7 @@ impl ChainStore {
 
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
         // Only publish head changes when there are active subscribers and head is changed.
-        if self.head_changes_tx.receiver_count() > 0 && old_head.key() != head.key() {
+        if self.head_changes_rx_inactive.receiver_count() > 0 && old_head.key() != head.key() {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {
                 Ok(changes) => changes,
@@ -280,11 +299,12 @@ impl ChainStore {
             };
             // Do not publish empty change and check active receivers again
             if !changes.is_empty()
-                && self.head_changes_tx.receiver_count() > 0
-                // head change is only published after tipset validation and the 30s block delay
+                && self.head_changes_rx_inactive.receiver_count() > 0
+                // Use an unbounded bridge channel to avoid blocking `set_heaviest_tipset`.
+                // Note: head change is only published after tipset validation and the 30s block delay
                 // should be sufficient for any consumer to catch up. If this blocks, the consumer logic
-                // needs to be fixed, e.g. spawning a non-blocking task the process the head changes,
-                && self.head_changes_tx.broadcast_blocking(changes).is_err()
+                // needs to be fixed, e.g. spawning a non-blocking task the process the head changes.                
+                && self.head_changes_tx_bridge.send(changes).is_err()
             {
                 debug!("no active receivers");
             }
@@ -361,7 +381,7 @@ impl ChainStore {
 
     /// Subscribes head changes.
     pub fn subscribe_head_changes(&self) -> async_broadcast::Receiver<HeadChanges> {
-        self.head_changes_tx.new_receiver()
+        self.head_changes_rx_inactive.activate_cloned()
     }
 
     /// Returns a borrowed key-value store instance.
