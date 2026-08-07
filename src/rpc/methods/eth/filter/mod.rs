@@ -24,8 +24,7 @@ use super::BlockNumberOrHash;
 use super::CollectedEvent;
 use super::Predefined;
 use super::get_tipset_from_hash;
-use crate::blocks::Tipset;
-use crate::blocks::TipsetKey;
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cli_shared::cli::EventsConfig;
 use crate::eth::EthChainId;
@@ -50,8 +49,10 @@ use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
+use std::num::NonZeroU32;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 use store::*;
 use tokio_util::task::AbortOnDropHandle;
@@ -105,7 +106,7 @@ pub trait FilterManager {
 /// (`tipsets_contributing <= 1`) always pass — the natural unit is the tipset.
 /// Once two or more tipsets have contributed events, returns an error if the
 /// running total exceeds `max_filter_results`.
-fn ensure_filter_cap(
+pub fn ensure_filter_cap(
     max_filter_results: usize,
     tipsets_contributing: usize,
     total_events: usize,
@@ -743,8 +744,8 @@ fn parse_eth_topics(
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct ActorEventBlock {
-    codec: u64,
-    value: Vec<u8>,
+    pub codec: u64,
+    pub value: Vec<u8>,
 }
 
 fn keys_to_keys_with_codec(
@@ -774,7 +775,37 @@ pub enum ParsedFilterTipsets {
     Key(TipsetKey),
 }
 
-#[derive(Debug)]
+impl ParsedFilterTipsets {
+    /// Returns true if the filter's tipset range is no less than the threshold for prefering SQL query.
+    /// head epoch is used to determine the effective end of the range when the end is negative.
+    pub fn is_large_range_for_sql(&self, head_epoch: ChainEpoch) -> bool {
+        static LARGE_RANGE_THRESHOLD: LazyLock<NonZeroU32> = LazyLock::new(|| {
+            std::env::var("FOREST_RPC_SQL_RANGE_THRESHOLD")
+            .ok()
+            .and_then(|i| {
+                i.parse().ok().inspect(|i| {
+                    tracing::info!("RPC SQL range threshold set to {i} from `FOREST_RPC_SQL_RANGE_THRESHOLD`");
+                })
+            })
+            // The current default value disables SQL by default as the maximum allowed range is 2880.
+            .unwrap_or(nonzero!(10000_u32))
+        });
+
+        if let ParsedFilterTipsets::Range(range) = self {
+            let range_end = match *range.end() {
+                // use pending_epoch(head_epoch - 1) as head when end is negative, because the heaviest tipset doesn't have events yet
+                end if end < 0 => (head_epoch - 1).max(0),
+                end => end,
+            };
+            let range_size = range_end - *range.start();
+            range_size >= i64::from(LARGE_RANGE_THRESHOLD.get())
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ParsedFilter {
     pub(crate) tipsets: ParsedFilterTipsets,
     pub(crate) addresses: Vec<Address>,
@@ -898,6 +929,7 @@ mod tests {
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
+    use rstest::rstest;
     use std::str::FromStr;
 
     #[test]
@@ -1744,5 +1776,33 @@ mod tests {
             assert_eq!(event.reverted, expected_reverted);
             assert_eq!(event.emitter_addr, Address::new_id(1234));
         }
+    }
+
+    #[rstest]
+    #[case(0..=0, 20000, false)]
+    #[case(0..=1, 20000, false)]
+    #[case(0..=9999, 20000, false)]
+    #[case(0..=10000, 20000, true)]
+    #[case(0..=10001, 20000, true)]
+    #[allow(clippy::reversed_empty_ranges)]
+    #[case(0..=(-1), 20000, true)]
+    #[allow(clippy::reversed_empty_ranges)]
+    #[case(0..=(-1), 100, false)]
+    fn test_is_large_range_for_sql_range(
+        #[case] range: RangeInclusive<ChainEpoch>,
+        #[case] head_epoch: ChainEpoch,
+        #[case] expected: bool,
+    ) {
+        let filter = ParsedFilterTipsets::Range(range);
+        assert_eq!(filter.is_large_range_for_sql(head_epoch), expected);
+    }
+
+    #[test]
+    fn test_is_large_range_for_sql_no_range() {
+        let filter = ParsedFilterTipsets::Hash(EthHash::default());
+        assert!(!filter.is_large_range_for_sql(1000));
+
+        let filter = ParsedFilterTipsets::Key(nunny::vec![Cid::default()].into());
+        assert!(!filter.is_large_range_for_sql(1000));
     }
 }

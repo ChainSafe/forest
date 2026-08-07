@@ -86,6 +86,7 @@ mod prelude {
     pub use cid::Cid;
     pub use futures::FutureExt as _;
     pub use itertools::Itertools as _;
+    pub use nonzero_ext::nonzero;
     pub use std::{ops::Deref as _, sync::Arc};
     pub use tracing::{debug, error, info, trace, warn};
 }

@@ -2,16 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::client::Client;
+use crate::chain::indexer::SqliteIndexerOptions;
 use crate::db::db_engine::DbConfig;
+use crate::def_is_env_set_and_truthy;
 use crate::libp2p::Libp2pConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
-use crate::utils::misc::env::is_env_set_and_truthy;
 use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
-const FOREST_CHAIN_INDEXER_ENABLED: &str = "FOREST_CHAIN_INDEXER_ENABLED";
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
@@ -103,9 +102,34 @@ pub struct ChainIndexerConfig {
 
 impl Default for ChainIndexerConfig {
     fn default() -> Self {
+        def_is_env_set_and_truthy!(indexer_enabled, "FOREST_CHAIN_INDEXER_ENABLED");
+        static GC_RETENTION_EPOCHS: std::sync::LazyLock<Option<u32>> =
+            std::sync::LazyLock::new(|| {
+                std::env::var("FOREST_CHAIN_INDEXER_GC_RETENTION_EPOCHS")
+                    .ok()
+                    .and_then(|val| val.parse::<u32>().ok())
+                    .and_then(|val| {
+                        if val == 0 {
+                            // Zero means disabled
+                            None
+                        } else {
+                            if let Err(e) = SqliteIndexerOptions::default()
+                                .with_gc_retention_epochs(Some(val.into()))
+                                .validate()
+                            {
+                                tracing::error!(
+                                    "Invalid FOREST_CHAIN_INDEXER_GC_RETENTION_EPOCHS value: {e}"
+                                );
+                                None
+                            } else {
+                                Some(val)
+                            }
+                        }
+                    })
+            });
         Self {
-            enable_indexer: is_env_set_and_truthy(FOREST_CHAIN_INDEXER_ENABLED).unwrap_or(true),
-            gc_retention_epochs: None,
+            enable_indexer: indexer_enabled().unwrap_or(true),
+            gc_retention_epochs: *GC_RETENTION_EPOCHS,
         }
     }
 }

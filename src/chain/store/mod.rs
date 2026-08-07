@@ -5,6 +5,7 @@ pub mod base_fee;
 mod chain_store;
 mod errors;
 pub mod index;
+pub mod indexer;
 mod tipset_tracker;
 mod weighted_quick_select;
 
