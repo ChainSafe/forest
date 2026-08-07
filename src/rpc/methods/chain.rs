@@ -1139,6 +1139,13 @@ pub fn chain_get_path(
     from: &TipsetKey,
     to: &TipsetKey,
 ) -> anyhow::Result<PathChanges> {
+    if from == to {
+        return Ok(PathChanges {
+            reverts: vec![],
+            applies: vec![],
+        });
+    }
+
     let finality = chain_store.chain_config().policy.chain_finality;
     let mut to_revert = chain_store
         .load_required_tipset_or_heaviest(from)
@@ -2047,6 +2054,10 @@ impl<T: Clone> Clone for PathChanges<T> {
 }
 
 impl<T> PathChanges<T> {
+    pub fn is_empty(&self) -> bool {
+        self.reverts.is_empty() && self.applies.is_empty()
+    }
+
     pub fn into_change_vec(self) -> Vec<PathChange<T>> {
         let Self { reverts, applies } = self;
         reverts
