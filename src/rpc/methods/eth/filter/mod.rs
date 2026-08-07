@@ -1779,13 +1779,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case(0..=0, 1000, false)]
-    #[case(0..=1, 1000, false)]
-    #[case(0..=499, 1000, false)]
-    #[case(0..=500, 1000, true)]
-    #[case(0..=501, 1000, true)]
+    #[case(0..=0, 20000, false)]
+    #[case(0..=1, 20000, false)]
+    #[case(0..=9999, 20000, false)]
+    #[case(0..=10000, 20000, true)]
+    #[case(0..=10001, 20000, true)]
     #[allow(clippy::reversed_empty_ranges)]
-    #[case(0..=(-1), 1000, true)]
+    #[case(0..=(-1), 20000, true)]
     #[allow(clippy::reversed_empty_ranges)]
     #[case(0..=(-1), 100, false)]
     fn test_is_large_range_for_sql_range(
