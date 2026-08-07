@@ -180,6 +180,27 @@ impl RawBlockHeader {
             ));
         }
 
+        // ref: https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/beacon/beacon.go#L95
+        if curr_beacon.network().is_unchained() {
+            for (idx, beacon_entry) in self.beacon_entries.iter().enumerate() {
+                let lookup_epoch = parent_epoch + 1 + idx as i64;
+
+                let expected_round =
+                    curr_beacon.max_beacon_round_for_epoch(network_version, lookup_epoch);
+                if beacon_entry.round() != expected_round {
+                    return Err(Error::Validation(
+                        format!(
+                            "expected max round for epoch {} to be {}, got: {}",
+                            lookup_epoch,
+                            expected_round,
+                            beacon_entry.round(),
+                        )
+                        .into(),
+                    ));
+                }
+            }
+        }
+
         if !curr_beacon
             .verify_entries(&self.beacon_entries, prev_entry)
             .map_err(|e| Error::Validation(format!("{e:#}").into()))?
@@ -352,7 +373,10 @@ impl<'de> Deserialize<'de> for CachingBlockHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon};
+    use crate::beacon::{
+        BeaconEntry, BeaconPoint, BeaconSchedule, mock_beacon::MockBeacon,
+        tests::drand::new_beacon_quicknet,
+    };
     use crate::blocks::{CachingBlockHeader, Error};
     use crate::shim::clock::ChainEpoch;
     use crate::shim::{address::Address, version::NetworkVersion};
@@ -361,6 +385,7 @@ mod tests {
     use crate::utils::multihash::MultihashCode;
     use cid::Cid;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};
+    use rstest::{fixture, rstest};
 
     impl quickcheck::Arbitrary for CachingBlockHeader {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -430,6 +455,109 @@ mod tests {
                 MultihashCode::Sha2_256.digest(&FILECOIN_GENESIS_BLOCK)
             ),
             *FILECOIN_GENESIS_CID
+        );
+    }
+
+    #[fixture]
+    #[once]
+    fn schedule() -> BeaconSchedule {
+        BeaconSchedule(vec![BeaconPoint::new(0, new_beacon_quicknet())])
+    }
+
+    #[derive(Debug)]
+    struct BeaconEntriesCase {
+        parent_epoch: ChainEpoch,
+        prev_round: u64,
+        epoch: ChainEpoch,
+        rounds: Vec<u64>,
+        accepted: bool,
+    }
+
+    #[rstest]
+    #[case::no_null_round(BeaconEntriesCase {
+        parent_epoch: 6216199,
+        prev_round: 30662992,
+        epoch: 6216200,
+        rounds: vec![30663002],
+        accepted: true,
+    })]
+    #[case::null_round_both_entries(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662992, 30663002],
+        accepted: true,
+    })]
+    #[case::null_round_invalid_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662990, 30663002],
+        accepted: false,
+    })]
+    #[case::null_round_missing_null_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30663002],
+        accepted: false,
+    })]
+    #[case::null_round_missing_own_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662992],
+        accepted: false,
+    })]
+    #[case::extra_trailing_entry(BeaconEntriesCase {
+        parent_epoch: 6216199,
+        prev_round: 30662992,
+        epoch: 6216200,
+        rounds: vec![30663002, 30663002],
+        accepted: false,
+    })]
+    #[case::null_round_extra_trailing_entry(BeaconEntriesCase {
+        parent_epoch: 6216198,
+        prev_round: 30662982,
+        epoch: 6216200,
+        rounds: vec![30662992, 30663002, 30663002],
+        accepted: false,
+    })]
+    #[tokio::test]
+    async fn validate_beacon_entries_on_quicknet(
+        schedule: &BeaconSchedule,
+        #[case] case: BeaconEntriesCase,
+    ) {
+        let BeaconEntriesCase {
+            parent_epoch,
+            prev_round,
+            epoch,
+            rounds,
+            accepted,
+        } = case;
+
+        let (_, curr_beacon) = schedule.beacon_for_epoch(epoch).unwrap();
+
+        let mut beacon_entries = Vec::with_capacity(rounds.len());
+        for round in rounds {
+            beacon_entries.push(curr_beacon.entry(round).await.unwrap());
+        }
+
+        let prev_entry = BeaconEntry::new(prev_round, vec![]);
+        let header = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            epoch,
+            beacon_entries,
+            ..Default::default()
+        };
+
+        let result =
+            header.validate_block_drand(NetworkVersion::V22, schedule, parent_epoch, &prev_entry);
+
+        assert_eq!(
+            result.is_ok(),
+            accepted,
+            "epoch {epoch}, parent {parent_epoch}: {result:?}"
         );
     }
 }

@@ -47,6 +47,8 @@
 
 - [#7446](https://github.com/ChainSafe/forest/pull/7446): Fixed a panic condition on `ChainNotify` when a client closes a connection just after subscription.
 
+- [#7413](https://github.com/ChainSafe/forest/issues/7413): Block validation on quicknet now rejects headers whose beacon entries do not cover every epoch since the parent tipset
+
 - [#7366](https://github.com/ChainSafe/forest/issues/7366): `forest-cli sync wait -w` no longer leaves a stale `Status:` line behind on each refresh when the report wraps onto more terminal rows than it has lines.
 
 ## Forest v0.35.0 "Shravan"
