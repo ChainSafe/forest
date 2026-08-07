@@ -17,8 +17,8 @@ use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
-use anyhow::{Context, bail};
-use futures::TryStreamExt;
+use anyhow::bail;
+use futures::TryStreamExt as _;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -29,8 +29,7 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tokio::sync::broadcast::error::TryRecvError;
-use tokio_util::sync::CancellationToken;
+use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 use tracing::{debug, info, warn};
 use url::Url;
 use walkdir::WalkDir;
@@ -726,7 +725,18 @@ pub async fn run_backfill(
     let cancel = guard.cancellation_token();
 
     // Subscribe before the walk so applies/reverts that happen during it are observed.
-    let mut head_rx = state_manager.chain_store().subscribe_head_changes();
+    // We should consume the channel ASAP to avoid blocking the sending part or dropping
+    // tipsets when overflow is enabled.
+    let mut head_changes_rx = state_manager.chain_store().subscribe_head_changes();
+    let (tx, rx) = flume::unbounded();
+    let bridge_handle = AbortOnDropHandle::new(tokio::spawn(async move {
+        while let Some(changes) = head_changes_rx.next().await {
+            if let Err(e) = tx.send_async(changes).await {
+                error!("failed to send head changes to backfill: {e}");
+                break;
+            }
+        }
+    }));
 
     // Optionally clamp the start below finality to avoid indexing revert-prone near-head tipsets.
     let start_ts = if options.allow_near_head {
@@ -807,32 +817,21 @@ pub async fn run_backfill(
 
     // Re-index tipsets applied during the walk so the canonical mapping wins.
     if !report.cancelled {
+        // drop the handle and the underlying channels
+        drop(bridge_handle);
         let mut extra: Vec<(SignedMessage, u64)> = vec![];
-        loop {
-            match head_rx.try_recv() {
-                Ok(changes) => {
-                    for ts in changes.applies {
-                        if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
-                            tracing::debug!(
-                                "re-indexing tipset @{} applied during backfill",
-                                ts.epoch()
-                            );
-                            if let Err(e) =
-                                process_ts(&ts, state_manager, &mut extra, options.allow_recompute)
-                                    .await
-                            {
-                                tracing::warn!(
-                                    "failed to re-index applied tipset @{}: {e:#}",
-                                    ts.epoch()
-                                );
-                            }
-                        }
+        // Not using `rx.drain` to make sure tx is dropped and the channel is closed.
+        // Otherwise the loop below will block forever and timeout the CI tests.
+        let mut rx_stream = rx.into_stream();
+        while let Some(changes) = rx_stream.next().await {
+            for ts in changes.applies {
+                if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
+                    tracing::debug!("re-indexing tipset @{} applied during backfill", ts.epoch());
+                    if let Err(e) =
+                        process_ts(&ts, state_manager, &mut extra, options.allow_recompute).await
+                    {
+                        tracing::warn!("failed to re-index applied tipset @{}: {e:#}", ts.epoch());
                     }
-                }
-                Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => break,
-                Err(TryRecvError::Lagged(n)) => {
-                    tracing::warn!("backfill head-change listener lagged: skipped {n} events");
-                    continue;
                 }
             }
         }

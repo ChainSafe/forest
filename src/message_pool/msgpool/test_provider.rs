@@ -3,9 +3,6 @@
 
 //! Contains mock implementations for testing internal `MessagePool` APIs
 
-use std::convert::TryFrom;
-use std::sync::Arc;
-
 use crate::blocks::{
     CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, Tipset, TipsetKey, VRFProof,
 };
@@ -13,18 +10,19 @@ use crate::chain::HeadChanges;
 use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, MessageRead as _, SignedMessage};
 use crate::message_pool::{Error, provider::Provider};
+use crate::prelude::*;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
 use ahash::HashMap;
-use cid::Cid;
 use num::BigInt;
 use parking_lot::Mutex;
-use tokio::sync::broadcast;
+use std::convert::TryFrom;
 
 /// Structure used for creating a provider when writing tests involving message
 /// pool
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
-    pub head_changes_tx: broadcast::Sender<HeadChanges>,
+    pub head_changes_tx: async_broadcast::Sender<HeadChanges>,
+    _head_changes_rx_inactive: async_broadcast::InactiveReceiver<HeadChanges>,
 }
 
 #[derive(Default)]
@@ -42,13 +40,14 @@ pub struct TestApiInner {
 impl Default for TestApi {
     /// Create a new `TestApi`
     fn default() -> Self {
-        let (head_changes_tx, _) = broadcast::channel(1);
+        let (head_changes_tx, head_changes_rx) = async_broadcast::broadcast(100);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages: 20000,
                 ..TestApiInner::default()
             }),
             head_changes_tx,
+            _head_changes_rx_inactive: head_changes_rx.deactivate(),
         }
     }
 }
@@ -56,13 +55,14 @@ impl Default for TestApi {
 impl TestApi {
     /// Constructor for a `TestApi` with custom number of max pending messages
     pub fn with_max_actor_pending_messages(max_actor_pending_messages: u64) -> Self {
-        let (publisher, _) = broadcast::channel(1);
+        let (head_changes_tx, head_changes_rx) = async_broadcast::broadcast(100);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages,
                 ..TestApiInner::default()
             }),
-            head_changes_tx: publisher,
+            head_changes_tx,
+            _head_changes_rx_inactive: head_changes_rx.deactivate(),
         }
     }
 
@@ -84,7 +84,7 @@ impl TestApi {
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Tipset) {
         self.head_changes_tx
-            .send(HeadChanges {
+            .broadcast_blocking(HeadChanges {
                 applies: vec![ts],
                 reverts: vec![],
             })
@@ -140,8 +140,8 @@ impl TestApiInner {
 }
 
 impl Provider for TestApi {
-    fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
-        self.head_changes_tx.subscribe()
+    fn subscribe_head_changes(&self) -> async_broadcast::Receiver<HeadChanges> {
+        self.head_changes_tx.new_receiver()
     }
 
     fn get_heaviest_tipset(&self) -> Tipset {

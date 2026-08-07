@@ -39,11 +39,11 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::{
     num::NonZeroUsize,
     sync::atomic::{self, AtomicI64},
+    time::Duration,
 };
-use tokio::sync::broadcast;
 
-// A cap on the size of the future_sink
-const SINK_CAP: usize = 200;
+// Capacity of the head change broadcast channel
+const HEAD_CHANGE_BROADCAST_CHANNEL_CAP: usize = 1000;
 
 // Assume a tipset has 5 blocks on average, we cache 1-day-worth of validated blocks. (5 * 2 * 60 * 24 = 14400)
 const VALIDATED_BLOCKS_CACHE_SIZE: NonZeroUsize = nonzero!(14400usize);
@@ -81,8 +81,11 @@ pub type HeadChanges = PathChanges<Tipset>;
 /// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
 /// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore {
-    /// Publisher for head change events
-    head_changes_tx: broadcast::Sender<HeadChanges>,
+    /// The non-blocking bridge sender for head change events. This is used to send head changes to the `head_changes_tx` channel.
+    head_changes_tx_bridge: flume::Sender<HeadChanges>,
+
+    /// Inactive receiver for head change events. This is used to keep the channel alive even if there are no active subscribers.
+    head_changes_rx_inactive: Arc<async_broadcast::InactiveReceiver<HeadChanges>>,
 
     /// Heaviest tipset cache
     heaviest_tipset: Arc<ArcSwap<Tipset>>,
@@ -118,7 +121,8 @@ pub struct ChainStore {
 impl ShallowClone for ChainStore {
     fn shallow_clone(&self) -> Self {
         Self {
-            head_changes_tx: self.head_changes_tx.clone(),
+            head_changes_tx_bridge: self.head_changes_tx_bridge.clone(),
+            head_changes_rx_inactive: self.head_changes_rx_inactive.shallow_clone(),
             heaviest_tipset: self.heaviest_tipset.shallow_clone(),
             f3_finalized_tipset: self.f3_finalized_tipset.shallow_clone(),
             ec_calculator_finalized_epoch: self.ec_calculator_finalized_epoch.shallow_clone(),
@@ -142,7 +146,39 @@ impl ChainStore {
         let db = db.into();
         let genesis = genesis.into();
         anyhow::ensure!(genesis.epoch() == 0, "genesis tipset must be at epoch 0");
-        let (publisher, _) = broadcast::channel(SINK_CAP);
+        let (mut head_changes_tx, head_changes_rx) =
+            async_broadcast::broadcast(HEAD_CHANGE_BROADCAST_CHANNEL_CAP);
+        head_changes_tx.set_await_active(false);
+        head_changes_tx.set_overflow(false); // Disable overflow to not drop head changes
+        // Bridge the flume channel to the async_broadcast channel in a background task,
+        // it's unbounded to take the back pressure and not block `set_heaviest_head`
+        // in case `head_changes_tx` is unexpectedly full and blocked.
+        let (head_changes_tx_bridge, head_changes_rx_bridge) = flume::unbounded();
+        // Warn if the broadcast channel is blocked (timed out after 1 second)
+        if tokio::runtime::Handle::try_current().is_ok() {
+            tokio::spawn(async move {
+                // The loop breaks when the flume channel is closed, which happens when the `ChainStore` is dropped.
+                while let Ok(m) = head_changes_rx_bridge.recv_async().await {
+                    const TIMEOUT: Duration = Duration::from_secs(1);
+                    if tokio::time::timeout(TIMEOUT, head_changes_tx.broadcast_direct(m))
+                        .await
+                        .is_err()
+                    {
+                        error!(
+                            "Head change broadcast channel is full. This indicates some consumers are not processing head changes fast enough."
+                        );
+                    }
+                }
+            });
+        } else {
+            cfg_if::cfg_if! {
+                if #[cfg(test)] {
+                    warn!("ChainStore::new() is called outside of a Tokio runtime, head change broadcast channel is not working in this test");
+                } else {
+                    anyhow::bail!("ChainStore::new() must be called from within a Tokio runtime");
+                }
+            }
+        }
         let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()
             .context("failed to load head tipset key")?
@@ -166,7 +202,8 @@ impl ChainStore {
             }
         }));
         Ok(Self {
-            head_changes_tx: publisher,
+            head_changes_tx_bridge,
+            head_changes_rx_inactive: head_changes_rx.deactivate().into(),
             chain_index,
             tipset_tracker: TipsetTracker::new(db, chain_config.clone()),
             heaviest_tipset,
@@ -254,7 +291,8 @@ impl ChainStore {
         }
 
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
-        if crate::utils::broadcast::has_subscribers(&self.head_changes_tx) {
+        // Only publish head changes when there are active subscribers and head is changed.
+        if self.head_changes_rx_inactive.receiver_count() > 0 && old_head.key() != head.key() {
             let changes = match crate::rpc::chain::chain_get_path(self, old_head.key(), head.key())
             {
                 Ok(changes) => changes,
@@ -270,8 +308,17 @@ impl ChainStore {
                     }
                 }
             };
-            if self.head_changes_tx.send(changes).is_err() {
-                debug!("did not publish changes, no active receivers");
+            // Do not publish empty change and check active receivers again
+            if !changes.is_empty()
+                && self.head_changes_rx_inactive.receiver_count() > 0
+                // Use an unbounded bridge channel to avoid blocking `set_heaviest_tipset`.
+                // Consider refactoring `set_heaviest_tipset` to be async and move the timeout logic here instead.
+                // Note: head change is only published after tipset validation and the 30s block delay
+                // should be sufficient for any consumer to catch up. If this blocks, the consumer logic
+                // needs to be fixed, e.g. spawning a non-blocking task the process the head changes.                
+                && self.head_changes_tx_bridge.send(changes).is_err()
+            {
+                debug!("no active receivers");
             }
         }
 
@@ -345,8 +392,8 @@ impl ChainStore {
     }
 
     /// Subscribes head changes.
-    pub fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
-        self.head_changes_tx.subscribe()
+    pub fn subscribe_head_changes(&self) -> async_broadcast::Receiver<HeadChanges> {
+        self.head_changes_rx_inactive.activate_cloned()
     }
 
     /// Returns a borrowed key-value store instance.
@@ -843,9 +890,14 @@ pub fn get_parent_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::multihash::prelude::*;
-    use crate::{blocks::RawBlockHeader, shim::address::Address};
+    use crate::{
+        blocks::{Chain4U, RawBlockHeader, chain4u},
+        shim::address::Address,
+        utils::multihash::prelude::*,
+    };
     use fvm_ipld_encoding::DAG_CBOR;
+    use std::time::Duration;
+    use tokio_util::task::AbortOnDropHandle;
 
     #[test]
     fn genesis_test() {
@@ -959,5 +1011,50 @@ mod tests {
             &cache.get_or_insert_with(&key2, key_inserter).unwrap()
         );
         assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn test_head_changes() {
+        let c4u = Chain4U::new();
+        chain4u! {
+            in c4u;
+            t0 @ [genesis]
+            -> t1 @ [_b1_0]
+            -> t2 @ [_b2_0, _b2_1]
+            -> t3 @ [_b3_0]
+            -> t4 @ [_b4_1]
+        };
+
+        let db = DbImpl::from(Arc::new(crate::db::MemoryDB::default()));
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs = ChainStore::new(db, chain_config, genesis).unwrap();
+        let mut rx = cs.subscribe_head_changes();
+
+        let handle = AbortOnDropHandle::new(tokio::spawn({
+            let tipsets = vec![
+                // This duplicate head should not be published
+                t0.shallow_clone(),
+                t1.shallow_clone(),
+                t2.shallow_clone(),
+                t3.shallow_clone(),
+                t4.shallow_clone(),
+            ];
+            async move {
+                for ts in tipsets {
+                    cs.set_heaviest_tipset(ts).unwrap();
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
+        }));
+
+        // t0 is set as head in `ChainStore::new`, so the first published change is t1.
+        for ts in [&t1, &t2, &t3, &t4] {
+            let changes = rx.recv().await.unwrap();
+            assert_eq!(changes.applies, vec![ts.shallow_clone()]);
+        }
+
+        rx.try_recv().unwrap_err(); // no more messages
+
+        handle.await.unwrap();
     }
 }

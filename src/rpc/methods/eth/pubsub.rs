@@ -112,7 +112,7 @@ impl EthPubSubApiServer for EthPubSub {
 fn head_message_tipsets(ctx: &Arc<RPCState>) -> impl Stream<Item = Tipset> + Send + use<> {
     let rx = ctx.chain_store().subscribe_head_changes();
     let ctx = ctx.shallow_clone();
-    subscription_stream(rx).flat_map(move |changes| {
+    rx.flat_map(move |changes| {
         let ctx = ctx.shallow_clone();
         let items: Vec<_> = changes
             .applies
@@ -154,7 +154,7 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
 
 /// Drives the shared logs feed for every chain head change, collects the Ethereum logs of the affected tipsets
 async fn run_logs_feed(ctx: Arc<RPCState>, feed: LogsFeed) {
-    let mut head_changes = subscription_stream(ctx.chain_store().subscribe_head_changes());
+    let mut head_changes = ctx.chain_store().subscribe_head_changes();
     while let Some(changes) = head_changes.next().await {
         // Collecting events is not free; skip the work entirely while no subscription is live.
         if feed.receiver_count() == 0 {
