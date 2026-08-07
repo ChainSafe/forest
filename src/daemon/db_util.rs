@@ -17,8 +17,8 @@ use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
-use anyhow::{Context, bail};
-use futures::TryStreamExt;
+use anyhow::bail;
+use futures::TryStreamExt as _;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -823,33 +823,15 @@ pub async fn run_backfill(
     // Re-index tipsets applied during the walk so the canonical mapping wins.
     if !report.cancelled {
         let mut extra: Vec<(SignedMessage, u64)> = vec![];
-        loop {
-            match head_rx.try_recv() {
-                Ok(changes) => {
-                    for ts in changes.applies {
-                        if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
-                            tracing::debug!(
-                                "re-indexing tipset @{} applied during backfill",
-                                ts.epoch()
-                            );
-                            if let Err(e) =
-                                process_ts(&ts, state_manager, &mut extra, options.allow_recompute)
-                                    .await
-                            {
-                                tracing::warn!(
-                                    "failed to re-index applied tipset @{}: {e:#}",
-                                    ts.epoch()
-                                );
-                            }
-                        }
+        while let Some(changes) = head_rx.next().await {
+            for ts in changes.applies {
+                if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
+                    tracing::debug!("re-indexing tipset @{} applied during backfill", ts.epoch());
+                    if let Err(e) =
+                        process_ts(&ts, state_manager, &mut extra, options.allow_recompute).await
+                    {
+                        tracing::warn!("failed to re-index applied tipset @{}: {e:#}", ts.epoch());
                     }
-                }
-                Err(async_broadcast::TryRecvError::Empty)
-                | Err(async_broadcast::TryRecvError::Closed) => break,
-                Err(async_broadcast::TryRecvError::Overflowed(n)) => {
-                    // This is unexpected as overflow is disabled
-                    error!("unexpected broadcast overflow {n}");
-                    continue;
                 }
             }
         }

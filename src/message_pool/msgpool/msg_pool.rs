@@ -543,22 +543,12 @@ where
             let mp = mp.shallow_clone();
             let mut head_changes_rx = mp.api.subscribe_head_changes();
             services.spawn(async move {
-                loop {
-                    match head_changes_rx.recv().await {
-                        Ok(HeadChanges { reverts, applies }) => {
-                            if let Err(e) = mp.apply_head_change(reverts, applies).await {
-                                tracing::warn!("Error changing head: {e}");
-                            }
-                        }
-                        Err(async_broadcast::RecvError::Overflowed(n)) => {
-                            // This is unexpected as overflow is disabled
-                            error!("unexpected broadcast overflow {n}");
-                        }
-                        Err(async_broadcast::RecvError::Closed) => {
-                            break Ok(());
-                        }
+                while let Some(HeadChanges { reverts, applies }) = head_changes_rx.next().await {
+                    if let Err(e) = mp.apply_head_change(reverts, applies).await {
+                        tracing::warn!("Error changing head: {e}");
                     }
                 }
+                Ok(())
             });
         }
 

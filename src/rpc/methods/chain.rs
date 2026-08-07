@@ -1750,29 +1750,18 @@ pub(crate) fn chain_notify(
     tokio::spawn(async move {
         // Skip first message
         let _ = head_changes_rx.recv().await;
-        loop {
-            match head_changes_rx.recv().await {
-                Ok(changes) => {
-                    let api_changes = changes
-                        .into_change_vec()
-                        .into_iter()
-                        .map(From::from)
-                        .collect();
-                    if sender.send(api_changes).is_err() {
-                        tracing::info!("chain notify subscribers are all closed");
-                        break;
-                    }
-                }
-                Err(async_broadcast::RecvError::Closed) => {
-                    tracing::info!("head changes channel closed");
-                    break;
-                }
-                Err(async_broadcast::RecvError::Overflowed(n)) => {
-                    // This is unexpected as overflow is disabled
-                    error!("unexpected broadcast overflow {n}");
-                }
+        while let Some(changes) = head_changes_rx.next().await {
+            let api_changes = changes
+                .into_change_vec()
+                .into_iter()
+                .map(From::from)
+                .collect();
+            if sender.send(api_changes).is_err() {
+                tracing::info!("chain notify subscribers are all closed");
+                break;
             }
         }
+        tracing::info!("head changes channel closed");
     });
     receiver
 }
