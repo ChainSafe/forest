@@ -119,7 +119,7 @@ impl SyncCommands {
     }
 }
 
-// rows_for returns the amount of lines to clean given the current 
+// rows_for returns the amount of lines to clean given the current
 // terminal width (on resize a single printed line can take several terminal lines)
 fn rows_for(line_widths: &[usize], term_width: usize) -> usize {
     line_widths
