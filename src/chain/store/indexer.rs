@@ -40,19 +40,21 @@ struct IndexedTipsetData {
 
 #[derive(Debug, smart_default::SmartDefault)]
 pub struct SqliteIndexerOptions {
-    pub gc_retention_epochs: ChainEpoch,
+    pub gc_retention_epochs: Option<ChainEpoch>,
 }
 
 impl SqliteIndexerOptions {
-    fn validate(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.gc_retention_epochs == 0 || self.gc_retention_epochs >= EPOCHS_IN_DAY,
-            "gc retention epochs must be 0 or no less than {EPOCHS_IN_DAY}"
-        );
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if let Some(gc_retention_epochs) = self.gc_retention_epochs {
+            anyhow::ensure!(
+                gc_retention_epochs >= EPOCHS_IN_DAY,
+                "gc retention epochs must be unset or no less than {EPOCHS_IN_DAY}"
+            );
+        }
         Ok(())
     }
 
-    pub fn with_gc_retention_epochs(mut self, gc_retention_epochs: ChainEpoch) -> Self {
+    pub fn with_gc_retention_epochs(mut self, gc_retention_epochs: Option<ChainEpoch>) -> Self {
         self.gc_retention_epochs = gc_retention_epochs;
         self
     }
@@ -153,10 +155,13 @@ impl SqliteIndexer {
     }
 
     async fn gc(&self) {
+        let Some(gc_retention_epochs) = self.options.gc_retention_epochs else {
+            return;
+        };
         let _lock = self.acquire_write_lock().await;
         tracing::info!("starting index gc");
         let head = self.sm.chain_store().heaviest_tipset();
-        let removal_epoch = head.epoch() - self.options.gc_retention_epochs - 10; // 10 is for some grace period
+        let removal_epoch = head.epoch() - gc_retention_epochs - 10; // 10 is for some grace period
         if removal_epoch <= 0 {
             tracing::info!("no tipsets to gc");
             return;
@@ -188,7 +193,7 @@ impl SqliteIndexer {
         // Also GC eth hashes
 
         // Convert `gc_retention_epochs` to number of days
-        let gc_retention_days = self.options.gc_retention_epochs / EPOCHS_IN_DAY;
+        let gc_retention_days = gc_retention_epochs / EPOCHS_IN_DAY;
         if gc_retention_days < 1 {
             tracing::info!("skipping gc of eth hashes as retention days is less than 1");
             return;

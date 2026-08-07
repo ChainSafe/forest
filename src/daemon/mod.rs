@@ -806,7 +806,7 @@ fn maybe_start_indexer_service(
                 services.spawn({
                     let indexer = indexer.clone();
                     async move {
-                        if indexer.options().gc_retention_epochs <= 0 {
+                        if indexer.options().gc_retention_epochs.is_none() {
                             tracing::info!("gc retention epochs is not set, skipping gc");
                             Ok(())
                         } else {

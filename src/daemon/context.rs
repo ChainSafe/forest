@@ -61,13 +61,14 @@ impl AppContext {
             && !opts.stateless
             && !state_manager.chain_config().is_devnet()
         {
+            let options = SqliteIndexerOptions::default()
+                .with_gc_retention_epochs(cfg.chain_indexer.gc_retention_epochs.map(From::from));
+            options.validate()?;
             Some(Arc::new(
                 SqliteIndexer::new(
                     crate::utils::sqlite::open_file(db_meta_data.index_db_path()).await?,
                     state_manager.shallow_clone(),
-                    SqliteIndexerOptions::default().with_gc_retention_epochs(i64::from(
-                        cfg.chain_indexer.gc_retention_epochs.unwrap_or_default(),
-                    )),
+                    options,
                 )
                 .await?,
             ))

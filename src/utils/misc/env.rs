@@ -56,6 +56,24 @@ macro_rules! def_is_env_truthy {
     };
 }
 
+#[macro_export]
+macro_rules! def_is_env_set_and_truthy {
+    ($fn_name:ident, $env: expr) => {
+        #[inline]
+        pub fn $fn_name() -> Option<bool> {
+            cfg_if::cfg_if! {
+                if #[cfg(test)] {
+                    $crate::utils::misc::env::is_env_set_and_truthy($env)
+                } else{
+                    static ENV: std::sync::LazyLock<Option<bool>> =
+                        std::sync::LazyLock::new(|| $crate::utils::misc::env::is_env_set_and_truthy($env));
+                    *ENV
+                }
+            }
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
