@@ -311,6 +311,13 @@ impl RpcMethod<3> for MinerGetBaseInfo {
         (miner_address, epoch, ApiTipsetKey(tipset_key)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        // Lotus requires an explicit tipset key for this method and rejects an
+        // empty one (`NewTipSet called with zero length array of blocks`), so we
+        // reject `null`/`[]` here instead of silently falling back to the
+        // heaviest tipset.
+        let tipset_key = tipset_key.ok_or_else(|| {
+            ServerError::invalid_params("MinerGetBaseInfo requires a non-empty tipset key", None)
+        })?;
         let tipset = ctx
             .chain_store()
             .load_required_tipset_or_heaviest(&tipset_key)?;

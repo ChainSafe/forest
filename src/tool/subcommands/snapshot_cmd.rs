@@ -717,7 +717,7 @@ mod structured {
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": is_explicit.then_some(unsigned_message_cid.into_lotus_json()),
-                "GasUsed": if is_explicit { apply_ret.msg_receipt().gas_used() } else { Default::default() },
+                "GasUsed": if is_explicit { apply_ret.gas_used() } else { Default::default() },
                 "BaseFeeBurn": apply_ret.base_fee_burn().into_lotus_json(),
                 "OverEstimationBurn": apply_ret.over_estimation_burn().into_lotus_json(),
                 "MinerPenalty": apply_ret.penalty().into_lotus_json(),

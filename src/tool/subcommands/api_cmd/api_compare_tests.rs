@@ -1132,6 +1132,14 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 block.epoch,
                 tipset.key().into(),
             ))?),
+            // An empty tipset key must be rejected by both nodes, matching Lotus
+            // which requires an explicit tipset key for this method.
+            RpcTest::identity(MinerGetBaseInfo::request((
+                block.miner_address,
+                block.epoch,
+                ApiTipsetKey(None),
+            ))?)
+            .policy_on_rejected(PolicyOnRejected::Pass),
             RpcTest::identity(StateMinerRecoveries::request((
                 block.miner_address,
                 tipset.key().into(),

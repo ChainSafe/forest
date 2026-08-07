@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::state::InvocResult;
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
@@ -211,7 +210,7 @@ impl GasEstimateGasLimit {
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
         sender_validation: SenderValidation,
-    ) -> anyhow::Result<(InvocResult, ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
+    ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
@@ -251,7 +250,7 @@ impl GasEstimateGasLimit {
             _ => msg.into(),
         };
 
-        let (invoc_res, apply_ret, _, _) = data
+        let (apply_ret, ..) = data
             .state_manager
             .call_with_gas(
                 chain_msg,
@@ -261,7 +260,7 @@ impl GasEstimateGasLimit {
                 sender_validation,
             )
             .await?;
-        Ok((invoc_res, apply_ret, prior_messages, ts))
+        Ok((apply_ret, prior_messages, ts))
     }
 
     pub async fn estimate_gas_limit(
@@ -286,7 +285,7 @@ impl GasEstimateGasLimit {
                 anyhow::bail!(
                     "message execution failed: exit code: {}, reason: {}",
                     rct.exit_code().value(),
-                    res.error.unwrap_or_default()
+                    res.failure_info().unwrap_or_default()
                 )
             }
             None => Ok(-1),
