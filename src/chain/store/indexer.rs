@@ -2,20 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod ddls;
+pub use ddls::{DDLS, PreparedStatements};
 mod events;
+pub use events::IndexerEventFilter;
 #[cfg(test)]
 mod tests;
-
-use ahash::HashMap;
-pub use ddls::{DDLS, PreparedStatements};
-pub use events::IndexerEventFilter;
-use sqlx::Row as _;
 
 use crate::{
     blocks::Tipset,
     chain::{HeadChanges, index::ResolveNullTipset},
-    interpreter::VMTrace,
-    message::{ChainMessage, SignedMessage},
+    message::SignedMessage,
     prelude::*,
     rpc::{
         chain::types::ChainIndexValidation,
@@ -25,17 +21,16 @@ use crate::{
         ActorID,
         address::Address,
         clock::{ChainEpoch, EPOCHS_IN_DAY},
-        executor::{Receipt, StampedEvent},
     },
-    state_manager::{NO_CALLBACK, StateManager},
+    state_manager::{ExecutedMessage, StateManager},
     utils::sqlite,
 };
+use ahash::HashMap;
+use sqlx::Row as _;
 use std::{
     ops::DerefMut as _,
     time::{Duration, Instant},
 };
-
-type ExecutedMessage = (ChainMessage, Receipt, Option<Vec<StampedEvent>>);
 
 struct IndexedTipsetData {
     pub indexed_messages_count: u64,
@@ -443,9 +438,12 @@ impl SqliteIndexer {
             "index corruption: reverted events found for an executed tipset {tsk_cid} at height {}",
             ts.epoch()
         );
-        let executed_messages = self
-            .load_executed_messages(ts.shallow_clone(), execution_ts.shallow_clone())
-            .await?;
+        let executed_messages = Arc::unwrap_or_clone(
+            self.sm
+                .load_executed_tipset_with_receipt(ts, &execution_ts)
+                .await?
+                .executed_messages,
+        );
         anyhow::ensure!(
             executed_messages.len() as u64 == indexed_tipset_data.indexed_messages_count,
             "message count mismatch for height {}: chainstore has {}, index has {}",
@@ -455,7 +453,7 @@ impl SqliteIndexer {
         );
         let mut events_count = 0;
         let mut event_entries_count = 0;
-        for (_, _, events) in &executed_messages {
+        for ExecutedMessage { events, .. } in &executed_messages {
             if let Some(events) = events {
                 events_count += events.len();
                 for event in events {
@@ -477,7 +475,10 @@ impl SqliteIndexer {
         );
 
         // compare the events AMT root between the indexed events and the events in the chain state
-        for (message, receipt, _) in executed_messages {
+        for ExecutedMessage {
+            message, receipt, ..
+        } in executed_messages
+        {
             let msg_cid = message.cid();
             let indexed_events_root = self.amt_root_for_events(&tsk_cid, &msg_cid).await?;
             match (indexed_events_root, receipt.events_root()) {
@@ -594,75 +595,6 @@ impl SqliteIndexer {
 
             Ok(Some(events.flush()?))
         }
-    }
-
-    async fn load_executed_messages(
-        &self,
-        msg_ts: Tipset,
-        receipt_ts: Tipset,
-    ) -> anyhow::Result<Vec<ExecutedMessage>> {
-        let sm = self.sm.shallow_clone();
-        tokio::task::spawn_blocking(move || {
-            Self::load_executed_messages_blocking(&sm, &msg_ts, &receipt_ts)
-        })
-        .await?
-    }
-
-    fn load_executed_messages_blocking(
-        sm: &StateManager,
-        msg_ts: &Tipset,
-        receipt_ts: &Tipset,
-    ) -> anyhow::Result<Vec<ExecutedMessage>> {
-        let msgs = sm.chain_store().messages_for_tipset(msg_ts)?;
-        if msgs.is_empty() {
-            return Ok(vec![]);
-        }
-        let mut recomputed = false;
-        let recompute = || {
-            let tsk_cid = receipt_ts.key().cid()?;
-            tracing::warn!(
-                "failed to load message receipts or events for tipset {tsk_cid} (epoch {}); recomputing tipset state",
-                receipt_ts.epoch()
-            );
-            sm.compute_tipset_state_blocking(msg_ts.clone(), NO_CALLBACK, VMTrace::NotTraced)?;
-            tracing::warn!(
-                "successfully recomputed tipset state and loaded events for tipset {tsk_cid} (epoch {})",
-                receipt_ts.epoch()
-            );
-            anyhow::Ok(())
-        };
-        let receipts = match Receipt::get_receipts(sm.db(), *receipt_ts.parent_message_receipts()) {
-            Ok(receipts) => receipts,
-            Err(_) => {
-                recompute()?;
-                recomputed = true;
-                Receipt::get_receipts(sm.db(), *receipt_ts.parent_message_receipts())?
-            }
-        };
-        anyhow::ensure!(
-            msgs.len() == receipts.len(),
-            "mismatching message and receipt counts ({} msgs, {} rcts)",
-            msgs.len(),
-            receipts.len()
-        );
-        let mut executed = Vec::with_capacity(msgs.len());
-        for (message, receipt) in msgs.iter().zip(receipts) {
-            let events = if let Some(events_root) = receipt.events_root() {
-                Some(match StampedEvent::get_events(sm.db(), &events_root) {
-                    Ok(events) => events,
-                    Err(e) if recomputed => return Err(e),
-                    Err(_) => {
-                        recompute()?;
-                        recomputed = true;
-                        StampedEvent::get_events(sm.db(), &events_root)?
-                    }
-                })
-            } else {
-                None
-            };
-            executed.push((message.clone(), receipt, events));
-        }
-        Ok(executed)
     }
 
     async fn revert_tipset(&self, ts: &Tipset) -> anyhow::Result<()> {
@@ -800,13 +732,23 @@ impl SqliteIndexer {
             );
             return Ok(());
         }
-        let executed_messages = self
-            .load_executed_messages(msg_ts.shallow_clone(), execution_ts.shallow_clone())
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to load executed message: {e}"))?;
+        let executed_messages = Arc::unwrap_or_clone(
+            self.sm
+                .load_executed_tipset_with_receipt(msg_ts, execution_ts)
+                .await
+                .context("failed to load executed message")?
+                .executed_messages,
+        );
+        // let executed_messages = self
+        //     .load_executed_messages(msg_ts.shallow_clone(), execution_ts.shallow_clone())
+        //     .await
+        //     .map_err(|e| anyhow::anyhow!("failed to load executed message: {e}"))?;
         let mut event_count = 0;
         let mut address_lookups = HashMap::default();
-        for (message, _, events) in executed_messages {
+        for ExecutedMessage {
+            message, events, ..
+        } in executed_messages
+        {
             let msg_cid_bytes = message.cid().to_bytes();
 
             // read message id for this message cid and tipset key cid
