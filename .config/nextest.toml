@@ -1,5 +1,9 @@
 [profile.default]
 slow-timeout = { period = "10s", terminate-after = 3 }
+# The `cargo_test_` group does expensive initialization (WASM engine) and is meant to share one
+# process; nextest's process-per-test model makes it prohibitively expensive.
+# Run it via `mise test:cargo`.
+default-filter = 'not test(/cargo_test_/)'
 
 [profile.default.junit]
 path = "junit.xml"

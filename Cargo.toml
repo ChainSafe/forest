@@ -351,7 +351,6 @@ debug = "line-tables-only"
 default = ["jemalloc", "tracing-loki", "sqlite"]
 test = [] # default feature set for unit tests
 slim = ["rustalloc"]
-cargo-test = [] # group of tests that is recommended to run with `cargo test` instead of `nextest`
 doctest-private = [] # see lib.rs::doctest_private
 benchmark-private = ["dep:criterion"] # see lib.rs::benchmark_private
 interop-tests-private = [] # see lib.rs::interop_tests_private
