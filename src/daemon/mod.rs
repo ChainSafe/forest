@@ -801,18 +801,17 @@ fn maybe_start_indexer_service(
                 services.spawn({
                     let head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
                     let indexer = indexer.clone();
-                    async move {
-                        if let Err(e) = indexer.index_loop(head_changes_rx).await {
-                            tracing::warn!("indexer stopped unexpectedly: {e}");
-                        }
-                        Ok(())
-                    }
+                    async move { indexer.index_loop(head_changes_rx).await }
                 });
                 services.spawn({
                     let indexer = indexer.clone();
                     async move {
-                        indexer.gc_loop().await;
-                        Ok(())
+                        if indexer.options().gc_retention_epochs <= 0 {
+                            tracing::info!("gc retention epochs is not set, skipping gc");
+                            Ok(())
+                        } else {
+                            indexer.gc_loop().await;
+                        }
                     }
                 });
             }

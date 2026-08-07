@@ -105,6 +105,10 @@ impl SqliteIndexer {
         &self.db
     }
 
+    pub fn options(&self) -> &SqliteIndexerOptions {
+        &self.options
+    }
+
     fn actor_to_delegated_address(&self, actor_id: ActorID, ts: &Tipset) -> Address {
         let id_addr = Address::new_id(actor_id);
         match self.sm.get_required_actor(&id_addr, *ts.parent_state()) {
@@ -119,33 +123,33 @@ impl SqliteIndexer {
     pub async fn index_loop(
         &self,
         mut head_changes_rx: tokio::sync::broadcast::Receiver<HeadChanges>,
-    ) -> anyhow::Result<()> {
+    ) -> ! {
         loop {
-            let HeadChanges { reverts, applies } = head_changes_rx.recv().await?;
-            let _lock = self.acquire_write_lock().await;
-            for ts in reverts {
-                if let Err(e) = self.revert_tipset(&ts).await {
-                    tracing::warn!(
-                        "failed to revert new head@{}({}): {e}",
-                        ts.epoch(),
-                        ts.key()
-                    );
+            if let Ok(HeadChanges { reverts, applies }) = head_changes_rx.recv().await {
+                let _lock = self.acquire_write_lock().await;
+                for ts in reverts {
+                    if let Err(e) = self.revert_tipset(&ts).await {
+                        tracing::warn!(
+                            "failed to revert new head@{}({}): {e}",
+                            ts.epoch(),
+                            ts.key()
+                        );
+                    }
                 }
-            }
-            for ts in applies {
-                if let Err(e) = self.index_tipset(&ts).await {
-                    tracing::warn!("failed to index new head@{}({}): {e}", ts.epoch(), ts.key());
+                for ts in applies {
+                    if let Err(e) = self.index_tipset(&ts).await {
+                        tracing::warn!(
+                            "failed to index new head@{}({}): {e}",
+                            ts.epoch(),
+                            ts.key()
+                        );
+                    }
                 }
             }
         }
     }
 
-    pub async fn gc_loop(&self) {
-        if self.options.gc_retention_epochs <= 0 {
-            tracing::info!("gc retention epochs is not set, skipping gc");
-            return;
-        }
-
+    pub async fn gc_loop(&self) -> ! {
         let mut ticker = tokio::time::interval(Duration::from_hours(4));
         loop {
             ticker.tick().await;

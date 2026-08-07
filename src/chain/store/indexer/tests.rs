@@ -3,7 +3,10 @@
 
 use super::*;
 use crate::{
-    blocks::{Chain4U, HeaderBuilder, chain4u}, chain::ChainStore, db::MemoryDB, networks::ChainConfig,
+    blocks::{Chain4U, HeaderBuilder, chain4u},
+    chain::ChainStore,
+    db::MemoryDB,
+    networks::ChainConfig,
 };
 
 #[tokio::test(flavor = "multi_thread")]
