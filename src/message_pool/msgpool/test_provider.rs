@@ -22,6 +22,7 @@ use std::convert::TryFrom;
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
     pub head_changes_tx: async_broadcast::Sender<HeadChanges>,
+    head_changes_rx_inactive: async_broadcast::InactiveReceiver<HeadChanges>,
 }
 
 #[derive(Default)]
@@ -39,13 +40,14 @@ pub struct TestApiInner {
 impl Default for TestApi {
     /// Create a new `TestApi`
     fn default() -> Self {
-        let (head_changes_tx, _) = async_broadcast::broadcast(100);
+        let (head_changes_tx, head_changes_rx) = async_broadcast::broadcast(100);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages: 20000,
                 ..TestApiInner::default()
             }),
             head_changes_tx,
+            head_changes_rx_inactive: head_changes_rx.deactivate(),
         }
     }
 }
@@ -53,13 +55,14 @@ impl Default for TestApi {
 impl TestApi {
     /// Constructor for a `TestApi` with custom number of max pending messages
     pub fn with_max_actor_pending_messages(max_actor_pending_messages: u64) -> Self {
-        let (publisher, _) = async_broadcast::broadcast(100);
+        let (head_changes_tx, head_changes_rx) = async_broadcast::broadcast(100);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages,
                 ..TestApiInner::default()
             }),
-            head_changes_tx: publisher,
+            head_changes_tx,
+            head_changes_rx_inactive: head_changes_rx.deactivate(),
         }
     }
 
