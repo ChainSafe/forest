@@ -155,20 +155,30 @@ impl ChainStore {
         // in case `head_changes_tx` is unexpectedly full and blocked.
         let (head_changes_tx_bridge, head_changes_rx_bridge) = flume::unbounded();
         // Warn if the broadcast channel is blocked (timed out after 1 second)
-        tokio::spawn(async move {
-            // The loop breaks when the flume channel is closed, which happens when the `ChainStore` is dropped.
-            while let Ok(m) = head_changes_rx_bridge.recv_async().await {
-                const TIMEOUT: Duration = Duration::from_secs(1);
-                if tokio::time::timeout(TIMEOUT, head_changes_tx.broadcast_direct(m))
-                    .await
-                    .is_err()
-                {
-                    error!(
-                        "Head change broadcast channel is full. This indicates some consumers are not processing head changes fast enough."
-                    );
+        if tokio::runtime::Handle::try_current().is_ok() {
+            tokio::spawn(async move {
+                // The loop breaks when the flume channel is closed, which happens when the `ChainStore` is dropped.
+                while let Ok(m) = head_changes_rx_bridge.recv_async().await {
+                    const TIMEOUT: Duration = Duration::from_secs(1);
+                    if tokio::time::timeout(TIMEOUT, head_changes_tx.broadcast_direct(m))
+                        .await
+                        .is_err()
+                    {
+                        error!(
+                            "Head change broadcast channel is full. This indicates some consumers are not processing head changes fast enough."
+                        );
+                    }
+                }
+            });
+        } else {
+            cfg_if::cfg_if! {
+                if #[cfg(test)] {
+                    warn!("ChainStore::new() is called outside of a Tokio runtime, head change broadcast channel is not working in this test");
+                } else {
+                    anyhow::bail!("ChainStore::new() must be called from within a Tokio runtime");
                 }
             }
-        });
+        }
         let head = if let Some(head_tsk) = db
             .heaviest_tipset_key()
             .context("failed to load head tipset key")?
