@@ -302,6 +302,7 @@ impl ChainStore {
             if !changes.is_empty()
                 && self.head_changes_rx_inactive.receiver_count() > 0
                 // Use an unbounded bridge channel to avoid blocking `set_heaviest_tipset`.
+                // Consider refactoring `set_heaviest_tipset` to be async and move the timeout logic here instead.
                 // Note: head change is only published after tipset validation and the 30s block delay
                 // should be sufficient for any consumer to catch up. If this blocks, the consumer logic
                 // needs to be fixed, e.g. spawning a non-blocking task the process the head changes.                
