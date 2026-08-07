@@ -13,7 +13,7 @@ use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    ApiEthTx, BlockNumberOrHash, EthInt64, Predefined, new_eth_tx_from_signed_message,
+    ApiEthTx, BlockNumberOrHash, EthBigInt, EthInt64, Predefined, new_eth_tx_from_signed_message,
     trace::types::*, types::*,
 };
 use crate::rpc::gas::{GasEstimateGasLimit, GasEstimateMessageGas};
@@ -261,6 +261,7 @@ pub struct TestResult {
     pub duration: Duration,
 }
 
+#[derive(Clone)]
 pub(super) enum PolicyOnRejected {
     Fail,
     Pass,
@@ -1643,6 +1644,143 @@ fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
     tests
 }
 
+const SKIP_SENDER_CONTRACT: &str = "0x0c1d86d34e469770339b53613f3a2343accd62cb";
+const SKIP_SENDER_CALLDATA: &str =
+    "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6";
+
+fn eth_skip_sender_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = eth_skip_sender_success_tests(epoch)?;
+    tests.extend(eth_skip_sender_insufficient_funds_tests(epoch)?);
+    tests.extend(eth_skip_sender_create_reject_tests(epoch)?);
+    tests.extend(eth_skip_sender_block_param_tests(epoch)?);
+    Ok(tests)
+}
+
+fn eth_skip_sender_cases(
+    epoch: ChainEpoch,
+    policy: PolicyOnRejected,
+    messages: impl IntoIterator<Item = EthCallMessage>,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = Vec::new();
+    for msg in messages {
+        for api_path in [ApiPaths::V1, ApiPaths::V2] {
+            let block = BlockNumberOrHash::from_block_number(epoch);
+            tests.push(
+                RpcTest::identity(
+                    EthCall::request((msg.clone(), block.clone()))?.with_api_path(api_path),
+                )
+                .policy_on_rejected(policy.clone()),
+            );
+            tests.push(
+                RpcTest::identity(
+                    EthEstimateGas::request((msg.clone(), Some(block)))?.with_api_path(api_path),
+                )
+                .policy_on_rejected(policy.clone()),
+            );
+        }
+    }
+    Ok(tests)
+}
+
+fn eth_skip_sender_success_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let to = EthAddress::from_str(SKIP_SENDER_CONTRACT)?;
+    let calldata: EthBytes = SKIP_SENDER_CALLDATA.parse()?;
+    let initcode =
+        EthBytes::from_str(concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim())?;
+    let contract = EthAddress::from_filecoin_address(&Address::from_str(EVM_ADDRESS)?)?;
+    let non_existent = generate_eth_random_address()?;
+    let gas_price = EthBigInt::from(1_000_000_000_u64);
+
+    let messages = [
+        // `from` is an existing EVM contract.
+        (Some(contract), Some(to), Some(calldata.clone()), None),
+        // `from` is an address that does not exist on chain.
+        (Some(non_existent), Some(to), Some(calldata.clone()), None),
+        // Same as above, but with gasPrice set — it should be ignored.
+        (
+            Some(contract),
+            Some(to),
+            Some(calldata.clone()),
+            Some(gas_price),
+        ),
+        (
+            Some(non_existent),
+            Some(to),
+            Some(calldata.clone()),
+            Some(gas_price),
+        ),
+        // `from` and `to` are the same contract.
+        (Some(contract), Some(contract), Some(calldata.clone()), None),
+        // No `from` field — should still succeed.
+        (None, Some(to), Some(calldata), None),
+        // No `to` means contract creation; `from` does not exist on chain.
+        (Some(non_existent), None, Some(initcode), None),
+    ]
+    .map(|(from, to, data, gas_price)| EthCallMessage {
+        from,
+        to,
+        data,
+        gas_price,
+        ..Default::default()
+    });
+    eth_skip_sender_cases(epoch, PolicyOnRejected::Fail, messages)
+}
+
+fn eth_skip_sender_insufficient_funds_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let to = EthAddress::from_str(SKIP_SENDER_CONTRACT)?;
+    let contract = EthAddress::from_filecoin_address(&Address::from_str(EVM_ADDRESS)?)?;
+    let non_existent = generate_eth_random_address()?;
+    let eoa = EthAddress::from_filecoin_address(&KNOWN_CALIBNET_F4_ADDRESS)?;
+    let value = EthBigInt::from(TokenAmount::from_whole(1_000_000));
+
+    // Value is higher than the sender's balance.
+    let messages = [contract, non_existent, eoa].map(|from| EthCallMessage {
+        from: Some(from),
+        to: Some(to),
+        value: Some(value),
+        ..Default::default()
+    });
+    eth_skip_sender_cases(epoch, PolicyOnRejected::PassWithIdenticalError, messages)
+}
+
+fn eth_skip_sender_create_reject_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let initcode =
+        EthBytes::from_str(concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim())?;
+    let div_zero = EthBytes::from_str(include_str!(
+        "./contracts/divide_by_zero_err/divide_by_zero_err.hex"
+    ))?;
+    let assert_err = EthBytes::from_str(include_str!("contracts/assert_err/assert_err.hex"))?;
+    let contract = EthAddress::from_filecoin_address(&Address::from_str(EVM_ADDRESS)?)?;
+    let non_existent = generate_eth_random_address()?;
+
+    let messages = [
+        // Contract creation with a contract as `from` is not allowed.
+        (Some(contract), initcode),
+        // Contract creation whose init code fails via divide by zero.
+        (Some(contract), div_zero.clone()),
+        (Some(non_existent), div_zero),
+        // Contract creation whose init code fails via assert.
+        (Some(contract), assert_err.clone()),
+        (Some(non_existent), assert_err),
+    ]
+    .map(|(from, data)| EthCallMessage {
+        from,
+        data: Some(data),
+        ..Default::default()
+    });
+    eth_skip_sender_cases(epoch, PolicyOnRejected::PassWithIdenticalError, messages)
+}
+
+fn eth_skip_sender_block_param_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let to = EthAddress::from_str(SKIP_SENDER_CONTRACT)?;
+    // Asking for a block in the future — both nodes should reject
+    let messages = [EthCallMessage {
+        to: Some(to),
+        ..Default::default()
+    }];
+    eth_skip_sender_cases(epoch + 1000, PolicyOnRejected::Pass, messages)
+}
+
 fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
     store: &DB,
     shared_tipset: &Tipset,
@@ -2505,6 +2643,8 @@ fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
 
     // Test eth_call API errors
     tests.extend(eth_call_api_err_tests(shared_tipset.epoch()));
+
+    tests.extend(eth_skip_sender_tests(shared_tipset.epoch())?);
 
     Ok(tests)
 }

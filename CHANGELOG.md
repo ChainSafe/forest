@@ -43,6 +43,8 @@
 
 ### Fixed
 
+- [#7435](https://github.com/ChainSafe/forest/pull/7435): `eth_call` and `eth_estimateGas` now accept a `from` address that is an EVM contract or that doesn't exist on chain, matching Lotus/Geth.
+
 - [#7412](https://github.com/ChainSafe/forest/issues/7412): Fixes quicknet "unchained" logic to fetch the `max_beacon_round` for all covered epochs
 
 - [#7446](https://github.com/ChainSafe/forest/pull/7446): Fixed a panic condition on `ChainNotify` when a client closes a connection just after subscription.

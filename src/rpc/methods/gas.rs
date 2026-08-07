@@ -13,7 +13,7 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
-use crate::state_manager::VMFlush;
+use crate::state_manager::{SenderValidation, VMFlush};
 use anyhow::Result;
 use enumflags2::BitFlags;
 use num::BigInt;
@@ -200,7 +200,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
         (msg, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::estimate_gas_limit(&ctx, msg, &tsk).await?)
+        Ok(Self::estimate_gas_limit(&ctx, msg, &tsk, SenderValidation::Enforce).await?)
     }
 }
 
@@ -209,16 +209,21 @@ impl GasEstimateGasLimit {
         data: &Ctx,
         mut msg: Message,
         ApiTipsetKey(tsk): &ApiTipsetKey,
+        sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
 
         let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
-        let from_a = data
-            .state_manager
-            .resolve_to_deterministic_address(msg.from, &curr_ts)
-            .await?;
+        let from_a = match sender_validation {
+            SenderValidation::Skip => msg.from,
+            SenderValidation::Enforce => data
+                .state_manager
+                .resolve_to_deterministic_address(msg.from, &curr_ts)
+                .await
+                .map_err(|_| crate::state_manager::Error::SenderValidationFailed)?,
+        };
 
         let pending = data.mpool.pending_for(&from_a).await;
         let prior_messages: Arc<Vec<ChainMessage>> = pending
@@ -252,22 +257,34 @@ impl GasEstimateGasLimit {
                 prior_messages.shallow_clone(),
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
+                sender_validation,
             )
             .await?;
         Ok((apply_ret, prior_messages, ts))
     }
 
-    pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {
-        let (apply_ret, ..) = Self::estimate_call_with_gas(data, msg, tsk)
+    pub async fn estimate_gas_limit(
+        data: &Ctx,
+        msg: Message,
+        tsk: &ApiTipsetKey,
+        sender_validation: SenderValidation,
+    ) -> Result<i64> {
+        let (apply_ret, ..) = Self::estimate_call_with_gas(data, msg, tsk, sender_validation)
             .await
             .context("gas estimation failed")?;
-        anyhow::ensure!(
-            apply_ret.exit_code().is_success(),
+        if apply_ret.exit_code().is_success() {
+            return Ok(apply_ret.gas_used() as i64);
+        }
+        if sender_validation == SenderValidation::Enforce
+            && apply_ret.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
+        {
+            return Err(crate::state_manager::Error::SenderValidationFailed.into());
+        }
+        anyhow::bail!(
             "message execution failed: exit code: {}, reason: {}",
             apply_ret.exit_code().value(),
             apply_ret.failure_info().unwrap_or_default()
-        );
-        Ok(apply_ret.gas_used() as i64)
+        )
     }
 }
 
@@ -298,9 +315,15 @@ pub async fn estimate_message_gas(
     mut msg: Message,
     msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
-) -> Result<Message, ServerError> {
+) -> anyhow::Result<Message> {
     if msg.gas_limit == 0 {
-        let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;
+        let gl = GasEstimateGasLimit::estimate_gas_limit(
+            data,
+            msg.clone(),
+            &tsk,
+            SenderValidation::Enforce,
+        )
+        .await?;
         let gl = gl as f64 * data.mpool.gas_limit_overestimation();
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }
