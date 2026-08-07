@@ -278,7 +278,11 @@ impl ChainStore {
                     }
                 }
             };
-            if self.head_changes_tx.broadcast_blocking(changes).is_err() {
+            // Do not publish empty change and check active receivers again
+            if !changes.is_empty()
+                && self.head_changes_tx.receiver_count() > 0
+                && self.head_changes_tx.broadcast_blocking(changes).is_err()
+            {
                 debug!("did not publish changes, no active receivers");
             }
         }
@@ -851,9 +855,14 @@ pub fn get_parent_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::multihash::prelude::*;
-    use crate::{blocks::RawBlockHeader, shim::address::Address};
+    use crate::{
+        blocks::{Chain4U, RawBlockHeader, chain4u},
+        shim::address::Address,
+        utils::multihash::prelude::*,
+    };
     use fvm_ipld_encoding::DAG_CBOR;
+    use std::time::Duration;
+    use tokio_util::task::AbortOnDropHandle;
 
     #[test]
     fn genesis_test() {
@@ -967,5 +976,50 @@ mod tests {
             &cache.get_or_insert_with(&key2, key_inserter).unwrap()
         );
         assert!(inserter_executed.load(std::sync::atomic::Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn test_head_changes() {
+        let c4u = Chain4U::new();
+        chain4u! {
+            in c4u;
+            t0 @ [genesis]
+            -> t1 @ [_b1_0]
+            -> t2 @ [_b2_0, _b2_1]
+            -> t3 @ [_b3_0]
+            -> t4 @ [_b4_1]
+        };
+
+        let db = DbImpl::from(Arc::new(crate::db::MemoryDB::default()));
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs = ChainStore::new(db, chain_config, genesis).unwrap();
+        let mut rx = cs.subscribe_head_changes();
+
+        let handle = AbortOnDropHandle::new(tokio::spawn({
+            let tipsets = vec![
+                // This duplicate head should not be published
+                t0.shallow_clone(),
+                t1.shallow_clone(),
+                t2.shallow_clone(),
+                t3.shallow_clone(),
+                t4.shallow_clone(),
+            ];
+            async move {
+                for ts in tipsets {
+                    cs.set_heaviest_tipset(ts).unwrap();
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
+        }));
+
+        // t0 is set as head in `ChainStore::new`, so the first published change is t1.
+        for ts in [&t1, &t2, &t3, &t4] {
+            let changes = rx.recv().await.unwrap();
+            assert_eq!(changes.applies, vec![ts.shallow_clone()]);
+        }
+
+        rx.try_recv().unwrap_err(); // no more messages
+
+        handle.await.unwrap();
     }
 }
