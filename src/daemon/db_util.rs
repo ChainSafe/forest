@@ -29,7 +29,6 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tokio::sync::broadcast::error::TryRecvError;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -845,9 +844,11 @@ pub async fn run_backfill(
                         }
                     }
                 }
-                Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => break,
-                Err(TryRecvError::Lagged(n)) => {
-                    tracing::warn!("backfill head-change listener lagged: skipped {n} events");
+                Err(async_broadcast::TryRecvError::Empty)
+                | Err(async_broadcast::TryRecvError::Closed) => break,
+                Err(async_broadcast::TryRecvError::Overflowed(n)) => {
+                    // This is unexpected as overflow is disabled
+                    error!("unexpected broadcast overflow {n}");
                     continue;
                 }
             }

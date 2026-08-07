@@ -764,10 +764,11 @@ fn maybe_start_indexer_service(
                             chain_store.process_signed_messages(&delegated_messages, false)?;
                         }
                     }
-                    Err(RecvError::Lagged(n)) => {
-                        warn!("indexer service lagged: skipping {n} events")
+                    Err(async_broadcast::RecvError::Overflowed(n)) => {
+                        // This is unexpected as overflow is disabled
+                        error!("unexpected broadcast overflow {n}");
                     }
-                    Err(RecvError::Closed) => break Ok(()),
+                    Err(async_broadcast::RecvError::Closed) => break Ok(()),
                 }
             }
         });

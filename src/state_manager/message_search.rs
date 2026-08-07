@@ -8,9 +8,7 @@ use ahash::HashSet;
 use parking_lot::RwLock;
 use std::sync::OnceLock;
 use std::time::Duration;
-use tokio::sync::broadcast::error::RecvError;
 use tokio_util::sync::CancellationToken;
-use tracing::warn;
 
 /// Maximum allowed message confidence.
 const MAX_MESSAGE_CONFIDENCE: ChainEpoch = crate::shim::policy::policy_constants::CHAIN_FINALITY;
@@ -377,13 +375,11 @@ impl StateManager {
                                 }
                             }
                         }
-                        Err(RecvError::Lagged(i)) => {
-                            warn!(
-                                "wait for message head change subscriber lagged, skipped {} events",
-                                i
-                            );
+                        Err(async_broadcast::RecvError::Overflowed(n)) => {
+                            // This is unexpected as overflow is disabled
+                            error!("unexpected broadcast overflow {n}");
                         }
-                        Err(RecvError::Closed) => break,
+                        Err(async_broadcast::RecvError::Closed) => break,
                     }
                 }
                 Err(Error::other("cancelled"))

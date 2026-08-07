@@ -1756,12 +1756,13 @@ pub(crate) fn chain_notify(
                         break;
                     }
                 }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                Err(async_broadcast::RecvError::Closed) => {
                     tracing::info!("head changes channel closed");
                     break;
                 }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                    tracing::warn!("head changes channel lagged by {n} messages");
+                Err(async_broadcast::RecvError::Overflowed(n)) => {
+                    // This is unexpected as overflow is disabled
+                    error!("unexpected broadcast overflow {n}");
                 }
             }
         }
