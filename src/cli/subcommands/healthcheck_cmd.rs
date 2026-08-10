@@ -24,7 +24,7 @@ pub enum HealthcheckCommand {
     },
     /// Display liveness status
     Live {
-        /// Don't exit until node is ready
+        /// Don't exit until node is live
         #[arg(long)]
         wait: bool,
         /// Healthcheck port
@@ -33,7 +33,7 @@ pub enum HealthcheckCommand {
     },
     /// Display health status
     Healthy {
-        /// Don't exit until node is ready
+        /// Don't exit until node is healthy
         #[arg(long)]
         wait: bool,
         /// Healthcheck port
