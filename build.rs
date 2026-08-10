@@ -87,7 +87,6 @@ fn rpc_regression_tests_gen() {
         writeln!(
             w,
             r#"
-                #[cfg(feature = "cargo-test")]
                 #[tokio::test(flavor = "multi_thread")]
                 #[fickle::fickle]
                 async fn cargo_test_rpc_snapshot_test_{ident}() {{
@@ -111,7 +110,6 @@ fn state_compute_tests_gen() {
             writeln!(
                 w,
                 r#"
-                    #[cfg(feature = "cargo-test")]
                     #[tokio::test(flavor = "multi_thread")]
                     #[fickle::fickle]
                     async fn cargo_test_state_compute_{chain}_{epoch}() {{
