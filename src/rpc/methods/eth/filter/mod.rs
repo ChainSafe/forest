@@ -681,6 +681,9 @@ fn parse_block_range(
         max_height >= 0 || max_height == -1,
         "max_height requested is less than 0"
     );
+    // Unlike `max_height`, `-1` is not a sentinel here: "latest" resolves to `heaviest` above,
+    // which leaves the `min_height == -1` branch below inert, as it is in Lotus.
+    ensure!(min_height >= 0, "min_height requested is less than 0");
 
     if min_height == -1 && max_height > 0 {
         ensure!(
@@ -709,11 +712,9 @@ fn parse_block_range(
 }
 
 pub fn hex_str_to_epoch(hex_str: &str) -> Result<ChainEpoch, Error> {
-    let hex_substring = hex_str
-        .strip_prefix("0x")
-        .ok_or_else(|| anyhow!("Not a hex"))?;
-    i64::from_str_radix(hex_substring, 16)
-        .map_err(|e| anyhow!("Failed to convert hex to epoch: {}", e))
+    // Unsigned: `-1` is the internal "latest" sentinel, never a caller's block number.
+    let epoch: u64 = crate::utils::encoding::hex::parse_prefixed_int(hex_str)?;
+    ChainEpoch::try_from(epoch).with_context(|| format!("epoch {epoch} is out of range"))
 }
 
 fn parse_eth_topics(
@@ -898,6 +899,7 @@ mod tests {
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared4::event::Flags;
+    use rstest::rstest;
     use std::str::FromStr;
 
     #[test]
@@ -1246,6 +1248,38 @@ mod tests {
         let hex_str = "0xG";
         let result = hex_str_to_epoch(hex_str);
         assert!(result.is_err());
+        // Above `i64::MAX`, so not representable as an epoch.
+        assert!(hex_str_to_epoch("0xffffffffffffffff").is_err());
+    }
+
+    #[rstest]
+    #[case(-5)]
+    // `-1` is `to_block`'s "latest" sentinel, not `from_block`'s, so it is not accepted here.
+    #[case(-1)]
+    fn test_parse_block_range_rejects_negative_from_block(#[case] from_block: ChainEpoch) {
+        assert!(
+            parse_block_range(
+                500,
+                Some(BlockNumberOrHash::from_block_number(from_block)),
+                Some(BlockNumberOrHash::from_str("0x1").unwrap()),
+                100,
+            )
+            .is_err()
+        );
+    }
+
+    /// `-1` is `to_block`'s "latest" sentinel; anything below it is not a height.
+    #[test]
+    fn test_parse_block_range_rejects_negative_to_block() {
+        assert!(
+            parse_block_range(
+                500,
+                Some(BlockNumberOrHash::from_str("0x1").unwrap()),
+                Some(BlockNumberOrHash::from_block_number(-2)),
+                100,
+            )
+            .is_err()
+        );
     }
 
     #[tokio::test]

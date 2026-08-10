@@ -146,10 +146,14 @@ where
         else {
             return Ok(smallvec![]); // empty table
         };
-        let offset_in_table =
-            u64::try_from(hash::ideal_slot_ix(needle, initial_buckets)).unwrap() * RawSlot::LEN;
-        let mut haystack =
-            positioned_io::Cursor::new_pos(&self.inner, self.table_offset + offset_in_table);
+        // `initial_buckets` comes verbatim from a header a crafted file controls.
+        let slot_offset = (hash::ideal_slot_ix(needle, initial_buckets) as u64)
+            .checked_mul(RawSlot::LEN)
+            .and_then(|offset_in_table| self.table_offset.checked_add(offset_in_table))
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "index slot offset out of range")
+            })?;
+        let mut haystack = positioned_io::Cursor::new_pos(&self.inner, slot_offset);
 
         let mut limit = self.header.longest_distance;
         while let Slot::Occupied(OccupiedSlot { hash, frame_offset }) =
@@ -798,6 +802,25 @@ mod tests {
     use cid::Cid;
     use tap::Tap as _;
     use tokio_test::block_on;
+
+    #[test]
+    fn lookup_with_out_of_range_bucket_count_errors() {
+        let cid = Cid::default();
+        let r: ZstdSkipFramesEncodedDataReader<Vec<u8>> =
+            ZstdSkipFramesEncodedDataReader::new(write_to_vec(|v| {
+                let writer = Builder::from_iter([(hash::summary(&cid), 0)]).into_writer();
+                block_on(async { writer.write_zstd_skip_frames_into(&mut *v).await })?;
+                Ok(())
+            }));
+        let mut subject = Reader::new(r).unwrap();
+        subject.header.initial_buckets = u64::MAX;
+        // A high hash lands in a high bucket, whose byte offset overflows.
+        assert!(
+            subject
+                .get_by_hash(NonMaximalU64::fit(u64::MAX - 1))
+                .is_err()
+        );
+    }
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {

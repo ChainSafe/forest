@@ -554,11 +554,8 @@ impl WalletCommands {
                     message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
                     let key = crate::key_management::try_find_key(&from, keystore)?;
-                    let eth_chain_id = u64::from_str_radix(
-                        EthChainId::call(&backend.remote, ())
-                            .await?
-                            .trim_start_matches("0x"),
-                        16,
+                    let eth_chain_id: u64 = crate::utils::encoding::hex::parse_prefixed_int(
+                        &EthChainId::call(&backend.remote, ()).await?,
                     )?;
                     let smsg = crate::key_management::sign_message(&key, &message, eth_chain_id)?;
                     MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;

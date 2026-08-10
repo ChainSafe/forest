@@ -50,7 +50,7 @@ impl Beacon for MockBeacon {
         &self,
         _network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
-    ) -> u64 {
-        fil_epoch as u64
+    ) -> anyhow::Result<u64> {
+        Ok(u64::try_from(fil_epoch)?)
     }
 }

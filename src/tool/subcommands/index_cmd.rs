@@ -3,7 +3,6 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use anyhow::bail;
 use clap::Subcommand;
 
 use crate::chain::ChainStore;
@@ -53,14 +52,7 @@ impl IndexCommands {
                 to,
                 n_tipsets,
             } => {
-                let spec = match (to, n_tipsets) {
-                    (Some(x), None) => RangeSpec::To(*x),
-                    (None, Some(x)) => RangeSpec::NumTipsets(*x),
-                    (None, None) => {
-                        bail!("You must provide either '--to' or '--n-tipsets'.");
-                    }
-                    _ => unreachable!(), // Clap ensures this case is handled
-                };
+                let spec = RangeSpec::new(*to, *n_tipsets)?;
 
                 let (_, config) = read_config(config.as_ref(), chain.clone())?;
 

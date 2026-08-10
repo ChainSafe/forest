@@ -4,13 +4,17 @@
 use itertools::Itertools;
 
 use crate::{
+    beacon::mock_beacon::MockBeacon,
     beacon::{
         Beacon, BeaconEntry, BeaconPoint, BeaconSchedule, ChainInfo, DrandBeacon, DrandConfig,
         DrandNetwork,
     },
-    shim::version::NetworkVersion,
+    shim::{clock::ChainEpoch, version::NetworkVersion},
 };
+use quickcheck_macros::quickcheck;
+use rstest::rstest;
 use std::borrow::Cow;
+use std::sync::LazyLock;
 
 fn new_beacon_mainnet() -> DrandBeacon {
     DrandBeacon::new(
@@ -76,6 +80,9 @@ pub fn new_beacon_quicknet() -> DrandBeacon {
     )
 }
 
+static MAINNET: LazyLock<DrandBeacon> = LazyLock::new(new_beacon_mainnet);
+static QUICKNET: LazyLock<DrandBeacon> = LazyLock::new(new_beacon_quicknet);
+
 #[test]
 fn construct_drand_beacon_mainnet() {
     new_beacon_mainnet();
@@ -139,14 +146,87 @@ async fn ask_and_verify_quicknet_beacon_entry_success_2() {
     assert!(beacon.verify_entries(&[e3, e2], &e1).unwrap());
 }
 
+#[quickcheck]
+fn max_beacon_round_for_epoch_no_panic(fil_epoch: ChainEpoch) {
+    for nv in [NetworkVersion::V15, NetworkVersion::V16] {
+        let _ = QUICKNET.max_beacon_round_for_epoch(nv, fil_epoch);
+    }
+}
+
+/// Expected rounds derived from FIP-0063 timings.
+#[rstest]
+#[case(0, 95844, 95845)]
+#[case(1, 95845, 95846)]
+#[case(100, 95944, 95945)]
+fn max_beacon_round_for_epoch_mainnet(
+    #[case] epoch: ChainEpoch,
+    #[case] chained: u64,
+    #[case] unchained: u64,
+) {
+    let round = |nv| MAINNET.max_beacon_round_for_epoch(nv, epoch).unwrap();
+    assert_eq!(round(NetworkVersion::V15), chained);
+    assert_eq!(round(NetworkVersion::V16), unchained);
+}
+
+#[rstest]
+// Quicknet genesis postdates these epochs, so the first round stands in.
+#[case(0, 1)]
+#[case(3149899, 1)]
+// First epoch at or after quicknet genesis, then the next: 10 drand rounds per 30s epoch.
+#[case(3149900, 2)]
+#[case(3149901, 12)]
+// Also asserted against the live network by `beacon_entries_for_block_covers_null_rounds_quicknet`.
+#[case(6216200, 30663002)]
 // https://github.com/filecoin-project/FIPs/pull/914/files#diff-fa537e813e7b41bd21980a06cf452f13e1b40e8a74f47a9f4bc4dd47c1df43b0L76
-#[test]
-fn test_max_beacon_round_for_epoch_quicknet() {
-    let beacon = new_beacon_quicknet();
-    let round = beacon.max_beacon_round_for_epoch(NetworkVersion::V21, 3547000);
+#[case(3547000, 3971002)]
+fn max_beacon_round_for_epoch_quicknet(#[case] epoch: ChainEpoch, #[case] expected: u64) {
+    let round = QUICKNET
+        .max_beacon_round_for_epoch(NetworkVersion::V22, epoch)
+        .unwrap();
+    assert_eq!(round, expected);
+}
+
+#[rstest]
+#[case(i64::MIN)]
+#[case(i64::MAX)]
+fn max_beacon_round_for_epoch_rejects_out_of_range_epochs(#[case] epoch: ChainEpoch) {
+    assert!(
+        QUICKNET
+            .max_beacon_round_for_epoch(NetworkVersion::V21, epoch)
+            .is_err()
+    );
+}
+
+/// `MockBeacon` is chained and serves entries locally, so the chained paths need no drand server.
+#[tokio::test]
+async fn beacon_entries_for_block_chained_walks_elapsed_rounds() {
+    let schedule = BeaconSchedule(vec![BeaconPoint::new(0, MockBeacon::default())]);
+    let prev = BeaconEntry::new(3, vec![]);
+
+    let entries = schedule
+        .beacon_entries_for_block(NetworkVersion::V15, 5, 3, &prev)
+        .await
+        .unwrap();
+
+    assert_eq!(entries.iter().map(BeaconEntry::round).collect_vec(), [4, 5]);
+}
+
+#[tokio::test]
+async fn beacon_entries_for_block_takes_two_entries_at_a_beacon_fork() {
+    let schedule = BeaconSchedule(vec![
+        BeaconPoint::new(0, MockBeacon::default()),
+        BeaconPoint::new(10, MockBeacon::default()),
+    ]);
+    let prev = BeaconEntry::new(9, vec![]);
+
+    let entries = schedule
+        .beacon_entries_for_block(NetworkVersion::V15, 10, 9, &prev)
+        .await
+        .unwrap();
+
     assert_eq!(
-        round,
-        ((1598306400 + 3547000 * 30) - 1692803367 - 30) / 3 + 1
+        entries.iter().map(BeaconEntry::round).collect_vec(),
+        [9, 10]
     );
 }
 

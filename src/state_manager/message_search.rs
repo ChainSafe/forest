@@ -454,9 +454,40 @@ mod tests {
     use crate::utils::db::CborStoreExt as _;
     use fil_actors_shared::fvm_ipld_amt::Amtv0;
     use fvm_ipld_blockstore::Blockstore;
+    use quickcheck_macros::quickcheck;
     use rstest::rstest;
 
     const SENDER: Address = Address::new_id(100);
+
+    #[rstest]
+    #[case(1000, Some(0), None)]
+    #[case(1000, Some(5), Some(996))]
+    #[case(1000, Some(2000), Some(0))]
+    #[case(1000, Some(i64::MAX), Some(0))]
+    #[case(1000, Some(-1), Some(0))]
+    #[case(1000, None, Some(0))]
+    fn max_lookback_epoch_inclusive_examples(
+        #[case] current_epoch: ChainEpoch,
+        #[case] look_back_limit: Option<ChainEpoch>,
+        #[case] expected: Option<ChainEpoch>,
+    ) {
+        assert_eq!(
+            StateManager::max_lookback_epoch_inclusive(current_epoch, look_back_limit),
+            expected
+        );
+    }
+
+    #[quickcheck]
+    fn max_lookback_epoch_inclusive_no_panic(
+        current_epoch: ChainEpoch,
+        look_back_limit: Option<ChainEpoch>,
+    ) -> bool {
+        let current_epoch = current_epoch.max(0);
+        match StateManager::max_lookback_epoch_inclusive(current_epoch, look_back_limit) {
+            Some(min_epoch) => min_epoch >= 0 && min_epoch <= current_epoch.max(0),
+            None => look_back_limit == Some(0),
+        }
+    }
 
     fn state_root_with_sender_nonce(db: &Arc<MemoryDB>, sequence: u64) -> Cid {
         let mut state_tree = StateTree::new(db, StateTreeVersion::V5).unwrap();

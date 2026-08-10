@@ -87,8 +87,7 @@ impl BeaconSchedule {
             let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
             if cb_epoch != pb_epoch {
                 // Fork logic, take entries from the last two rounds of the new beacon.
-                let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
-
+                let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch)?;
                 let out = vec![
                     curr_beacon.entry(round - 1).await?,
                     curr_beacon.entry(round).await?,
@@ -97,7 +96,7 @@ impl BeaconSchedule {
             }
         }
 
-        let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
+        let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch)?;
         // We don't expect this to ever be the case
         if max_round == prev.round() {
             tracing::warn!(
@@ -117,18 +116,19 @@ impl BeaconSchedule {
 
         let mut out = Vec::with_capacity(2);
         if curr_beacon.network().is_unchained() {
-            for covered_epoch in (parent_epoch + 1)..=epoch {
-                let round = curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch);
+            // Newest-first, so a large gap fails on its first unavailable round:
+            // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/beacon/beacon.go#L152>
+            for covered_epoch in (parent_epoch + 1..=epoch).rev() {
+                let round =
+                    curr_beacon.max_beacon_round_for_epoch(network_version, covered_epoch)?;
                 out.push(curr_beacon.entry(round).await?);
             }
+            out.reverse();
             Ok(out)
         } else {
-            let mut cur = max_round;
-            while cur > prev_round {
-                // Push all entries from rounds elapsed since the last chain epoch.
-                let entry = curr_beacon.entry(cur).await?;
-                cur = entry.round() - 1;
-                out.push(entry);
+            // Rounds elapsed since the last chain epoch, newest-first as above.
+            for round in (prev_round + 1..=max_round).rev() {
+                out.push(curr_beacon.entry(round).await?);
             }
             out.reverse();
             Ok(out)
@@ -187,7 +187,7 @@ pub trait Beacon {
         &self,
         network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
-    ) -> u64;
+    ) -> anyhow::Result<u64>;
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -370,7 +370,7 @@ impl Beacon for DrandBeacon {
                         anyhow::Ok(server.join(&format!("{}/public/{round}", self.hash))?)
                     })
                     .try_collect()?;
-                Ok((|| fetch_entry(urls.iter().cloned()))
+                let entry = (|| fetch_entry(urls.iter().cloned()))
                     .retry(ExponentialBuilder::default())
                     .notify(|err, dur| {
                         debug!(
@@ -378,7 +378,16 @@ impl Beacon for DrandBeacon {
                             humantime::format_duration(dur)
                         );
                     })
-                    .await?)
+                    .await?;
+                // Callers assume the entry is for the round they asked for. Round 0 is served
+                // as "latest", so it answers with a different round by design:
+                // <https://github.com/drand/drand/blob/v2.1.6/handler/http/server.go#L367>
+                anyhow::ensure!(
+                    round == 0 || entry.round() == round,
+                    "drand returned round {} for round {round}",
+                    entry.round()
+                );
+                Ok(entry)
             }
         }
     }
@@ -387,23 +396,33 @@ impl Beacon for DrandBeacon {
         &self,
         network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
-    ) -> u64 {
-        let latest_ts =
-            ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
+    ) -> anyhow::Result<u64> {
+        // Lotus wraps and returns a garbage round instead:
+        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/beacon/drand/drand.go#L227>
+        let out_of_range = || anyhow::anyhow!("epoch {fil_epoch} has no drand round");
+        let latest_ts = u64::try_from(fil_epoch)
+            .ok()
+            .and_then(|epoch| epoch.checked_mul(self.fil_round_time))
+            .and_then(|ts| ts.checked_add(self.fil_gen_time))
+            .and_then(|ts| ts.checked_sub(self.fil_round_time))
+            .ok_or_else(out_of_range)?;
         if network_version <= NetworkVersion::V15 {
             // Algorithm for nv15 and below
-            (latest_ts - self.drand_gen_time) / self.interval
+            Ok(latest_ts
+                .checked_sub(self.drand_gen_time)
+                .ok_or_else(out_of_range)?
+                / self.interval)
         } else {
             // Algorithm for nv16 and above
             if latest_ts < self.drand_gen_time {
-                return 1;
+                return Ok(1);
             }
 
             let from_genesis = latest_ts - self.drand_gen_time;
             // we take the time from genesis divided by the periods in seconds, that
             // gives us the number of periods since genesis.  We also add +1 because
             // round 1 starts at genesis time.
-            from_genesis / self.interval + 1
+            Ok(from_genesis / self.interval + 1)
         }
     }
 }

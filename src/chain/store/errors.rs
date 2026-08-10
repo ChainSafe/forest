@@ -37,6 +37,8 @@ pub enum Error {
     /// Lotus-compatible message, so this internal phrasing is intentionally distinct.
     #[error("null round at epoch {0}")]
     NullRound(ChainEpoch),
+    #[error("height {0} is negative")]
+    NegativeHeight(ChainEpoch),
     #[error("lookback height {lookback_height} is at or after base height {base_height}")]
     LookbackHeightOverflow {
         lookback_height: ChainEpoch,

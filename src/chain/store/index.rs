@@ -130,7 +130,8 @@ impl ChainIndex {
     ///
     /// Returns `Ok(Some(tipset))` when epoch `to` resolves. Returns `Ok(None)` if the ancestor
     /// walk completes without resolving `to` (for example missing parent tipsets). Returns `Err`
-    /// if `to` is greater than `from.epoch()` or genesis lookup fails when `to` is zero.
+    /// if `to` is negative, greater than `from.epoch()`, or genesis lookup fails when `to` is
+    /// zero.
     ///
     /// # Why pass in the `from` argument?
     ///
@@ -176,6 +177,11 @@ impl ChainIndex {
         use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
         crate::def_is_env_truthy!(lookup_table_disabled, "FOREST_TIPSET_LOOKUP_TABLE_DISABLED");
+
+        // Lotus parity: <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/store/store.go#L1267>
+        if to < 0 {
+            return Err(Error::NegativeHeight(to));
+        }
 
         if to == 0 {
             return Ok(Some(self.genesis.shallow_clone()));
@@ -452,6 +458,7 @@ pub mod tests {
     use crate::shim::address::Address;
     use crate::test_utils::dummy_ticket;
     use crate::utils::db::CborStoreExt;
+    use rstest::rstest;
     use std::sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -512,6 +519,32 @@ pub mod tests {
                 .expect("epoch 2 resolved"),
             epoch3
         );
+    }
+
+    fn genesis_index() -> (Arc<MemoryDB>, Tipset, ChainIndex) {
+        let db = Arc::new(MemoryDB::default());
+        let genesis = genesis_tipset();
+        persist_tipset(&genesis, &db);
+        let index = ChainIndex::new(db.clone(), genesis.shallow_clone());
+        (db, genesis, index)
+    }
+
+    fn persisted_child(db: &Arc<MemoryDB>, genesis: &Tipset, epoch: ChainEpoch) -> Tipset {
+        let child = tipset_child(genesis, epoch);
+        persist_tipset(&child, db);
+        child
+    }
+
+    #[rstest]
+    #[case(i64::MIN)]
+    #[case(-1)]
+    fn tipset_by_height_rejects_negative_height(#[case] height: ChainEpoch) {
+        let (db, genesis, index) = genesis_index();
+        let child = persisted_child(&db, &genesis, 1);
+        let err = index
+            .tipset_by_height_blocking(height, child, ResolveNullTipset::TakeOlder)
+            .expect_err("negative height is rejected");
+        assert!(matches!(err, Error::NegativeHeight(h) if h == height));
     }
 
     #[test]
