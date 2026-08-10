@@ -63,25 +63,34 @@ pub fn wallet(backend: Backend, args: &[&str]) -> anyhow::Result<String> {
         .to_string())
 }
 
-/// Same as [`wallet`] but yields raw stdout bytes (used by `export`).
+/// Same as [`wallet`] but yields raw stdout bytes.
 pub fn run_wallet_raw(backend: Backend, args: &[&str]) -> anyhow::Result<Vec<u8>> {
     let mut full = Vec::with_capacity(backend.extra_args().len() + args.len());
     full.extend_from_slice(backend.extra_args());
     full.extend_from_slice(args);
+    run("forest-wallet", &full)
+}
 
-    let output = Command::new("forest-wallet")
-        .args(&full)
+/// Runs `program args...` and returns raw stdout, with stderr surfaced on failure.
+fn run(program: &str, args: &[&str]) -> anyhow::Result<Vec<u8>> {
+    let output = Command::new(program)
+        .args(args)
         .output()
-        .context("failed to spawn `forest-wallet`")?;
+        .with_context(|| format!("failed to spawn `{program}`"))?;
     if !output.status.success() {
         bail!(
-            "`forest-wallet {}` failed (status={}): {}",
-            full.join(" "),
+            "`{program} {}` failed (status={}): {}",
+            args.join(" "),
             output.status,
             String::from_utf8_lossy(&output.stderr)
         );
     }
     Ok(output.stdout)
+}
+
+/// [`run`] with stdout as trimmed UTF-8.
+fn run_str(program: &str, args: &[&str]) -> anyhow::Result<String> {
+    Ok(String::from_utf8(run(program, args)?)?.trim().to_owned())
 }
 
 /// Export `address` from the chosen backend into a temp file ready to feed
@@ -177,6 +186,20 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
+/// Run a `lotus` command, retrying while it fails with the transient mpool `check has failed`
+/// (the mpool briefly lags the chain head just after the sender is funded, so a submit can be
+/// rejected until it catches up). Any other failure propagates immediately.
+pub async fn lotus_exec_retrying_mpool(args: &[&str]) -> anyhow::Result<String> {
+    poll(&format!("lotus {}", args.join(" ")), || async {
+        match lotus_exec(args) {
+            Ok(out) => Ok(Some(out)),
+            Err(e) if format!("{e:#}").contains("check has failed") => Ok(None),
+            Err(e) => Err(e),
+        }
+    })
+    .await
+}
+
 /// Delegated signer: create once on local, fund locally, mirror to remote
 /// for tests that query or sign.
 pub async fn funded_delegated_addr() -> &'static str {
@@ -243,6 +266,31 @@ static API: LazyLock<anyhow::Result<(String, String)>> = LazyLock::new(|| {
 fn api() -> anyhow::Result<&'static (String, String)> {
     API.as_ref()
         .map_err(|e| anyhow::anyhow!("FULLNODE_API_INFO unavailable: {e}"))
+}
+
+/// Typed client for the Lotus node on the docker devnet, whose read methods need no token.
+pub fn lotus_client() -> anyhow::Result<crate::rpc::Client> {
+    let port = std::env::var("LOTUS_RPC_PORT")
+        .context("LOTUS_RPC_PORT not set; source the devnet test harness")?;
+    Ok(crate::rpc::Client::from_url(
+        format!("http://127.0.0.1:{port}/").parse()?,
+    ))
+}
+
+/// Typed client for the Forest node under test, from `FULLNODE_API_INFO`.
+pub fn forest_client() -> anyhow::Result<crate::rpc::Client> {
+    crate::rpc::Client::default_or_from_env(None)
+}
+
+pub fn docker(args: &[&str]) -> anyhow::Result<String> {
+    run_str("docker", args).context("is the devnet up?")
+}
+
+/// Runs `lotus <args>` inside the `lotus` container on the docker devnet.
+pub fn lotus_exec(args: &[&str]) -> anyhow::Result<String> {
+    let mut full = vec!["exec", "lotus", "lotus"];
+    full.extend_from_slice(args);
+    docker(&full)
 }
 
 /// POST a JSON-RPC v1 request and return the `result` field, or `None` if
@@ -324,21 +372,8 @@ pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
     .await
 }
 
-/// Run `forest-cli <args>` and return trimmed stdout.
 pub fn forest_cli(args: &[&str]) -> anyhow::Result<String> {
-    let output = Command::new("forest-cli")
-        .args(args)
-        .output()
-        .context("failed to spawn `forest-cli`")?;
-    if !output.status.success() {
-        bail!(
-            "`forest-cli {}` failed (status={}): {}",
-            args.join(" "),
-            output.status,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-    Ok(String::from_utf8(output.stdout)?.trim().to_string())
+    run_str("forest-cli", args)
 }
 
 /// Next nonce for an address
@@ -388,9 +423,9 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .with_context(|| format!("expected string ETH address, got {result}"))
 }
 
-pub fn block_on<F: Future + Send + Sync + 'static>(future: F) -> F::Output
+pub fn block_on<F: Future + Send + 'static>(future: F) -> F::Output
 where
-    F::Output: Send + Sync + 'static,
+    F::Output: Send + 'static,
 {
     std::thread::spawn(|| {
         let rt = tokio::runtime::Builder::new_multi_thread()
@@ -400,5 +435,6 @@ where
         rt.block_on(future)
     })
     .join()
-    .unwrap()
+    // Preserve the panic message instead of `unwrap`'s `Any { .. }`.
+    .unwrap_or_else(|payload| std::panic::resume_unwind(payload))
 }
