@@ -44,10 +44,8 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                // Buffered so that the clear and the whole report reach the terminal
-                // as a single write, leaving no partially redrawn frame on screen.
                 let mut term = Term::buffered_stdout();
-                let mut last_line_widths = Vec::new();
+                let mut last_term_frame: Option<(usize, (u16, u16))> = None;
 
                 handle_initial_snapshot_check(&client).await?;
 
@@ -60,13 +58,16 @@ impl SyncCommands {
 
                     wait_for_node_to_start_syncing(&client).await?;
 
-                    let rows_printed_last_iteration =
-                        rows_for(&last_line_widths, term.size().1 as usize);
+                    let size = term.size();
+                    match last_term_frame {
+                        None => {}
+                        Some((_, last_size)) if last_size != size => term.clear_screen()?,
+                        Some((rows, _)) => clear_previous_lines(&term, rows)?,
+                    }
 
-                    clear_previous_lines(&term, rows_printed_last_iteration)?;
-
-                    last_line_widths = print_sync_report_details(&mut term, &report)
+                    let rows = print_sync_report_details(&mut term, &report, size.1 as usize)
                         .context("Failed to print sync status report")?;
+                    last_term_frame = Some((rows, size));
                     term.flush()?;
 
                     // Exit if synced and not in watch mode.
@@ -95,7 +96,8 @@ impl SyncCommands {
 
                 // Print the status report once, without row counting for clearing
                 let mut term = Term::buffered_stdout();
-                _ = print_sync_report_details(&mut term, &sync_status)
+                let width = term.size().1 as usize;
+                _ = print_sync_report_details(&mut term, &sync_status, width)
                     .context("Failed to print sync status report")?;
                 term.flush()?;
 
@@ -119,22 +121,18 @@ impl SyncCommands {
     }
 }
 
-// rows_for returns the amount of lines to clean given the current
-// terminal width (on resize a single printed line can take several terminal lines)
-fn rows_for(line_widths: &[usize], term_width: usize) -> usize {
-    line_widths
-        .iter()
-        .map(|width| width.div_ceil(term_width).max(1))
-        .sum()
-}
-
-/// Writes the sync status report and returns the display width of every line
-/// written, so the caller can convert them to rows against whatever the terminal
-/// width is at the time the frame needs clearing.
+/// Writes the sync status report and returns the number of terminal *rows* it
+/// occupies.
+///
+/// Rows, not lines: a line wider than the terminal wraps onto several rows, and
+/// the caller clears the frame by moving the cursor up by rows. Counting
+/// `writeln!` calls instead leaves the topmost row of each frame behind on narrow
+/// terminals. See <https://github.com/ChainSafe/forest/issues/7366>.
 fn print_sync_report_details(
     out: &mut impl Write,
     report: &SyncStatusReport,
-) -> anyhow::Result<Vec<usize>> {
+    term_width: usize,
+) -> anyhow::Result<usize> {
     let head_key_str = report
         .current_head_key
         .as_ref()
@@ -178,13 +176,15 @@ fn print_sync_report_details(
         }
     }
 
+    let mut rows = 0;
     for line in &lines {
         writeln!(out, "{line}")?;
+        // Measured in terminal columns, so ANSI escapes are ignored and wide
+        // characters count for two.
+        rows += measure_text_width(line).div_ceil(term_width).max(1);
     }
 
-    // Measured in terminal columns, so ANSI escapes are ignored and wide
-    // characters count for two.
-    Ok(lines.iter().map(|line| measure_text_width(line)).collect())
+    Ok(rows)
 }
 
 fn clear_previous_lines(term: &Term, rows: usize) -> anyhow::Result<()> {
