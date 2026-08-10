@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::TipsetKey;
-use crate::chain_sync::{ForkSyncInfo, NodeSyncStatus, SyncStatusReport};
+use crate::chain_sync::{NodeSyncStatus, SyncStatusReport};
 use crate::rpc::sync::{SnapshotProgressState, SyncStatus};
 use crate::rpc::{self, prelude::*};
 use anyhow::Context;
 use cid::Cid;
 use clap::Subcommand;
+use dialoguer::console::{Term, measure_text_width};
 use std::{
     io::{Write, stdout},
     time::Duration,
@@ -43,8 +44,8 @@ impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let mut stdout = stdout();
-                let mut lines_printed_last_iteration = 0;
+                let mut term = Term::buffered_stdout();
+                let mut last_term_frame: Option<(usize, (u16, u16))> = None;
 
                 handle_initial_snapshot_check(&client).await?;
 
@@ -57,14 +58,22 @@ impl SyncCommands {
 
                     wait_for_node_to_start_syncing(&client).await?;
 
-                    clear_previous_lines(&mut stdout, lines_printed_last_iteration)?;
+                    let size = term.size();
+                    match last_term_frame {
+                        None => {}
+                        Some((_, last_size)) if last_size != size => term.clear_screen()?,
+                        Some((rows, _)) => clear_previous_lines(&term, rows)?,
+                    }
 
-                    lines_printed_last_iteration = print_sync_report_details(&report)
+                    let rows = print_sync_report_details(&mut term, &report, size.1 as usize)
                         .context("Failed to print sync status report")?;
+                    last_term_frame = Some((rows, size));
+                    term.flush()?;
 
                     // Exit if synced and not in watch mode.
                     if !watch && report.status == NodeSyncStatus::Synced {
-                        println!("\nSync complete!");
+                        writeln!(term, "\nSync complete!")?;
+                        term.flush()?;
                         break;
                     }
                 }
@@ -85,9 +94,12 @@ impl SyncCommands {
                     };
                 }
 
-                // Print the status report once, without line counting for clearing
-                _ = print_sync_report_details(&sync_status)
+                // Print the status report once, without row counting for clearing
+                let mut term = Term::buffered_stdout();
+                let width = term.size().1 as usize;
+                _ = print_sync_report_details(&mut term, &sync_status, width)
                     .context("Failed to print sync status report")?;
+                term.flush()?;
 
                 Ok(())
             }
@@ -109,81 +121,74 @@ impl SyncCommands {
     }
 }
 
-/// Prints the sync status report details and returns the number of lines printed.
-fn print_sync_report_details(report: &SyncStatusReport) -> anyhow::Result<usize> {
-    let mut lines_printed_count = 0;
-
-    println!(
-        "Status: {:?} ({} epochs behind)",
-        report.status, report.epochs_behind
-    );
-    lines_printed_count += 1;
-
+/// Writes the sync status report and returns the number of terminal *rows* it
+/// occupies.
+///
+/// Rows, not lines: a line wider than the terminal wraps onto several rows, and
+/// the caller clears the frame by moving the cursor up by rows. Counting
+/// `writeln!` calls instead leaves the topmost row of each frame behind on narrow
+/// terminals. See <https://github.com/ChainSafe/forest/issues/7366>.
+fn print_sync_report_details(
+    out: &mut impl Write,
+    report: &SyncStatusReport,
+    term_width: usize,
+) -> anyhow::Result<usize> {
     let head_key_str = report
         .current_head_key
         .as_ref()
         .map(tipset_key_to_string)
         .unwrap_or_else(|| "[unknown]".to_string());
-    println!(
-        "Node Head: Epoch {} ({})",
-        report.current_head_epoch, head_key_str
-    );
-    lines_printed_count += 1;
 
-    println!("Network Head: Epoch {}", report.network_head_epoch);
-    lines_printed_count += 1;
-
-    println!("Last Update: {}", report.last_updated.to_rfc3339());
-    lines_printed_count += 1;
+    let mut lines = vec![
+        format!(
+            "Status: {:?} ({} epochs behind)",
+            report.status, report.epochs_behind
+        ),
+        format!(
+            "Node Head: Epoch {} ({head_key_str})",
+            report.current_head_epoch
+        ),
+        format!("Network Head: Epoch {}", report.network_head_epoch),
+        format!("Last Update: {}", report.last_updated.to_rfc3339()),
+    ];
 
     // Print active sync tasks (forks)
     let active_forks = &report.active_forks;
     if active_forks.is_empty() {
-        println!("Active Sync Tasks: None");
-        lines_printed_count += 1;
+        lines.push("Active Sync Tasks: None".into());
     } else {
-        println!("Active Sync Tasks:");
-        lines_printed_count += 1;
+        lines.push("Active Sync Tasks:".into());
         let mut sorted_forks = active_forks.clone();
         sorted_forks.sort_by_key(|f| std::cmp::Reverse(f.target_epoch));
         for fork in &sorted_forks {
-            // Assuming print_fork_sync_info exists and increments line_count internally if needed
-            // If print_fork_sync_info doesn't increment, adjust line_count here.
-            // For simplicity, assuming it behaves as needed or is adjusted elsewhere.
-            lines_printed_count += print_fork_sync_info(fork)?;
+            let total_epochs_for_this_fork = fork
+                .target_epoch
+                .saturating_sub(fork.target_sync_epoch_start);
+            lines.push(format!(
+                "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
+                fork.target_epoch,
+                tipset_key_to_string(&fork.target_tipset_key),
+                fork.stage,
+                fork.target_sync_epoch_start,
+                fork.target_epoch,
+                total_epochs_for_this_fork
+            ));
         }
     }
 
-    Ok(lines_printed_count)
-}
-
-/// Prints fork sync info and returns the number of lines printed (expected to be 1).
-fn print_fork_sync_info(fork: &ForkSyncInfo) -> anyhow::Result<usize> {
-    let total_epochs_for_this_fork = fork
-        .target_epoch
-        .saturating_sub(fork.target_sync_epoch_start);
-    println!(
-        "  - Fork Target: {} ({}), Stage: {}, Syncing Range: [{}..{}] ({} epochs)",
-        fork.target_epoch,
-        tipset_key_to_string(&fork.target_tipset_key),
-        fork.stage,
-        fork.target_sync_epoch_start,
-        fork.target_epoch,
-        total_epochs_for_this_fork
-    );
-    Ok(1)
-}
-
-fn clear_previous_lines(stdout: &mut std::io::Stdout, lines: usize) -> anyhow::Result<()> {
-    if lines > 0 {
-        // Move cursor up `lines` times, return to start (\r), clear below
-        write!(
-            stdout,
-            "\r{}{}",
-            anes::MoveCursorUp(lines as u16),
-            anes::ClearBuffer::Below,
-        )?;
+    let mut rows = 0;
+    for line in &lines {
+        writeln!(out, "{line}")?;
+        // Measured in terminal columns, so ANSI escapes are ignored and wide
+        // characters count for two.
+        rows += measure_text_width(line).div_ceil(term_width).max(1);
     }
+
+    Ok(rows)
+}
+
+fn clear_previous_lines(term: &Term, rows: usize) -> anyhow::Result<()> {
+    term.clear_last_lines(rows)?;
     Ok(())
 }
 
@@ -233,7 +238,7 @@ async fn check_snapshot_progress(
 /// Waits for node initialization to complete (start `Syncing`).
 async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<()> {
     let mut is_msg_printed = false;
-    let mut stdout = stdout();
+    let term = Term::stdout();
     const POLLING_INTERVAL: Duration = Duration::from_secs(1);
 
     loop {
@@ -242,14 +247,14 @@ async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<
             .context("Failed to get sync status while waiting for initialization to complete")?;
 
         if report.status == NodeSyncStatus::Initializing {
-            write!(stdout, "\r🔄 Node syncing is initializing, please wait...")?;
-            stdout.flush()?;
+            term.write_str("\r🔄 Node syncing is initializing, please wait...")?;
+            term.flush()?;
             is_msg_printed = true;
 
             sleep(POLLING_INTERVAL).await;
         } else {
             if is_msg_printed {
-                clear_previous_lines(&mut stdout, 1)
+                term.clear_line()
                     .context("Failed to clear initializing message")?;
             }
 
