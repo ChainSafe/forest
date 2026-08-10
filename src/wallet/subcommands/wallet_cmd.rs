@@ -306,7 +306,7 @@ pub enum WalletCommands {
         amount: TokenAmount,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
         gas_feecap: TokenAmount,
-        /// In milliGas
+        /// The gas limit in gas units. `0` lets the node estimate it.
         #[arg(long, default_value_t = 0)]
         gas_limit: i64,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
