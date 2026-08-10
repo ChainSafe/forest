@@ -49,6 +49,8 @@
 
 - [#7413](https://github.com/ChainSafe/forest/issues/7413): Block validation on quicknet now rejects headers whose beacon entries do not cover every epoch since the parent tipset
 
+- [#7366](https://github.com/ChainSafe/forest/issues/7366): `forest-cli sync wait -w` no longer leaves a stale `Status:` line behind on each refresh when the report wraps onto more terminal rows than it has lines.
+
 ## Forest v0.35.0 "Shravan"
 
 Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
