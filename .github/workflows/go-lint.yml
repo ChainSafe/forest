@@ -18,8 +18,7 @@ on:
       - "go.work"
       - "mise.toml"
       - "f3-sidecar/**"
-      - "interop-tests/*.rs"
-      - "interop-tests/src/tests/**"
+      - "interop-tests/**"
   push:
     branches:
       - main
@@ -49,15 +48,16 @@ jobs:
               - 'go.work'
               - 'mise.toml'
               - 'f3-sidecar/**'
-              - "interop-tests/**"
+              - 'interop-tests/**'
   lint-go:
     name: Go lint checks
     needs: changes
     if: ${{ needs.changes.outputs.changesFound == 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
-      - run: |
-          mise lint:go-ffi
-          mise lint:golang
+      - name: Apt Dependencies
+        run: sudo apt-get install -y libclang-dev # required by rust2go's bindgen
+      - run: mise lint:go-ffi
+      - run: mise lint:golang
