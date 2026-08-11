@@ -39,6 +39,8 @@
 
 ### Changed
 
+- [#7467](https://github.com/ChainSafe/forest/issues/7467): CI now verifies that the committed Go FFI binding `interop-tests/src/tests/go_app/ffi_gen.go` stays in sync with `go_ffi.rs` through the `FOREST_REGENERATE_GO_FFI` environment variable, included `mise run lint:go-ffi`.
+
 ### Removed
 
 ### Fixed
