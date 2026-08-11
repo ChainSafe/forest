@@ -1,0 +1,73 @@
+name: rpc-checks
+
+# docker compose up --build --abort-on-container-exit --exit-code-from rpc-checks
+
+x-env: &env
+  CHAIN: ${CHAIN:-calibnet}
+  DAYS_AGO: ${DAYS_AGO:-2}
+  EPOCHS: ${EPOCHS:-1000}
+
+services:
+  snapshot:
+    image: alpine:3.24
+    environment: *env
+    volumes:
+      - ./snapshots:/snapshots
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        apk add --no-cache curl jq >/dev/null
+        
+        day=$$(date -u -d "@$$(( $$(date -u +%s) - DAYS_AGO * 86400 ))" +%F)
+        url=$$(curl -sSf "https://forest-archive.chainsafe.dev/list/$$CHAIN/latest-v2?format=json" |
+          jq -r --arg d "$$day" '[.items[].url | select(contains("_"+$$d+"_"))] | first')
+        [ "$$url" != null ] || { echo "no $$CHAIN snapshot for $$day"; exit 1; }
+
+        file=$$(basename "$$url")
+        head=$$(echo "$$file" | sed 's/.*_height_\([0-9]*\)\..*/\1/')
+        
+        # only downloads if the snapshot is not present
+        [ -f "/snapshots/$$file" ] || curl -sSfL -o "/snapshots/$$file" "$$url"
+        
+        # define env vars used later on the next services
+        printf 'SNAPSHOT=%s\nSTART=%s\nEND=%s\nBACKFILL=%s\n' \
+          "$$file" "$$((head - EPOCHS))" "$$((head - 1))" "$$((EPOCHS + 1))" > /snapshots/env
+        cat /snapshots/env
+
+  # The RPC port opens only after the backfill finishes, so "healthy" means ready.
+  forest:
+    image: ghcr.io/chainsafe/forest:latest
+    depends_on:
+      snapshot:
+        condition: service_completed_successfully
+    environment: *env
+    volumes:
+      - ./snapshots:/snapshots:ro
+    ports:
+      - "2345:2345"
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        . /snapshots/env
+        exec forest-tool api serve "/snapshots/$$SNAPSHOT" --chain "$$CHAIN" \
+          --port 2345 --height 0 --index-backfill-epochs "$$BACKFILL"
+    healthcheck:
+      test: ["CMD", "forest-cli", "chain", "head"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  rpc-checks:
+    image: ghcr.io/chainsafe/forest-rpc-checks:latest
+    depends_on:
+      forest:
+        condition: service_healthy
+    environment:
+      FOREST_RPC_URL: forest:2345/rpc/v1
+    volumes:
+      - ./snapshots:/snapshots:ro
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        . /snapshots/env
+        exec bundle exec ruby check_rpc.rb "$$START" "$$END"
