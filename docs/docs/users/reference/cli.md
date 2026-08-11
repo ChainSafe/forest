@@ -333,7 +333,7 @@ Options:
       --gas-feecap <GAS_FEECAP>
           [default: 0.0]
       --gas-limit <GAS_LIMIT>
-          In milliGas [default: 0]
+          The gas limit in gas units. `0` lets the node estimate it [default: 0]
       --gas-premium <GAS_PREMIUM>
           [default: 0.0]
       --wait-confidence <WAIT_CONFIDENCE>
