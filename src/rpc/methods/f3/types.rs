@@ -652,12 +652,18 @@ impl F3ParticipationLease {
             "the ticket was not issued by the current node"
         );
         anyhow::ensure!(
-            current_instance <= self.from_instance + self.validity_term,
-            "the ticket has been expired"
-        );
-        anyhow::ensure!(
             self.validity_term <= MAX_LEASE_INSTANCES,
             "validity_term is too large"
+        );
+        // The ticket carries no signature. Lotus wraps here instead:
+        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/api/api_full.go#L1082>
+        let to_instance = self
+            .from_instance
+            .checked_add(self.validity_term)
+            .context("the ticket instance range is out of bounds")?;
+        anyhow::ensure!(
+            current_instance <= to_instance,
+            "the ticket has been expired"
         );
         Ok(())
     }
@@ -771,6 +777,7 @@ mod tests {
     use super::*;
     use crate::utils::encoding::hex;
     use base64::prelude::*;
+    use rstest::rstest;
 
     #[test]
     fn decode_f3_participation_lease_ticket_from_lotus() {
@@ -806,6 +813,29 @@ mod tests {
         let ticket = fvm_ipld_encoding::to_vec(&lease).unwrap();
         let decoded: F3ParticipationLease = fvm_ipld_encoding::from_slice(&ticket).unwrap();
         assert_eq!(lease, decoded);
+    }
+
+    #[rstest]
+    // Overflowing expiry instance.
+    #[case(u64::MAX, 1, false)]
+    // Beyond `MAX_LEASE_INSTANCES`, which is 5.
+    #[case(0, 6, false)]
+    #[case(0, 5, true)]
+    fn f3_participation_lease_validate_bounds_instances(
+        #[case] from_instance: u64,
+        #[case] validity_term: u64,
+        #[case] accepted: bool,
+    ) {
+        let network = NetworkChain::Calibnet;
+        let issuer = PeerId::random();
+        let lease = F3ParticipationLease {
+            network: network.clone(),
+            issuer,
+            miner_id: 1000,
+            from_instance,
+            validity_term,
+        };
+        assert_eq!(lease.validate(&network, &issuer, 1).is_ok(), accepted);
     }
 
     #[test]

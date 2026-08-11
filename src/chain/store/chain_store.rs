@@ -514,7 +514,9 @@ impl ChainStore {
         } else {
             chain_config.policy.chain_finality
         };
-        let lbr = (round - lb).max(0);
+        // The subtraction, not the result, is what must be guarded, as in Lotus:
+        // <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/utils.go#L167>
+        let lbr = if round > lb { round - lb } else { 0 };
 
         // More null blocks than our lookback
         if lbr >= heaviest_tipset.epoch() {

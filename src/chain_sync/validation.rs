@@ -304,8 +304,11 @@ impl<'a> GossipBlockValidator<'a> {
         let epoch = self.block.header.epoch;
         let timestamp = self.block.header.timestamp;
         // epoch is validated non-negative by validate_epoch_range before this
-        let expected =
-            genesis_tipset.min_timestamp() + (epoch as u64).saturating_mul(u64::from(block_delay));
+        // Saturating would let a block claiming `u64::MAX` match the saturated expectation.
+        let expected = (epoch as u64)
+            .checked_mul(u64::from(block_delay))
+            .and_then(|elapsed| genesis_tipset.min_timestamp().checked_add(elapsed))
+            .ok_or(GossipBlockRejectReason::EpochTooFarAhead(epoch))?;
         if timestamp != expected {
             return Err(GossipBlockRejectReason::TimestampMismatch {
                 timestamp,
@@ -598,6 +601,33 @@ mod tests {
             err,
             GossipBlockRejectReason::TimestampMismatch { .. }
         ));
+    }
+
+    /// A genesis timestamp ahead of the local clock makes `max_allowed_epoch` fall back to
+    /// `ChainEpoch::MAX`, so the epoch range check no longer bounds what reaches the timestamp
+    /// arithmetic.
+    #[test]
+    fn timestamp_check_survives_extreme_epoch_when_clock_is_behind_genesis() {
+        let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            timestamp: u64::MAX,
+            ..Default::default()
+        }));
+
+        // The second block claims the timestamp that saturating arithmetic would have computed
+        // as the expected one, so saturating would have accepted it.
+        for timestamp in [0, u64::MAX] {
+            let block = make_gossip_block_with(|h| {
+                h.epoch = i64::MAX;
+                h.timestamp = timestamp;
+            });
+            let err = GossipBlockValidator::new(&block)
+                .validate_pre_fetch(&genesis, 30, 0, None, &SeenBlockCache::default())
+                .unwrap_err();
+            assert!(
+                matches!(err, GossipBlockRejectReason::EpochTooFarAhead(_)),
+                "timestamp {timestamp}: {err}"
+            );
+        }
     }
 
     #[test]

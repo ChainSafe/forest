@@ -158,6 +158,26 @@ async fn test_export_inner(
     Ok(())
 }
 
+#[rstest]
+#[case(1_000, 0, Some(1_000))]
+#[case(1_000, 900, Some(100))]
+#[case(1_000, 2_000, Some(-1_000))]
+// A negative depth widens the range instead of underflowing; `ChainExport` rejects it at ingress.
+#[case(1_000, -1, Some(1_001))]
+#[case(0, i64::MIN, None)]
+#[case(-1, i64::MAX, Some(i64::MIN))]
+#[case(-2, i64::MAX, None)]
+fn lookup_epoch_limit_errors_only_when_unrepresentable(
+    #[case] tipset_epoch: ChainEpoch,
+    #[case] lookup_depth: ChainEpoch,
+    #[case] expected: Option<ChainEpoch>,
+) {
+    assert_eq!(
+        lookup_epoch_limit(tipset_epoch, lookup_depth).ok(),
+        expected
+    );
+}
+
 /// Regression tests for the "snapshot export stuck at `Exporting: 100.0%`" incidents:
 /// once the DAG walk reaches genesis (`epoch == 0`, progress pins at 100%), the remaining
 /// pipeline steps must not be able to wait forever on a stalled writer.

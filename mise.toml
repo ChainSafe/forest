@@ -172,11 +172,11 @@ rm -rf node_modules
 # We need to run them separately.
 description = "Run doctests."
 run = '''
-cargo test --doc --no-default-features --features "test doctest-private cargo-test" --no-fail-fast
+cargo test --doc --no-default-features --features "test doctest-private" --no-fail-fast
 '''
 
 [tasks."test:nextest"]
-description = "Run Rust unit and integration tests except `cargo-test` group with nextest."
+description = "Run Rust unit and integration tests except the `cargo_test_` group with nextest."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
    choices "quick" "quick-test" "release" "dev"
@@ -184,11 +184,11 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-features --features "test" --no-fail-fast
+cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-features --features "test doctest-private" --no-fail-fast
 '''
 
 [tasks."test:cargo"]
-description = "Run Rust unit, integration and doc tests of `cargo-test` group with cargo test."
+description = "Run the `cargo_test_` group (snapshot tests that share one process) with cargo test."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
    choices "quick" "quick-test" "release" "dev"
@@ -196,11 +196,11 @@ arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test
 '''
 run = '''
 echo "Running tests with profile: ${usage_profile?}" 
-cargo test --lib --profile ${usage_profile?} --no-default-features --features "test doctest-private cargo-test" --no-fail-fast -- --test "cargo_test_"
+cargo test --lib --workspace --profile ${usage_profile?} --no-default-features --features "test doctest-private" --no-fail-fast -- --test "cargo_test_"
 '''
 
 [tasks.test]
-description = "Run nextest and cargo-test groups (doctests run via `test:docs`)."
+description = "Run nextest and `cargo_test_` groups (doctests run via `test:docs`)."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
    choices "quick" "quick-test" "release" "dev"
@@ -243,13 +243,13 @@ forest-dev tests wallet
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"
 run = '''
-cargo llvm-cov --no-report nextest --cargo-profile codecov --workspace --no-default-features --features "test" --no-fail-fast
+cargo llvm-cov --no-report nextest --cargo-profile codecov --workspace --no-default-features --features "test doctest-private" --no-fail-fast
 '''
 
 [tasks."codecov:cargo"]
-description = "Run codecov with cargo-test"
+description = "Run codecov for the `cargo_test_` group"
 run = '''
-cargo llvm-cov --no-report test -p forest-filecoin --profile codecov --lib --no-default-features --features "test cargo-test" --no-fail-fast -- "cargo_test_"
+cargo llvm-cov --no-report test --workspace --profile codecov --lib --no-default-features --features "test doctest-private" --no-fail-fast -- "cargo_test_"
 '''
 
 [tasks."codecov:report"]
