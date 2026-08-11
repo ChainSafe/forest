@@ -17,18 +17,27 @@ services:
     command:
       - |
         apk add --no-cache curl jq >/dev/null
-        
+
+        # validates DAYS_AGO and EPOCHS
+        case "$$DAYS_AGO" in ''|*[!0-9]*) echo "DAYS_AGO must be a non-negative integer: '$$DAYS_AGO'"; exit 1;; esac
+        case "$$EPOCHS" in ''|*[!0-9]*) echo "EPOCHS must be a non-negative integer: '$$EPOCHS'"; exit 1;; esac
+        [ "$$EPOCHS" -ge 1 ] || { echo "EPOCHS must be at least 1"; exit 1; }
+
         day=$$(date -u -d "@$$(( $$(date -u +%s) - DAYS_AGO * 86400 ))" +%F)
-        url=$$(curl -sSf "https://forest-archive.chainsafe.dev/list/$$CHAIN/latest-v2?format=json" |
+        url=$$(curl -sSf --connect-timeout 10 --retry 3 \
+          "https://forest-archive.chainsafe.dev/list/$$CHAIN/latest-v2?format=json" |
           jq -r --arg d "$$day" '[.items[].url | select(contains("_"+$$d+"_"))] | first')
         [ "$$url" != null ] || { echo "no $$CHAIN snapshot for $$day"; exit 1; }
 
         file=$$(basename "$$url")
         head=$$(echo "$$file" | sed 's/.*_height_\([0-9]*\)\..*/\1/')
-        
+        case "$$head" in ''|*[!0-9]*) echo "could not parse a height from '$$file'"; exit 1;; esac
+        [ "$$EPOCHS" -le "$$head" ] || { echo "EPOCHS ($$EPOCHS) exceeds head ($$head)"; exit 1; }
+
         # only downloads if the snapshot is not present
-        [ -f "/snapshots/$$file" ] || curl -sSfL -o "/snapshots/$$file" "$$url"
-        
+        [ -f "/snapshots/$$file" ] ||
+          curl -sSfL --connect-timeout 10 --retry 3 -o "/snapshots/$$file" "$$url"
+
         # define env vars used later on the next services
         printf 'SNAPSHOT=%s\nSTART=%s\nEND=%s\nBACKFILL=%s\n' \
           "$$file" "$$((head - EPOCHS))" "$$((head - 1))" "$$((EPOCHS + 1))" > /snapshots/env
@@ -53,9 +62,9 @@ services:
           --port 2345 --height 0 --index-backfill-epochs "$$BACKFILL"
     healthcheck:
       test: ["CMD", "forest-cli", "chain", "head"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
-      retries: 10
+      retries: 480
 
   rpc-checks:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest
