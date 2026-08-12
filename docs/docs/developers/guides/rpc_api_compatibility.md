@@ -50,6 +50,15 @@ Forest.
 Forest does not yet support mining and none of the mining-related RPC calls will
 be implemented in the foreseeable future.
 
+## External dataset checks
+
+Forest is also checked against the external Ribasushi dataset of recorded RPC
+responses (`chain.data.riba.plus`). The `Ribasushi RPC checks` workflow runs daily
+at 13:00 UTC: it serves a recent calibnet snapshot with `forest-tool api serve`
+and replays the dataset's queries against it. To run it locally, execute
+`./prepare.sh` in `scripts/tests/ribasushi-rpc-checks` followed by
+`docker compose up --abort-on-container-exit --exit-code-from rpc-checks`.
+
 ## Gateway
 
 The `lotus-gateway` executable is a reverse-proxy that sanitizes RPC calls

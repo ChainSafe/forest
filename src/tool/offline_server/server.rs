@@ -198,7 +198,7 @@ pub async fn start_offline_server(
     }
 
     // Validate tipsets since the {height} EPOCH when `height >= 0`,
-    // or valiadte the last {-height} EPOCH(s) when `height < 0`
+    // or validate the last {-height} EPOCH(s) when `height < 0`
     let validate_until_epoch = if height > 0 {
         height
     } else {

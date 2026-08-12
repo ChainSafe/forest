@@ -1,0 +1,52 @@
+name: Ribasushi RPC checks
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 13 * * *" # Runs every day at 13:00 UTC
+
+jobs:
+  rpc-checks:
+    name: RPC checks against the Ribasushi dataset
+    runs-on: warp-ubuntu-2404-x64-8x
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: scripts/tests/ribasushi-rpc-checks
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v7
+      - name: Free up disk space
+        working-directory: .
+        run: ./scripts/optimize_disk_space_gh_worker.sh
+      - name: Install aria2
+        run: sudo apt-get install -y aria2
+      - name: Prepare the snapshot and pin the images
+        run: |
+          # Images are tagged with their build date and the short commit hash.
+          tag="$(TZ=UTC git show -s --format=%cd --date=format-local:%Y-%m-%d HEAD)-$(git rev-parse --short=7 HEAD)"
+          echo "Testing ghcr.io/chainsafe/forest:$tag"
+          ./prepare.sh "$tag"
+      - name: Run the RPC checks
+        run: docker compose up --abort-on-container-exit --exit-code-from rpc-checks
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Set WORKFLOW_URL
+        if: always()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
+      - uses: JasonEtco/create-an-issue@v2
+        if: github.ref == 'refs/heads/main' && failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/RIBASUSHI_RPC_CHECKS_ISSUE_TEMPLATE.md
