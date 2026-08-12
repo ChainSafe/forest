@@ -148,7 +148,7 @@ pub fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result
             bail!("unsupported chain {chain}")
         }
     };
-    Ok(Url::from_str(s).unwrap())
+    Ok(Url::from_str(s).expect("hardcoded archive URL is valid"))
 }
 
 #[test]

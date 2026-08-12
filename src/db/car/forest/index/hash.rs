@@ -31,7 +31,8 @@ pub fn ideal_slot_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
 
     // break 0..=u64::MAX into 'buckets' chunks and map each chunk to 0..len.
     // if buckets=2, 0..(u64::MAX/2) maps to 0, and (u64::MAX/2)..=u64::MAX maps to 1.
-    usize::try_from((u128::from(hash.get()) * num_buckets.get() as u128) >> 64).unwrap()
+    usize::try_from((u128::from(hash.get()) * num_buckets.get() as u128) >> 64)
+        .expect("result is always < num_buckets, which is a usize")
 }
 
 /// Reverse engineer hashes which will be mapped to `ideal`.

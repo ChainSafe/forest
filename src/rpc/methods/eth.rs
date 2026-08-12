@@ -275,11 +275,17 @@ impl EthHash {
     }
 
     pub fn empty_uncles() -> Self {
-        Self(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap())
+        Self(
+            ethereum_types::H256::from_str(EMPTY_UNCLES)
+                .expect("EMPTY_UNCLES is a valid hardcoded H256 hex literal"),
+        )
     }
 
     pub fn empty_root() -> Self {
-        Self(ethereum_types::H256::from_str(EMPTY_ROOT).unwrap())
+        Self(
+            ethereum_types::H256::from_str(EMPTY_ROOT)
+                .expect("EMPTY_ROOT is a valid hardcoded H256 hex literal"),
+        )
     }
 }
 
@@ -1214,7 +1220,8 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     let mut to = match lookup_eth_address(&msg.to(), state) {
         Ok(Some(addr)) => Some(addr),
         Ok(None) => Some(EthAddress(
-            ethereum_types::H160::from_str(REVERTED_ETH_ADDRESS).unwrap(),
+            ethereum_types::H160::from_str(REVERTED_ETH_ADDRESS)
+                .expect("REVERTED_ETH_ADDRESS is a valid hardcoded H160 hex literal"),
         )),
         Err(err) => {
             bail!(err)

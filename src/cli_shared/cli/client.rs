@@ -86,7 +86,8 @@ impl Default for Client {
             chunk_size: ChunkSize::default(),
             buffer_size: BufferSize::default(),
             encrypt_keystore: true,
-            metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
+            metrics_address: FromStr::from_str("0.0.0.0:6116")
+                .expect("0.0.0.0:6116 is a valid socket address"),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), crate::rpc::DEFAULT_PORT),
             rpc_filter_list: None,
             healthcheck_address: SocketAddr::new(

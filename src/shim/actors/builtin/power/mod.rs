@@ -396,7 +396,7 @@ macro_rules! list_miners_for_state {
             fil_actors_shared::$version::make_map_with_root::<_, Claim>(&$state.claims, $store)?;
         let mut miners = Vec::new();
         claims.for_each(|bytes, _claim| {
-            miners.push(Address::from_bytes(bytes).expect("Cannot get address from bytes"));
+            miners.push(Address::from_bytes(bytes)?);
             Ok(())
         })?;
         Ok(miners)

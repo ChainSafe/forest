@@ -45,7 +45,9 @@ impl CompletionCommand {
             generate(
                 self.shell,
                 cmd,
-                cmd.get_bin_name().unwrap().to_string(),
+                cmd.get_bin_name()
+                    .expect("every CLI sets bin_name via its clap command attribute")
+                    .to_string(),
                 writer,
             );
         }

@@ -12,7 +12,7 @@ use crate::utils::misc::LoggingColor;
 type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 #[allow(unused_mut)]
-pub fn setup_logger(opts: &CliOpts) -> Vec<BackgroundTask> {
+pub fn setup_logger(opts: &CliOpts) -> anyhow::Result<Vec<BackgroundTask>> {
     let mut background_tasks: Vec<BackgroundTask> = vec![];
     let mut layers: Vec<Box<dyn tracing_subscriber::layer::Layer<Registry> + Send + Sync>> =
         // console logger
@@ -55,12 +55,11 @@ pub fn setup_logger(opts: &CliOpts) -> Vec<BackgroundTask> {
 
         #[cfg(feature = "tracing-loki")]
         {
+            use anyhow::Context as _;
             let (layer, task) = tracing_loki::layer(
-                tracing_loki::url::Url::parse(&opts.loki_endpoint)
-                    .map_err(|e| {
-                        format!("Unable to parse loki endpoint {}: {e}", opts.loki_endpoint)
-                    })
-                    .unwrap(),
+                tracing_loki::url::Url::parse(&opts.loki_endpoint).with_context(|| {
+                    format!("Unable to parse loki endpoint {}", opts.loki_endpoint)
+                })?,
                 vec![(
                     "host".into(),
                     gethostname::gethostname()
@@ -72,8 +71,7 @@ pub fn setup_logger(opts: &CliOpts) -> Vec<BackgroundTask> {
                 .collect(),
                 Default::default(),
             )
-            .map_err(|e| format!("Unable to create loki layer: {e}"))
-            .unwrap();
+            .context("Unable to create loki layer")?;
             background_tasks.push(Box::pin(task));
             layers.push(Box::new(
                 layer.with_filter(tracing_subscriber::filter::LevelFilter::INFO),
@@ -82,7 +80,7 @@ pub fn setup_logger(opts: &CliOpts) -> Vec<BackgroundTask> {
     }
 
     tracing_subscriber::registry().with(layers).init();
-    background_tasks
+    Ok(background_tasks)
 }
 
 // Log warnings to stderr
@@ -128,7 +126,7 @@ fn default_env_filter() -> EnvFilter {
         "tracing_loki=off",
         "quinn_udp=error",
     ];
-    EnvFilter::try_new(default_directives.join(",")).unwrap()
+    EnvFilter::try_new(default_directives.join(",")).expect("hardcoded log directives are valid")
 }
 
 fn default_tool_filter() -> EnvFilter {
@@ -145,7 +143,7 @@ fn default_tool_filter() -> EnvFilter {
         "hickory_resolver::hosts=off",
         "libp2p_swarm=off",
     ];
-    EnvFilter::try_new(default_directives.join(",")).unwrap()
+    EnvFilter::try_new(default_directives.join(",")).expect("hardcoded log directives are valid")
 }
 
 #[test]
