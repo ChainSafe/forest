@@ -33,17 +33,23 @@ fn main() {
             // See <https://github.com/status-im/status-mobile/issues/20135#issuecomment-2137400475>
             std::env::set_var("GOFLAGS", "-tags=netgo");
         }
-        rust2go::Builder::default()
-            .with_go_src("./f3-sidecar")
-            // the generated Go file has been committed to the git repository,
-            // uncomment to regenerate the code locally
-            // .with_regen_arg(rust2go::RegenArgs {
-            //     src: "./src/f3/go_ffi.rs".into(),
-            //     dst: "./f3-sidecar/ffi_gen.go".into(),
-            //     without_main: true,
-            //     ..Default::default()
-            // })
-            .build();
+        println!("cargo:rerun-if-changed=src/f3/go_ffi.rs");
+        println!("cargo:rerun-if-env-changed=FOREST_REGENERATE_GO_FFI");
+
+        let mut builder = rust2go::Builder::default().with_go_src("./f3-sidecar");
+
+        // the generated Go file has been committed to the git repository
+        // set the var to regenerate the file
+        if is_env_truthy("FOREST_REGENERATE_GO_FFI") {
+            builder = builder.with_regen_arg(rust2go::RegenArgs {
+                src: "./src/f3/go_ffi.rs".into(),
+                dst: "./f3-sidecar/ffi_gen.go".into(),
+                without_main: true,
+                ..Default::default()
+            })
+        }
+
+        builder.build();
     }
 
     rpc_regression_tests_gen();

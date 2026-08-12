@@ -19,6 +19,8 @@ on:
       - "mise.toml"
       - "f3-sidecar/**"
       - "interop-tests/**"
+      - "build.rs"
+      - "src/f3/go_ffi.rs"
   push:
     branches:
       - main
@@ -28,6 +30,8 @@ on:
       - "mise.toml"
       - "f3-sidecar/**"
       - "interop-tests/**"
+      - "build.rs"
+      - "src/f3/go_ffi.rs"
 
 jobs:
   # Merge groups don't support path filters, so detect the relevant changes
@@ -49,15 +53,22 @@ jobs:
               - 'mise.toml'
               - 'f3-sidecar/**'
               - 'interop-tests/**'
+              - 'build.rs'
+              - 'src/f3/go_ffi.rs'
   lint-go:
     name: Go lint checks
     needs: changes
     if: ${{ needs.changes.outputs.changesFound == 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - name: Apt Dependencies
-        run: sudo apt-get install -y libclang-dev # required by rust2go's bindgen
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: |
+            sudo apt-get install -y libclang-dev # required by rust2go's bindgen
       - run: mise lint:go-ffi
       - run: mise lint:golang

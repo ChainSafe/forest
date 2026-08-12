@@ -10,12 +10,12 @@ fn main() {
         std::env::set_var("GOWORK", "off");
         std::env::set_var("GOFLAGS", "-tags=netgo");
     }
-    
+
     let mut builder = rust2go::Builder::default().with_go_src("./src/tests/go_app");
 
     // the generated Go file has been committed to the git repository
     // set the var to regenerate the file, CI sets this var to verify freshness.
-    if std::env::var_os("FOREST_REGENERATE_GO_FFI").is_some() {
+    if is_env_truthy("FOREST_REGENERATE_GO_FFI") {
         builder = builder.with_regen_arg(rust2go::RegenArgs {
             src: "./src/tests/go_ffi.rs".into(),
             dst: "./src/tests/go_app/ffi_gen.go".into(),
@@ -24,4 +24,11 @@ fn main() {
     }
 
     builder.build();
+}
+
+fn is_env_truthy(env: &str) -> bool {
+    std::env::var(env)
+        .ok()
+        .map(|var| matches!(var.to_lowercase().as_str(), "1" | "true" | "yes" | "_yes_"))
+        .unwrap_or_default()
 }

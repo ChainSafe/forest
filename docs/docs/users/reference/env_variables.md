@@ -88,6 +88,12 @@ the binary.
 By default, the Go f3-sidecar is built and linked into Forest binary unless environment
 variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
+### `FOREST_REGENERATE_GO_FFI`
+
+Forces the regeneration of all Go FFI bindings in the project when set `FOREST_REGENERATE_GO_FFI=1`.
+
+Used in the CI checks to ensure the current commited Go FFI bindings are in sync with their respective Rust definitions
+
 ### `FOREST_DB_DEV_MODE`
 
 By default, Forest will create a database of its current version or try to
