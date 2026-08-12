@@ -19,6 +19,16 @@ fn main() {
     // whitelist the cfg for cargo clippy
     println!("cargo::rustc-check-cfg=cfg(f3sidecar)");
 
+    println!("cargo:rerun-if-env-changed=FOREST_REGENERATE_GO_FFI");
+    if is_env_truthy("FOREST_REGENERATE_GO_FFI")
+        && (is_docs_rs() || is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT"))
+    {
+        println!(
+            "cargo:warning=FOREST_REGENERATE_GO_FFI has no effect on the f3-sidecar binding: \
+             the build that regenerates it is skipped by FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT or DOCS_RS"
+        );
+    }
+
     // Do not build f3-sidecar on docs.rs publishing
     // No proper version of Go compiler is available.
     println!("cargo:rerun-if-env-changed=FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT");
@@ -34,7 +44,6 @@ fn main() {
             std::env::set_var("GOFLAGS", "-tags=netgo");
         }
         println!("cargo:rerun-if-changed=src/f3/go_ffi.rs");
-        println!("cargo:rerun-if-env-changed=FOREST_REGENERATE_GO_FFI");
 
         let mut builder = rust2go::Builder::default().with_go_src("./f3-sidecar");
 

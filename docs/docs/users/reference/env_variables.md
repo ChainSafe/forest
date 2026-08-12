@@ -90,9 +90,9 @@ variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
 ### `FOREST_REGENERATE_GO_FFI`
 
-Forces the regeneration of all Go FFI bindings in the project when set `FOREST_REGENERATE_GO_FFI=1`.
+Forces the regeneration of all Go FFI bindings in the project when `FOREST_REGENERATE_GO_FFI=1` is set.
 
-Used in the CI checks to ensure the current tracked Go FFI bindings are in sync with their respective Rust definitions
+Used in the CI checks to ensure the currently tracked Go FFI bindings are in sync with their respective Rust definitions.
 
 ### `FOREST_DB_DEV_MODE`
 
