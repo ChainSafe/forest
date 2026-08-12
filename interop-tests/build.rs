@@ -11,8 +11,7 @@ fn main() {
         std::env::set_var("GOFLAGS", "-tags=netgo");
     }
     
-    let mut builder = rust2go::Builder::default()
-        .with_go_src("./src/tests/go_app");
+    let mut builder = rust2go::Builder::default().with_go_src("./src/tests/go_app");
 
     // the generated Go file has been committed to the git repository
     // set the var to regenerate the file, CI sets this var to verify freshness.
