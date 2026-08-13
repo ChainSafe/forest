@@ -55,7 +55,11 @@ impl Client {
     ///
     /// If `token` is provided, use that over the token in either of the above.
     pub fn default_or_from_env(token: Option<&str>) -> anyhow::Result<Self> {
-        static DEFAULT: LazyLock<Url> = LazyLock::new(|| "http://127.0.0.1:2345/".parse().unwrap());
+        static DEFAULT: LazyLock<Url> = LazyLock::new(|| {
+            "http://127.0.0.1:2345/"
+                .parse()
+                .expect("hardcoded default RPC URL is valid")
+        });
 
         let mut base_url = match env::var("FULLNODE_API_INFO") {
             Ok(it) => {

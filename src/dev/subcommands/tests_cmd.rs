@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// Integration-test harness (not `#[cfg(test)]`, but test tooling rather than node runtime).
+#![allow(clippy::unwrap_used)]
+
 pub(crate) mod helpers;
 mod mpool;
 mod wallet;

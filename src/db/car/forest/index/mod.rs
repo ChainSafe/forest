@@ -141,9 +141,10 @@ where
     /// matching key are guaranteed to appear before we encounter an empty slot.
     #[cfg_vis(feature = "benchmark-private", pub)]
     fn get_by_hash(&self, needle: NonMaximalU64) -> io::Result<SmallVec<[u64; 1]>> {
-        let Some(initial_buckets) =
-            NonZeroUsize::new(self.header.initial_buckets.try_into().unwrap())
-        else {
+        let Some(initial_buckets) = NonZeroUsize::new(
+            usize::try_from(self.header.initial_buckets)
+                .expect("u64 fits usize on 64-bit targets, enforced by the assertion in lib.rs"),
+        ) else {
             return Ok(smallvec![]); // empty table
         };
         // `initial_buckets` comes verbatim from a header a crafted file controls.
@@ -331,7 +332,11 @@ where
             .ok_or_else(|| io::Error::other("couldn't get end of table size"))?;
         Ok(Iter {
             inner: &self.inner,
-            positions: (self.table_offset..end).step_by(Slot::LEN.try_into().unwrap()),
+            positions: (self.table_offset..end).step_by(
+                Slot::LEN.try_into().expect(
+                    "u64 fits usize on 64-bit targets, enforced by the assertion in lib.rs",
+                ),
+            ),
         })
     }
 }
@@ -411,9 +416,14 @@ impl Builder {
         Writer {
             version: Version::V1,
             header: V1Header {
-                longest_distance: longest_distance.try_into().unwrap(),
-                collisions: collisions.try_into().unwrap(),
-                initial_buckets: initial_width.get().try_into().unwrap(),
+                longest_distance: longest_distance
+                    .try_into()
+                    .expect("usize always fits in u64"),
+                collisions: collisions.try_into().expect("usize always fits in u64"),
+                initial_buckets: initial_width
+                    .get()
+                    .try_into()
+                    .expect("usize always fits in u64"),
             },
             slots,
         }
@@ -484,7 +494,7 @@ impl Writer {
                         .sum::<usize>()
                         + 1, /* trailing */
                 )
-                .unwrap(),
+                .expect("usize always fits in u64"),
                 header.initial_buckets + 1, /* trailing */
             ) * Slot::LEN
     }
@@ -528,7 +538,10 @@ impl Writer {
             slots,
         } = self;
         let slots = Self::slots(
-            header.initial_buckets.try_into().unwrap(),
+            header
+                .initial_buckets
+                .try_into()
+                .expect("initial_buckets was derived from a usize in into_writer"),
             slots.iter().copied(),
         );
         if let Some(index_data_len) = index_data_len

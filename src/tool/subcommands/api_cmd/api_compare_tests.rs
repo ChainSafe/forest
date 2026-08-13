@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// RPC comparison test harness (not `#[cfg(test)]`, but test tooling rather than node runtime).
+#![allow(clippy::unwrap_used, clippy::unimplemented)]
+
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;

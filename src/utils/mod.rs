@@ -70,12 +70,13 @@ fn multiaddr2url(m: &Multiaddr) -> Option<Url> {
         Protocol::Ip6(it) => it.to_string(),
         _ => return None,
     };
-    let port = components
-        .next_if(|it| matches!(it, Protocol::Tcp(_)))
-        .map(|it| match it {
-            Protocol::Tcp(port) => port,
-            _ => unreachable!(),
-        });
+    let port = match components.peek() {
+        Some(&Protocol::Tcp(port)) => {
+            components.next();
+            Some(port)
+        }
+        _ => None,
+    };
     // ENHANCEMENT: could recognise `Tcp/443/Tls` as `https`
     let scheme = match components.next()? {
         Protocol::Http => "http",

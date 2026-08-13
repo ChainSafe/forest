@@ -600,11 +600,11 @@ pub fn from_policy_v13_to_v16(policy: &PolicyV13) -> PolicyV16 {
         daily_fee_circulating_supply_qap_multiplier_num: BigInt::from_u64(
             fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_NUM,
         )
-        .unwrap(),
+        .expect("BigInt can represent any u64"),
         daily_fee_circulating_supply_qap_multiplier_denom: BigInt::from_u128(
             fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_DENOM,
         )
-        .unwrap(),
+        .expect("BigInt can represent any u128"),
         daily_fee_block_reward_cap_denom: fil_actors_shared::v16::runtime::policy_constants::DAILY_FEE_BLOCK_REWARD_CAP_DENOM,
         valid_post_proof_type,
         valid_pre_commit_proof_type,
@@ -680,11 +680,11 @@ pub fn from_policy_v13_to_v17(policy: &PolicyV13) -> PolicyV17 {
         daily_fee_circulating_supply_qap_multiplier_num: BigInt::from_u64(
             fil_actors_shared::v17::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_NUM,
         )
-        .unwrap(),
+        .expect("BigInt can represent any u64"),
         daily_fee_circulating_supply_qap_multiplier_denom: BigInt::from_u128(
             fil_actors_shared::v17::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_DENOM,
         )
-        .unwrap(),
+        .expect("BigInt can represent any u128"),
         daily_fee_block_reward_cap_denom: fil_actors_shared::v17::runtime::policy_constants::DAILY_FEE_BLOCK_REWARD_CAP_DENOM,
         valid_post_proof_type,
         valid_pre_commit_proof_type,
@@ -760,11 +760,11 @@ pub fn from_policy_v13_to_v18(policy: &PolicyV13) -> PolicyV18 {
         daily_fee_circulating_supply_qap_multiplier_num: BigInt::from_u64(
             fil_actors_shared::v18::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_NUM,
         )
-        .unwrap(),
+        .expect("BigInt can represent any u64"),
         daily_fee_circulating_supply_qap_multiplier_denom: BigInt::from_u128(
             fil_actors_shared::v18::runtime::policy_constants::DAILY_FEE_CIRCULATING_SUPPLY_QAP_MULTIPLIER_DENOM,
         )
-        .unwrap(),
+        .expect("BigInt can represent any u128"),
         daily_fee_block_reward_cap_denom: fil_actors_shared::v18::runtime::policy_constants::DAILY_FEE_BLOCK_REWARD_CAP_DENOM,
         valid_post_proof_type,
         valid_pre_commit_proof_type,
