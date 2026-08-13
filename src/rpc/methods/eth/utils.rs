@@ -588,7 +588,7 @@ mod test {
 
     // Undecodable input is the expected non-Ethereum case; Lotus returns empty data and reason.
     #[rstest]
-    #[case(RawBytes::default(), vec![], "")]
+    #[case(RawBytes::new(vec![0x18]), vec![], "")]
     #[case(cbor_bytes(vec![]), vec![], "none")]
     #[case(
         cbor_bytes(create_error_data("boom")),
