@@ -76,6 +76,10 @@ use tokio::sync::broadcast;
 /// A cap on the number of in-flight per-tipset log batches in the shared logs feed.
 const LOGS_FEED_CAP: usize = 256;
 
+/// A cap on head changes buffered per `newHeads` subscription. A client that reads slower
+/// than blocks arrive drops the excess rather than growing memory without bound.
+const NEW_HEADS_SUBSCRIBER_CAP: usize = 1000;
+
 /// Sender half of the shared logs feed; see [`RPCState::eth_logs_feed`].
 pub type LogsFeed = broadcast::Sender<Arc<Vec<EthLog>>>;
 
@@ -108,11 +112,13 @@ impl EthPubSubApiServer for EthPubSub {
 }
 
 /// Stream of "message tipsets", the parent of each newly applied tipset.
-/// Reverts are ignored; lagged events are dropped (and logged) by [`subscription_stream`].
+/// Reverts are ignored.
 fn head_message_tipsets(ctx: &Arc<RPCState>) -> impl Stream<Item = Tipset> + Send + use<> {
-    let rx = ctx.chain_store().subscribe_head_changes();
+    let rx = ctx
+        .chain_store()
+        .subscribe_head_changes_bounded(NEW_HEADS_SUBSCRIBER_CAP);
     let ctx = ctx.shallow_clone();
-    subscription_stream(rx).flat_map(move |changes| {
+    rx.into_stream().flat_map(move |changes| {
         let ctx = ctx.shallow_clone();
         let items: Vec<_> = changes
             .applies
@@ -154,8 +160,8 @@ fn spawn_new_heads(sink: SubscriptionSink, ctx: Arc<RPCState>) {
 
 /// Drives the shared logs feed for every chain head change, collects the Ethereum logs of the affected tipsets
 async fn run_logs_feed(ctx: Arc<RPCState>, feed: LogsFeed) {
-    let mut head_changes = subscription_stream(ctx.chain_store().subscribe_head_changes());
-    while let Some(changes) = head_changes.next().await {
+    let head_changes = ctx.chain_store().subscribe_head_changes();
+    while let Ok(changes) = head_changes.recv_async().await {
         // Collecting events is not free; skip the work entirely while no subscription is live.
         if feed.receiver_count() == 0 {
             continue;
@@ -246,9 +252,9 @@ fn spawn_pending_transactions(sink: SubscriptionSink, ctx: Arc<RPCState>) {
 }
 
 /// Forward stream items to the subscription sink until the sink is closed,
-/// the client disconnects, or the upstream stream ends. The stream is
-/// expected to absorb upstream backpressure (e.g. `Lagged`) on its own; this
-/// helper only cares about the sink side.
+/// the client disconnects, or the upstream stream ends. The stream is expected to
+/// absorb upstream backpressure on its own (by dropping events when the client reads
+/// too slowly); this helper only cares about the sink side.
 async fn pipe_stream_to_sink<S, T>(mut stream: S, sink: SubscriptionSink)
 where
     S: Stream<Item = T> + Unpin + Send,

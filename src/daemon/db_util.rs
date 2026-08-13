@@ -29,7 +29,6 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tokio::sync::broadcast::error::TryRecvError;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -742,7 +741,7 @@ pub async fn run_backfill(
     let cancel = guard.cancellation_token();
 
     // Subscribe before the walk so applies/reverts that happen during it are observed.
-    let mut head_rx = state_manager.chain_store().subscribe_head_changes();
+    let head_rx = state_manager.chain_store().subscribe_head_changes();
 
     // Optionally clamp the start below finality to avoid indexing revert-prone near-head tipsets.
     let start_ts = if options.allow_near_head {
@@ -824,31 +823,15 @@ pub async fn run_backfill(
     // Re-index tipsets applied during the walk so the canonical mapping wins.
     if !report.cancelled {
         let mut extra: Vec<(SignedMessage, u64)> = vec![];
-        loop {
-            match head_rx.try_recv() {
-                Ok(changes) => {
-                    for ts in changes.applies {
-                        if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
-                            tracing::debug!(
-                                "re-indexing tipset @{} applied during backfill",
-                                ts.epoch()
-                            );
-                            if let Err(e) =
-                                process_ts(&ts, state_manager, &mut extra, options.allow_recompute)
-                                    .await
-                            {
-                                tracing::warn!(
-                                    "failed to re-index applied tipset @{}: {e:#}",
-                                    ts.epoch()
-                                );
-                            }
-                        }
+        for changes in head_rx.try_iter() {
+            for ts in changes.applies {
+                if ts.epoch() >= lowest_epoch && ts.epoch() <= start_ts.epoch() {
+                    tracing::debug!("re-indexing tipset @{} applied during backfill", ts.epoch());
+                    if let Err(e) =
+                        process_ts(&ts, state_manager, &mut extra, options.allow_recompute).await
+                    {
+                        tracing::warn!("failed to re-index applied tipset @{}: {e:#}", ts.epoch());
                     }
-                }
-                Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => break,
-                Err(TryRecvError::Lagged(n)) => {
-                    tracing::warn!("backfill head-change listener lagged: skipped {n} events");
-                    continue;
                 }
             }
         }
