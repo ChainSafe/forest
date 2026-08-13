@@ -1,4 +1,4 @@
-name: rpc-checks
+name: external-rpc-checks
 
 # WARNING: this file is not usable on its own. `./prepare.sh` downloads the
 # snapshot and writes the `.env` file every `${...}` below is interpolated from,

@@ -49,4 +49,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          filename: .github/RIBASUSHI_RPC_CHECKS_ISSUE_TEMPLATE.md
+          filename: .github/EXTERNAL_RPC_CHECKS_ISSUE_TEMPLATE.md

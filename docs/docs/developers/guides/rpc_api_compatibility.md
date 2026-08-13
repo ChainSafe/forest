@@ -52,8 +52,8 @@ be implemented in the foreseeable future.
 
 ## External dataset checks
 
-Forest is also checked against the external `data.riba.plus` dataset of recorded RPC
-responses (`chain.data.riba.plus`). The `data.riba.plus RPC checks` workflow runs daily
+Forest is also checked against the external `data.riba.plus` dataset of recorded
+RPC responses. The `data.riba.plus RPC checks` workflow runs daily
 at 13:00 UTC: it serves a recent calibnet snapshot with `forest-tool api serve`
 and replays the dataset's queries against it. To run it locally, execute
 `./prepare.sh` in `scripts/tests/external-rpc-checks` followed by

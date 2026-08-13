@@ -1,5 +1,5 @@
 ---
-title: "[automated] `data.riba.plus` RPC checks failure"
+title: "[automated] External dataset RPC checks failure"
 labels: ["Bug"]
 ---
 
