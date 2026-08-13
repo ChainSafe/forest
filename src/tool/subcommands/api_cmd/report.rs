@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// RPC comparison test harness (not `#[cfg(test)]`, but test tooling rather than node runtime).
+#![allow(clippy::unwrap_used)]
+
 use super::ReportMode;
 use crate::prelude::*;
 use crate::rpc::{self, ApiPaths, FilterList, Permission};

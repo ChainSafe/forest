@@ -267,7 +267,7 @@ where
         match self.index.read().get(k) {
             Some(UncompressedBlockDataLocation { offset, length }) => {
                 trace!("fetching from disk");
-                let mut data = vec![0; usize::try_from(*length).unwrap()];
+                let mut data = vec![0; usize::try_from(*length).expect("u32 must fit in usize")];
                 self.reader.read_exact_at(*offset, &mut data)?;
                 Ok(Some(data))
             }
@@ -280,7 +280,7 @@ where
 
     /// Not supported, use [`super::ManyCar`] instead.
     fn put_keyed(&self, _: &Cid, _: &[u8]) -> anyhow::Result<()> {
-        unreachable!("PlainCar is read-only, use ManyCar instead");
+        anyhow::bail!("PlainCar is read-only, use ManyCar instead");
     }
 }
 
@@ -414,7 +414,8 @@ fn read_block_data_location_and_skip(
 
     // counting the read bytes saves us a syscall for finding block data offset
     let cid_length = reader.bytes_read();
-    let block_data_offset = frame_body_offset + u64::try_from(cid_length).unwrap();
+    let block_data_offset =
+        frame_body_offset + u64::try_from(cid_length).expect("usize must fit in u64");
     let next_frame_offset = frame_body_offset + u64::from(body_length);
     // A malformed CAR frame can declare a `body_length` smaller than the CID it
     // encodes, which would underflow here.
@@ -455,8 +456,8 @@ fn read_varint_body_length_or_eof(mut reader: impl Read) -> io::Result<Option<u3
     let mut byte = [0u8; 1]; // detect EOF
     match reader.read(&mut byte)? {
         0 => Ok(None),
-        1 => (byte.chain(reader)).read_varint().map(Some),
-        _ => unreachable!(),
+        // `Read::read` into a 1-byte buffer reads at most one byte, so any non-zero count is one.
+        _ => (byte.chain(reader)).read_varint().map(Some),
     }
 }
 

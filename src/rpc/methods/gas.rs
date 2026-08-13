@@ -146,7 +146,7 @@ pub async fn estimate_gas_premium(
 
     // mean 1, stddev 0.005 => 95% within +-1%
     let noise: f64 = Normal::new(1.0, 0.005)
-        .unwrap()
+        .expect("mean 1.0 and stddev 0.005 are valid normal-distribution parameters")
         .sample(&mut crate::utils::rand::forest_rng());
 
     premium *= BigInt::from_f64((noise * (1i64 << precision) as f64) + 1f64)

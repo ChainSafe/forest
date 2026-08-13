@@ -14,6 +14,7 @@ use crate::networks::NetworkChain;
 use crate::utils::misc::LoggingColor;
 use crate::{cli_shared::read_config, daemon::db_util::ImportMode};
 use ahash::HashSet;
+use anyhow::Context as _;
 use clap::Parser;
 use directories::ProjectDirs;
 use libp2p::Multiaddr;
@@ -291,15 +292,20 @@ fn find_unknown_keys<'a>(
     }
 }
 
-pub fn check_for_unknown_keys(path: &Path, config: &Config) {
-    // `config` has been loaded successfully from toml file in `path` so we can
-    // always serialize it back to a valid TOML value or get the TOML value from
-    // `path`
-    let file = std::fs::read_to_string(path).unwrap();
-    let value = toml::Value::Table(file.parse::<toml::Table>().unwrap());
+pub fn check_for_unknown_keys(path: &Path, config: &Config) -> anyhow::Result<()> {
+    let file = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read config file {}", path.display()))?;
+    let value = toml::Value::Table(
+        file.parse::<toml::Table>()
+            .with_context(|| format!("config file {} is not valid TOML", path.display()))?,
+    );
 
-    let config_file = toml::to_string(config).unwrap();
-    let config_value = toml::Value::Table(config_file.parse::<toml::Table>().unwrap());
+    let config_file = toml::to_string(config).context("failed to serialize config")?;
+    let config_value = toml::Value::Table(
+        config_file
+            .parse::<toml::Table>()
+            .context("failed to parse serialized config")?,
+    );
 
     let mut result = vec![];
     find_unknown_keys(vec![], &value, &config_value, &mut result);
@@ -317,6 +323,7 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
             1,
         )
     }
+    Ok(())
 }
 
 /// Print an error message and exit the program with an error code
@@ -336,7 +343,7 @@ mod tests {
         let config_content = toml::to_string(&config).unwrap();
         let temp_file = tempfile::Builder::new().tempfile().unwrap();
         std::fs::write(temp_file.path(), config_content).unwrap();
-        check_for_unknown_keys(temp_file.path(), &config);
+        check_for_unknown_keys(temp_file.path(), &config).unwrap();
     }
 
     #[test]

@@ -146,7 +146,10 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
         .expect("unfallible")
         .payload()
     {
-        address.namespace() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap()
+        address.namespace()
+            == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+                .id()
+                .expect("EAM actor address is constructed with new_id, so id() is infallible")
     } else {
         false
     }

@@ -31,6 +31,8 @@
 
 - [#7339](https://github.com/ChainSafe/forest/issues/7339): Forest-owned RPC methods now use `camelCase` field names consistently in requests and responses: `Forest.SyncStatus`, `Forest.NetInfo`, `Forest.ChainExport`, `Forest.ChainExportDiff`, `Forest.ChainExportStatus`, `Forest.StateActorInfo`, `Forest.StateCompute` and `Filecoin.ChainExport` (e.g. `num_peers` → `numPeers`, `start_epoch` → `startEpoch`, `StateRoot` → `stateRoot`). The named parameters of `Filecoin.StateMinerInitialPledgeForSector` are now `sectorDuration`, `sectorSize`, `verifiedSize` and `tipsetKey` (positional calls are unaffected). The generated OpenRPC document is now tested for casing regressions.
 
+- [#7479](https://github.com/ChainSafe/forest/pull/7479): Explicitly banned non-64-bit architectures from building Forest. This was already an implicit requirement (Forest would misbehave in runtime), but now it is enforced at build time.
+
 ### Added
 
 - [#7426](https://github.com/ChainSafe/forest/pull/7426): Added `forest-tool db import-tipset-lookup` for importing a tipset lookup snapshot.

@@ -104,17 +104,21 @@ impl MigrationOperation for Migration0_22_0_0_22_1 {
                         let tsk: Result<TipsetKey, fvm_ipld_encoding::Error> =
                             fvm_ipld_encoding::from_slice(&val.value);
                         if tsk.is_err() {
-                            res = Err(tsk.context("serde error").unwrap_err());
+                            res = Err(tsk
+                                .context("serde error")
+                                .expect_err("tsk checked Err above"));
                             return false;
                         }
-                        let cid = tsk.unwrap().cid();
+                        let cid = tsk.expect("tsk is Ok, Err returned above").cid();
 
                         if cid.is_err() {
-                            res = Err(cid.context("serde error").unwrap_err());
+                            res = Err(cid
+                                .context("serde error")
+                                .expect_err("cid checked Err above"));
                             return false;
                         }
 
-                        let hash: EthHash = cid.unwrap().into();
+                        let hash: EthHash = cid.expect("cid is Ok, Err returned above").into();
                         res = new_db
                             .db
                             .commit_changes([Db::set_operation(
