@@ -254,7 +254,7 @@ mod tests {
                 .map(|&p| TokenAmount::from_atto(p))
                 .collect();
             let result =
-                weighted_quick_select(premium_amounts.clone(), input.limits.clone(), target);
+                weighted_quick_select(premium_amounts.clone(), input.limits, target);
 
             // Result must either be zero or one of the input premiums
             result.is_zero() || premium_amounts.iter().any(|p| p == &result)

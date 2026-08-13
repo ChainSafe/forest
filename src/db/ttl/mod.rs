@@ -114,7 +114,7 @@ mod test {
 
         let root = TipsetValidator::compute_msg_root(
             &blockstore,
-            &[bls0.clone(), bls1.clone()],
+            &[bls0, bls1],
             &[secp0.clone(), secp1.clone()],
         )
         .expect("Computing message root should succeed");

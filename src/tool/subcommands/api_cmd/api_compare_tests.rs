@@ -450,9 +450,9 @@ impl RpcTest {
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
                 let (forest, lotus) = if self.sort_policy.is_some() {
-                    let mut sorted_forest = forest.clone();
+                    let mut sorted_forest = forest;
                     sort_json(&mut sorted_forest);
-                    let mut sorted_lotus = lotus.clone();
+                    let mut sorted_lotus = lotus;
                     sort_json(&mut sorted_lotus);
                     (sorted_forest, sorted_lotus)
                 } else {

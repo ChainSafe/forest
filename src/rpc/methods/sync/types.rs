@@ -67,7 +67,7 @@ impl SnapshotProgressTracker {
         Some(Arc::new(move |msg: String| {
             snapshot_progress_tracker
                 .write()
-                .set_in_progress(msg.clone());
+                .set_in_progress(msg);
         }))
     }
 

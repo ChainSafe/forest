@@ -513,7 +513,7 @@ mod tests {
         let dividend = TokenAmount::from_atto(100);
         let divisor = TokenAmount::from_atto(30);
         let quotient = dividend.clone() / divisor.clone();
-        let remainder = dividend.clone() % divisor.clone();
+        let remainder = dividend % divisor;
 
         assert_eq!(quotient, TokenAmount::from_atto(3));
         assert_eq!(remainder, TokenAmount::from_atto(10));

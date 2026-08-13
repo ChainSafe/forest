@@ -353,7 +353,7 @@ mod tests {
             .to_bytes_be()
             .1;
         validate_eip155_chain_id(
-            eth_chain_id.clone().to_u64().unwrap(),
+            eth_chain_id.to_u64().unwrap(),
             &BigInt::from_bytes_be(Sign::Plus, &v),
         )
         .unwrap();

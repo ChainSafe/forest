@@ -60,7 +60,7 @@ pub async fn offline_rpc_state(
     )
     .await?;
     // let head_ts = db.heaviest_tipset()?;
-    let chain_store = ChainStore::new(db.shallow_clone(), chain_config, genesis_header.clone())?;
+    let chain_store = ChainStore::new(db.shallow_clone(), chain_config, genesis_header)?;
     let state_manager = StateManager::new(chain_store.shallow_clone())?;
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);

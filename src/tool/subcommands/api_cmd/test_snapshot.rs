@@ -227,7 +227,7 @@ async fn ctx(
     let (tipset_send, _) = flume::bounded(5);
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-    let chain_store = ChainStore::new(db, chain_config, genesis_header.clone())?;
+    let chain_store = ChainStore::new(db, chain_config, genesis_header)?;
     let state_manager = StateManager::new(chain_store.shallow_clone())
         .unwrap()
         // cache must be disabled to avoid flakiness in RPC regression tests

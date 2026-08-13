@@ -515,8 +515,8 @@ impl RpcMethod<0> for GetParticipatingMinerIDs {
     ) -> Result<Self::Ok, ServerError> {
         let participants = F3ListParticipants::run().await?;
         let mut ids: HashSet<u64> = participants.into_iter().map(|p| p.miner_id).collect();
-        if let Some(permanent_miner_ids) = (*F3_PERMANENT_PARTICIPATING_MINER_IDS).clone() {
-            ids.extend(permanent_miner_ids);
+        if let Some(permanent_miner_ids) = F3_PERMANENT_PARTICIPATING_MINER_IDS.as_ref() {
+            ids.extend(permanent_miner_ids.iter().copied());
         }
         Ok(ids.into_iter().collect())
     }

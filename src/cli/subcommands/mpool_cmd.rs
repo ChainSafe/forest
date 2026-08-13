@@ -911,7 +911,7 @@ mod tests {
         assert!(estimated.gas_premium > floor);
         let result = auto_compute_replacement_gas(
             estimated.clone(),
-            original_premium.clone(),
+            original_premium,
             REPLACE_BY_FEE_RATIO_DEFAULT,
         )
         .unwrap();
@@ -924,7 +924,7 @@ mod tests {
         assert!(estimated.gas_premium < floor);
         let result = auto_compute_replacement_gas(
             estimated,
-            original_premium.clone(),
+            original_premium,
             REPLACE_BY_FEE_RATIO_DEFAULT,
         )
         .unwrap();
@@ -939,7 +939,7 @@ mod tests {
         estimated.gas_fee_cap = floor.clone();
         let result = auto_compute_replacement_gas(
             estimated,
-            original_premium.clone(),
+            original_premium,
             REPLACE_BY_FEE_RATIO_DEFAULT,
         )
         .unwrap();

@@ -71,7 +71,7 @@ impl WalletBackend {
         let keystore = if use_encryption {
             input_password_to_load_encrypted_keystore(wallet_dir)?
         } else {
-            KeyStore::new(KeyStoreConfig::Persistent(wallet_dir.to_path_buf()))?
+            KeyStore::new(KeyStoreConfig::Persistent(wallet_dir))?
         };
 
         Ok(WalletBackend {

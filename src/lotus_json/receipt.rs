@@ -121,7 +121,7 @@ fn cannot_call_arbitrary_tests_on_receipt() {
 
     // they serialize to the same thing...
     assert_eq!(
-        serde_json::to_value(v2.clone().into_lotus_json()).unwrap(),
+        serde_json::to_value(v2.into_lotus_json()).unwrap(),
         json
     );
     assert_eq!(

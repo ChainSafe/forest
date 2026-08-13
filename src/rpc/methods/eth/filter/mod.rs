@@ -734,7 +734,7 @@ fn parse_eth_topics(
             }
             EthHashList::Single(Some(hash)) => {
                 let EthHash(bytes) = hash;
-                keys.entry(key.clone()).or_default().push(bytes.0.to_vec());
+                keys.entry(key).or_default().push(bytes.0.to_vec());
             }
             EthHashList::Single(None) => {}
         }
