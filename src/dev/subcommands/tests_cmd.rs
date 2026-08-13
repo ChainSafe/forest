@@ -4,7 +4,7 @@
 // Integration-test harness (not `#[cfg(test)]`, but test tooling rather than node runtime).
 #![allow(clippy::unwrap_used)]
 
-mod helpers;
+pub(crate) mod helpers;
 mod mpool;
 mod wallet;
 

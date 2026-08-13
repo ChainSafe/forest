@@ -51,6 +51,19 @@ impl EthErrors {
         }
     }
 
+    /// Prepends `prefix` to the message, keeping the code and data. Needed because the RPC layer
+    /// rebuilds the wire message from the typed error alone, dropping any `anyhow` context.
+    #[must_use]
+    pub fn with_message_prefix(mut self, prefix: &str) -> Self {
+        match &mut self {
+            Self::ExecutionReverted { message, .. } | Self::BlockRangeExceeded { message, .. } => {
+                *message = format!("{prefix}: {message}");
+            }
+            Self::EventsNotYetAvailable | Self::NullRound { .. } => {}
+        }
+        self
+    }
+
     pub fn limit_exceeded(max_block_range: i64, given: i64) -> Self {
         Self::BlockRangeExceeded {
             max: max_block_range,
@@ -166,5 +179,33 @@ mod tests {
             server_err.message(),
             "events for the requested block are not yet available"
         );
+    }
+
+    #[test]
+    fn test_with_message_prefix_prepends_and_preserves_code_and_data() {
+        let err = EthErrors::execution_reverted(
+            ExitCode::from(33u32),
+            "boom",
+            "backtrace",
+            &[0xde, 0xad],
+        )
+        .with_message_prefix("gas search failed");
+        let server_err: ServerError = err.into();
+
+        assert_eq!(server_err.code(), EXECUTION_REVERTED_CODE);
+        assert_eq!(
+            server_err.message(),
+            "gas search failed: message execution failed (exit=[33], revert reason=[boom], vm error=[backtrace])"
+        );
+        assert_eq!(
+            server_err.data().map(|d| d.to_string()),
+            Some("\"0xdead\"".to_string())
+        );
+    }
+
+    #[test]
+    fn test_with_message_prefix_is_a_noop_for_messageless_variants() {
+        let err = EthErrors::null_round(7).with_message_prefix("ignored");
+        assert_eq!(err.to_string(), "requested epoch was a null round (7)");
     }
 }

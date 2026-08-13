@@ -33,6 +33,7 @@ use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
     EthLegacyHomesteadTxArgs, parse_eth_transaction,
 };
+use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, NotNullVec, lotus_json_with_self};
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::networks::Height;
@@ -62,7 +63,6 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
-use crate::shim::trace::{CallReturn, ExecutionEvent};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
 use crate::utils::cache::SizeTrackingCache;
@@ -1912,6 +1912,17 @@ async fn eth_estimate_gas(
     }
 }
 
+/// Builds an eth `ExecutionReverted` (code 3) from a failed message's exit code and return
+/// payload, decoding the revert reason and data.
+fn execution_reverted_error(
+    exit_code: impl Into<ExitCode>,
+    return_data: RawBytes,
+    vm_error: &str,
+) -> EthErrors {
+    let (data, reason) = decode_revert_reason(return_data);
+    EthErrors::execution_reverted(exit_code.into(), &reason, vm_error, &data)
+}
+
 async fn apply_message(
     ctx: &Ctx,
     tipset: Option<Tipset>,
@@ -1928,7 +1939,7 @@ async fn apply_message(
 
     let (invoc_res, _) = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip)
+        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip, VMTrace::NotTraced)
         .await
         .context("failed to apply on state with gas")?;
 
@@ -1937,13 +1948,10 @@ async fn apply_message(
         None => return Err(anyhow::anyhow!("no message receipt in execution result")),
         Some(receipt) => {
             if !receipt.exit_code().is_success() {
-                let (data, reason) = decode_revert_reason(receipt.return_data());
-
-                return Err(EthErrors::execution_reverted(
-                    ExitCode::from(receipt.exit_code()),
-                    reason.as_str(),
-                    invoc_res.error.as_str(),
-                    data.as_slice(),
+                return Err(execution_reverted_error(
+                    receipt.exit_code(),
+                    receipt.return_data(),
+                    &invoc_res.error,
                 )
                 .into());
             }
@@ -1954,32 +1962,45 @@ async fn apply_message(
 }
 
 pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> anyhow::Result<u64> {
-    let (apply_ret, prior_messages, ts) =
-        gas::GasEstimateGasLimit::estimate_call_with_gas(data, msg.clone(), tsk).await?;
+    // Probe the message as the caller specified it: the question is whether *its* limit
+    // suffices, which the block maximum would always answer yes to.
+    let (apply_ret, prior_messages, ts, from) =
+        gas::GasEstimateGasLimit::probe_as_specified(data, msg.clone(), tsk, VMTrace::NotTraced)
+            .await?;
     if apply_ret.exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
 
-    let exec_trace = apply_ret.exec_trace();
-    let _expected_exit_code: ExitCode = fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS.into();
-    if exec_trace.iter().any(|t| {
-        matches!(
-            t,
-            &ExecutionEvent::CallReturn(CallReturn {
-                exit_code: Some(_expected_exit_code),
-                ..
-            })
+    // Only the trace tells "needs a higher limit" from "fails at any limit", and it is worth one
+    // re-execution here against the ~30 the search below would spend. The statement keeps the
+    // trace, one event per gas charge, from outliving the check.
+    let out_of_gas = data
+        .state_manager
+        .call_with_gas(
+            ChainMessage::for_gas_estimation(msg.clone(), from.protocol()),
+            prior_messages.shallow_clone(),
+            Some(ts.shallow_clone()),
+            VMFlush::Skip,
+            VMTrace::Traced,
         )
-    }) {
-        let ret = gas_search(data, &msg, prior_messages, ts).await?;
-        Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
-    } else {
-        anyhow::bail!(
-            "message execution failed: exit {}, reason: {}",
+        .await?
+        .0
+        .trace_has_call_return_exit_code(fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS);
+    if !out_of_gas {
+        // Match Lotus: a code-3 `ExecutionReverted` with the decoded revert data, so eth tooling
+        // gets the code and can ABI-decode the reason.
+        let vm_error = apply_ret.failure_info().unwrap_or_default();
+        return Err(execution_reverted_error(
             apply_ret.exit_code(),
-            apply_ret.failure_info().unwrap_or_default(),
-        );
+            apply_ret.return_data(),
+            &vm_error,
+        )
+        .with_message_prefix("gas search failed")
+        .into());
     }
+
+    let ret = gas_search(data, &msg, from.protocol(), prior_messages, ts).await?;
+    Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
 }
 
 /// `gas_search` does an exponential search to find a gas value to execute the
@@ -1989,37 +2010,32 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
 async fn gas_search(
     data: &Ctx,
     msg: &Message,
+    from_protocol: Protocol,
     prior_messages: Arc<Vec<ChainMessage>>,
     ts: Tipset,
 ) -> anyhow::Result<u64> {
-    let mut high = msg.gas_limit;
-    let mut low = msg.gas_limit;
+    // `max(1)` keeps the doubling below able to make progress.
+    let mut high = msg.gas_limit.max(1);
+    let mut low = high;
 
-    async fn can_succeed(
-        data: &Ctx,
-        mut msg: Message,
-        prior_messages: Arc<Vec<ChainMessage>>,
-        ts: Tipset,
-        limit: u64,
-    ) -> anyhow::Result<bool> {
+    let can_succeed = async |limit: u64| {
+        let mut msg = msg.clone();
         msg.gas_limit = limit;
         let (apply_ret, ..) = data
             .state_manager
-            .call_with_gas(msg.into(), prior_messages, Some(ts), VMFlush::Skip)
+            .call_with_gas(
+                ChainMessage::for_gas_estimation(msg, from_protocol),
+                prior_messages.shallow_clone(),
+                Some(ts.shallow_clone()),
+                VMFlush::Skip,
+                VMTrace::NotTraced,
+            )
             .await?;
-        Ok(apply_ret.exit_code().is_success())
-    }
+        anyhow::Ok(apply_ret.exit_code().is_success())
+    };
 
     while high < BLOCK_GAS_LIMIT {
-        if can_succeed(
-            data,
-            msg.clone(),
-            prior_messages.shallow_clone(),
-            ts.shallow_clone(),
-            high,
-        )
-        .await?
-        {
+        if can_succeed(high).await? {
             break;
         }
         low = high;
@@ -2029,15 +2045,7 @@ async fn gas_search(
     let mut check_threshold = high / 100;
     while (high - low) > check_threshold {
         let median = (high + low) / 2;
-        if can_succeed(
-            data,
-            msg.clone(),
-            prior_messages.shallow_clone(),
-            ts.shallow_clone(),
-            median,
-        )
-        .await?
-        {
+        if can_succeed(median).await? {
             high = median;
         } else {
             low = median;
@@ -3881,7 +3889,12 @@ impl RpcMethod<3> for EthTraceCall {
 
         let (invoke_result, post_state_root) = ctx
             .state_manager
-            .apply_on_state_with_gas(Some(ts.shallow_clone()), msg.clone(), VMFlush::Flush)
+            .apply_on_state_with_gas(
+                Some(ts.shallow_clone()),
+                msg.clone(),
+                VMFlush::Flush,
+                VMTrace::Traced,
+            )
             .await
             .context("failed to apply message")?;
         let post_state_root =
@@ -4217,6 +4230,39 @@ mod test {
             let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
             Self(ethereum_types::H256(arr))
         }
+    }
+
+    #[test]
+    fn execution_reverted_from_receipt_decodes_reason_and_data() {
+        // A receipt carries its return payload CBOR-wrapped. The `Error(string)` ABI decode is
+        // covered by `eth/utils.rs`; here a non-ABI payload (which decodes to hex) is enough to
+        // check that the helper threads reason, data, exit code and vm error through.
+        let payload = b"Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".to_vec();
+        let return_data =
+            RawBytes::new(fvm_ipld_encoding::to_vec(&RawBytes::new(payload.clone())).unwrap());
+        let receipt = Receipt::V4(fvm_shared4::receipt::Receipt {
+            exit_code: fvm_shared4::error::ExitCode::new(33),
+            return_data,
+            gas_used: 0,
+            events_root: None,
+        });
+
+        let err = execution_reverted_error(receipt.exit_code(), receipt.return_data(), "backtrace");
+        let EthErrors::ExecutionReverted { message, data } = err.clone() else {
+            panic!("expected ExecutionReverted, got {err:?}");
+        };
+        let payload_hex = hex::encode_prefixed(&payload);
+        assert_eq!(
+            message,
+            format!(
+                "message execution failed (exit=[33], revert reason=[{payload_hex}], vm error=[backtrace])"
+            )
+        );
+        assert_eq!(data, payload_hex);
+
+        // Surfaces to eth clients as the standard code-3 execution-reverted error.
+        let server: ServerError = err.into();
+        assert_eq!(server.code(), errors::EXECUTION_REVERTED_CODE);
     }
 
     #[rstest]

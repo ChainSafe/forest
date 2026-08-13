@@ -3,13 +3,13 @@
 
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
-use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::interpreter::VMTrace;
+use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _};
 use crate::prelude::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
-    address::{Address, Protocol},
-    crypto::{SECP_SIG_LEN, Signature, SignatureType},
+    address::Address,
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
@@ -205,15 +205,28 @@ impl RpcMethod<2> for GasEstimateGasLimit {
 }
 
 impl GasEstimateGasLimit {
-    pub async fn estimate_call_with_gas(
+    /// Runs `msg` at the block gas limit with the fees zeroed, to measure what it uses.
+    pub async fn measure_gas_used(
         data: &Ctx,
         mut msg: Message,
-        ApiTipsetKey(tsk): &ApiTipsetKey,
-    ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset)> {
+        tsk: &ApiTipsetKey,
+    ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
+        Self::probe_as_specified(data, msg, tsk, VMTrace::NotTraced).await
+    }
 
+    /// Runs `msg` exactly as given. The limit and fees are left alone: a gas search compares this
+    /// against runs of the same message, so rewriting either here would measure something the
+    /// caller never asked about. Also returns the resolved sender so a caller can avoid
+    /// resolving it a second time.
+    pub async fn probe_as_specified(
+        data: &Ctx,
+        msg: Message,
+        ApiTipsetKey(tsk): &ApiTipsetKey,
+        vm_trace: VMTrace,
+    ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
         let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
         let from_a = data
             .state_manager
@@ -227,23 +240,8 @@ impl GasEstimateGasLimit {
             .into();
 
         let ts = data.mpool.current_tipset();
-        // Pretend that the message is signed. This has an influence on the gas
-        // cost. We obviously can't generate a valid signature. Instead, we just
-        // fill the signature with zeros. The validity is not checked.
-        let chain_msg = match from_a.protocol() {
-            Protocol::Secp256k1 => {
-                SignedMessage::new_unchecked(msg, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
-                    .into()
-            }
-            Protocol::Delegated => SignedMessage::new_unchecked(
-                msg,
-                // In Lotus, delegated signatures have the same length as SECP256k1.
-                // This may or may not change in the future.
-                Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
-            )
-            .into(),
-            _ => msg.into(),
-        };
+        // A zeroed signature, because its length changes the inclusion cost.
+        let chain_msg = ChainMessage::for_gas_estimation(msg, from_a.protocol());
 
         let (apply_ret, ..) = data
             .state_manager
@@ -252,13 +250,14 @@ impl GasEstimateGasLimit {
                 prior_messages.shallow_clone(),
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
+                vm_trace,
             )
             .await?;
-        Ok((apply_ret, prior_messages, ts))
+        Ok((apply_ret, prior_messages, ts, from_a))
     }
 
     pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {
-        let (apply_ret, ..) = Self::estimate_call_with_gas(data, msg, tsk)
+        let (apply_ret, ..) = Self::measure_gas_used(data, msg, tsk)
             .await
             .context("gas estimation failed")?;
         anyhow::ensure!(
