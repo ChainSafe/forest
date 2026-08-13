@@ -113,7 +113,11 @@ async fn fetch_rpc_tests() -> anyhow::Result<()> {
         .lines()
         .map(|i| {
             // Remove comment
-            i.split("#").next().unwrap().trim().to_string()
+            i.split("#")
+                .next()
+                .expect("split always yields at least one element")
+                .trim()
+                .to_string()
         })
         .filter(|l| !l.is_empty() && !l.starts_with('#'));
     let mut joinset = JoinSet::new();

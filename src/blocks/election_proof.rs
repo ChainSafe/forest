@@ -37,7 +37,7 @@ static EXP_NUM_COEF: LazyLock<Vec<BigInt>> = LazyLock::new(|| {
         "-115682590513835356866803355398940131328",
         "340282366920938463463374607431768211456",
     ])
-    .unwrap()
+    .expect("hardcoded coefficients are valid integers")
 });
 static EXP_DENO_COEF: LazyLock<Vec<BigInt>> = LazyLock::new(|| {
     parse(&[
@@ -56,7 +56,7 @@ static EXP_DENO_COEF: LazyLock<Vec<BigInt>> = LazyLock::new(|| {
         "224599776407103106596571252037123047424",
         "340282366920938463463374607431768211456",
     ])
-    .unwrap()
+    .expect("hardcoded coefficients are valid integers")
 });
 
 /// `expneg` accepts x in Q.256 format and computes e^-x.

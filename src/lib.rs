@@ -8,7 +8,10 @@
         clippy::todo,
         clippy::dbg_macro,
         clippy::indexing_slicing,
-        clippy::get_unwrap
+        clippy::get_unwrap,
+        clippy::unwrap_used,
+        clippy::unreachable,
+        clippy::unimplemented
     )
 )]
 #![cfg_attr(
@@ -23,6 +26,13 @@
         rustdoc::missing_crate_level_docs
     )
 )]
+
+// Forest handles chain state far larger than a 32-bit address space and relies on `usize == u64`
+// for lossless offset and length conversions in the CAR and index code. Enforce it at compile time.
+const _: () = assert!(
+    usize::BITS == 64,
+    "Forest only supports 64-bit targets (requires usize == u64)"
+);
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {

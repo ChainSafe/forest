@@ -83,10 +83,11 @@ impl NetCommands {
                         let addresses: Vec<String> = info
                             .addrs
                             .into_iter()
-                            .filter(|addr| match addr.iter().next().unwrap() {
-                                Protocol::Ip4(ip_addr) => !ip_addr.is_loopback(),
-                                Protocol::Ip6(ip_addr) => !ip_addr.is_loopback(),
-                                _ => true,
+                            .filter(|addr| match addr.iter().next() {
+                                Some(Protocol::Ip4(ip_addr)) => !ip_addr.is_loopback(),
+                                Some(Protocol::Ip6(ip_addr)) => !ip_addr.is_loopback(),
+                                Some(_) => true,
+                                None => false,
                             })
                             .map(|addr| addr.to_string())
                             .unique()

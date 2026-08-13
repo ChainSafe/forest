@@ -352,7 +352,7 @@ impl Tipset {
             .iter()
             .map(|block| block.timestamp)
             .min()
-            .unwrap()
+            .expect("tipset headers are non-empty")
     }
     /// Returns the number of blocks in the tipset.
     pub fn len(&self) -> usize {
@@ -452,7 +452,8 @@ impl Tipset {
 
         static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
         let headers = KNOWN_HEADERS.get_or_init(|| {
-            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
+            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml"))
+                .expect("bundled known_blocks.yaml is valid")
         });
 
         for tipset in self.shallow_clone().chain(store) {

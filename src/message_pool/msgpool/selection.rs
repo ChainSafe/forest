@@ -183,7 +183,9 @@ impl SelectedMessages {
         let mut cur_chain = message_chain.prev;
         let _ = message_chain; // drop the mutable borrow to avoid conflicts
         while let Some(cur_chn) = cur_chain {
-            let node = chains.get(cur_chn).unwrap();
+            let node = chains
+                .get(cur_chn)
+                .expect("prev pointers reference live chains");
             if !node.merged {
                 chain_deps.push(cur_chn);
                 chain_gas_limit += node.gas_limit;
@@ -429,7 +431,9 @@ where
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
                 partitions[i].push(chain_key);
-                let chain = chains.get(chain_key).unwrap();
+                let chain = chains
+                    .get(chain_key)
+                    .expect("key_vec keys reference live nodes");
                 let chain_gas_limit = chain.gas_limit;
                 if gas_limit < chain_gas_limit {
                     break;
@@ -487,7 +491,9 @@ where
                 Ok(_) => {
                     // adjust the effective performance for all subsequent chains
                     if let Some(next_key) = chains[i].next {
-                        let next_node = chains.get_mut(next_key).unwrap();
+                        let next_node = chains
+                            .get_mut(next_key)
+                            .expect("next pointers reference live chains");
                         if next_node.eff_perf > 0.0 {
                             next_node.eff_perf += next_node.parent_offset;
                             let mut next_next_key = next_node.next;
