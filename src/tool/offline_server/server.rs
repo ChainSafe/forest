@@ -192,7 +192,8 @@ pub async fn start_offline_server(
         backfill_db(
             state_manager,
             &head_ts,
-            RangeSpec::NumTipsets(index_backfill_epochs),
+            // The walk includes the head, so add one to keep it from counting.
+            RangeSpec::NumTipsets(index_backfill_epochs.saturating_add(1)),
         )
         .await?;
     }
