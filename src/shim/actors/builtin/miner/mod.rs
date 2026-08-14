@@ -3,6 +3,36 @@
 
 pub mod ext;
 
+macro_rules! load_sectors_by_version {
+    ($self:expr, $store:expr, $sectors:expr; $($n:literal),+ $(,)?) => {
+        pastey::paste! {
+            match $self {
+                $(
+                    State::[<V $n>](st) => {
+                        if let Some(sectors) = $sectors {
+                            Ok(st
+                                .load_sector_infos(&$store, sectors)?
+                                .into_iter()
+                                .map(Into::into)
+                                .collect())
+                        } else {
+                            let sectors =
+                                fil_actor_miner_state::[<v $n>]::Sectors::load(&$store, &st.sectors)?;
+                            let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                            sectors.amt.for_each_cacheless(|_, info| {
+                                infos.push(info.clone().into());
+                                Ok(())
+                            })?;
+                            Ok(infos)
+                        }
+                    }
+                )+
+            }
+        }
+    };
+}
+pub(crate) use load_sectors_by_version;
+
 use crate::{
     rpc::types::SectorPreCommitOnChainInfo,
     shim::{
@@ -205,195 +235,7 @@ impl State {
         store: &BS,
         sectors: Option<&BitField>,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
-        match self {
-            State::V8(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v8::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V9(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v9::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V10(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v10::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V11(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v11::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V12(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v12::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V13(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v13::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V14(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v14::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V15(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v15::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V16(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v16::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V17(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v17::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-            State::V18(st) => {
-                if let Some(sectors) = sectors {
-                    Ok(st
-                        .load_sector_infos(&store, sectors)?
-                        .into_iter()
-                        .map(From::from)
-                        .collect())
-                } else {
-                    let sectors = fil_actor_miner_state::v18::Sectors::load(&store, &st.sectors)?;
-                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
-                    Ok(infos)
-                }
-            }
-        }
+        load_sectors_by_version!(self, store, sectors; 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
     }
 
     /// Returns the deadline and partition index for a sector number.
@@ -416,6 +258,17 @@ impl State {
             State::V17(st) => st.find_sector(store, sector_number),
             State::V18(st) => st.find_sector(store, sector_number),
         }
+    }
+
+    /// Single-sector direct AMT lookup returning the RPC `SectorOnChainInfo`; `None` if absent.
+    pub fn get_sector<BS: Blockstore>(
+        &self,
+        store: &BS,
+        sector_number: SectorNumber,
+    ) -> anyhow::Result<Option<crate::rpc::types::SectorOnChainInfo>> {
+        delegate_state!(self => |st| Ok(st
+            .get_sector(store, sector_number)?
+            .map(crate::rpc::types::SectorOnChainInfo::from)))
     }
 
     /// Gets fee debt of miner state
@@ -965,6 +818,27 @@ impl Deadline {
         Ok(delegate_deadline!(
             self.optimistic_proofs_snapshot_amt(store)?.count()
         ))
+    }
+
+    /// Loads a single partition by index.
+    pub fn load_partition<BS: Blockstore>(
+        &self,
+        store: &BS,
+        partition_idx: u64,
+    ) -> anyhow::Result<Partition<'static>> {
+        Ok(match self {
+            Deadline::V8(dl) => Partition::V8(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V9(dl) => Partition::V9(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V10(dl) => Partition::V10(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V11(dl) => Partition::V11(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V12(dl) => Partition::V12(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V13(dl) => Partition::V13(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V14(dl) => Partition::V14(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V15(dl) => Partition::V15(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V16(dl) => Partition::V16(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V17(dl) => Partition::V17(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V18(dl) => Partition::V18(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+        })
     }
 }
 
@@ -1815,5 +1689,53 @@ impl From<fil_actor_miner_state::v18::DeadlineInfo> for DeadlineInfo {
             w_post_challenge_lookback,
             fault_declaration_cutoff,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::MemoryDB;
+    use crate::utils::db::CborStoreExt as _;
+
+    #[test]
+    fn get_sector_present_absent_and_never_panics() {
+        let store = MemoryDB::default();
+        let policy = fil_actors_shared::v18::runtime::Policy::default();
+        // `get_sector` only reads the sectors AMT, so any info cid works.
+        let info_cid = store.put_cbor_default(&"dummy-miner-info").unwrap();
+        let mut inner =
+            fil_actor_miner_state::v18::State::new(&policy, &store, info_cid, 0, 0).unwrap();
+
+        let present = 7u64;
+        let mut sectors =
+            fil_actor_miner_state::v18::Sectors::load(&store, &inner.sectors).unwrap();
+        sectors
+            .amt
+            .set(
+                present,
+                fil_actor_miner_state::v18::SectorOnChainInfo {
+                    sector_number: present,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        inner.sectors = sectors.amt.flush().unwrap();
+        let state = State::V18(inner);
+
+        assert_eq!(
+            state
+                .get_sector(&store, present)
+                .unwrap()
+                .map(|s| s.sector_number),
+            Some(present)
+        );
+        for n in [0u64, 1, 1_000_000_000_000] {
+            assert!(
+                state.get_sector(&store, n).unwrap().is_none(),
+                "absent sector {n} must be Ok(None)"
+            );
+        }
+        let _ = state.get_sector(&store, u64::MAX); // boundary input must not panic
     }
 }
