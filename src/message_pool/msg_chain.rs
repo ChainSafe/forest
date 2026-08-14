@@ -51,8 +51,8 @@ impl Chains {
     pub(in crate::message_pool) fn sort_effective(&mut self) {
         let mut chains = mem::take(&mut self.key_vec);
         chains.sort_by(|a, b| {
-            let a = self.map.get(*a).unwrap();
-            let b = self.map.get(*b).unwrap();
+            let a = self.map.get(*a).expect("key_vec keys reference live nodes");
+            let b = self.map.get(*b).expect("key_vec keys reference live nodes");
             a.cmp_effective(b)
         });
         let _ = mem::replace(&mut self.key_vec, chains);
@@ -67,8 +67,8 @@ impl Chains {
         chains[range].sort_by(|a, b| {
             self.map
                 .get(*a)
-                .unwrap()
-                .cmp_effective(self.map.get(*b).unwrap())
+                .expect("key_vec keys reference live nodes")
+                .cmp_effective(self.map.get(*b).expect("key_vec keys reference live nodes"))
         });
         let _ = mem::replace(&mut self.key_vec, chains);
     }
@@ -83,7 +83,10 @@ impl Chains {
         let node = self.map.get(k);
         let prev = if let Some(node) = node {
             if let Some(prev_key) = node.prev {
-                let prev_node = self.map.get(prev_key).unwrap();
+                let prev_node = self
+                    .map
+                    .get(prev_key)
+                    .expect("prev key references a live node");
                 Some((prev_node.eff_perf, prev_node.gas_limit))
             } else {
                 None
@@ -127,8 +130,8 @@ impl Chains {
         // replace dance to get around borrow checker
         let mut chains = mem::take(&mut self.key_vec);
         chains.sort_by(|a, b| {
-            let a = self.map.get(*a).unwrap();
-            let b = self.map.get(*b).unwrap();
+            let a = self.map.get(*a).expect("key_vec keys reference live nodes");
+            let b = self.map.get(*b).expect("key_vec keys reference live nodes");
             if rev { b.compare(a) } else { a.compare(b) }
         });
         let _ = mem::replace(&mut self.key_vec, chains);
@@ -148,7 +151,9 @@ impl Chains {
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
     pub(in crate::message_pool) fn get_from(&self, i: usize, vec: &[NodeKey]) -> &MsgChainNode {
         #[allow(clippy::indexing_slicing)]
-        self.map.get(vec[i]).unwrap()
+        self.map
+            .get(vec[i])
+            .expect("node vec keys reference live nodes")
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
@@ -158,7 +163,9 @@ impl Chains {
         vec: &[NodeKey],
     ) -> &mut MsgChainNode {
         #[allow(clippy::indexing_slicing)]
-        self.map.get_mut(vec[i]).unwrap()
+        self.map
+            .get_mut(vec[i])
+            .expect("node vec keys reference live nodes")
     }
 
     // Retrieves the node key at the given index
@@ -197,7 +204,9 @@ impl Chains {
                 .get_at(idx - 1)
                 .map(|prev| (prev.eff_perf, prev.gas_limit)),
         };
-        let chain_node = self.get_mut_at(idx).unwrap();
+        let chain_node = self
+            .get_mut_at(idx)
+            .expect("caller validates idx is a live chain");
         let mut i = chain_node.msgs.len() as i64 - 1;
 
         while i >= 0
@@ -251,7 +260,7 @@ impl Chains {
         let mut next_keys = vec![];
 
         while let Some(nk) = key {
-            let chain_node = self.map.get(nk).unwrap();
+            let chain_node = self.map.get(nk).expect("chain keys reference live nodes");
             next_keys.push(nk);
             key = chain_node.next;
         }
@@ -269,7 +278,12 @@ impl Chains {
     pub(in crate::message_pool) fn drop_invalid(&mut self, key_vec: &mut Vec<NodeKey>) {
         let mut valid_keys = vec![];
         for k in key_vec.iter() {
-            if self.map.get(*k).map(|n| n.valid).unwrap() {
+            if self
+                .map
+                .get(*k)
+                .map(|n| n.valid)
+                .expect("node vec keys reference live nodes")
+            {
                 valid_keys.push(*k);
             } else {
                 self.map.remove(*k);
@@ -283,14 +297,16 @@ impl Chains {
 impl Index<usize> for Chains {
     type Output = MsgChainNode;
     fn index(&self, i: usize) -> &Self::Output {
-        self.get_at(i).unwrap()
+        self.get_at(i).expect("index out of bounds")
     }
 }
 
 impl IndexMut<usize> for Chains {
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
         #[allow(clippy::indexing_slicing)]
-        self.map.get_mut(self.key_vec[i]).unwrap()
+        self.map
+            .get_mut(self.key_vec[i])
+            .expect("key_vec keys reference live nodes")
     }
 }
 
@@ -523,7 +539,7 @@ where
             continue;
         }
 
-        let gas_reward = cur_chain.gas_reward.clone() + reward;
+        let gas_reward = &cur_chain.gas_reward + reward;
         let gas_limit = cur_chain.gas_limit + m.gas_limit();
         let gas_perf = get_gas_perf(&gas_reward, gas_limit);
 

@@ -48,8 +48,9 @@ where
     let policy = match chain {
         NetworkChain::Mainnet => make_mainnet_policy!(v8),
         NetworkChain::Calibnet => make_calibnet_policy!(v8),
-        NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
-        NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
+        NetworkChain::Devnet(_) | NetworkChain::Butterflynet => {
+            anyhow::bail!("nv17 miner migration is not supported on devnet/butterflynet")
+        }
     };
     let empty_deadlines_v8 =
         fil_actor_miner_state::v8::Deadlines::new(&policy, empty_deadline_v8_cid);
@@ -61,8 +62,9 @@ where
     let policy = match chain {
         NetworkChain::Mainnet => make_mainnet_policy!(v9),
         NetworkChain::Calibnet => make_calibnet_policy!(v9),
-        NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
-        NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
+        NetworkChain::Devnet(_) | NetworkChain::Butterflynet => {
+            anyhow::bail!("nv17 miner migration is not supported on devnet/butterflynet")
+        }
     };
     let empty_deadlines_v9 =
         fil_actor_miner_state::v9::Deadlines::new(&policy, empty_deadline_v9_cid);
@@ -253,8 +255,9 @@ impl MinerMigrator {
             let policy = match &self.chain {
                 NetworkChain::Mainnet => make_mainnet_policy!(v9),
                 NetworkChain::Calibnet => make_calibnet_policy!(v9),
-                NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
-                NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
+                NetworkChain::Devnet(_) | NetworkChain::Butterflynet => {
+                    anyhow::bail!("nv17 miner migration is not supported on devnet/butterflynet")
+                }
             };
             let mut out_deadlines =
                 fil_actor_miner_state::v9::Deadlines::new(&policy, self.empty_deadline_v9_cid);

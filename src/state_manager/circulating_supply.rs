@@ -165,7 +165,7 @@ impl GenesisInfo {
         let state_tree = StateTree::new_from_root(db, root)?;
 
         state_tree.for_each_cacheless(|addr: Address, actor: &ActorState| {
-            let actor_balance = TokenAmount::from(actor.balance.clone());
+            let actor_balance = TokenAmount::from(&actor.balance);
             if !actor_balance.is_zero() {
                 match addr {
                     Address::INIT_ACTOR
@@ -204,8 +204,8 @@ impl GenesisInfo {
                         let ms = miner::State::load(&db, actor.code, actor.state)?;
 
                         if let Ok(avail_balance) = ms.available_balance(actor.balance.atto()) {
-                            circ += avail_balance.clone();
-                            un_circ += actor_balance.clone() - &avail_balance;
+                            un_circ += actor_balance - &avail_balance;
+                            circ += avail_balance;
                         } else {
                             // Assume any error is because the miner state is "broken" (lower actor balance than locked funds)
                             // In this case, the actor's entire balance is considered "uncirculating"
@@ -216,7 +216,7 @@ impl GenesisInfo {
                         let ms = multisig::State::load(&db, actor.code, actor.state)?;
 
                         let locked_balance = ms.locked_balance(height)?;
-                        let avail_balance = actor_balance.clone() - &locked_balance;
+                        let avail_balance = &actor_balance - &locked_balance;
                         circ += avail_balance.max(TokenAmount::zero());
                         un_circ += actor_balance.min(locked_balance);
                     }
@@ -228,7 +228,7 @@ impl GenesisInfo {
             Ok(())
         })?;
 
-        let total = circ.clone() + un_circ;
+        let total = &circ + un_circ;
         if total != *TOTAL_FILECOIN {
             bail!(
                 "total filecoin didn't add to expected amount: {} != {}",

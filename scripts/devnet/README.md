@@ -56,20 +56,25 @@ export FULLNODE_API_INFO=$TOKEN:/dns/forest/tcp/3456/http
 forest-cli net peers
 ```
 
-## Running the wallet integration tests
+## Running the integration tests
 
-The same wallet/mpool integration suite that runs against calibnet can be run
-against the local devnet. This brings up the devnet, waits for it to sync, wires
-up the host environment, and runs the tests:
+The wallet/mpool suites that run against calibnet, plus the `eth_estimateGas`
+parity suite, can be run against the local devnet. This brings up the devnet,
+waits for it to sync, wires up the host environment, and runs the tests:
 
 ```shell
-mise run test:wallet-devnet
+mise run test:devnet
 ```
 
-Under the hood this sources `wallet_harness.sh`, which reads the admin token and
+Under the hood this sources `test_harness.sh`, which reads the admin token and
 the funded genesis key from the running `forest` container, exports
 `FULLNODE_API_INFO` (Forest RPC on port 3456) and `FOREST_TEST_PRELOADED_ADDRESS`,
-then runs `forest-dev tests mpool` and `forest-dev tests wallet`.
+then runs `forest-dev tests mpool`, `forest-dev tests wallet` and
+`forest-dev devnet eth-gas`.
+
+The `devnet` suites (unlike `tests`) need both nodes reachable: `eth-gas`
+compares Forest against Lotus, so it runs pre-flight checks and fails early if
+the devnet or harness environment is missing.
 
 ## Local devnet development
 

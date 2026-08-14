@@ -7,7 +7,7 @@ use crate::{
     lotus_json::lotus_json_with_self,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
 };
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use chrono::Duration;
 use enumflags2::BitFlags;
 use schemars::JsonSchema;
@@ -48,9 +48,11 @@ impl RpcMethod<2> for AuthNew {
         // Lotus admin tokens do not expire but Forest requires all JWT tokens to
         // have an expiration date. So we set the expiration date to 100 years in
         // the future to match user-visible behavior of Lotus.
-        let token_exp = expiration_secs
-            .map(chrono::Duration::seconds)
-            .unwrap_or_else(|| chrono::Duration::days(365 * 100));
+        let token_exp = match expiration_secs {
+            Some(secs) => Duration::try_seconds(secs)
+                .with_context(|| format!("expirationSecs out of range: {secs}"))?,
+            None => Duration::days(365 * 100),
+        };
         let token = Self::create_token(&ks, token_exp, permissions)?;
         Ok(token.as_bytes().to_vec())
     }

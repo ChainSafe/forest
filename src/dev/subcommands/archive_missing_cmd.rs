@@ -52,7 +52,8 @@ struct ListingResponse {
 /// Lite: `..._height_30000.forest.car.zst` → 30000
 /// Diff: `..._height_0+3000.forest.car.zst` → 0
 fn extract_height(url: &Url) -> Option<ChainEpoch> {
-    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"_height_(\d+)").unwrap());
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"_height_(\d+)").expect("static regex is valid"));
     let path = url.path();
     let caps = RE.captures(path)?;
     caps[1].parse().ok()

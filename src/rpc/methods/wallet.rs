@@ -353,7 +353,7 @@ mod tests {
         let key2 = crate::key_management::generate_key(SignatureType::Secp256k1).unwrap();
         let addr1 = format!("wallet-{}", key1.address);
         let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
-        keystore.put(&addr1, key1.key_info.clone()).unwrap();
+        keystore.put(&addr1, key1.key_info).unwrap();
         assert!(crate::key_management::remove_key(&key2.address, &mut keystore).is_err());
     }
 
@@ -364,7 +364,7 @@ mod tests {
         let addr1 = format!("wallet-{}", key1.address);
         let addr2 = format!("wallet-{}", key2.address);
         let mut keystore = KeyStore::new(crate::KeyStoreConfig::Memory).unwrap();
-        keystore.put(&addr1, key1.key_info.clone()).unwrap();
+        keystore.put(&addr1, key1.key_info).unwrap();
         keystore.put(&addr2, key2.key_info.clone()).unwrap();
         keystore.put("default", key2.key_info.clone()).unwrap();
         crate::key_management::remove_key(&key2.address, &mut keystore).unwrap();

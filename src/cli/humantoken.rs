@@ -30,7 +30,9 @@ mod si {
     impl Prefix {
         // ENHANCE(aatifsyed): could memoize this if it's called in a hot loop
         pub fn multiplier(&self) -> BigDecimal {
-            self.multiplier.parse().unwrap()
+            self.multiplier
+                .parse()
+                .expect("prefix multiplier is a valid decimal literal")
         }
     }
 
@@ -392,7 +394,9 @@ mod print {
             }
         }
 
-        let smallest_prefix = si::SUPPORTED_PREFIXES.last().unwrap();
+        let smallest_prefix = si::SUPPORTED_PREFIXES
+            .last()
+            .expect("SUPPORTED_PREFIXES is never empty");
         (
             n * smallest_prefix.multiplier().inverse(),
             Some(*smallest_prefix),

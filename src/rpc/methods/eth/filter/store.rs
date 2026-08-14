@@ -173,16 +173,16 @@ mod tests {
         let duplicate_filter = filter1.clone();
 
         // Test case 1: Add a new filter
-        assert!(store.add(filter1.clone()).is_ok());
+        assert!(store.add(filter1).is_ok());
 
         // Test case 2: Attempt to add the same filter again, which should fail as duplicate
-        assert!(store.add(duplicate_filter.clone()).is_err());
+        assert!(store.add(duplicate_filter).is_err());
 
         // Add another filter
-        assert!(store.add(filter2.clone()).is_ok());
+        assert!(store.add(filter2).is_ok());
 
         // Test case 3: Attempt to add another filter, which should fail due to max filters reached
         let filter3 = test_filter();
-        assert!(store.add(filter3.clone()).is_err());
+        assert!(store.add(filter3).is_err());
     }
 }

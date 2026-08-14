@@ -35,7 +35,7 @@ where
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the
     // subcommand.
 
-    let background_tasks = logger::setup_logger(&opts);
+    let background_tasks = logger::setup_logger(&opts)?;
 
     if let Some(path) = &path {
         match path {
@@ -47,7 +47,7 @@ where
             }
             _ => (),
         }
-        check_for_unknown_keys(path.to_path_buf(), &cfg);
+        check_for_unknown_keys(path.to_path_buf(), &cfg)?;
     } else {
         info!("Using default {} config", cfg.chain());
     }

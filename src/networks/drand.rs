@@ -9,11 +9,21 @@ pub(super) static DRAND_MAINNET: LazyLock<DrandConfig<'static>> = LazyLock::new(
     let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
-            "https://api.drand.sh".try_into().unwrap(),
-            "https://api2.drand.sh".try_into().unwrap(),
-            "https://api3.drand.sh".try_into().unwrap(),
-            "https://drand.cloudflare.com".try_into().unwrap(),
-            "https://api.drand.secureweb3.com:6875".try_into().unwrap(),
+            "https://api.drand.sh"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://api2.drand.sh"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://api3.drand.sh"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://drand.cloudflare.com"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://api.drand.secureweb3.com:6875"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
         ],
         // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
         chain_info: ChainInfo {
@@ -36,11 +46,21 @@ pub(super) static DRAND_QUICKNET: LazyLock<DrandConfig<'static>> = LazyLock::new
     let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
-            "https://api.drand.sh".try_into().unwrap(),
-            "https://api2.drand.sh".try_into().unwrap(),
-            "https://api3.drand.sh".try_into().unwrap(),
-            "https://drand.cloudflare.com".try_into().unwrap(),
-            "https://api.drand.secureweb3.com:6875".try_into().unwrap(),
+            "https://api.drand.sh"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://api2.drand.sh"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://api3.drand.sh"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://drand.cloudflare.com"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
+            "https://api.drand.secureweb3.com:6875"
+                .try_into()
+                .expect("hardcoded drand server URL is valid"),
         ],
         // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
         chain_info: ChainInfo {

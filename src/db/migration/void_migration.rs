@@ -17,7 +17,7 @@ pub(super) struct MigrationVoid {
 
 impl MigrationOperation for MigrationVoid {
     fn migrate_core(&self, _: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
-        unimplemented!("Overriding migrate implementation instead")
+        anyhow::bail!("MigrationVoid overrides `migrate`; `migrate_core` must not be called")
     }
 
     fn migrate(&self, chain_data_path: &Path, _: &Config) -> anyhow::Result<()> {

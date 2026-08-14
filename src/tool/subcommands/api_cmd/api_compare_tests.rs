@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// RPC comparison test harness (not `#[cfg(test)]`, but test tooling rather than node runtime).
+#![allow(clippy::unwrap_used, clippy::unimplemented)]
+
 use super::{CreateTestsArgs, ReportMode, RunIgnored, TestCriteriaOverride};
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
@@ -447,9 +450,9 @@ impl RpcTest {
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
                 let (forest, lotus) = if self.sort_policy.is_some() {
-                    let mut sorted_forest = forest.clone();
+                    let mut sorted_forest = forest;
                     sort_json(&mut sorted_forest);
-                    let mut sorted_lotus = lotus.clone();
+                    let mut sorted_lotus = lotus;
                     sort_json(&mut sorted_lotus);
                     (sorted_forest, sorted_lotus)
                 } else {

@@ -41,6 +41,10 @@ pub trait Optional<'de>: Deserialize<'de> {
             }
         }
 
+        #[expect(
+            clippy::unreachable,
+            reason = "DummyDeserializer's deserialize methods always return Err, so deserialize never yields Ok"
+        )]
         let Err(DeserializeOptionWasCalled(optional)) = Self::deserialize(DummyDeserializer) else {
             unreachable!("DummyDeserializer never returns Ok(..)")
         };

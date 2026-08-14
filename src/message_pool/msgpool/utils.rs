@@ -49,7 +49,8 @@ pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit:
         gas_reward.atto() * crate::shim::econ::BLOCK_GAS_LIMIT,
         gas_limit.into(),
     );
-    a.to_f64().unwrap()
+    a.to_f64()
+        .expect("gas_limit is nonzero so the ratio converts to f64")
 }
 
 /// Attempt to get a signed message that corresponds to an unsigned message in

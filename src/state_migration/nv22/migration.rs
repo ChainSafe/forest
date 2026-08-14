@@ -60,7 +60,7 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
 
         self.add_migrator(
             market_old_code,
-            market::market_migrator(upgrade_epoch, provider_sectors.clone(), market_new_code)?,
+            market::market_migrator(upgrade_epoch, provider_sectors, market_new_code)?,
         );
 
         self.add_migrator(

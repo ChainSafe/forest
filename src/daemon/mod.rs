@@ -320,7 +320,7 @@ fn create_mpool(
 ) -> anyhow::Result<MessagePool<ChainStore>> {
     Ok(MessagePool::new(
         ctx.state_manager.chain_store().shallow_clone(),
-        p2p_service.network_sender().clone(),
+        p2p_service.network_sender(),
         MpoolConfig::load_config(ctx.db.writer().as_ref())?,
         ctx.state_manager.chain_config().clone(),
         services,
@@ -333,7 +333,7 @@ fn create_chain_follower(
     mpool: MessagePool<ChainStore>,
     ctx: &AppContext,
 ) -> anyhow::Result<ChainFollower> {
-    let network_send = p2p_service.network_sender().clone();
+    let network_send = p2p_service.network_sender();
     let peer_manager = p2p_service.peer_manager().clone();
     let network = SyncNetworkContext::new(network_send, peer_manager, ctx.db.clone().into());
     Ok(ChainFollower::new(
@@ -551,10 +551,7 @@ fn maybe_start_gc_service(
 
     // GC shouldn't run periodically if the node is stateless or if the user has disabled it.
     if !opts.no_gc {
-        services.spawn({
-            let snap_gc = snap_gc.clone();
-            async move { snap_gc.scheduler_loop().await }
-        });
+        services.spawn(async move { snap_gc.scheduler_loop().await });
     }
 
     Ok(())

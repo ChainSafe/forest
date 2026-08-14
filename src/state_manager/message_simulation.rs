@@ -119,15 +119,15 @@ impl StateManager {
         msg.set_sequence(from_actor.sequence);
 
         // Implicit messages need to set a special gas limit
-        let mut msg = msg.clone();
         msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
         let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
 
+        let msg_cid = msg.cid();
         Ok(ApiInvocResult {
-            msg: msg.clone(),
+            msg,
             msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg.cid(),
+            msg_cid,
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
             gas_cost: MessageGasCost::default(),
@@ -185,6 +185,7 @@ impl StateManager {
         tipset: Option<Tipset>,
         msg: Message,
         vm_flush: VMFlush,
+        vm_trace: VMTrace,
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
 
@@ -192,18 +193,20 @@ impl StateManager {
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
 
         let (apply_ret, duration, state_root) = self
-            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush)
+            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush, vm_trace)
             .await?;
 
+        let msg_rct = Some(apply_ret.msg_receipt());
+        let error = apply_ret.failure_info().unwrap_or_default();
         Ok((
             ApiInvocResult {
                 msg_cid: msg.cid(),
                 msg,
-                msg_rct: Some(apply_ret.msg_receipt()),
-                error: apply_ret.failure_info().unwrap_or_default(),
+                msg_rct,
+                error,
                 duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
                 gas_cost: MessageGasCost::default(),
-                execution_trace: structured::parse_events(apply_ret.exec_trace())
+                execution_trace: structured::parse_events(apply_ret.into_exec_trace())
                     .unwrap_or_default(),
             },
             state_root,
@@ -218,6 +221,7 @@ impl StateManager {
         prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
+        vm_trace: VMTrace,
     ) -> Result<(ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
@@ -251,7 +255,7 @@ impl StateManager {
                         timestamp: ts.min_timestamp(),
                     },
                     &this.engine,
-                    VMTrace::NotTraced,
+                    vm_trace,
                 )?;
 
                 for msg in prior_messages.iter() {
