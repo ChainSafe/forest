@@ -1729,42 +1729,31 @@ pub(crate) fn chain_notify(
     _params: Params<'_>,
     data: &crate::rpc::RPCState,
 ) -> Subscriber<Vec<ApiHeadChange>> {
+    chain_notify_inner(data.chain_store())
+}
+
+fn chain_notify_inner(chain_store: &ChainStore) -> Subscriber<Vec<ApiHeadChange>> {
     let (sender, receiver) = broadcast::channel(HEAD_CHANNEL_CAPACITY);
 
-    // As soon as the channel is created, send the current tipset
-    let current = data.chain_store().heaviest_tipset();
-    let (change, tipset) = ("current".into(), current);
+    // Subscribe before sampling the head, else a change landing in between is lost.
+    let head_changes_rx = chain_store.subscribe_head_changes();
+    let current = chain_store.heaviest_tipset();
     sender
-        .send(vec![ApiHeadChange { change, tipset }])
+        .send(vec![ApiHeadChange {
+            change: "current".into(),
+            tipset: current,
+        }])
         .expect("receiver is not dropped");
 
-    let mut head_changes_rx = data.chain_store().subscribe_head_changes();
-
     tokio::spawn(async move {
-        // Skip first message
-        let _ = head_changes_rx.recv().await;
-        loop {
-            match head_changes_rx.recv().await {
-                Ok(changes) => {
-                    let api_changes = changes
-                        .into_change_vec()
-                        .into_iter()
-                        .map(From::from)
-                        .collect();
-                    if sender.send(api_changes).is_err() {
-                        tracing::info!("chain notify subscribers are all closed");
-                        break;
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                    tracing::info!("head changes channel closed");
-                    break;
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                    tracing::warn!("head changes channel lagged by {n} messages");
-                }
+        while let Ok(changes) = head_changes_rx.recv_async().await {
+            let api_changes = changes.into_change_vec().into_iter().map_into().collect();
+            if sender.send(api_changes).is_err() {
+                tracing::info!("chain notify subscribers are all closed");
+                break;
             }
         }
+        tracing::info!("head changes channel closed");
     });
     receiver
 }
@@ -2046,6 +2035,10 @@ impl<T: Clone> Clone for PathChanges<T> {
 }
 
 impl<T> PathChanges<T> {
+    pub fn is_empty(&self) -> bool {
+        self.reverts.is_empty() && self.applies.is_empty()
+    }
+
     pub fn into_change_vec(self) -> Vec<PathChange<T>> {
         let Self { reverts, applies } = self;
         reverts
@@ -2225,6 +2218,105 @@ mod tests {
         assert_path_change(&cs, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
 
         let _ = (a, c1);
+    }
+
+    #[test]
+    fn head_changes_published_deduped_and_ordered() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c, d] -> [e]
+        };
+
+        let rx = cs.subscribe_head_changes();
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        // Re-setting the same head must not publish a change.
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(b.make_tipset()).unwrap();
+        cs.set_heaviest_tipset([c, d].make_tipset()).unwrap();
+        cs.set_heaviest_tipset(e.make_tipset()).unwrap();
+
+        let drained = rx.try_iter().collect_vec();
+        let applied = drained.iter().map(|c| c.applies.clone()).collect_vec();
+        assert_eq!(
+            applied,
+            vec![
+                vec![a.make_tipset()],
+                vec![b.make_tipset()],
+                vec![[c, d].make_tipset()],
+                vec![e.make_tipset()],
+            ]
+        );
+        assert!(drained.iter().all(|c| c.reverts.is_empty()));
+    }
+
+    #[test]
+    fn head_changes_publishes_reverts_on_reorg() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b1]
+        };
+        chain4u! {
+            from [a] in db;
+            [b2]
+        };
+
+        let rx = cs.subscribe_head_changes();
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(b1.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(b2.make_tipset()).unwrap(); // reorg b1 -> b2
+
+        let last = rx.try_iter().last().unwrap();
+        assert_eq!(last.reverts, vec![b1.make_tipset()]);
+        assert_eq!(last.applies, vec![b2.make_tipset()]);
+    }
+
+    #[tokio::test]
+    async fn chain_notify_delivers_every_apply_from_subscription() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c]
+        };
+
+        let mut rx = chain_notify_inner(&cs);
+
+        // First message is the current head.
+        let first = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].change, "current");
+
+        for ts in [&a, &b, &c] {
+            cs.set_heaviest_tipset(ts.make_tipset()).unwrap();
+        }
+
+        // Every applied tipset must be delivered, in order, with none dropped.
+        let mut applied = vec![];
+        for _ in 0..3 {
+            match tokio::time::timeout(std::time::Duration::from_millis(500), rx.recv()).await {
+                Ok(Ok(msg)) => applied.extend(
+                    msg.into_iter()
+                        .filter(|c| c.change == "apply")
+                        .map(|c| c.tipset),
+                ),
+                _ => break,
+            }
+        }
+        assert_eq!(
+            applied,
+            vec![a.make_tipset(), b.make_tipset(), c.make_tipset()]
+        );
     }
 
     impl ChainStore {

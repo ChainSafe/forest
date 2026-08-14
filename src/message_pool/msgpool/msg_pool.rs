@@ -43,7 +43,7 @@ use nonzero_ext::nonzero;
 use parking_lot::RwLock as SyncRwLock;
 use std::num::NonZeroUsize;
 use std::time::Duration;
-use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+use tokio::{task::JoinSet, time::interval};
 use tracing::warn;
 
 /// Maximum size of a serialized message in bytes. Anti-DoS measure to keep
@@ -541,23 +541,15 @@ where
         // Reacts to new HeadChanges
         {
             let mp = mp.shallow_clone();
-            let mut head_changes_rx = mp.api.subscribe_head_changes();
+            let head_changes_rx = mp.api.subscribe_head_changes();
             services.spawn(async move {
-                loop {
-                    match head_changes_rx.recv().await {
-                        Ok(HeadChanges { reverts, applies }) => {
-                            if let Err(e) = mp.apply_head_change(reverts, applies).await {
-                                tracing::warn!("Error changing head: {e}");
-                            }
-                        }
-                        Err(RecvError::Lagged(e)) => {
-                            warn!("Head change subscriber lagged: skipping {e} events");
-                        }
-                        Err(RecvError::Closed) => {
-                            break Ok(());
-                        }
+                while let Ok(HeadChanges { reverts, applies }) = head_changes_rx.recv_async().await
+                {
+                    if let Err(e) = mp.apply_head_change(reverts, applies).await {
+                        tracing::warn!("Error changing head: {e}");
                     }
                 }
+                Ok(())
             });
         }
 

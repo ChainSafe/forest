@@ -8,9 +8,7 @@ use ahash::HashSet;
 use parking_lot::RwLock;
 use std::sync::OnceLock;
 use std::time::Duration;
-use tokio::sync::broadcast::error::RecvError;
 use tokio_util::sync::CancellationToken;
-use tracing::warn;
 
 /// Maximum allowed message confidence.
 const MAX_MESSAGE_CONFIDENCE: ChainEpoch = crate::shim::policy::policy_constants::CHAIN_FINALITY;
@@ -256,7 +254,7 @@ impl StateManager {
         // between sampling and subscribing cannot be missed. Otherwise a revert
         // of the sampled head could go unseen and a reverted receipt could be
         // released after `confidence` epochs.
-        let mut head_changes_rx = self.cs.subscribe_head_changes();
+        let head_changes_rx = self.cs.subscribe_head_changes();
         let current_ts = self.heaviest_tipset();
         let maybe_message_receipt =
             self.tipset_executed_message(&current_ts, &message, allow_replaced.unwrap_or(true))?;
@@ -318,72 +316,60 @@ impl StateManager {
             async move {
                 let mut candidate: Option<(Tipset, Receipt)> = initial_candidate;
                 while !cancellation_token.is_cancelled() {
-                    match head_changes_rx.recv().await {
-                        Ok(head_changes) => {
-                            for reverted_ts in head_changes.reverts {
-                                reverted.write().insert(reverted_ts.key().clone());
+                    let Ok(head_changes) = head_changes_rx.recv_async().await else {
+                        break;
+                    };
+                    for reverted_ts in head_changes.reverts {
+                        reverted.write().insert(reverted_ts.key().clone());
 
-                                if candidate
-                                    .as_ref()
-                                    .is_some_and(|(ts, _)| ts.key() == reverted_ts.key())
-                                {
-                                    candidate = None;
-                                }
-                            }
-                            for applied_ts in head_changes.applies {
-                                reverted.write().remove(applied_ts.key());
+                        if candidate
+                            .as_ref()
+                            .is_some_and(|(ts, _)| ts.key() == reverted_ts.key())
+                        {
+                            candidate = None;
+                        }
+                    }
+                    for applied_ts in head_changes.applies {
+                        reverted.write().remove(applied_ts.key());
 
-                                // Return if `search_back_candidate` meets confidence requirement
-                                if let Some((candidate_ts, candidate_receipt)) =
-                                    search_back_candidate.get()
-                                    && confidence_reached(
-                                        applied_ts.epoch(),
-                                        candidate_ts.epoch(),
-                                        confidence,
-                                    )
-                                    && !reverted.read().contains(candidate_ts.key())
-                                {
-                                    return Ok((
-                                        candidate_ts.shallow_clone(),
-                                        candidate_receipt.clone(),
-                                    ));
-                                }
+                        // Return if `search_back_candidate` meets confidence requirement
+                        if let Some((candidate_ts, candidate_receipt)) = search_back_candidate.get()
+                            && confidence_reached(
+                                applied_ts.epoch(),
+                                candidate_ts.epoch(),
+                                confidence,
+                            )
+                            && !reverted.read().contains(candidate_ts.key())
+                        {
+                            return Ok((candidate_ts.shallow_clone(), candidate_receipt.clone()));
+                        }
 
-                                // Return if the candidate meets confidence requirement
-                                if let Some((candidate_ts, _)) = &candidate
-                                    && confidence_reached(
-                                        applied_ts.epoch(),
-                                        candidate_ts.epoch(),
-                                        confidence,
-                                    )
-                                    && let Some(candidate) = candidate
-                                {
-                                    return Ok(candidate);
-                                }
+                        // Return if the candidate meets confidence requirement
+                        if let Some((candidate_ts, _)) = &candidate
+                            && confidence_reached(
+                                applied_ts.epoch(),
+                                candidate_ts.epoch(),
+                                confidence,
+                            )
+                            && let Some(candidate) = candidate
+                        {
+                            return Ok(candidate);
+                        }
 
-                                let maybe_receipt = sm.tipset_executed_message(
-                                    &applied_ts,
-                                    &message,
-                                    allow_replaced.unwrap_or(true),
-                                )?;
-                                if let Some(receipt) = maybe_receipt {
-                                    if confidence == 0 {
-                                        // Return if there's no confidence requirement
-                                        return Ok((applied_ts, receipt));
-                                    } else {
-                                        // Otherwise set it as candidate
-                                        candidate = Some((applied_ts, receipt));
-                                    }
-                                }
+                        let maybe_receipt = sm.tipset_executed_message(
+                            &applied_ts,
+                            &message,
+                            allow_replaced.unwrap_or(true),
+                        )?;
+                        if let Some(receipt) = maybe_receipt {
+                            if confidence == 0 {
+                                // Return if there's no confidence requirement
+                                return Ok((applied_ts, receipt));
+                            } else {
+                                // Otherwise set it as candidate
+                                candidate = Some((applied_ts, receipt));
                             }
                         }
-                        Err(RecvError::Lagged(i)) => {
-                            warn!(
-                                "wait for message head change subscriber lagged, skipped {} events",
-                                i
-                            );
-                        }
-                        Err(RecvError::Closed) => break,
                     }
                 }
                 Err(Error::other("cancelled"))
@@ -886,6 +872,66 @@ mod tests {
             .expect("head hit should be returned after confidence reached");
         assert_eq!(tipset.epoch(), 3);
         assert!(receipt.exit_code().is_success());
+    }
+
+    /// A candidate seeded at the head must not be returned once a reorg reverts that tipset,
+    /// even after the new chain advances past the confidence window.
+    #[tokio::test]
+    async fn wait_for_message_reverted_candidate_is_not_returned() {
+        let db = Arc::new(MemoryDB::default());
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(&db, 5);
+        let root_after = state_root_with_sender_nonce(&db, 6);
+        let messages = tx_meta(&db, msg_cid);
+        let receipts = receipts_root(&db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> exec @ [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+        };
+        // A competing fork from epoch 1 that never includes the message, advancing to epoch 5.
+        chain4u! {
+            from [_e1] in c4u;
+            [_f2 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_f3 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_f4 = HeaderBuilder::new().with_state_root(root_before)]
+            -> fork_head @ [_f5 = HeaderBuilder::new().with_state_root(root_before)]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, exec);
+
+        let token = CancellationToken::new();
+        let mut wait =
+            Box::pin(state_manager.wait_for_message(msg_cid, 2, None, Some(true), &token));
+
+        // Seed the candidate at the head (epoch 3) and subscribe; confidence 2 is unmet.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut wait)
+                .await
+                .is_err()
+        );
+
+        // Reorg: exec is reverted onto a fork (epoch 5) that never executed the message.
+        state_manager
+            .chain_store()
+            .set_heaviest_tipset(fork_head.clone())
+            .unwrap();
+
+        // The reverted candidate must not be released even though the fork is past confidence.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(300), &mut wait)
+                .await
+                .is_err(),
+            "a reverted candidate must not be returned"
+        );
     }
 
     #[rstest]

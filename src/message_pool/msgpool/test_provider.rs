@@ -14,17 +14,17 @@ use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, MessageRead as _, SignedMessage};
 use crate::message_pool::{Error, provider::Provider};
 use crate::shim::{address::Address, econ::TokenAmount, message::Message, state_tree::ActorState};
+use crate::utils::publisher::Publisher;
 use ahash::HashMap;
 use cid::Cid;
 use num::BigInt;
 use parking_lot::Mutex;
-use tokio::sync::broadcast;
 
 /// Structure used for creating a provider when writing tests involving message
 /// pool
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
-    pub head_changes_tx: broadcast::Sender<HeadChanges>,
+    pub head_changes: Publisher<HeadChanges>,
 }
 
 #[derive(Default)]
@@ -42,13 +42,12 @@ pub struct TestApiInner {
 impl Default for TestApi {
     /// Create a new `TestApi`
     fn default() -> Self {
-        let (head_changes_tx, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages: 20000,
                 ..TestApiInner::default()
             }),
-            head_changes_tx,
+            head_changes: Publisher::default(),
         }
     }
 }
@@ -56,13 +55,12 @@ impl Default for TestApi {
 impl TestApi {
     /// Constructor for a `TestApi` with custom number of max pending messages
     pub fn with_max_actor_pending_messages(max_actor_pending_messages: u64) -> Self {
-        let (publisher, _) = broadcast::channel(1);
         TestApi {
             inner: Mutex::new(TestApiInner {
                 max_actor_pending_messages,
                 ..TestApiInner::default()
             }),
-            head_changes_tx: publisher,
+            head_changes: Publisher::default(),
         }
     }
 
@@ -83,12 +81,10 @@ impl TestApi {
 
     /// Set the heaviest tipset for `TestApi`
     pub fn set_heaviest_tipset(&self, ts: Tipset) {
-        self.head_changes_tx
-            .send(HeadChanges {
-                applies: vec![ts],
-                reverts: vec![],
-            })
-            .unwrap();
+        self.head_changes.publish(HeadChanges {
+            applies: vec![ts],
+            reverts: vec![],
+        });
     }
 
     pub fn next_block(&self) -> CachingBlockHeader {
@@ -140,8 +136,8 @@ impl TestApiInner {
 }
 
 impl Provider for TestApi {
-    fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
-        self.head_changes_tx.subscribe()
+    fn subscribe_head_changes(&self) -> flume::Receiver<HeadChanges> {
+        self.head_changes.subscribe()
     }
 
     fn get_heaviest_tipset(&self) -> Tipset {

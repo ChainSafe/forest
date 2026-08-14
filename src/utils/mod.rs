@@ -15,6 +15,7 @@ pub mod multihash;
 pub mod net;
 pub mod p2p;
 pub mod proofs_api;
+pub mod publisher;
 pub mod rand;
 pub mod reqwest_resume;
 mod shallow_clone;
