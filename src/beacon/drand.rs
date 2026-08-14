@@ -23,7 +23,6 @@ use crate::utils::net::global_http_client;
 use ambassador::{Delegate, delegatable_trait};
 use backon::{ExponentialBuilder, Retryable};
 use bls_signatures::Serialize as _;
-use nonzero_ext::nonzero;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use tracing::debug;
 use url::Url;

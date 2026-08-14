@@ -4,6 +4,7 @@
 # executed directly.
 
 export FOREST_CHAIN_INDEXER_ENABLED="1"
+export FOREST_CHAIN_INDEXER_GC_RETENTION_EPOCHS="2880"
 
 # Path to the `forest` daemon binary. Note this is intentionally NOT named
 # `FOREST_PATH`: that environment variable is honored by Forest itself to
