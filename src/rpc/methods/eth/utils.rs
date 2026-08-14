@@ -18,7 +18,6 @@ use cbor4ii::core::dec::Decode as _;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use serde::de;
 use std::sync::LazyLock;
-use tracing::log;
 
 pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
@@ -143,16 +142,14 @@ where
 
 /// Extract and decode Ethereum revert reason from receipt return data
 pub fn decode_revert_reason(return_data: RawBytes) -> (Vec<u8>, String) {
-    let (data, reason) = match decode_payload(&return_data, CBOR) {
-        Err(e) => {
-            log::warn!("failed to unmarshal cbor bytes from message receipt return error: {e}");
-            (EthBytes::default(), String::default())
+    match decode_payload(&return_data, CBOR) {
+        Err(_) => (Vec::new(), String::new()),
+        Ok(data) if !data.is_empty() => {
+            let reason = parse_eth_revert(data.as_slice());
+            (data.0, reason)
         }
-        Ok(data) if !data.is_empty() => (data.clone(), parse_eth_revert(data.as_slice())),
-        Ok(data) => (data.clone(), "none".to_string()),
-    };
-
-    (data.0, reason)
+        Ok(data) => (data.0, "none".to_string()),
+    }
 }
 
 const ERROR_FUNCTION_SELECTOR: [u8; 4] = [0x08, 0xc3, 0x79, 0xa0]; // keccak256("Error(string)") [first 4 bytes]
@@ -274,8 +271,7 @@ fn parse_panic_revert(data: &[u8]) -> String {
 #[cfg(test)]
 mod test {
     use super::*;
-    use cbor4ii::core::{enc::Encode, utils::BufWriter};
-    use cbor4ii::serde::Serializer;
+    use rstest::rstest;
 
     fn create_error_data(msg: &str) -> Vec<u8> {
         let mut encoded = Vec::new();
@@ -550,16 +546,13 @@ mod test {
         assert!(result.is_err());
 
         // valid cbor bytes
-        let mut writer = BufWriter::new(Vec::new());
-        Value::Bytes(vec![1]).encode(&mut writer).unwrap();
-        let serializer = Serializer::new(writer);
-        let encoded = serializer.into_inner().into_inner();
+        let encoded = cbor_bytes(vec![1]);
 
-        let result = decode_payload(&RawBytes::new(encoded.clone()), DAG_CBOR);
+        let result = decode_payload(&encoded, DAG_CBOR);
         assert_eq!(result.unwrap(), EthBytes(vec![1]));
 
         // regular cbor also works
-        let result = decode_payload(&RawBytes::new(encoded), CBOR);
+        let result = decode_payload(&encoded, CBOR);
         assert_eq!(result.unwrap(), EthBytes(vec![1]));
 
         // random codec should fail
@@ -587,5 +580,35 @@ mod test {
         // identity
         let result = decode_payload(&RawBytes::new(vec![1]), IDENTITY_HASH);
         assert!(result.unwrap().0.is_empty());
+    }
+
+    fn cbor_bytes(inner: Vec<u8>) -> RawBytes {
+        RawBytes::new(cbor4ii::serde::to_vec(Vec::new(), &Value::Bytes(inner)).unwrap())
+    }
+
+    // Undecodable input is the expected non-Ethereum case; Lotus returns empty data and reason.
+    #[rstest]
+    #[case(RawBytes::new(vec![0x18]), vec![], "")]
+    #[case(cbor_bytes(vec![]), vec![], "none")]
+    #[case(
+        cbor_bytes(create_error_data("boom")),
+        create_error_data("boom"),
+        "Error(boom)"
+    )]
+    #[case(
+        cbor_bytes(create_panic_data(0x01)),
+        create_panic_data(0x01),
+        "Assert()"
+    )]
+    // Too short for a selector+word, so the reason is the raw hex passthrough.
+    #[case(cbor_bytes(vec![0xde, 0xad, 0xbe, 0xef]), vec![0xde, 0xad, 0xbe, 0xef], "0xdeadbeef")]
+    fn test_decode_revert_reason(
+        #[case] input: RawBytes,
+        #[case] expected_data: Vec<u8>,
+        #[case] expected_reason: &str,
+    ) {
+        let (data, reason) = decode_revert_reason(input);
+        assert_eq!(data, expected_data);
+        assert_eq!(reason, expected_reason);
     }
 }
