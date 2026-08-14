@@ -922,12 +922,9 @@ mod tests {
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 50, 500);
         assert!(estimated.gas_premium < floor);
-        let result = auto_compute_replacement_gas(
-            estimated,
-            original_premium,
-            REPLACE_BY_FEE_RATIO_DEFAULT,
-        )
-        .unwrap();
+        let result =
+            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
+                .unwrap();
         assert_eq!(result.gas_premium, floor);
         assert!(result.gas_fee_cap >= result.gas_premium);
 
@@ -937,12 +934,9 @@ mod tests {
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 0, 500);
         estimated.gas_premium = floor.clone();
         estimated.gas_fee_cap = floor.clone();
-        let result = auto_compute_replacement_gas(
-            estimated,
-            original_premium,
-            REPLACE_BY_FEE_RATIO_DEFAULT,
-        )
-        .unwrap();
+        let result =
+            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
+                .unwrap();
         assert_eq!(result.gas_premium, floor);
         assert_eq!(result.gas_fee_cap, floor);
 
