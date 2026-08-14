@@ -102,9 +102,13 @@ where
             while let Some(joined) = join_set.join_next_with_id().await {
                 match joined {
                     Ok((_, r)) => results.push(r),
-                    Err(e) if e.is_panic() => {
+                    // A `JoinError` is a panic or a cancellation. Panics are only turned into an
+                    // error here under `panic = "unwind"`; release builds are `panic = "abort"`
+                    // (see Cargo.toml), where a handler panic aborts the process before it reaches
+                    // this arm. This loop never aborts its own tasks, so cancellation does not occur.
+                    Err(e) => {
                         if let Some((idx, req_id)) = call_meta.remove(&e.id()) {
-                            tracing::error!(idx, "RPC call panicked in batch entry");
+                            tracing::error!(idx, "RPC call failed in batch entry: {e}");
                             let err = ErrorObject::owned::<()>(
                                 ErrorCode::InternalError.code(),
                                 "RPC handler panicked",
@@ -112,10 +116,9 @@ where
                             );
                             results.push((idx, Some(MethodResponse::error(req_id, err))));
                         } else {
-                            tracing::error!("RPC notification panicked in batch entry");
+                            tracing::error!("RPC notification failed in batch entry: {e}");
                         }
                     }
-                    Err(_) => unreachable!("JoinSet only cancels tasks on drop"),
                 }
             }
             results.sort_by_key(|(idx, _)| *idx);

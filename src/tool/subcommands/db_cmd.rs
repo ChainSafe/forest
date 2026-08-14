@@ -78,7 +78,7 @@ impl DBCommands {
             Self::Stats { config, chain } => {
                 use human_repr::HumanCount as _;
 
-                let (_, config) = read_config(config.as_ref(), chain.clone())?;
+                let (_, config) = read_config(config.as_ref(), chain)?;
 
                 let dir = db_root(&chain_path(&config))?;
                 println!("Database path: {}", dir.display());
@@ -91,7 +91,7 @@ impl DBCommands {
                 config,
                 chain,
             } => {
-                let (_, config) = read_config(config.as_ref(), chain.clone())?;
+                let (_, config) = read_config(config.as_ref(), chain)?;
 
                 let dir = chain_path(&config);
                 if !dir.is_dir() {
@@ -180,7 +180,7 @@ impl DBCommands {
                 let db_root_path = if let Some(db) = db {
                     db
                 } else {
-                    let (_, config) = read_config(None, Some(chain.clone()))?;
+                    let (_, config) = read_config(None, Some(chain))?;
                     db_root(&chain_path(&config))?
                 };
                 println!("Opening parity-db at {}", db_root_path.display());

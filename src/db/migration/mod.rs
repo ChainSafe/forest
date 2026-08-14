@@ -3,9 +3,6 @@
 
 mod db_migration;
 mod migration_map;
-mod v0_22_1;
-mod v0_26_0;
-mod v0_31_0;
 mod v0_34_1;
 mod void_migration;
 

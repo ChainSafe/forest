@@ -30,7 +30,8 @@ pub const NETWORK_GENESIS_NAME: &str = "calibrationnet";
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
 pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
-    Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
+    Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4")
+        .expect("hardcoded genesis CID is valid")
 });
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
@@ -114,7 +115,10 @@ pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 2]> = LazyLock:
             config: &DRAND_MAINNET,
         },
         DrandPoint {
-            height: HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch,
+            height: HEIGHT_INFOS
+                .get(&Height::Phoenix)
+                .expect("Phoenix height must be defined")
+                .epoch,
             config: &DRAND_QUICKNET,
         },
     ]

@@ -254,24 +254,24 @@ impl State {
                 from_filter_estimate_v3_to_v2(st.this_epoch_qa_power_smoothed.clone())
             }
             State::V14(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V15(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V16(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V17(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V18(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
         }
     }
@@ -396,7 +396,7 @@ macro_rules! list_miners_for_state {
             fil_actors_shared::$version::make_map_with_root::<_, Claim>(&$state.claims, $store)?;
         let mut miners = Vec::new();
         claims.for_each(|bytes, _claim| {
-            miners.push(Address::from_bytes(bytes).expect("Cannot get address from bytes"));
+            miners.push(Address::from_bytes(bytes)?);
             Ok(())
         })?;
         Ok(miners)

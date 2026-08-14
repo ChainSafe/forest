@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// Benchmark harness (feature-gated, not node runtime); unwrapping setup failures is acceptable here.
+#![allow(clippy::unwrap_used)]
+
 use crate::{
     networks::NetworkChain,
     state_manager::utils::state_compute::{

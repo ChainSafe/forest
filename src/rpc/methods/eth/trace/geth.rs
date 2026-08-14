@@ -369,8 +369,7 @@ mod tests {
     fn test_build_prestate_frame_diff_mode_unchanged_actor_excluded() {
         let actor_id = 5003u64;
         let actor = create_test_actor(1000, 5);
-        let trees =
-            TestStateTrees::with_changed_actor(actor_id, actor.clone(), actor.clone()).unwrap();
+        let trees = TestStateTrees::with_changed_actor(actor_id, actor.clone(), actor).unwrap();
 
         let config = PreStateConfig {
             diff_mode: Some(true),

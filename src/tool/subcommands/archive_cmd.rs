@@ -1027,13 +1027,14 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
 
 /// Use the AWS CLI to upload a snapshot file to the `S3` bucket.
 fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::Result<()> {
+    let path = path.to_str().context("snapshot path is not valid UTF-8")?;
     let status = std::process::Command::new("aws")
         .args([
             "s3",
             "cp",
             "--acl",
             "public-read",
-            path.to_str().unwrap(),
+            path,
             &format!("s3://forest-archive/{network}/{tag}/"),
             "--endpoint",
             FOREST_ARCHIVE_S3_ENDPOINT,
