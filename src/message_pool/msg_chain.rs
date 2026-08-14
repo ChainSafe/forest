@@ -539,7 +539,7 @@ where
             continue;
         }
 
-        let gas_reward = cur_chain.gas_reward.clone() + reward;
+        let gas_reward = &cur_chain.gas_reward + reward;
         let gas_limit = cur_chain.gas_limit + m.gas_limit();
         let gas_perf = get_gas_perf(&gas_reward, gas_limit);
 

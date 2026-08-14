@@ -167,8 +167,8 @@ fn compute_gas_premium(mut prices: Vec<GasMeta>, blocks: u64) -> TokenAmount {
     let mut prev2 = TokenAmount::zero();
 
     for p in prices {
-        prev2 = prev1.clone();
-        prev1 = p.price.clone();
+        prev2 = prev1;
+        prev1 = p.price;
 
         if p.limit > at {
             // We've crossed the threshold

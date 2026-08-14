@@ -170,7 +170,7 @@ mod tests {
         assert_ne!(bloom_a, empty);
         assert_ne!(bloom_a, full);
 
-        let mut bloom_b = empty.clone();
+        let mut bloom_b = empty;
         accrue_eth_log(&mut bloom_b, &addr_b, std::slice::from_ref(&topic_b));
 
         // The block bloom (both logs) equals the bitwise OR of the two individual

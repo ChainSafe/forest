@@ -863,7 +863,7 @@ pub(crate) mod tests {
         assert_eq!(expected_hash, tx.eth_hash().unwrap());
         // Note: `v` value 27 is for homestead
         tx_args.v = BigInt::from_str_radix("1b", 16).unwrap();
-        let tx = EthTx::from(tx_args.clone());
+        let tx = EthTx::from(tx_args);
         let sig = tx.signature(calibnet::ETH_CHAIN_ID);
         assert!(sig.is_ok());
         assert!(

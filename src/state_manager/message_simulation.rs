@@ -119,15 +119,15 @@ impl StateManager {
         msg.set_sequence(from_actor.sequence);
 
         // Implicit messages need to set a special gas limit
-        let mut msg = msg.clone();
         msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
         let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
 
+        let msg_cid = msg.cid();
         Ok(ApiInvocResult {
-            msg: msg.clone(),
+            msg,
             msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg.cid(),
+            msg_cid,
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
             gas_cost: MessageGasCost::default(),

@@ -254,24 +254,24 @@ impl State {
                 from_filter_estimate_v3_to_v2(st.this_epoch_qa_power_smoothed.clone())
             }
             State::V14(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V15(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V16(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V17(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V18(st) => FilterEstimate {
-                position: st.this_epoch_qa_power_smoothed.clone().position,
-                velocity: st.this_epoch_qa_power_smoothed.clone().velocity,
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
         }
     }

@@ -180,7 +180,7 @@ mod tests {
 
         // Secp256k1 signature, which includes the signature in the chain length
         let secp_sig = Signature::new_secp256k1(vec![0; 65]);
-        let signed_message_secp = SignedMessage::new_unchecked(message.clone(), secp_sig);
+        let signed_message_secp = SignedMessage::new_unchecked(message, secp_sig);
         assert_eq!(
             signed_message_secp.chain_length().unwrap(),
             to_vec(&signed_message_secp).unwrap().len()

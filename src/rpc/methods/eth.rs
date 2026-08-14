@@ -3250,7 +3250,7 @@ fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)
         // Check if the key is t1..t4
         if let Some(idx) = match_key(&entry.key) {
             // Drop events with mis-sized topics.
-            let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.clone().try_into();
+            let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.as_slice().try_into();
             let bytes = if let Ok(value) = result {
                 value
             } else {
@@ -4517,8 +4517,8 @@ mod test {
         let (_msg1, secp1) = construct_eth_messages(1);
         let (msg2, bls0) = construct_bls_messages();
 
-        crate::chain::persist_objects(&blockstore, [msg0.clone(), msg2.clone()].iter()).unwrap();
-        crate::chain::persist_objects(&blockstore, [secp0.clone(), bls0.clone()].iter()).unwrap();
+        crate::chain::persist_objects(&blockstore, [&msg0, &msg2].into_iter()).unwrap();
+        crate::chain::persist_objects(&blockstore, [&secp0, &bls0].into_iter()).unwrap();
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp0.cid(), 0).unwrap();
         assert!(tx_hash.is_some());
