@@ -1,46 +1,76 @@
 name: external-rpc-checks
 
-# WARNING: this file is not usable on its own. `./prepare.sh` downloads the
-# snapshot and writes the `.env` file every `${...}` below is interpolated from,
-# so it has to run first. Without it the services come up with empty images and
-# arguments.
-#
-#   ./prepare.sh
-#   docker compose up --abort-on-container-exit --exit-code-from rpc-checks
+x-forest-service: &forest-service
+  image: ghcr.io/chainsafe/forest:edge-fat
+  volumes:
+    - node-data:/data
+  environment:
+    # keeps the database in the container's volume, shared across containers
+    - FOREST_PATH=/data
+  user: 0:0
 
 services:
-  # The RPC port opens only after the backfill finishes, so "healthy" means ready.
+  # Downloads yesterday's snapshot, imports it and saves the JWT token.
+  snapshot:
+    <<: *forest-service
+    command:
+      - --chain=calibnet
+      - --encrypt-keystore=false
+      - --no-gc
+      - --height=-50
+      - --import-snapshot=${SNAPSHOT_URL}
+      - --halt-after-import
+      - --save-token=/data/forest-token
+
+  # Serves RPC while syncing. The ports are published so ./setup.sh can query it.
+  # It deliberately does not `depends_on` init: ./setup.sh runs the import first,
+  # and a dependency here would re-run it from every downstream `compose run`.
   forest:
-    image: ${FOREST_IMAGE}
-    volumes:
-      - ./snapshots:/snapshots:ro
+    <<: *forest-service
+    environment:
+      - FOREST_PATH=/data
+      - FOREST_CHAIN_INDEXER_ENABLED=1
     ports:
       - "2345:2345"
-    entrypoint: ["forest-tool"]
+      - "2346:2346"
     command:
-      - api
-      - serve
-      - /snapshots/${SNAPSHOT}
-      - --chain
-      - ${CHAIN}
-      - --port
-      - "2345"
-      - --height
-      - "0"
-      - --index-backfill-epochs
-      - ${BACKFILL}
+      - --chain=calibnet
+      - --encrypt-keystore=false
+      - --no-gc
+      - --rpc-address=0.0.0.0:2345
+      - --healthcheck-address=0.0.0.0:2346
     healthcheck:
-      test: ["CMD", "forest-cli", "chain", "head"]
-      interval: 15s
+      # `/livez` from inside the container: RPC answering and peers connected.
+      test: ["CMD", "forest-cli", "healthcheck", "live", "--healthcheck-port", "2346"]
+      interval: 30s
       timeout: 10s
-      retries: 480
+      retries: 3
+      start_period: 5m
+      start_interval: 5s
 
-  rpc-checks:
-    image: ghcr.io/chainsafe/forest-rpc-checks:2026-08-11-43c77da
+  # Indexes the 1000 epochs below the snapshot head. `--from` counts back
+  # inclusively, so one extra tipset covers the whole range.
+  backfill:
+    <<: *forest-service
     depends_on:
       forest:
         condition: service_healthy
     environment:
+      - FULLNODE_API_INFO=${FULLNODE_API_INFO}
+    entrypoint: ["forest-cli"]
+    command:
+      - index
+      - backfill
+      - --from=${SNAPSHOT_EPOCH}
+      - --n-tipsets=1001
+      - --recompute
+      - --allow-near-head
+
+  # The image entrypoints into `bundle exec ruby check_rpc.rb`, so only the epochs are appended.
+  rpc-checks:
+    image: ghcr.io/chainsafe/forest-rpc-checks:latest
+    environment:
       FOREST_RPC_URL: forest:2345/rpc/v1
-    # The image already entrypoints into `bundle exec ruby check_rpc.rb`.
-    command: ["${START}", "${END}"]
+
+volumes:
+  node-data:
