@@ -354,7 +354,6 @@ lldb target/debugging/forest
 - `RUST_LOG` - Logging configuration (e.g., `debug`, `forest=trace`)
 - `FULLNODE_API_INFO` - RPC endpoint and authentication token
 - `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT` - Disable F3 sidecar build (for debugging profile)
-- `FOREST_REGENERATE_GO_FFI` - when set to `1` forces the regeneration of all Go FFI bindings based on their current Rust definitions, MUST USE when changing any `go_ffi.rs`  
 
 ## Build Profiles
 

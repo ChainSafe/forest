@@ -79,6 +79,7 @@ process.
 | `FOREST_ETH_RPC_COMPUTE_BLOOM_ON_MISS`                           | 1 or true                        | false                                                      | 1                                                             | Allows `eth` block RPC methods to compute (and store) the block `logsBloom` when it is not already stored, otherwise such blocks report an all-ones bloom                                                                                                                      |
 | `FOREST_RPC_METRICS_DISABLED`                                    | 1 or true                        | false                                                      | 1                                                             | Disable per-method JSON-RPC metrics only, leaving the metrics endpoint and all other metrics (cache, sync, database, ...) intact. To turn off metrics entirely, disable the endpoint instead with `--no-metrics`                                                               |
 | `FOREST_STATE_COMPUTE_MAX_RANGE`                                 | positive integer                 | 2000                                                       | 100                                                           | The maximum `nEpochs` value `Forest.StateCompute` accepts                                                                                                                                                                                                                      |
+| `FOREST_REGENERATE_GO_FFI`                                       | 1 or true                        | empty                                                      | 1                                                             | Regenerate the committed Go FFI bindings from their `go_ffi.rs` sources. Only useful when building; the CI checks use it to verify the bindings are in sync                                                                                                                    |
 
 ### `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT`
 
@@ -87,12 +88,6 @@ the binary.
 
 By default, the Go f3-sidecar is built and linked into Forest binary unless environment
 variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
-
-### `FOREST_REGENERATE_GO_FFI`
-
-Forces the regeneration of all Go FFI bindings in the project when `FOREST_REGENERATE_GO_FFI=1` is set.
-
-Used in the CI checks to ensure the currently tracked Go FFI bindings are in sync with their respective Rust definitions.
 
 ### `FOREST_DB_DEV_MODE`
 

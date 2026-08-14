@@ -21,11 +21,11 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=FOREST_REGENERATE_GO_FFI");
     if is_env_truthy("FOREST_REGENERATE_GO_FFI")
-        && (is_docs_rs() || is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT"))
+        && is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT")
     {
         println!(
             "cargo:warning=FOREST_REGENERATE_GO_FFI has no effect on the f3-sidecar binding: \
-             the build that regenerates it is skipped by FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT or DOCS_RS"
+             FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT skips the build that regenerates it"
         );
     }
 

@@ -41,8 +41,6 @@
 
 ### Changed
 
-- [#7467](https://github.com/ChainSafe/forest/issues/7467): CI now verifies that the committed Go FFI bindings `interop-tests/src/tests/go_app/ffi_gen.go` and `f3-sidecar/ffi_gen.go` stay in sync with their `go_ffi.rs` sources through the `FOREST_REGENERATE_GO_FFI` environment variable, included `mise run lint:go-ffi`.
-
 ### Removed
 
 - [#7481](https://github.com/ChainSafe/forest/issues/7481): Removed legacy database migrations from before the NV28 network upgrade.
