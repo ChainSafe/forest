@@ -43,6 +43,8 @@
 
 ### Removed
 
+- [#7481](https://github.com/ChainSafe/forest/issues/7481): Removed legacy database migrations from before the NV28 network upgrade.
+
 ### Fixed
 
 - [#7473](https://github.com/ChainSafe/forest/pull/7473): Fixed `eth_estimateGas` under-estimating gas for nested contract calls (EIP-150's 63/64 rule), which could make transactions fail on chain with `SYS_OUT_OF_GAS`; the estimate is now raised until the message succeeds. Genuine reverts return an `execution reverted` error (JSON-RPC code `3`) with the decoded reason and data, matching Lotus.
