@@ -2,7 +2,7 @@
 # Runs the RPC checks against the external data.riba.plus dataset.
 # Needs docker, curl and jq; the snapshot is downloaded into a docker volume.
 
-set -euxo pipefail
+set -euo pipefail
 
 PARENT_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 pushd "${PARENT_PATH}"
@@ -44,6 +44,9 @@ verify_epoch_indexed() {
 }
 
 export SNAPSHOT_URL="${url}"
+
+# This should not be needed in GH. It is useful for running locally.
+docker compose down --remove-orphans --volumes
 
 docker compose run --rm snapshot
 docker compose up --detach forest
