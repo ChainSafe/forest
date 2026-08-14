@@ -171,14 +171,17 @@ impl BuiltinActorManifest {
             BuiltinActorManifest::MANDATORY_BUILTINS,
             BuiltinActor::System
         );
-        self.get(BuiltinActor::System).unwrap()
+        self.get(BuiltinActor::System).expect(
+            "System is a mandatory builtin, guaranteed present by every manifest constructor",
+        )
     }
     pub fn get_init(&self) -> Cid {
         static_assert_contains_matching!(
             BuiltinActorManifest::MANDATORY_BUILTINS,
             BuiltinActor::Init
         );
-        self.get(BuiltinActor::Init).unwrap()
+        self.get(BuiltinActor::Init)
+            .expect("Init is a mandatory builtin, guaranteed present by every manifest constructor")
     }
     /// The CID that this manifest was built from, also known as the `actors CID`
     #[doc(alias = "actors_cid")]

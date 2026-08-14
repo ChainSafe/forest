@@ -303,8 +303,8 @@ impl Default for RpcModule {
                           _max_response,
                           _extensions| {
                         let cb = || {
-                            let arr: [Id<'_>; 1] = params.parse()?;
-                            let sub_id = arr[0].clone().into_owned();
+                            let [id]: [Id<'_>; 1] = params.parse()?;
+                            let sub_id = id.into_owned();
 
                             tracing::debug!("Got cancel request (id={sub_id})");
 
@@ -429,7 +429,7 @@ impl RpcModule {
                     let (tx, rx) = oneshot::channel();
 
                     let sink = PendingSubscriptionSink {
-                        inner: method_sink.clone(),
+                        inner: method_sink,
                         method: NOTIF_METHOD_NAME,
                         subscribers: subscribers.clone(),
                         id: id.clone().into_owned(),
@@ -440,7 +440,7 @@ impl RpcModule {
 
                     callback(params, sink);
 
-                    let id = id.clone().into_owned();
+                    let id = id.into_owned();
 
                     Box::pin(async move {
                         match rx.await {

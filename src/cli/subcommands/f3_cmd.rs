@@ -38,14 +38,14 @@ const PROGRESS_TEMPLATE_NAME: &str = "progress.tpl";
 static TEMPLATES: LazyLock<Tera> = LazyLock::new(|| {
     let mut tera = Tera::default();
     tera.add_raw_template(MANIFEST_TEMPLATE_NAME, include_str!("f3_cmd/manifest.tpl"))
-        .unwrap();
+        .expect("compiled-in manifest template is valid");
     tera.add_raw_template(
         CERTIFICATE_TEMPLATE_NAME,
         include_str!("f3_cmd/certificate.tpl"),
     )
-    .unwrap();
+    .expect("compiled-in certificate template is valid");
     tera.add_raw_template(PROGRESS_TEMPLATE_NAME, include_str!("f3_cmd/progress.tpl"))
-        .unwrap();
+        .expect("compiled-in progress template is valid");
 
     #[allow(clippy::disallowed_types)]
     fn format_duration(

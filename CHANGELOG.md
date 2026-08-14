@@ -31,6 +31,8 @@
 
 - [#7339](https://github.com/ChainSafe/forest/issues/7339): Forest-owned RPC methods now use `camelCase` field names consistently in requests and responses: `Forest.SyncStatus`, `Forest.NetInfo`, `Forest.ChainExport`, `Forest.ChainExportDiff`, `Forest.ChainExportStatus`, `Forest.StateActorInfo`, `Forest.StateCompute` and `Filecoin.ChainExport` (e.g. `num_peers` → `numPeers`, `start_epoch` → `startEpoch`, `StateRoot` → `stateRoot`). The named parameters of `Filecoin.StateMinerInitialPledgeForSector` are now `sectorDuration`, `sectorSize`, `verifiedSize` and `tipsetKey` (positional calls are unaffected). The generated OpenRPC document is now tested for casing regressions.
 
+- [#7479](https://github.com/ChainSafe/forest/pull/7479): Explicitly banned non-64-bit architectures from building Forest. This was already an implicit requirement (Forest would misbehave in runtime), but now it is enforced at build time.
+
 ### Added
 
 - [#7426](https://github.com/ChainSafe/forest/pull/7426): Added `forest-tool db import-tipset-lookup` for importing a tipset lookup snapshot.
@@ -41,7 +43,11 @@
 
 ### Removed
 
+- [#7481](https://github.com/ChainSafe/forest/issues/7481): Removed legacy database migrations from before the NV28 network upgrade.
+
 ### Fixed
+
+- [#7473](https://github.com/ChainSafe/forest/pull/7473): Fixed `eth_estimateGas` under-estimating gas for nested contract calls (EIP-150's 63/64 rule), which could make transactions fail on chain with `SYS_OUT_OF_GAS`; the estimate is now raised until the message succeeds. Genuine reverts return an `execution reverted` error (JSON-RPC code `3`) with the decoded reason and data, matching Lotus.
 
 - [#7412](https://github.com/ChainSafe/forest/issues/7412): Fixes quicknet "unchained" logic to fetch the `max_beacon_round` for all covered epochs
 
@@ -50,6 +56,8 @@
 - [#7413](https://github.com/ChainSafe/forest/issues/7413): Block validation on quicknet now rejects headers whose beacon entries do not cover every epoch since the parent tipset
 
 - [#7366](https://github.com/ChainSafe/forest/issues/7366): `forest-cli sync wait -w` no longer leaves a stale `Status:` line behind on each refresh when the report wraps onto more terminal rows than it has lines.
+
+- [#7480](https://github.com/ChainSafe/forest/pull/7480): `forest-tool api serve --index-backfill-epochs N` now backfills N epochs below the chain head. Previously the chain head consumed one of the requested epochs, so only N-1 were indexed.
 
 ## Forest v0.35.0 "Shravan"
 

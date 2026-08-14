@@ -31,7 +31,7 @@ pub static ZERO_ADDRESS: LazyLock<Address> = LazyLock::new(|| {
         .parse_address(
             "f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a",
         )
-        .unwrap()
+        .expect("hardcoded zero address is a valid mainnet address")
         .into()
 });
 

@@ -134,7 +134,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
         let (bls_messages, secp_messages) =
             chain::store::block_messages(ctx.db(), &block_msg.header)?;
         let block = Block {
-            header: block_msg.header.clone(),
+            header: block_msg.header,
             bls_messages,
             secp_messages,
         };

@@ -53,6 +53,11 @@ impl ApplyRet {
         delegate_apply_ret!(self.msg_receipt.clone().into())
     }
 
+    /// The message's return payload, cloned without cloning the rest of the receipt.
+    pub fn return_data(&self) -> RawBytes {
+        delegate_apply_ret!(self => |r| r.msg_receipt.return_data.clone())
+    }
+
     pub fn exit_code(&self) -> ExitCode {
         ExitCode::new(delegate_apply_ret!(self => |r| r.msg_receipt.exit_code.value()))
     }
@@ -75,6 +80,27 @@ impl ApplyRet {
 
     pub fn over_estimation_burn(&self) -> TokenAmount {
         delegate_apply_ret!(self.over_estimation_burn.borrow().into())
+    }
+
+    /// Whether any traced `CallReturn` carries `code`, without materializing the trace.
+    /// Mirrors Lotus's `traceContainsExitCode`. FVM2 `CallReturn`s carry no exit code, so they
+    /// never match.
+    pub fn trace_has_call_return_exit_code(&self, code: ExitCode) -> bool {
+        let want = code.value();
+        match self {
+            ApplyRet::V2(_) => false,
+            ApplyRet::V3(r) => r.exec_trace.iter().any(
+                |e| matches!(e, fvm3::trace::ExecutionEvent::CallReturn(c, _) if c.value() == want),
+            ),
+            ApplyRet::V4(r) => r.exec_trace.iter().any(
+                |e| matches!(e, fvm4::trace::ExecutionEvent::CallReturn(c, _) if c.value() == want),
+            ),
+        }
+    }
+
+    /// Consuming variant of [`Self::exec_trace`].
+    pub fn into_exec_trace(self) -> Vec<ExecutionEvent> {
+        delegate_apply_ret!(self => |r| r.exec_trace.into_iter().map(Into::into).collect())
     }
 
     pub fn exec_trace(&self) -> Vec<ExecutionEvent> {
@@ -368,6 +394,7 @@ impl quickcheck::Arbitrary for Receipt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fvm4::trace::ExecutionEvent as E4;
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]
@@ -380,5 +407,62 @@ mod tests {
         }
         .unwrap();
         assert_eq!(encoded, encoded2);
+    }
+
+    /// Build an `ApplyRet` of the given variant carrying `exec_trace`; every other field is a
+    /// zero/empty placeholder (the `fvm` structs have no `Default` to lean on). Trailing
+    /// `field: value` pairs supply the fields that differ across versions.
+    macro_rules! apply_ret {
+        ($variant:ident, $inner:ident, $receipt:expr, $exec_trace:expr $(, $ef:ident: $ev:expr)*) => {
+            ApplyRet::$variant($inner {
+                msg_receipt: $receipt,
+                penalty: Default::default(),
+                miner_tip: Default::default(),
+                base_fee_burn: Default::default(),
+                over_estimation_burn: Default::default(),
+                refund: Default::default(),
+                gas_refund: 0,
+                gas_burned: 0,
+                failure_info: None,
+                exec_trace: $exec_trace,
+                $($ef: $ev,)*
+            })
+        };
+    }
+
+    #[test]
+    fn trace_has_call_return_exit_code_across_versions() {
+        let want = ExitCode::SYS_OUT_OF_GAS;
+        let miss = ExitCode::new(33);
+
+        // V4 matches only the wanted code (guards the old footgun that matched any `Some(_)`).
+        let v4 = |t| apply_ret!(V4, ApplyRet_v4, Receipt_v4 { exit_code: ExitCode::OK, return_data: RawBytes::default(), gas_used: 0, events_root: None }, t, events: vec![], return_codec: None);
+        assert!(v4(vec![E4::CallReturn(want, None)]).trace_has_call_return_exit_code(want));
+        assert!(!v4(vec![E4::CallReturn(want, None)]).trace_has_call_return_exit_code(miss));
+        assert!(
+            !v4(vec![E4::CallReturn(ExitCode::OK, None)]).trace_has_call_return_exit_code(want)
+        );
+        assert!(!v4(vec![]).trace_has_call_return_exit_code(want));
+
+        // V3 applies the same check to the fvm3 trace.
+        use fvm3::trace::ExecutionEvent as E3;
+        let v3 = |t| apply_ret!(V3, ApplyRet_v3, Receipt_v3 { exit_code: fvm_shared3::error::ExitCode::OK, return_data: RawBytes::default(), gas_used: 0, events_root: None }, t, events: vec![]);
+        let oog3 = fvm_shared3::error::ExitCode::SYS_OUT_OF_GAS;
+        assert!(v3(vec![E3::CallReturn(oog3, None)]).trace_has_call_return_exit_code(want));
+        assert!(!v3(vec![E3::CallReturn(oog3, None)]).trace_has_call_return_exit_code(miss));
+
+        // FVM2 `CallReturn` carries no exit code, so it never matches.
+        use fvm2::trace::ExecutionEvent as E2;
+        let v2 = apply_ret!(
+            V2,
+            ApplyRet_v2,
+            Receipt_v2 {
+                exit_code: fvm_shared2::error::ExitCode::OK,
+                return_data: RawBytes::default(),
+                gas_used: 0
+            },
+            vec![E2::CallReturn(RawBytes::default())]
+        );
+        assert!(!v2.trace_has_call_return_exit_code(want));
     }
 }

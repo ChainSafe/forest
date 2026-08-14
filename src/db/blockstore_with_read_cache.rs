@@ -129,7 +129,7 @@ mod tests {
             CACHE_SIZE.try_into().unwrap(),
         ));
         let db = BlockstoreWithReadCache::new(
-            mem_db.clone(),
+            mem_db,
             cache.clone(),
             Some(DefaultBlockstoreReadCacheStats::default()),
         );

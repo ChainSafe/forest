@@ -496,8 +496,7 @@ impl FinalityCertificate {
         let total_diff = self
             .power_table_delta
             .iter()
-            .map(|i| i.power_delta.clone())
-            .fold(num::BigInt::zero(), |acc, x| acc + x);
+            .fold(num::BigInt::zero(), |acc, i| acc + &i.power_delta);
         if total_diff.is_zero() {
             "None".into()
         } else {
@@ -947,7 +946,7 @@ mod tests {
           }
         });
         let manifest: F3Manifest = serde_json::from_value(lotus_json.clone()).unwrap();
-        let serialized = serde_json::to_value(manifest.clone()).unwrap();
+        let serialized = serde_json::to_value(manifest).unwrap();
         assert_eq!(lotus_json, serialized);
     }
 
@@ -1014,7 +1013,7 @@ mod tests {
           ]
         });
         let cert: FinalityCertificate = serde_json::from_value(lotus_json.clone()).unwrap();
-        let serialized = serde_json::to_value(cert.clone()).unwrap();
+        let serialized = serde_json::to_value(cert).unwrap();
         assert_eq!(lotus_json, serialized);
     }
 

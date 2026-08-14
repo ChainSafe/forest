@@ -246,8 +246,10 @@ fn validate_winner_election(
     work_addr: &Address,
     state_manager: &StateManager,
 ) -> Result<(), FilecoinConsensusError> {
-    // Safe to unwrap because checked to `Some` in sanity check
-    let election_proof = header.election_proof.as_ref().unwrap();
+    let election_proof = header
+        .election_proof
+        .as_ref()
+        .ok_or(FilecoinConsensusError::BlockWithoutElectionProof)?;
     if election_proof.win_count < 1 {
         return Err(FilecoinConsensusError::NotClaimingWin);
     }
@@ -323,8 +325,12 @@ fn validate_ticket_election(
     verify_election_post_vrf(
         work_addr,
         &vrf_base,
-        // Safe to unwrap here because of block sanity checks
-        header.ticket.as_ref().unwrap().vrfproof.as_bytes(),
+        header
+            .ticket
+            .as_ref()
+            .ok_or(FilecoinConsensusError::BlockWithoutTicket)?
+            .vrfproof
+            .as_bytes(),
     )?;
 
     Ok(())

@@ -225,8 +225,8 @@ forest-dev tests mpool
 forest-dev tests wallet
 '''
 
-[tasks."test:wallet-devnet"]
-description = "Run wallet integration tests against a local docker devnet."
+[tasks."test:devnet"]
+description = "Run the integration test suites against a local docker devnet."
 shell = "bash -c"
 run = '''
 set -euo pipefail
@@ -234,10 +234,11 @@ pushd scripts/devnet
 ./setup.sh
 ./check.sh
 popd
-source ./scripts/devnet/wallet_harness.sh
-devnet_wallet_env_init
+source ./scripts/devnet/test_harness.sh
+devnet_test_env_init
 forest-dev tests mpool
 forest-dev tests wallet
+forest-dev devnet eth-gas
 '''
 
 [tasks."codecov:nextest"]

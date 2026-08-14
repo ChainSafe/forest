@@ -2269,6 +2269,7 @@ SUBCOMMANDS:
   export-tipset-lookup  Exports epoch to tipset key mapping AMT as a `ForestCAR` file for a given epoch range. The exported AMT can be used to quickly look up the tipset key for a given epoch without traversing the chain, which is useful for tools that need to access historical tipsets frequently
   export-state-tree     Exports N consecutive parent state trees(together with messages, message receipts and events) of the tipset at the given epoch
   tests                 Integration tests
+  devnet                Integration tests that require the local docker devnet
   help                  Print this message or the help of the given subcommand(s)
 
 OPTIONS:

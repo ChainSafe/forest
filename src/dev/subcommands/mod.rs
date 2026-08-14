@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod archive_missing_cmd;
+mod devnet_cmd;
 mod export_state_tree_cmd;
 mod export_tipset_lookup_cmd;
 mod state_cmd;
@@ -56,6 +57,9 @@ pub enum Subcommand {
     ExportStateTree(export_state_tree_cmd::ExportStateTreeCommand),
     #[command(subcommand)]
     Tests(tests_cmd::TestsCommand),
+    /// Integration tests that require the local docker devnet
+    #[command(subcommand)]
+    Devnet(devnet_cmd::DevnetCommand),
 }
 
 impl Subcommand {
@@ -68,6 +72,7 @@ impl Subcommand {
             Self::ExportTipsetLookup(cmd) => cmd.run().await,
             Self::ExportStateTree(cmd) => cmd.run().await,
             Self::Tests(cmd) => cmd.run().await,
+            Self::Devnet(cmd) => cmd.run().await,
         }
     }
 }
@@ -113,7 +118,11 @@ async fn fetch_rpc_tests() -> anyhow::Result<()> {
         .lines()
         .map(|i| {
             // Remove comment
-            i.split("#").next().unwrap().trim().to_string()
+            i.split("#")
+                .next()
+                .expect("split always yields at least one element")
+                .trim()
+                .to_string()
         })
         .filter(|l| !l.is_empty() && !l.starts_with('#'));
     let mut joinset = JoinSet::new();

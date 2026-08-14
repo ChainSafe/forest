@@ -34,7 +34,8 @@ pub const NETWORK_GENESIS_NAME: &str = "testnetnet";
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
 pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
-    Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
+    Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2")
+        .expect("hardcoded genesis CID is valid")
 });
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 

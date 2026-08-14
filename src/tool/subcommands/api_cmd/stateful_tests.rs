@@ -1160,7 +1160,7 @@ pub(super) async fn create_tests(tx: TestTransaction) -> Vec<RpcTestScenario> {
             EthGetTransactionHashByCid
         ),
         with_methods!(
-            eth_subscribe_logs(tx.clone()).name("eth_subscribe logs filter matrix"),
+            eth_subscribe_logs(tx).name("eth_subscribe logs filter matrix"),
             EthSubscribe,
             EthUnsubscribe,
             EthGetTransactionHashByCid
