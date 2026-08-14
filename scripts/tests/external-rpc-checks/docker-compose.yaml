@@ -22,9 +22,6 @@ services:
       - --halt-after-import
       - --save-token=/data/forest-token
 
-  # Serves RPC while syncing. The ports are published so ./setup.sh can query it.
-  # It deliberately does not `depends_on` init: ./setup.sh runs the import first,
-  # and a dependency here would re-run it from every downstream `compose run`.
   forest:
     <<: *forest-service
     environment:
@@ -41,7 +38,15 @@ services:
       - --healthcheck-address=0.0.0.0:2346
     healthcheck:
       # `/livez` from inside the container: RPC answering and peers connected.
-      test: ["CMD", "forest-cli", "healthcheck", "live", "--healthcheck-port", "2346"]
+      test:
+        [
+          "CMD",
+          "forest-cli",
+          "healthcheck",
+          "live",
+          "--healthcheck-port",
+          "2346",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
