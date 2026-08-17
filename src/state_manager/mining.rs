@@ -34,17 +34,17 @@ impl StateManager {
             return Ok(false);
         }
 
-        let actor = self
-            .get_actor(&Address::POWER_ACTOR, *base_tipset.parent_state())?
+        let state_tree = self.get_state_tree(base_tipset.parent_state())?;
+
+        let power_actor = state_tree
+            .get_actor(&Address::POWER_ACTOR)?
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
+        let power_state = power::State::load(self.db(), power_actor.code, power_actor.state)?;
 
-        let power_state = power::State::load(self.db(), actor.code, actor.state)?;
-
-        let actor = self
-            .get_actor(address, *base_tipset.parent_state())?
+        let miner_actor = state_tree
+            .get_actor(address)?
             .ok_or_else(|| Error::state("Miner actor address could not be resolved"))?;
-
-        let miner_state = miner::State::load(self.db(), actor.code, actor.state)?;
+        let miner_state = miner::State::load(self.db(), miner_actor.code, miner_actor.state)?;
 
         // Non-empty power claim.
         let claim = power_state
