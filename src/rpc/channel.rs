@@ -484,6 +484,21 @@ mod tests {
     /// Buffer size of the per-call frame stream returned by `raw_json_request`.
     const STREAM_BUF_SIZE: usize = 256;
 
+    /// A [`Methods`] with one channel method: every subscriber gets a fresh
+    /// receiver from the same `events` broadcast source.
+    ///
+    /// The callback keeps only a receiver prototype — not a sender clone — so
+    /// the test's `events` sender stays the single sender and dropping it
+    /// closes the source (exercised by the close tests).
+    fn test_methods(events: &broadcast::Sender<String>) -> Methods {
+        let mut module = RpcModule::default();
+        let prototype = events.subscribe();
+        module
+            .register_channel(TEST_METHOD, move |_params| prototype.resubscribe())
+            .unwrap();
+        module.into()
+    }
+
     /// Subscribe with the given request id; returns the allocated channel id
     /// and the stream of frames sent to this "connection".
     ///
@@ -512,6 +527,23 @@ mod tests {
         (channel_id, frames)
     }
 
+    /// Request id used for the `xrpc.cancel` calls themselves; non-null so
+    /// the error path's id echo is observable.
+    const CANCEL_REQUEST_ID: u64 = 999;
+
+    /// Send an `xrpc.cancel` for the given original request id and return the
+    /// raw response.
+    async fn cancel(methods: &Methods, target_request_id: u64) -> Value {
+        let request = format!(
+            r#"{{"jsonrpc":"2.0","id":{CANCEL_REQUEST_ID},"method":"{CANCEL_METHOD_NAME}","params":[{target_request_id}]}}"#
+        );
+        let (response, _) = methods
+            .raw_json_request(&request, STREAM_BUF_SIZE)
+            .await
+            .unwrap();
+        serde_json::from_str(response.get()).unwrap()
+    }
+
     async fn next_frame(frames: &mut mpsc::Receiver<Box<RawValue>>) -> Value {
         let frame = tokio::time::timeout(RECV_TIMEOUT, frames.recv())
             .await
@@ -520,19 +552,157 @@ mod tests {
         serde_json::from_str(frame.get()).unwrap()
     }
 
+    /// Assert the stream ends without yielding another frame. This only
+    /// resolves once the channel's pump task has exited and dropped its sink,
+    /// so it doubles as a synchronization point on pump shutdown.
+    async fn assert_stream_closed(frames: &mut mpsc::Receiver<Box<RawValue>>) {
+        let frame = tokio::time::timeout(RECV_TIMEOUT, frames.recv())
+            .await
+            .expect("timed out waiting for the stream to close");
+        assert!(
+            frame.is_none(),
+            "expected the stream to close, got frame: {}",
+            frame.unwrap().get()
+        );
+    }
+
+    fn val_frame(channel_id: ChannelId, payload: &str) -> Value {
+        json!({"jsonrpc": "2.0", "method": NOTIF_METHOD_NAME, "params": [channel_id, payload]})
+    }
+
     fn close_frame(channel_id: ChannelId) -> Value {
         json!({"jsonrpc": "2.0", "method": "xrpc.ch.close", "params": [channel_id]})
     }
 
+    /// The response shape `xrpc.cancel` currently produces: an `id:null`
+    /// response wrapping the close notification (see #4453).
+    fn close_response(channel_id: ChannelId) -> Value {
+        json!({"jsonrpc": "2.0", "id": null, "result": close_frame(channel_id)})
+    }
+
+    #[tokio::test]
+    async fn subscribe_returns_u64_channel_id() {
+        let (events, _) = broadcast::channel::<String>(SOURCE_CAPACITY);
+        let methods = test_methods(&events);
+
+        let (first_channel, _first_frames) = subscribe(&methods, 1).await;
+        let (second_channel, _second_frames) = subscribe(&methods, 2).await;
+
+        assert_eq!(second_channel, first_channel + 1);
+    }
+
+    #[tokio::test]
+    async fn value_framing_positional() {
+        let (events, _) = broadcast::channel(SOURCE_CAPACITY);
+        let methods = test_methods(&events);
+        let (channel_id, mut frames) = subscribe(&methods, 1).await;
+
+        events.send("head-change".into()).unwrap();
+        drop(events);
+
+        // Exactly one `xrpc.ch.val` frame with positional params
+        // `[channelId, payload]`, then the close from the dropped source —
+        // proving the send produced no extra frames.
+        assert_eq!(
+            next_frame(&mut frames).await,
+            val_frame(channel_id, "head-change")
+        );
+        assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
+    }
+
+    #[tokio::test]
+    async fn two_channels_one_conn_independent() {
+        let (events, _) = broadcast::channel(SOURCE_CAPACITY);
+        let methods = test_methods(&events);
+        let (first_channel, mut first_frames) = subscribe(&methods, 1).await;
+        let (second_channel, mut second_frames) = subscribe(&methods, 2).await;
+        assert_ne!(first_channel, second_channel);
+
+        // both channels deliver the same event
+        events.send("both".into()).unwrap();
+        assert_eq!(
+            next_frame(&mut first_frames).await,
+            val_frame(first_channel, "both")
+        );
+        assert_eq!(
+            next_frame(&mut second_frames).await,
+            val_frame(second_channel, "both")
+        );
+
+        // cancelling #1 closes only #1 (wait for its pump to exit before the
+        // next send, so the event cannot race the pump shutdown)
+        assert_eq!(cancel(&methods, 1).await, close_response(first_channel));
+        assert_stream_closed(&mut first_frames).await;
+
+        // ... while #2 still delivers
+        events.send("second-only".into()).unwrap();
+        assert_eq!(
+            next_frame(&mut second_frames).await,
+            val_frame(second_channel, "second-only")
+        );
+    }
+
+    #[tokio::test]
+    async fn hundred_channel_fanout() {
+        let (events, _) = broadcast::channel(SOURCE_CAPACITY);
+        let methods = test_methods(&events);
+
+        let mut channels = Vec::new();
+        for request_id in 1..=100 {
+            channels.push(subscribe(&methods, request_id).await);
+        }
+
+        events.send("fan-out".into()).unwrap();
+
+        let mut seen = ahash::HashSet::default();
+        for (channel_id, frames) in &mut channels {
+            assert_eq!(next_frame(frames).await, val_frame(*channel_id, "fan-out"));
+            assert!(seen.insert(*channel_id), "channel ids must be unique");
+        }
+    }
+
+    #[tokio::test]
+    async fn cancel_unknown_id_errors() {
+        let (events, _) = broadcast::channel(SOURCE_CAPACITY);
+        let methods = test_methods(&events);
+        let (channel_id, mut frames) = subscribe(&methods, 1).await;
+
+        let response = cancel(&methods, 99).await;
+        assert!(
+            response.get("error").is_some(),
+            "cancelling an unknown id must return an error response: {response}"
+        );
+        assert!(response.get("result").is_none());
+        // the error path echoes the cancel request's own id
+        assert_eq!(response.get("id"), Some(&json!(CANCEL_REQUEST_ID)));
+
+        // the live channel is unaffected
+        events.send("still-open".into()).unwrap();
+        assert_eq!(
+            next_frame(&mut frames).await,
+            val_frame(channel_id, "still-open")
+        );
+    }
+
+    /// When the event source closes, the client gets a bare `xrpc.ch.close`
+    /// notification.
+    #[tokio::test]
+    async fn source_closed_sends_bare_close() {
+        let (events, _) = broadcast::channel::<String>(SOURCE_CAPACITY);
+        let methods = test_methods(&events);
+        let (channel_id, mut frames) = subscribe(&methods, 1).await;
+
+        drop(events);
+
+        assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
+    }
+
     /// Regression test: a subscriber that falls behind the broadcast source
     /// has its channel closed — like Lotus, so the client knows to
-    /// resubscribe and resync — instead of silently losing the overflowed
+    /// resubscribe and re-sync — instead of silently losing the overflowed
     /// events while the channel stays open.
     #[tokio::test]
     async fn lagged_consumer_channel_closes() {
-        // The receiver handed to the pump is already lagged before the pump
-        // ever polls it: overflow it first, then subscribe. This makes the
-        // `Lagged` observation deterministic regardless of task scheduling.
         let (events, lagged_rx) = broadcast::channel(SOURCE_CAPACITY);
         for n in 0..SOURCE_CAPACITY + 2 {
             events.send(format!("event-{n}")).unwrap();
@@ -548,7 +718,7 @@ mod tests {
 
         let (channel_id, mut frames) = subscribe(&methods, 1).await;
 
-        // no value frames arrive — the client is told the channel is gone
+        // no value frames arrive, the client is told the channel is gone
         assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
 
         // the pump exited and dropped its receiver — the source has no
