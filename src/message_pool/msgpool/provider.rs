@@ -18,7 +18,6 @@ use crate::shim::{
 };
 use crate::utils::db::CborStoreExt;
 use auto_impl::auto_impl;
-use tokio::sync::broadcast;
 
 /// Provider Trait. This trait will be used by the message pool to interact with
 /// some medium in order to do the operations that are listed below that are
@@ -26,7 +25,7 @@ use tokio::sync::broadcast;
 #[auto_impl(Arc)]
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
-    fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges>;
+    fn subscribe_head_changes(&self) -> flume::Receiver<HeadChanges>;
     /// Get the heaviest Tipset in the provider
     fn get_heaviest_tipset(&self) -> Tipset;
     /// Add a message to the `MpoolProvider`, return either Cid or Error
@@ -65,7 +64,7 @@ pub trait Provider {
 }
 
 impl Provider for ChainStore {
-    fn subscribe_head_changes(&self) -> broadcast::Receiver<HeadChanges> {
+    fn subscribe_head_changes(&self) -> flume::Receiver<HeadChanges> {
         self.subscribe_head_changes()
     }
 
