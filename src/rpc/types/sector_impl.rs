@@ -532,3 +532,45 @@ impl From<fil_actor_miner_state::v18::SectorPreCommitInfo> for SectorPreCommitIn
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Smoke-checks that `From<fil_actor_miner_state::vN::$ty>` compiles and
+    /// runs for every actor version, where the source and target share a name.
+    macro_rules! assert_from_default {
+        ($ty:ident, $($v:ident),+ $(,)?) => {
+            $( let _: $ty = fil_actor_miner_state::$v::$ty::default().into(); )+
+        };
+    }
+
+    #[test]
+    fn sector_on_chain_info_conversions_from_all_versions() {
+        assert_from_default!(
+            SectorOnChainInfo,
+            v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18
+        );
+    }
+
+    #[test]
+    fn sector_on_chain_info_v9_simple_qa_power_sets_flag() {
+        let info = fil_actor_miner_state::v9::SectorOnChainInfo {
+            simple_qa_power: true,
+            ..Default::default()
+        };
+        let converted: SectorOnChainInfo = info.into();
+        assert_eq!(
+            converted.flags,
+            SectorOnChainInfoFlags::SIMPLE_QA_POWER.bits()
+        );
+    }
+
+    #[test]
+    fn sector_pre_commit_info_conversions_from_all_versions() {
+        assert_from_default!(
+            SectorPreCommitInfo,
+            v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18
+        );
+    }
+}

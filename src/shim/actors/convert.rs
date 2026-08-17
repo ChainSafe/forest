@@ -781,3 +781,138 @@ pub fn from_policy_v13_to_v18(policy: &PolicyV13) -> PolicyV18 {
         posted_partitions_max: policy.posted_partitions_max,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reg_seal_proof_conversions_preserve_id() {
+        for proof in [
+            RegisteredSealProofV3::StackedDRG2KiBV1,
+            RegisteredSealProofV3::StackedDRG512MiBV1,
+            RegisteredSealProofV3::StackedDRG32GiBV1,
+            RegisteredSealProofV3::StackedDRG64GiBV1,
+        ] {
+            let id: i64 = proof.into();
+            assert_eq!(
+                from_reg_seal_proof_v3_to_v2(proof),
+                RegisteredSealProofV2::from(id)
+            );
+        }
+
+        for proof in [
+            RegisteredSealProofV4::StackedDRG2KiBV1,
+            RegisteredSealProofV4::StackedDRG32GiBV1,
+        ] {
+            let id: i64 = proof.into();
+            assert_eq!(
+                from_reg_seal_proof_v4_to_v2(proof),
+                RegisteredSealProofV2::from(id)
+            );
+        }
+    }
+
+    #[test]
+    fn reg_post_proof_conversions_preserve_id() {
+        let p3 = RegisteredPoStProofV3::from(0i64);
+        let id3: i64 = p3.into();
+        assert_eq!(from_reg_post_proof_v3_to_v2(p3), RegisteredPoStProofV2::from(id3));
+
+        let p4 = RegisteredPoStProofV4::from(0i64);
+        let id4: i64 = p4.into();
+        assert_eq!(from_reg_post_proof_v4_to_v2(p4), RegisteredPoStProofV2::from(id4));
+    }
+
+    #[test]
+    fn address_conversions_preserve_bytes() {
+        let a2 = AddressV2::new_id(1234);
+        assert_eq!(from_address_v2_to_v3(a2).to_bytes(), a2.to_bytes());
+        assert_eq!(from_address_v2_to_v4(a2).to_bytes(), a2.to_bytes());
+
+        let a3 = AddressV3::new_id(5678);
+        assert_eq!(from_address_v3_to_v4(a3).to_bytes(), a3.to_bytes());
+    }
+
+    #[test]
+    fn token_conversions_preserve_atto() {
+        let t2 = TokenAmountV2::from_atto(42);
+        assert_eq!(from_token_v2_to_v4(&t2), TokenAmountV4::from_atto(42));
+        assert_eq!(from_token_v2_to_v3(&t2), TokenAmountV3::from_atto(42));
+
+        let t3 = TokenAmountV3::from_atto(7);
+        assert_eq!(from_token_v3_to_v2(&t3), TokenAmountV2::from_atto(7));
+        assert_eq!(from_token_v3_to_v4(&t3), TokenAmountV4::from_atto(7));
+
+        let t4 = TokenAmountV4::from_atto(9);
+        assert_eq!(from_token_v4_to_v2(&t4), TokenAmountV2::from_atto(9));
+    }
+
+    #[test]
+    fn opt_token_conversion_handles_none_and_some() {
+        assert_eq!(from_opt_token_v4_to_v2(None), TokenAmountV2::default());
+        let t4 = TokenAmountV4::from_atto(11);
+        assert_eq!(from_opt_token_v4_to_v2(Some(&t4)), TokenAmountV2::from_atto(11));
+    }
+
+    #[test]
+    fn sector_size_conversions_cover_all_variants() {
+        let cases_v3 = [
+            (SectorSizeV3::_2KiB, SectorSizeV2::_2KiB),
+            (SectorSizeV3::_8MiB, SectorSizeV2::_8MiB),
+            (SectorSizeV3::_512MiB, SectorSizeV2::_512MiB),
+            (SectorSizeV3::_32GiB, SectorSizeV2::_32GiB),
+            (SectorSizeV3::_64GiB, SectorSizeV2::_64GiB),
+        ];
+        for (input, expected) in cases_v3 {
+            assert_eq!(from_sector_size_v3_to_v2(input), expected);
+        }
+
+        let cases_v4 = [
+            (SectorSizeV4::_2KiB, SectorSizeV2::_2KiB),
+            (SectorSizeV4::_8MiB, SectorSizeV2::_8MiB),
+            (SectorSizeV4::_512MiB, SectorSizeV2::_512MiB),
+            (SectorSizeV4::_32GiB, SectorSizeV2::_32GiB),
+            (SectorSizeV4::_64GiB, SectorSizeV2::_64GiB),
+        ];
+        for (input, expected) in cases_v4 {
+            assert_eq!(from_sector_size_v4_to_v2(input), expected);
+        }
+    }
+
+    #[test]
+    fn filter_estimate_conversion_copies_fields() {
+        let fe = FilterEstimateV3 {
+            position: BigInt::from(3),
+            velocity: BigInt::from(5),
+        };
+        let v2 = from_filter_estimate_v3_to_v2(fe);
+        assert_eq!(v2.position, BigInt::from(3));
+        assert_eq!(v2.velocity, BigInt::from(5));
+    }
+
+    #[test]
+    fn policy_conversions_preserve_representative_fields() {
+        let p = PolicyV13::default();
+
+        assert_eq!(from_policy_v13_to_v9(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v10(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v11(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v12(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v14(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v15(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v16(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v17(&p).sectors_max, p.sectors_max);
+        assert_eq!(from_policy_v13_to_v18(&p).sectors_max, p.sectors_max);
+
+        // Fields that only exist on some versions.
+        assert_eq!(
+            from_policy_v13_to_v9(&p).wpost_period_deadlines,
+            p.wpost_period_deadlines
+        );
+        assert_eq!(
+            from_policy_v13_to_v12(&p).posted_partitions_max,
+            p.posted_partitions_max
+        );
+    }
+}
