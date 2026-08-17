@@ -829,15 +829,33 @@ impl Deadline {
         Ok(match self {
             Deadline::V8(dl) => Partition::V8(Cow::Owned(dl.load_partition(store, partition_idx)?)),
             Deadline::V9(dl) => Partition::V9(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V10(dl) => Partition::V10(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V11(dl) => Partition::V11(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V12(dl) => Partition::V12(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V13(dl) => Partition::V13(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V14(dl) => Partition::V14(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V15(dl) => Partition::V15(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V16(dl) => Partition::V16(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V17(dl) => Partition::V17(Cow::Owned(dl.load_partition(store, partition_idx)?)),
-            Deadline::V18(dl) => Partition::V18(Cow::Owned(dl.load_partition(store, partition_idx)?)),
+            Deadline::V10(dl) => {
+                Partition::V10(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V11(dl) => {
+                Partition::V11(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V12(dl) => {
+                Partition::V12(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V13(dl) => {
+                Partition::V13(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V14(dl) => {
+                Partition::V14(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V15(dl) => {
+                Partition::V15(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V16(dl) => {
+                Partition::V16(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V17(dl) => {
+                Partition::V17(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
+            Deadline::V18(dl) => {
+                Partition::V18(Cow::Owned(dl.load_partition(store, partition_idx)?))
+            }
         })
     }
 }
