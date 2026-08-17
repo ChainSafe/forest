@@ -908,6 +908,7 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
             1024,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateMinerCreationDeposit::request((tipset.key().into(),))?),
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
