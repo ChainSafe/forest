@@ -1740,7 +1740,7 @@ fn chain_notify_inner(chain_store: &ChainStore) -> Subscriber<Vec<ApiHeadChange>
     let current = chain_store.heaviest_tipset();
     sender
         .send(vec![ApiHeadChange {
-            change: "current".into(),
+            change: HeadChangeType::Current,
             tipset: current,
         }])
         .expect("receiver is not dropped");
@@ -1910,11 +1910,20 @@ pub struct ChainExportParams {
 }
 lotus_json_with_self!(ChainExportParams);
 
+/// The kind of head change delivered by `Filecoin.ChainNotify`.
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum HeadChangeType {
+    Current,
+    Apply,
+    Revert,
+}
+
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiHeadChange {
     #[serde(rename = "Type")]
-    pub change: String,
+    pub change: HeadChangeType,
     #[serde(rename = "Val", with = "crate::lotus_json")]
     #[schemars(with = "LotusJson<Tipset>")]
     pub tipset: Tipset,
@@ -1925,11 +1934,11 @@ impl From<HeadChange> for ApiHeadChange {
     fn from(change: HeadChange) -> Self {
         match change {
             HeadChange::Apply(tipset) => Self {
-                change: "apply".into(),
+                change: HeadChangeType::Apply,
                 tipset,
             },
             HeadChange::Revert(tipset) => Self {
-                change: "revert".into(),
+                change: HeadChangeType::Revert,
                 tipset,
             },
         }
@@ -2295,7 +2304,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(first.len(), 1);
-        assert_eq!(first[0].change, "current");
+        assert_eq!(first[0].change, HeadChangeType::Current);
 
         for ts in [&a, &b, &c] {
             cs.set_heaviest_tipset(ts.make_tipset()).unwrap();
@@ -2307,7 +2316,7 @@ mod tests {
             match tokio::time::timeout(std::time::Duration::from_millis(500), rx.recv()).await {
                 Ok(Ok(msg)) => applied.extend(
                     msg.into_iter()
-                        .filter(|c| c.change == "apply")
+                        .filter(|c| c.change == HeadChangeType::Apply)
                         .map(|c| c.tipset),
                 ),
                 _ => break,
