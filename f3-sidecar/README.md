@@ -64,3 +64,5 @@ environment variable `FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT=1` is set.
 
 F3 sidecar is not started by default, set `FOREST_F3_SIDECAR_FFI_ENABLED=1` to
 opt in.
+
+To generate the Go F3-sidecar FFI bindings set `FOREST_FFI_GO_REGENERATE=1` otherwise it will use current/already generated ones

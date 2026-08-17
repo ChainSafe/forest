@@ -99,6 +99,16 @@ run = '''
 golangci-lint run ./f3-sidecar ./interop-tests/src/tests/go_app
 '''
 
+[tasks."lint:go-ffi"]
+description = "Verify the committed Go FFI bindings are in sync with their go_ffi.rs sources."
+run = '''
+# Checking the (empty) lib target is enough to run `build.rs`
+FOREST_FFI_GO_REGENERATE=1 cargo check -p forest-interop-tests --profile quick
+FOREST_FFI_GO_REGENERATE=1 cargo check -p forest-filecoin --profile quick
+git diff --exit-code -- interop-tests/src/tests/go_app/ffi_gen.go f3-sidecar/ffi_gen.go \
+   || (echo "a committed ffi_gen.go is stale — run 'mise lint:go-ffi' and commit the result"; false)
+'''
+
 [tasks."lint:ruby"]
 description = "Lint Ruby code using rubocop."
 tools.ruby = "latest"

@@ -19,6 +19,16 @@ fn main() {
     // whitelist the cfg for cargo clippy
     println!("cargo::rustc-check-cfg=cfg(f3sidecar)");
 
+    println!("cargo:rerun-if-env-changed=FOREST_FFI_GO_REGENERATE");
+    if is_env_truthy("FOREST_FFI_GO_REGENERATE")
+        && is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT")
+    {
+        println!(
+            "cargo:warning=FOREST_FFI_GO_REGENERATE has no effect on the f3-sidecar binding: \
+             FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT skips the build that regenerates it"
+        );
+    }
+
     // Do not build f3-sidecar on docs.rs publishing
     // No proper version of Go compiler is available.
     println!("cargo:rerun-if-env-changed=FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT");
@@ -33,17 +43,22 @@ fn main() {
             // See <https://github.com/status-im/status-mobile/issues/20135#issuecomment-2137400475>
             std::env::set_var("GOFLAGS", "-tags=netgo");
         }
-        rust2go::Builder::default()
-            .with_go_src("./f3-sidecar")
-            // the generated Go file has been committed to the git repository,
-            // uncomment to regenerate the code locally
-            // .with_regen_arg(rust2go::RegenArgs {
-            //     src: "./src/f3/go_ffi.rs".into(),
-            //     dst: "./f3-sidecar/ffi_gen.go".into(),
-            //     without_main: true,
-            //     ..Default::default()
-            // })
-            .build();
+        println!("cargo:rerun-if-changed=src/f3/go_ffi.rs");
+
+        let mut builder = rust2go::Builder::default().with_go_src("./f3-sidecar");
+
+        // the generated Go file has been committed to the git repository
+        // set the var to regenerate the file
+        if is_env_truthy("FOREST_FFI_GO_REGENERATE") {
+            builder = builder.with_regen_arg(rust2go::RegenArgs {
+                src: "./src/f3/go_ffi.rs".into(),
+                dst: "./f3-sidecar/ffi_gen.go".into(),
+                without_main: true,
+                ..Default::default()
+            })
+        }
+
+        builder.build();
     }
 
     rpc_regression_tests_gen();
