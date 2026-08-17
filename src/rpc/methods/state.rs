@@ -1116,23 +1116,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         let sector_weight =
             qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let power_smoothed = power_state.total_power_smoothed();
-        let pledge_collateral = power_state.total_locked();
-
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
-        let circ_supply = ctx
-            .state_manager
-            .genesis_info()
-            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
-        let initial_pledge = reward_state.initial_pledge_for_power(
-            &sector_weight,
-            pledge_collateral,
-            power_smoothed,
-            &circ_supply.fil_circulating,
-            power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs(),
-        )?;
+        let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
 
         let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(q)
@@ -3400,17 +3384,6 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let power_smoothed = power_state.total_power_smoothed();
-        let pledge_collateral = power_state.total_locked();
-
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
-
-        let circ_supply = ctx
-            .state_manager
-            .genesis_info()
-            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
-
         let deal_weight = BigInt::from(0);
         let verified_deal_weight = BigInt::from(verified_size) * sector_duration;
         let sector_weight = qa_power_for_weight(
@@ -3420,41 +3393,75 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             &verified_deal_weight,
         );
 
-        let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts)?;
-
-        let initial_pledge = reward_state.initial_pledge_for_power(
-            &sector_weight,
-            pledge_collateral,
-            power_smoothed,
-            &circ_supply.fil_circulating,
-            epochs_since_start,
-            duration,
-        )?;
+        let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
 
         let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)
     }
 }
 
-fn get_pledge_ramp_params(
-    ctx: &Ctx,
-    height: ChainEpoch,
-    ts: &Tipset,
-) -> anyhow::Result<(ChainEpoch, u64)> {
-    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+pub enum StateMinerCreationDeposit {}
+impl RpcMethod<1> for StateMinerCreationDeposit {
+    const NAME: &'static str = "Filecoin.StateMinerCreationDeposit";
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the deposit required to create a new miner actor at the specified tipset.";
 
-    let power_state: power::State = state_tree
-        .get_actor_state()
-        .context("loading power actor state")?;
+    type Params = (ApiTipsetKey,);
+    type Ok = TokenAmount;
 
-    if power_state.ramp_start_epoch() > 0 {
-        Ok((
-            height - power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs(),
-        ))
-    } else {
-        Ok((0, 0))
+    async fn handle(
+        ctx: Ctx,
+        (ApiTipsetKey(tsk),): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V27 {
+            return Ok(TokenAmount::from_atto(0));
+        }
+
+        // Reference implementation: https://github.com/filecoin-project/builtin-actors/blob/00db828d09c3dfb61fe768ff6a19416a313444bd/actors/miner/src/lib.rs#L5264-L5279
+        let create_miner_deposit_power: StoragePower =
+            &ctx.chain_config().policy.minimum_consensus_power / 10;
+
+        compute_initial_pledge_for_power(&ctx, &ts, &create_miner_deposit_power)
     }
+}
+
+fn compute_initial_pledge_for_power(
+    ctx: &Ctx,
+    ts: &Tipset,
+    qa_power: &StoragePower,
+) -> Result<TokenAmount, ServerError> {
+    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+    let power_state: power::State = state_tree.get_actor_state()?;
+    let reward_state: reward::State = state_tree.get_actor_state()?;
+
+    let circ_supply = ctx
+        .state_manager
+        .genesis_info()
+        .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
+
+    let (epochs_since_start, duration) = if power_state.ramp_start_epoch() > 0 {
+        (
+            ts.epoch() - power_state.ramp_start_epoch(),
+            power_state.ramp_duration_epochs(),
+        )
+    } else {
+        (0, 0)
+    };
+
+    Ok(reward_state.initial_pledge_for_power(
+        qa_power,
+        power_state.total_locked(),
+        power_state.total_power_smoothed(),
+        &circ_supply.fil_circulating,
+        epochs_since_start,
+        duration,
+    )?)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
