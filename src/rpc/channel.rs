@@ -274,6 +274,14 @@ fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
     )
 }
 
+/// Sends the bare `xrpc.ch.close` notification for this channel, ignoring
+/// send failures (the connection may already be gone).
+async fn send_close(sink: &SubscriptionSink) {
+    if let Ok(payload) = to_raw_value(&close_payload(sink.channel_id())) {
+        let _ = sink.send(payload).await;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RpcModule {
     id_provider: Arc<AtomicU64>,
@@ -384,12 +392,19 @@ impl RpcModule {
                                         }
                                     }
                                     Err(RecvError::Closed) => {
-                                        if let Ok(payload) = to_raw_value(&close_payload(sink.channel_id())) {
-                                            let _ = sink.send(payload).await;
-                                        }
+                                        send_close(&sink).await;
                                         break;
                                     }
-                                    Err(RecvError::Lagged(_)) => {
+                                    Err(RecvError::Lagged(n)) => {
+                                        // Events were lost: close the channel (like Lotus)
+                                        // so the client knows to resubscribe and resync,
+                                        // instead of silently continuing with a gap.
+                                        tracing::warn!(
+                                            "closing channel {}: subscriber lagged by {n} messages",
+                                            sink.channel_id()
+                                        );
+                                        send_close(&sink).await;
+                                        break;
                                     }
                                 }
                             },
@@ -451,5 +466,100 @@ impl RpcModule {
                 }
             })),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+    use std::time::Duration;
+    use tokio::sync::broadcast;
+
+    const TEST_METHOD: &str = "test.channel";
+    const RECV_TIMEOUT: Duration = Duration::from_secs(5);
+    /// Capacity of the per-test event source; the lag test overflows it to
+    /// force a `Lagged` observation.
+    const SOURCE_CAPACITY: usize = 4;
+    /// Buffer size of the per-call frame stream returned by `raw_json_request`.
+    const STREAM_BUF_SIZE: usize = 256;
+
+    /// Subscribe with the given request id; returns the allocated channel id
+    /// and the stream of frames sent to this "connection".
+    ///
+    /// Every `raw_json_request` call gets its own frame stream, but they all
+    /// share `ConnectionId(0)`. The duplicate subscribe response that
+    /// `accept()` writes to the transport sink is swallowed by
+    /// `raw_json_request` itself, so the stream carries notification frames
+    /// only.
+    async fn subscribe(
+        methods: &Methods,
+        request_id: u64,
+    ) -> (ChannelId, mpsc::Receiver<Box<RawValue>>) {
+        let request = format!(
+            r#"{{"jsonrpc":"2.0","id":{request_id},"method":"{TEST_METHOD}","params":[]}}"#
+        );
+        let (response, frames) = methods
+            .raw_json_request(&request, STREAM_BUF_SIZE)
+            .await
+            .unwrap();
+        let response: Value = serde_json::from_str(response.get()).unwrap();
+        assert_eq!(response.get("id"), Some(&json!(request_id)));
+        let channel_id = response
+            .get("result")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(|| panic!("channel id must be a bare u64: {response}"));
+        (channel_id, frames)
+    }
+
+    async fn next_frame(frames: &mut mpsc::Receiver<Box<RawValue>>) -> Value {
+        let frame = tokio::time::timeout(RECV_TIMEOUT, frames.recv())
+            .await
+            .expect("timed out waiting for a frame")
+            .expect("stream closed while waiting for a frame");
+        serde_json::from_str(frame.get()).unwrap()
+    }
+
+    fn close_frame(channel_id: ChannelId) -> Value {
+        json!({"jsonrpc": "2.0", "method": "xrpc.ch.close", "params": [channel_id]})
+    }
+
+    /// Regression test: a subscriber that falls behind the broadcast source
+    /// has its channel closed — like Lotus, so the client knows to
+    /// resubscribe and resync — instead of silently losing the overflowed
+    /// events while the channel stays open.
+    #[tokio::test]
+    async fn lagged_consumer_channel_closes() {
+        // The receiver handed to the pump is already lagged before the pump
+        // ever polls it: overflow it first, then subscribe. This makes the
+        // `Lagged` observation deterministic regardless of task scheduling.
+        let (events, lagged_rx) = broadcast::channel(SOURCE_CAPACITY);
+        for n in 0..SOURCE_CAPACITY + 2 {
+            events.send(format!("event-{n}")).unwrap();
+        }
+        let lagged_rx = Mutex::new(Some(lagged_rx));
+        let mut module = RpcModule::default();
+        module
+            .register_channel(TEST_METHOD, move |_params| {
+                lagged_rx.lock().take().expect("single subscriber")
+            })
+            .unwrap();
+        let methods: Methods = module.into();
+
+        let (channel_id, mut frames) = subscribe(&methods, 1).await;
+
+        // no value frames arrive — the client is told the channel is gone
+        assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
+
+        // the pump exited and dropped its receiver — the source has no
+        // subscribers left, and no stray frames follow the close (the frame
+        // stream stays open because the pump's registry entry is not yet
+        // cleaned up on exit)
+        assert!(events.send("after-close".into()).is_err());
+        tokio::task::yield_now().await;
+        assert!(matches!(
+            frames.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
     }
 }
