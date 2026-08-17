@@ -19,12 +19,12 @@ fn main() {
     // whitelist the cfg for cargo clippy
     println!("cargo::rustc-check-cfg=cfg(f3sidecar)");
 
-    println!("cargo:rerun-if-env-changed=FOREST_REGENERATE_GO_FFI");
-    if is_env_truthy("FOREST_REGENERATE_GO_FFI")
+    println!("cargo:rerun-if-env-changed=FOREST_FFI_GO_REGENERATE");
+    if is_env_truthy("FOREST_FFI_GO_REGENERATE")
         && is_env_truthy("FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT")
     {
         println!(
-            "cargo:warning=FOREST_REGENERATE_GO_FFI has no effect on the f3-sidecar binding: \
+            "cargo:warning=FOREST_FFI_GO_REGENERATE has no effect on the f3-sidecar binding: \
              FOREST_F3_SIDECAR_FFI_BUILD_OPT_OUT skips the build that regenerates it"
         );
     }
@@ -49,7 +49,7 @@ fn main() {
 
         // the generated Go file has been committed to the git repository
         // set the var to regenerate the file
-        if is_env_truthy("FOREST_REGENERATE_GO_FFI") {
+        if is_env_truthy("FOREST_FFI_GO_REGENERATE") {
             builder = builder.with_regen_arg(rust2go::RegenArgs {
                 src: "./src/f3/go_ffi.rs".into(),
                 dst: "./f3-sidecar/ffi_gen.go".into(),

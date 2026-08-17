@@ -4,7 +4,7 @@
 fn main() {
     println!("cargo::rerun-if-changed=src/tests/go_app");
     println!("cargo::rerun-if-changed=src/tests/go_ffi.rs");
-    println!("cargo::rerun-if-env-changed=FOREST_REGENERATE_GO_FFI");
+    println!("cargo::rerun-if-env-changed=FOREST_FFI_GO_REGENERATE");
 
     unsafe {
         std::env::set_var("GOWORK", "off");
@@ -15,7 +15,7 @@ fn main() {
 
     // the generated Go file has been committed to the git repository
     // set the var to regenerate the file, CI sets this var to verify freshness.
-    if is_env_truthy("FOREST_REGENERATE_GO_FFI") {
+    if is_env_truthy("FOREST_FFI_GO_REGENERATE") {
         builder = builder.with_regen_arg(rust2go::RegenArgs {
             src: "./src/tests/go_ffi.rs".into(),
             dst: "./src/tests/go_app/ffi_gen.go".into(),
