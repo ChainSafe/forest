@@ -397,7 +397,7 @@ where
         mut f: impl FnMut(u64, anyhow::Result<DealProposal>) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
         delegate_deal_proposals!(self => |deal_array| Ok(deal_array
-                .for_each(|key, deal_proposal| f(key, deal_proposal.try_into()))?))
+                .for_each_cacheless(|key, deal_proposal| f(key, deal_proposal.try_into()))?))
     }
 
     pub fn get(&self, key: u64) -> anyhow::Result<Option<DealProposal>> {

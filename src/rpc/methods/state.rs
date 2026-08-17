@@ -2655,9 +2655,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
-            .get_all_sectors(&miner_address, &ts)?
-            .into_iter()
-            .find(|info| info.sector_number == sector_number))
+            .get_sector_info(&miner_address, sector_number, &ts)?)
     }
 }
 
@@ -2701,35 +2699,24 @@ impl RpcMethod<3> for StateSectorExpiration {
         let state: miner::State = ctx
             .state_manager
             .get_actor_state_from_address(&ts, &miner_address)?;
+        let (deadline_index, partition_index) = state.find_sector(store, sector_number, policy)?;
+        let deadline = state.load_deadline(policy, store, deadline_index)?;
+        let partition = deadline.load_partition(store, partition_index)?;
         let mut early = 0;
         let mut on_time = 0;
-        let mut terminated = false;
-        state.for_each_deadline(policy, store, |_deadline_index, deadline| {
-            deadline.for_each(store, |_partition_index, partition| {
-                if !terminated && partition.all_sectors().get(sector_number) {
-                    if partition.terminated().get(sector_number) {
-                        terminated = true;
-                        early = 0;
-                        on_time = 0;
-                        return Ok(());
-                    }
-                    let expirations: Amt<fil_actor_miner_state::v16::ExpirationSet, _> =
-                        Amt::load(&partition.expirations_epochs(), store)?;
-                    expirations.for_each(|epoch, expiration| {
-                        if expiration.early_sectors.get(sector_number) {
-                            early = epoch as _;
-                        }
-                        if expiration.on_time_sectors.get(sector_number) {
-                            on_time = epoch as _;
-                        }
-                        Ok(())
-                    })?;
+        if !partition.terminated().get(sector_number) {
+            let expirations: Amt<fil_actor_miner_state::v16::ExpirationSet, _> =
+                Amt::load(&partition.expirations_epochs(), store)?;
+            expirations.for_each(|epoch, expiration| {
+                if expiration.early_sectors.get(sector_number) {
+                    early = epoch as _;
                 }
-
+                if expiration.on_time_sectors.get(sector_number) {
+                    on_time = epoch as _;
+                }
                 Ok(())
             })?;
-            Ok(())
-        })?;
+        }
         if early == 0 && on_time == 0 {
             Err(anyhow::anyhow!("failed to find sector {sector_number}").into())
         } else {

@@ -38,7 +38,7 @@ use crate::shim::actors::init::{self, State};
 use crate::shim::actors::*;
 use crate::shim::address::AddressId;
 use crate::shim::{
-    actors::{LoadActorStateFromBlockstore, miner::ext::MinerStateExt as _},
+    actors::LoadActorStateFromBlockstore,
     executor::{Receipt, StampedEvent},
 };
 use crate::shim::{
@@ -490,16 +490,17 @@ impl StateManager {
         Ok(None)
     }
 
-    // Returns all sectors
-    pub fn get_all_sectors(
+    /// Single-sector lookup via a direct AMT `get`, avoiding a full sector-set scan.
+    pub fn get_sector_info(
         &self,
         addr: &Address,
+        sector_number: u64,
         ts: &Tipset,
-    ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
+    ) -> anyhow::Result<Option<SectorOnChainInfo>> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::state(format!("Miner actor {addr} not found")))?;
         let state = miner::State::load(self.db(), actor.code, actor.state)?;
-        state.load_sectors_ext(self.db(), None)
+        state.get_sector(self.db(), sector_number)
     }
 }

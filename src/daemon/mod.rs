@@ -743,30 +743,23 @@ fn maybe_start_indexer_service(
         && !opts.stateless
         && !ctx.state_manager.chain_config().is_devnet()
     {
-        let mut head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
+        let head_changes_rx = ctx.state_manager.chain_store().subscribe_head_changes();
         let chain_store = ctx.state_manager.chain_store().shallow_clone();
         services.spawn(async move {
             tracing::info!("Starting indexer service");
 
             // Continuously listen for head changes
-            loop {
-                match head_changes_rx.recv().await {
-                    Ok(changes) => {
-                        for ts in changes.applies {
-                            tracing::debug!("Indexing tipset {}", ts.key());
-                            let delegated_messages = chain_store
-                                .headers_delegated_messages(ts.block_headers().iter())?;
-                            // Head indexing writes the newest tipset, so use the blind-write
-                            // fast path (no read-before-write timestamp comparison).
-                            chain_store.process_signed_messages(&delegated_messages, false)?;
-                        }
-                    }
-                    Err(RecvError::Lagged(n)) => {
-                        warn!("indexer service lagged: skipping {n} events")
-                    }
-                    Err(RecvError::Closed) => break Ok(()),
+            while let Ok(changes) = head_changes_rx.recv_async().await {
+                for ts in changes.applies {
+                    tracing::debug!("Indexing tipset {}", ts.key());
+                    let delegated_messages =
+                        chain_store.headers_delegated_messages(ts.block_headers().iter())?;
+                    // Head indexing writes the newest tipset, so use the blind-write
+                    // fast path (no read-before-write timestamp comparison).
+                    chain_store.process_signed_messages(&delegated_messages, false)?;
                 }
             }
+            Ok(())
         });
 
         // Run the collector only if chain indexer is enabled
