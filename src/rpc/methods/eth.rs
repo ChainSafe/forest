@@ -1353,12 +1353,11 @@ fn new_eth_tx(
     })
 }
 
-async fn new_eth_tx_receipt(
-    ctx: &Ctx,
+fn new_eth_tx_receipt(
     tipset: &Tipset,
     tx: &ApiEthTx,
-    msg_cid: Cid,
     msg_receipt: &Receipt,
+    logs: Vec<EthLog>,
 ) -> anyhow::Result<EthTxReceipt> {
     let mut tx_receipt = EthTxReceipt {
         transaction_hash: tx.hash,
@@ -1401,13 +1400,7 @@ async fn new_eth_tx_receipt(
         tx_receipt.contract_address = Some(ret.eth_address.0.into());
     }
 
-    if msg_receipt.events_root().is_some() {
-        let logs =
-            eth_logs_for_block_and_transaction(ctx, tipset, &tx.block_hash, &msg_cid).await?;
-        if !logs.is_empty() {
-            tx_receipt.logs = logs;
-        }
-    }
+    tx_receipt.logs = logs;
 
     let mut bloom = Bloom::default();
     for log in tx_receipt.logs.iter() {
@@ -1446,6 +1439,27 @@ pub async fn eth_logs_for_block_and_transaction(
     eth_filter_logs_from_events(ctx, &events)
 }
 
+/// Collects all Ethereum logs produced by a tipset's already-executed messages, in tipset order.
+async fn collect_block_logs(
+    ctx: &Ctx,
+    tipset: &Tipset,
+    executed_messages: &[ExecutedMessage],
+    revert_status: EventRevertStatus,
+) -> anyhow::Result<Vec<EthLog>> {
+    let mut events = vec![];
+    EthEventHandler::collect_events_from_messages(
+        &ctx.state_manager,
+        tipset,
+        executed_messages,
+        None::<&ParsedFilter>,
+        SkipEvent::OnUnresolvedAddress,
+        revert_status,
+        &mut events,
+    )
+    .await?;
+    eth_filter_logs_from_events(ctx, &events)
+}
+
 /// Collects the logs produced by a single chain head change, for the logs
 /// subscription.
 pub(in crate::rpc) async fn eth_logs_for_head_change(
@@ -1467,18 +1481,7 @@ pub(in crate::rpc) async fn eth_logs_for_head_change(
         .state_manager
         .load_executed_tipset_with_receipt(&msg_ts, receipt_ts)
         .await?;
-    let mut events = vec![];
-    EthEventHandler::collect_events_from_messages(
-        &ctx.state_manager,
-        &msg_ts,
-        &executed_ts.executed_messages,
-        None::<&ParsedFilter>,
-        SkipEvent::OnUnresolvedAddress,
-        revert_status,
-        &mut events,
-    )
-    .await?;
-    eth_filter_logs_from_events(ctx, &events)
+    collect_block_logs(ctx, &msg_ts, &executed_ts.executed_messages, revert_status).await
 }
 
 fn get_signed_message(ctx: &Ctx, message_cid: Cid) -> Result<SignedMessage> {
@@ -1581,6 +1584,27 @@ async fn get_block_receipts(
     // Load the state tree
     let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
 
+    // Collect the whole tipset's logs in a single pass and scatter them back to their messages.
+    let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
+    if ts_ref.epoch() >= heaviest_epoch
+        && executed_messages
+            .iter()
+            .any(|em| em.receipt.events_root().is_some())
+    {
+        return Err(EthErrors::EventsNotYetAvailable.into());
+    }
+
+    let mut logs_by_msg: Vec<Vec<EthLog>> = vec![Vec::new(); executed_messages.len()];
+    for log in
+        collect_block_logs(ctx, &ts_ref, &executed_messages, EventRevertStatus::Applied).await?
+    {
+        // `transaction_index` is the message's index in `executed_messages` (this loop's slice), always a valid bucket.
+        if let Some(bucket) = logs_by_msg.get_mut(log.transaction_index.0 as usize) {
+            bucket.push(log);
+        }
+    }
+
+    let block_cid = ts_key.cid()?;
     let mut eth_receipts = Vec::with_capacity(executed_messages.len());
     for (
         i,
@@ -1593,12 +1617,16 @@ async fn get_block_receipts(
             ctx,
             &state_tree,
             ts_ref.epoch(),
-            &ts_key.cid()?,
+            &block_cid,
             &message.cid(),
             i as u64,
         )?;
 
-        let receipt = new_eth_tx_receipt(ctx, &ts_ref, &tx, message.cid(), receipt).await?;
+        let logs = logs_by_msg
+            .get_mut(i)
+            .map(std::mem::take)
+            .unwrap_or_default();
+        let receipt = new_eth_tx_receipt(&ts_ref, &tx, receipt, logs)?;
         eth_receipts.push(receipt);
     }
     Ok(eth_receipts)
@@ -3108,8 +3136,12 @@ async fn get_eth_transaction_receipt(
             )
         })?;
 
-    let tx_receipt =
-        new_eth_tx_receipt(&ctx, &parent_ts, &tx, msg_cid, &message_lookup.receipt).await?;
+    let logs = if message_lookup.receipt.events_root().is_some() {
+        eth_logs_for_block_and_transaction(&ctx, &parent_ts, &tx.block_hash, &msg_cid).await?
+    } else {
+        vec![]
+    };
+    let tx_receipt = new_eth_tx_receipt(&parent_ts, &tx, &message_lookup.receipt, logs)?;
 
     Ok(Some(tx_receipt))
 }
