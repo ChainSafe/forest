@@ -3432,14 +3432,11 @@ fn compute_initial_pledge_for_power(
         .genesis_info()
         .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
 
-    let (epochs_since_start, duration) = if power_state.ramp_start_epoch() > 0 {
-        (
-            ts.epoch() - power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs(),
-        )
-    } else {
-        (0, 0)
-    };
+    let (epochs_since_start, duration) = pledge_ramp_params(
+        ts.epoch(),
+        power_state.ramp_start_epoch(),
+        power_state.ramp_duration_epochs(),
+    );
 
     Ok(reward_state.initial_pledge_for_power(
         qa_power,
@@ -3449,6 +3446,18 @@ fn compute_initial_pledge_for_power(
         epochs_since_start,
         duration,
     )?)
+}
+
+fn pledge_ramp_params(
+    current_epoch: ChainEpoch,
+    ramp_start_epoch: ChainEpoch,
+    ramp_duration_epochs: u64,
+) -> (ChainEpoch, u64) {
+    if ramp_start_epoch > 0 && ramp_start_epoch <= current_epoch {
+        (current_epoch - ramp_start_epoch, ramp_duration_epochs)
+    } else {
+        (0, 0)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
@@ -3599,5 +3608,22 @@ mod tests {
     #[quickcheck]
     fn sector_duration_from_expiration_no_panic(expiration: ChainEpoch, epoch: ChainEpoch) {
         let _ = sector_duration_from_expiration(expiration, epoch);
+    }
+
+    #[rstest]
+    #[case(200, 0, 500, (0, 0))]
+    #[case(199, 200, 500, (0, 0))]
+    #[case(200, 200, 500, (0, 500))]
+    #[case(201, 200, 500, (1, 500))]
+    fn pledge_ramp_params_respects_inclusive_start_epoch(
+        #[case] current_epoch: ChainEpoch,
+        #[case] ramp_start_epoch: ChainEpoch,
+        #[case] ramp_duration_epochs: u64,
+        #[case] expected: (ChainEpoch, u64),
+    ) {
+        assert_eq!(
+            pledge_ramp_params(current_epoch, ramp_start_epoch, ramp_duration_epochs),
+            expected
+        );
     }
 }
