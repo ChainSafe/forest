@@ -1148,7 +1148,9 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             .sector_size()
             .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
-        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+
+        let market_state: market::State = state_tree.get_actor_state()?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.db(),
             address,
@@ -1165,10 +1167,10 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
                 qa_power_max(sector_size)
             };
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
+        let power_state: power::State = state_tree.get_actor_state()?;
         let power_smoothed = power_state.total_power_smoothed();
 
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
+        let reward_state: reward::State = state_tree.get_actor_state()?;
         let deposit: TokenAmount =
             reward_state.pre_commit_deposit_for_power(power_smoothed, sector_weight)?;
         let (value, _) = (deposit * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
@@ -2167,14 +2169,15 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
-        let supply = ctx.genesis_info().get_vm_circulating_supply(
-            ts.epoch(),
-            ctx.db(),
-            ts.parent_state(),
-        )?;
+        let power_state: power::State = state_tree.get_actor_state()?;
+        let reward_state: reward::State = state_tree.get_actor_state()?;
+
+        let supply = ctx
+            .genesis_info()
+            .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)?
+            .fil_circulating;
 
         let power_claim = power_state.total_power();
 
@@ -3430,7 +3433,7 @@ fn compute_initial_pledge_for_power(
     let circ_supply = ctx
         .state_manager
         .genesis_info()
-        .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
+        .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)?;
 
     let (epochs_since_start, duration) = if power_state.ramp_start_epoch() > 0 {
         (
