@@ -23,8 +23,6 @@ services:
     environment:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
-    ports:
-      - "${FOREST_RPC_PORT}:${FOREST_RPC_PORT}"
     command:
       - --chain=calibnet
       - --encrypt-keystore=false
@@ -47,6 +45,18 @@ services:
       retries: 3
       start_period: 5m
       start_interval: 5s
+
+  # Probes the node for the epochs the checks are about to query.
+  verify:
+    image: ghcr.io/chainsafe/forest-rpc-checks:latest
+    depends_on:
+      forest:
+        condition: service_healthy
+    volumes:
+      - ./verify.rb:/verify.rb:ro
+    entrypoint: ["ruby", "/verify.rb"]
+    environment:
+      FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
 
   # The image entrypoints into `bundle exec ruby check_rpc.rb`, so only the epochs are appended.
   rpc-checks:
