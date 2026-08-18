@@ -47,6 +47,8 @@
 
 ### Fixed
 
+- [#7394](https://github.com/ChainSafe/forest/issues/7394): `eth_call` and `eth_estimateGas` now accept a `from` address that is an EVM contract or that doesn't exist on chain. Ports ([filecoin-project/lotus#13724](https://github.com/filecoin-project/lotus/pull/13724)).
+
 - [#7473](https://github.com/ChainSafe/forest/pull/7473): Fixed `eth_estimateGas` under-estimating gas for nested contract calls (EIP-150's 63/64 rule), which could make transactions fail on chain with `SYS_OUT_OF_GAS`; the estimate is now raised until the message succeeds. Genuine reverts return an `execution reverted` error (JSON-RPC code `3`) with the decoded reason and data, matching Lotus.
 
 - [#7412](https://github.com/ChainSafe/forest/issues/7412): Fixes quicknet "unchained" logic to fetch the `max_beacon_round` for all covered epochs
