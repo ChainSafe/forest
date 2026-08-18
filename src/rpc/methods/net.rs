@@ -160,6 +160,28 @@ impl RpcMethod<0> for NetInfo {
     }
 }
 
+pub enum NetBandwidthStats {}
+impl RpcMethod<0> for NetBandwidthStats {
+    const NAME: &'static str = "Filecoin.NetBandwidthStats";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns statistics about the node's total bandwidth. Currently a stub that always returns zeros.";
+
+    type Params = ();
+    type Ok = BandwidthStats;
+
+    // Forest feeds libp2p bandwidth into a Prometheus registry that exposes no
+    // queryable totals, so report zeros. See <https://github.com/ChainSafe/forest/issues/7370>.
+    async fn handle(
+        _: Ctx,
+        (): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(BandwidthStats::default())
+    }
+}
+
 pub enum NetConnect {}
 impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
