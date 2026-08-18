@@ -24,14 +24,13 @@ services:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
     ports:
-      - "2345:2345"
-      - "2346:2346"
+      - "${FOREST_RPC_PORT}:${FOREST_RPC_PORT}"
     command:
       - --chain=calibnet
       - --encrypt-keystore=false
       - --no-gc
-      - --rpc-address=0.0.0.0:2345
-      - --healthcheck-address=0.0.0.0:2346
+      - --rpc-address=0.0.0.0:${FOREST_RPC_PORT}
+      - --healthcheck-address=0.0.0.0:${FOREST_HEALTHZ_RPC_PORT}
     healthcheck:
       # `/livez` from inside the container: RPC answering and peers connected.
       test:
@@ -41,7 +40,7 @@ services:
           "healthcheck",
           "live",
           "--healthcheck-port",
-          "2346",
+          "${FOREST_HEALTHZ_RPC_PORT}",
         ]
       interval: 30s
       timeout: 10s
@@ -53,7 +52,7 @@ services:
   rpc-checks:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest
     environment:
-      FOREST_RPC_URL: forest:2345/rpc/v1
+      FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
 
 volumes:
   node-data:

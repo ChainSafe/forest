@@ -53,13 +53,8 @@ be implemented in the foreseeable future.
 ## External dataset checks
 
 Forest is also checked against the external `data.riba.plus` dataset of recorded
-RPC responses. The `data.riba.plus RPC checks` workflow runs daily
-at 13:00 UTC: it imports a calibnet snapshot into a regular Forest daemon, waits
-for the node to be ready, back-fills the chain index for the epochs under test
-and replays the dataset's queries against them. To reproduce it locally, run
-`./setup.sh` in `scripts/tests/external-rpc-checks`, which drives the whole
-sequence. It needs Docker, `curl` and `jq` on the host; everything else, the
-snapshot included, stays in containers.
+RPC responses, see `.github/workflows/external-rpc-checks.yml` and
+`scripts/tests/external-rpc-checks`.
 
 ## Gateway
 

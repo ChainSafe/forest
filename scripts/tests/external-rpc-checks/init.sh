@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Runs in the `init` service: resolves the snapshot to test against, imports it
-# and back-fills the chain index, all before the daemon starts. Keeping it here
-# means the date handling is always Linux, whatever the host.
+# and back-fills the chain index, all before the daemon starts.
 
 set -euo pipefail
 
@@ -25,10 +24,7 @@ epoch=${url##*_height_}
 epoch=${epoch%%.*}
 printf '%s\n' "${epoch}" > /data/snapshot-epoch
 
-forest --chain=calibnet --encrypt-keystore=false --no-gc \
-  --height=-50 --import-snapshot="${url}" --halt-after-import
+forest --chain=calibnet --encrypt-keystore=false --import-snapshot="${url}" --halt-after-import
 
-# Indexes the 1000 epochs below the snapshot head; `--from` counts back
-# inclusively, so one extra tipset covers the whole range. The offline
-# back-fill already recomputes missing state and indexes up to the head.
-forest-tool index backfill --chain=calibnet --from="${epoch}" --n-tipsets=1001
+# Indexes the 1000 epochs below the snapshot head, inclusive on both ends
+forest-tool index backfill --chain=calibnet --from="${epoch}" --to="$((epoch - 1000))"
