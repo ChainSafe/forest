@@ -280,6 +280,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateWaitMsg);
         $callback!($crate::rpc::state::StateWaitMsgV0);
         $callback!($crate::rpc::state::StateMinerInitialPledgeForSector);
+        $callback!($crate::rpc::state::StateMinerCreationDeposit);
 
         // sync vertical
         $callback!($crate::rpc::sync::SyncCheckBad);
