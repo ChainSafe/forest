@@ -41,6 +41,8 @@
 
 - [#7494](https://github.com/ChainSafe/forest/issues/7494): Implemented the `Filecoin.StateMinerCreationDeposit` RPC method, matching Lotus. It returns the deposit required to create a new miner actor.
 
+- [#7505](https://github.com/ChainSafe/forest/pull/7505): Implemented the `Filecoin.NetBandwidthStats` RPC method for Lotus API compatibility. It is currently a stub that returns zeros, which is enough to unblock Curio's dashboard when pointed at a Forest node.
+
 ### Changed
 
 ### Removed

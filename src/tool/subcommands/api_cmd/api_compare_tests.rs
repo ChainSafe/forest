@@ -731,6 +731,7 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
+        RpcTest::basic(NetBandwidthStats::request(()).unwrap()),
         RpcTest::identity(NetVersion::request(()).unwrap()),
         RpcTest::identity(NetProtectAdd::request((vec![PeerId::random().to_string()],)).unwrap()),
         RpcTest::identity(
