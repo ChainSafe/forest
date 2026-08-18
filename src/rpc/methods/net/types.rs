@@ -90,3 +90,14 @@ impl From<libp2p::autonat::NatStatus> for NatStatusResult {
         }
     }
 }
+
+/// Mirrors go-libp2p's `metrics.Stats`, the return type of Lotus `NetBandwidthStats`.
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct BandwidthStats {
+    pub total_in: i64,
+    pub total_out: i64,
+    pub rate_in: f64,
+    pub rate_out: f64,
+}
+lotus_json_with_self!(BandwidthStats);

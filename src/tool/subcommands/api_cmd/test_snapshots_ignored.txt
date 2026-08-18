@@ -49,6 +49,7 @@ Filecoin.MpoolSelect
 Filecoin.NetAddrsListen
 Filecoin.NetAgentVersion
 Filecoin.NetAutoNatStatus
+Filecoin.NetBandwidthStats
 Filecoin.NetConnect
 Filecoin.NetDisconnect
 Filecoin.NetFindPeer
