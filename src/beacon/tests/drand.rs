@@ -3,6 +3,7 @@
 
 use itertools::Itertools;
 
+use crate::beacon::drand::beacon_round_wait;
 use crate::{
     beacon::mock_beacon::MockBeacon,
     beacon::{
@@ -15,6 +16,7 @@ use quickcheck_macros::quickcheck;
 use rstest::rstest;
 use std::borrow::Cow;
 use std::sync::LazyLock;
+use std::time::Duration;
 
 fn new_beacon_mainnet() -> DrandBeacon {
     DrandBeacon::new(
@@ -91,6 +93,53 @@ fn construct_drand_beacon_mainnet() {
 #[test]
 fn construct_drand_beacon_quicknet() {
     new_beacon_quicknet();
+}
+
+#[test]
+fn beacon_round_timestamp_quicknet() {
+    // quicknet: genesis 1692803367, period 3s; round 1 is produced at genesis.
+    let beacon = &*QUICKNET;
+    assert_eq!(beacon.beacon_round_timestamp(1), Some(1_692_803_367));
+    assert_eq!(beacon.beacon_round_timestamp(2), Some(1_692_803_370));
+    assert_eq!(
+        beacon.beacon_round_timestamp(100),
+        Some(1_692_803_367 + 99 * 3)
+    );
+    // Round 0 saturates instead of underflowing.
+    assert_eq!(beacon.beacon_round_timestamp(0), Some(1_692_803_367));
+}
+
+#[test]
+fn beacon_round_timestamp_default_is_none() {
+    // Non-drand beacons (e.g. the mock) fall back to the trait default, which signals
+    // "no wait derivable" to callers.
+    assert_eq!(MockBeacon::default().beacon_round_timestamp(42), None);
+}
+
+#[quickcheck]
+fn beacon_round_timestamp_no_panic(round: u64) {
+    // Must not overflow-panic for any round, including u64::MAX.
+    let _ = QUICKNET.beacon_round_timestamp(round);
+}
+
+#[rstest]
+// Round produced in the future: wait until then, plus the 1s publish buffer.
+#[case(1_000, 900, Duration::from_secs(101))]
+// `now` exactly at the round's production time: only the 1s buffer remains.
+#[case(1_000, 1_000, Duration::from_secs(1))]
+// Buffer already elapsed: no wait.
+#[case(1_000, 1_001, Duration::ZERO)]
+// Round long past: no wait.
+#[case(1_000, 5_000, Duration::ZERO)]
+// Negative clock is clamped to 0, never panics or under-waits.
+#[case(1_000, -5, Duration::from_secs(1_001))]
+fn beacon_round_wait_cases(#[case] round_ts: u64, #[case] now: i64, #[case] expected: Duration) {
+    assert_eq!(beacon_round_wait(round_ts, now), expected);
+}
+
+#[quickcheck]
+fn beacon_round_wait_no_panic(round_ts: u64, now: i64) {
+    let _ = beacon_round_wait(round_ts, now);
 }
 
 #[tokio::test]
