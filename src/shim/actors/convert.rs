@@ -124,6 +124,21 @@ pub fn from_filter_estimate_v3_to_v2(fe: FilterEstimateV3) -> FilterEstimateV2 {
     }
 }
 
+// Build a target `ProofSet` from a v13 source, preserving each enabled proof by
+// its id (index).
+macro_rules! convert_proof_set {
+    ($target:ty, $src:expr) => {{
+        let mut set = <$target>::default();
+        $src.clone()
+            .into_inner()
+            .into_iter()
+            .enumerate()
+            .filter(|(_, enabled)| *enabled)
+            .for_each(|(i, _)| set.insert(i as i64));
+        set
+    }};
+}
+
 // v9/v10: valid proof types are a plain `Vec` (no `ProofSet`), and the target
 // has none of the later NI-PoRep or daily-fee fields.
 macro_rules! from_policy_v13_enumerate {
@@ -202,21 +217,9 @@ from_policy_v13_enumerate!(
 );
 
 pub fn from_policy_v13_to_v11(policy: &PolicyV13) -> PolicyV11 {
-    let mut valid_post_proof_type = ProofSetV11::default();
-    policy
-        .valid_post_proof_type
-        .clone()
-        .into_inner()
-        .iter()
-        .for_each(|proof| valid_post_proof_type.insert(*proof));
-
-    let mut valid_pre_commit_proof_type = ProofSetV11::default();
-    policy
-        .valid_pre_commit_proof_type
-        .clone()
-        .into_inner()
-        .iter()
-        .for_each(|proof| valid_pre_commit_proof_type.insert(*proof));
+    let valid_post_proof_type = convert_proof_set!(ProofSetV11, policy.valid_post_proof_type);
+    let valid_pre_commit_proof_type =
+        convert_proof_set!(ProofSetV11, policy.valid_pre_commit_proof_type);
 
     PolicyV11 {
         max_aggregated_sectors: policy.max_aggregated_sectors,
@@ -267,21 +270,9 @@ pub fn from_policy_v13_to_v11(policy: &PolicyV13) -> PolicyV11 {
 }
 
 pub fn from_policy_v13_to_v12(policy: &PolicyV13) -> PolicyV12 {
-    let mut valid_post_proof_type = ProofSetV12::default();
-    policy
-        .valid_post_proof_type
-        .clone()
-        .into_inner()
-        .iter()
-        .for_each(|proof| valid_post_proof_type.insert(*proof));
-
-    let mut valid_pre_commit_proof_type = ProofSetV12::default();
-    policy
-        .valid_pre_commit_proof_type
-        .clone()
-        .into_inner()
-        .iter()
-        .for_each(|proof| valid_pre_commit_proof_type.insert(*proof));
+    let valid_post_proof_type = convert_proof_set!(ProofSetV12, policy.valid_post_proof_type);
+    let valid_pre_commit_proof_type =
+        convert_proof_set!(ProofSetV12, policy.valid_pre_commit_proof_type);
 
     PolicyV12 {
         max_aggregated_sectors: policy.max_aggregated_sectors,
@@ -337,21 +328,15 @@ pub fn from_policy_v13_to_v12(policy: &PolicyV13) -> PolicyV12 {
 macro_rules! from_policy_v13_ni {
     ($($fn:ident, $v:ident, $target:ident);+ $(;)?) => { $(
         pub fn $fn(policy: &PolicyV13) -> $target {
-            let mut valid_post_proof_type = fil_actors_shared::$v::runtime::ProofSet::default();
-            policy
-                .valid_post_proof_type
-                .clone()
-                .into_inner()
-                .iter()
-                .for_each(|proof| valid_post_proof_type.insert(*proof));
+            let valid_post_proof_type = convert_proof_set!(
+                fil_actors_shared::$v::runtime::ProofSet,
+                policy.valid_post_proof_type
+            );
 
-            let mut valid_pre_commit_proof_type = fil_actors_shared::$v::runtime::ProofSet::default();
-            policy
-                .valid_pre_commit_proof_type
-                .clone()
-                .into_inner()
-                .iter()
-                .for_each(|proof| valid_pre_commit_proof_type.insert(*proof));
+            let valid_pre_commit_proof_type = convert_proof_set!(
+                fil_actors_shared::$v::runtime::ProofSet,
+                policy.valid_pre_commit_proof_type
+            );
 
             $target {
                 max_aggregated_sectors: policy.max_aggregated_sectors,
@@ -421,21 +406,15 @@ from_policy_v13_ni! {
 macro_rules! from_policy_v13_ni_daily_fee {
     ($($fn:ident, $v:ident, $target:ident);+ $(;)?) => { $(
         pub fn $fn(policy: &PolicyV13) -> $target {
-            let mut valid_post_proof_type = fil_actors_shared::$v::runtime::ProofSet::default();
-            policy
-                .valid_post_proof_type
-                .clone()
-                .into_inner()
-                .iter()
-                .for_each(|proof| valid_post_proof_type.insert(*proof));
+            let valid_post_proof_type = convert_proof_set!(
+                fil_actors_shared::$v::runtime::ProofSet,
+                policy.valid_post_proof_type
+            );
 
-            let mut valid_pre_commit_proof_type = fil_actors_shared::$v::runtime::ProofSet::default();
-            policy
-                .valid_pre_commit_proof_type
-                .clone()
-                .into_inner()
-                .iter()
-                .for_each(|proof| valid_pre_commit_proof_type.insert(*proof));
+            let valid_pre_commit_proof_type = convert_proof_set!(
+                fil_actors_shared::$v::runtime::ProofSet,
+                policy.valid_pre_commit_proof_type
+            );
 
             $target {
                 max_aggregated_sectors: policy.max_aggregated_sectors,
@@ -510,6 +489,32 @@ from_policy_v13_ni_daily_fee! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The conversion preserves which proof types are enabled, by id. Regression
+    /// for the bug that inserted the boolean value (0/1) instead of the enabled index.
+    /// <https://github.com/ChainSafe/forest/pull/7499>
+    #[test]
+    fn policy_conversion_preserves_enabled_proof_ids() {
+        // A default v13 policy enables the 32GiB/64GiB Window PoSt proofs (post ids
+        // 13, 14; seal ids 8, 9, 13, 14), never the id-0/1 "Winning" test proofs
+        // that the old buggy copy produced.
+        let policy = PolicyV13::default();
+
+        // v11 (hand-written) and v18 (macro-generated) exercise both copy paths.
+        let v11 = from_policy_v13_to_v11(&policy);
+        assert!(v11.valid_post_proof_type.contains(13));
+        assert!(v11.valid_post_proof_type.contains(14));
+        assert!(!v11.valid_post_proof_type.contains(0));
+        assert!(v11.valid_pre_commit_proof_type.contains(8));
+        assert!(!v11.valid_pre_commit_proof_type.contains(1));
+
+        let v18 = from_policy_v13_to_v18(&policy);
+        assert!(v18.valid_post_proof_type.contains(13));
+        assert!(v18.valid_post_proof_type.contains(14));
+        assert!(!v18.valid_post_proof_type.contains(0));
+        assert!(v18.valid_pre_commit_proof_type.contains(8));
+        assert!(!v18.valid_pre_commit_proof_type.contains(1));
+    }
 
     #[test]
     fn reg_seal_proof_conversions_preserve_id() {
