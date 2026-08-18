@@ -1711,15 +1711,13 @@ mod tests {
         assert!(ensure_filter_cap(100, 3, 101).is_err());
     }
 
-    #[tokio::test]
-    async fn test_collect_events_from_messages_sets_revert_status() {
+    /// Minimal `StateManager` over an in-memory store plus its (genesis) heaviest tipset, for
+    /// event-collection tests.
+    fn test_state_manager() -> (StateManager, Tipset) {
         use crate::blocks::{CachingBlockHeader, RawBlockHeader};
         use crate::chain::ChainStore;
         use crate::db::MemoryDB;
-        use crate::message::ChainMessage;
         use crate::networks::ChainConfig;
-        use crate::shim::executor::Receipt;
-        use crate::shim::message::Message;
 
         let db = Arc::new(MemoryDB::default());
         let genesis_header = CachingBlockHeader::new(RawBlockHeader {
@@ -1732,26 +1730,21 @@ mod tests {
             ChainStore::new(db, Arc::new(ChainConfig::default()), genesis_header).unwrap();
         let tipset = chain_store.heaviest_tipset();
         let state_manager = StateManager::new(chain_store).unwrap();
+        (state_manager, tipset)
+    }
 
-        let event = StampedEvent::V4(fvm_shared4::event::StampedEvent::new(
-            1234,
-            fvm_shared4::event::ActorEvent {
-                entries: vec![fvm_shared4::event::Entry {
-                    flags: Flags::FLAG_INDEXED_ALL,
-                    key: "t1".into(),
-                    codec: IPLD_RAW,
-                    value: vec![0xab; 32],
-                }],
-            },
-        ));
+    #[tokio::test]
+    async fn test_collect_events_from_messages_sets_revert_status() {
+        use crate::message::ChainMessage;
+        use crate::shim::executor::Receipt;
+        use crate::shim::message::Message;
+
+        let (state_manager, tipset) = test_state_manager();
+
+        let event = StampedEvent::new_indexed(1234, "t1");
         let executed_messages = vec![ExecutedMessage {
             message: ChainMessage::Unsigned(Message::default().into()),
-            receipt: Receipt::V4(fvm_shared4::receipt::Receipt {
-                exit_code: fvm_shared4::error::ExitCode::OK,
-                return_data: Default::default(),
-                gas_used: 0,
-                events_root: None,
-            }),
+            receipt: Receipt::empty_success(),
             events: Some(vec![event]),
         }];
 
@@ -1778,5 +1771,71 @@ mod tests {
             assert_eq!(event.reverted, expected_reverted);
             assert_eq!(event.emitter_addr, Address::new_id(1234));
         }
+    }
+
+    /// `eth_getBlockReceipts` relies on `CollectedEvent::msg_idx` (and hence the derived
+    /// `EthLog::transaction_index`) being the event's message index within `executed_messages`.
+    /// This locks that invariant, plus the globally-monotonic `event_idx` across the tipset.
+    #[tokio::test]
+    async fn test_collect_events_from_messages_indexing() {
+        use crate::message::ChainMessage;
+        use crate::shim::executor::Receipt;
+        use crate::shim::message::Message;
+
+        let (state_manager, tipset) = test_state_manager();
+
+        // Emitter id encodes the message index (1000 + idx) so a collected event can be traced
+        // back to the message it came from.
+        let exec_msg = |idx: u64, n_events: usize| ExecutedMessage {
+            message: ChainMessage::Unsigned(Message::default().into()),
+            receipt: Receipt::empty_success(),
+            events: (n_events > 0).then(|| {
+                (0..n_events)
+                    .map(|_| StampedEvent::new_indexed(1000 + idx, "t1"))
+                    .collect()
+            }),
+        };
+
+        // Message 1 emits nothing (and, having no events, must not perturb the indices of later
+        // messages' events).
+        let events_per_msg = [2usize, 0, 3, 1];
+        let executed_messages: Vec<_> = events_per_msg
+            .iter()
+            .enumerate()
+            .map(|(idx, &n)| exec_msg(idx as u64, n))
+            .collect();
+
+        let mut events = vec![];
+        EthEventHandler::collect_events_from_messages(
+            &state_manager,
+            &tipset,
+            &executed_messages,
+            None::<&ParsedFilter>,
+            SkipEvent::Never,
+            EventRevertStatus::Applied,
+            &mut events,
+        )
+        .await
+        .unwrap();
+
+        // The collected events must be exactly this sequence: each message contributes `n` events
+        // tagged with its own index, `event_idx` runs gap-free across the whole tipset (so the
+        // zero-event message must not shift later indices), and `emitter_addr` traces back to the
+        // source message via the `1000 + idx` encoding.
+        let expected = events_per_msg
+            .iter()
+            .enumerate()
+            .flat_map(|(msg_idx, &n)| std::iter::repeat_n(msg_idx as u64, n))
+            .enumerate()
+            .map(|(event_idx, msg_idx)| {
+                (msg_idx, event_idx as u64, Address::new_id(1000 + msg_idx))
+            });
+
+        itertools::assert_equal(
+            events
+                .iter()
+                .map(|e| (e.msg_idx, e.event_idx, e.emitter_addr)),
+            expected,
+        );
     }
 }
