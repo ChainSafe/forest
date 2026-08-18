@@ -5,6 +5,7 @@
 !Filecoin.NetAddrsListen
 !Filecoin.NetAgentVersion
 !Filecoin.NetAutoNatStatus
+!Filecoin.NetBandwidthStats
 !Filecoin.NetPeers
 !Filecoin.NetFindPeer
 !Filecoin.NetProtectAdd
