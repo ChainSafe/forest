@@ -1606,16 +1606,10 @@ async fn get_block_receipts(
 
     let block_cid = ts_key.cid()?;
     let mut eth_receipts = Vec::with_capacity(executed_messages.len());
-    for (
-        i,
-        (
-            ExecutedMessage {
-                message, receipt, ..
-            },
-            logs,
-        ),
-    ) in executed_messages.iter().zip(logs_by_msg).enumerate()
-    {
+    for (i, (executed, logs)) in executed_messages.iter().zip(logs_by_msg).enumerate() {
+        let ExecutedMessage {
+            message, receipt, ..
+        } = executed;
         let tx = new_eth_tx(
             ctx,
             &state_tree,
