@@ -1608,10 +1608,13 @@ async fn get_block_receipts(
     let mut eth_receipts = Vec::with_capacity(executed_messages.len());
     for (
         i,
-        ExecutedMessage {
-            message, receipt, ..
-        },
-    ) in executed_messages.iter().enumerate()
+        (
+            ExecutedMessage {
+                message, receipt, ..
+            },
+            logs,
+        ),
+    ) in executed_messages.iter().zip(logs_by_msg).enumerate()
     {
         let tx = new_eth_tx(
             ctx,
@@ -1622,10 +1625,6 @@ async fn get_block_receipts(
             i as u64,
         )?;
 
-        let logs = logs_by_msg
-            .get_mut(i)
-            .map(std::mem::take)
-            .unwrap_or_default();
         let receipt = new_eth_tx_receipt(&ts_ref, &tx, receipt, logs)?;
         eth_receipts.push(receipt);
     }
