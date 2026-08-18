@@ -1,8 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::prelude::*;
-
 pub mod binding {
     #![allow(warnings)]
     #![allow(clippy::indexing_slicing)]
@@ -16,8 +14,8 @@ pub trait GoF3Node {
         jwt: String,
         f3_rpc_endpoint: String,
         initial_power_table: String,
-        bootstrap_epoch: ChainEpoch,
-        finality: ChainEpoch,
+        bootstrap_epoch: i64,
+        finality: i64,
         f3_root: String,
     ) -> bool;
 

@@ -59,6 +59,8 @@
 
 - [#7480](https://github.com/ChainSafe/forest/pull/7480): `forest-tool api serve --index-backfill-epochs N` now backfills N epochs below the chain head. Previously the chain head consumed one of the requested epochs, so only N-1 were indexed.
 
+- [#7442](https://github.com/ChainSafe/forest/issues/7442): Fixed `ChainNotify` bug where the first notification was skipped; the behavior is now consistent with Lotus.
+
 ## Forest v0.35.0 "Shravan"
 
 Non-mandatory release for all node operators. It includes some fixes and improvements, notably around state-related RPC. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.

@@ -4,37 +4,9 @@
 use super::*;
 use crate::db::MemoryDB;
 use crate::rpc::eth::types::CallSource;
-use crate::shim::executor::StampedEvent;
+use crate::shim::executor::{StampedEvent, create_raw_event_v3, create_raw_event_v4};
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use rstest::rstest;
-
-fn create_raw_event_v4(emitter: u64, key: &str) -> fvm_shared4::event::StampedEvent {
-    fvm_shared4::event::StampedEvent {
-        emitter,
-        event: fvm_shared4::event::ActorEvent {
-            entries: vec![fvm_shared4::event::Entry {
-                flags: fvm_shared4::event::Flags::FLAG_INDEXED_ALL,
-                key: key.to_string(),
-                codec: fvm_ipld_encoding::IPLD_RAW,
-                value: key.as_bytes().to_vec(),
-            }],
-        },
-    }
-}
-
-fn create_raw_event_v3(emitter: u64, key: &str) -> fvm_shared3::event::StampedEvent {
-    fvm_shared3::event::StampedEvent {
-        emitter,
-        event: fvm_shared3::event::ActorEvent {
-            entries: vec![fvm_shared3::event::Entry {
-                flags: fvm_shared3::event::Flags::FLAG_INDEXED_ALL,
-                key: key.to_string(),
-                codec: fvm_ipld_encoding::IPLD_RAW,
-                value: key.as_bytes().to_vec(),
-            }],
-        },
-    }
-}
 
 #[test]
 fn test_events_store_and_retrieve_basic() {
