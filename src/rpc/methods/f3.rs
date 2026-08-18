@@ -189,6 +189,8 @@ impl GetPowerTable {
             Some(DefaultBlockstoreReadCacheStats::default()),
         );
 
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+
         macro_rules! handle_miner_state_v12_on {
             ($version:tt, $id_power_worker_mappings:ident, $ts:expr, $state:expr, $policy:expr) => {
                 fn map_err<E: Display>(e: E) -> fil_actors_shared::$version::ActorError {
@@ -208,9 +210,8 @@ impl GetPowerTable {
                         return Ok(());
                     }
                     let power = claim.quality_adj_power.clone();
-                    let miner_state: miner::State = ctx
-                        .state_manager
-                        .get_actor_state_from_address($ts, &miner.into())
+                    let miner_state: miner::State = state_tree
+                        .get_actor_state_from_address(&miner.into())
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
@@ -228,7 +229,7 @@ impl GetPowerTable {
             };
         }
 
-        let state: power::State = ctx.state_manager.get_actor_state(ts)?;
+        let state: power::State = state_tree.get_actor_state()?;
         let mut id_power_worker_mappings = vec![];
         let policy = &ctx.chain_config().policy;
         match &state {
@@ -257,9 +258,8 @@ impl GetPowerTable {
                         return Ok(());
                     }
                     let power = claim.quality_adj_power.clone();
-                    let miner_state: miner::State = ctx
-                        .state_manager
-                        .get_actor_state_from_address(ts, &miner)
+                    let miner_state: miner::State = state_tree
+                        .get_actor_state_from_address(&miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
@@ -300,9 +300,8 @@ impl GetPowerTable {
                         return Ok(());
                     }
                     let power = claim.quality_adj_power.clone();
-                    let miner_state: miner::State = ctx
-                        .state_manager
-                        .get_actor_state_from_address(ts, &miner)
+                    let miner_state: miner::State = state_tree
+                        .get_actor_state_from_address(&miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
@@ -340,9 +339,8 @@ impl GetPowerTable {
                         return Ok(());
                     }
                     let power = claim.quality_adj_power.clone();
-                    let miner_state: miner::State = ctx
-                        .state_manager
-                        .get_actor_state_from_address(ts, &miner)
+                    let miner_state: miner::State = state_tree
+                        .get_actor_state_from_address(&miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
@@ -380,9 +378,8 @@ impl GetPowerTable {
                         return Ok(());
                     }
                     let power = claim.quality_adj_power.clone();
-                    let miner_state: miner::State = ctx
-                        .state_manager
-                        .get_actor_state_from_address(ts, &miner)
+                    let miner_state: miner::State = state_tree
+                        .get_actor_state_from_address(&miner)
                         .map_err(map_err)?;
                     let debt = miner_state.fee_debt();
                     if !debt.is_zero() {
