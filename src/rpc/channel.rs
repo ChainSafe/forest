@@ -144,7 +144,7 @@ impl PendingSubscriptionSink {
         if success {
             let (tx, rx) = mpsc::channel(1);
             self.subscribers.lock().insert(
-                (self.connection_id, id),
+                (self.connection_id, id.clone()),
                 (self.inner.clone(), rx, self.channel_id),
             );
             tracing::debug!(
@@ -157,6 +157,9 @@ impl PendingSubscriptionSink {
                 method: self.method,
                 unsubscribe: IsUnsubscribed(tx),
                 channel_id: self.channel_id,
+                subscribers: self.subscribers,
+                connection_id: self.connection_id,
+                id,
             })
         } else {
             panic!(
@@ -193,6 +196,12 @@ pub struct SubscriptionSink {
     unsubscribe: IsUnsubscribed,
     /// Channel identifier.
     channel_id: ChannelId,
+    /// Shared subscriber registry, for cleanup when the pump exits.
+    subscribers: Subscribers,
+    /// Connection identifier (registry key).
+    connection_id: ConnectionId,
+    /// ID of the subscription call (registry key).
+    id: Id<'static>,
 }
 
 impl SubscriptionSink {
@@ -236,6 +245,19 @@ impl SubscriptionSink {
         tokio::select! {
             _ = self.inner.closed() => (),
             _ = self.unsubscribe.unsubscribed() => (),
+        }
+    }
+
+    /// Removes this channel's subscriber-registry entry, unless the entry
+    /// already belongs to a newer channel that reused the same request id.
+    fn unregister(&self) {
+        let key = (self.connection_id, self.id.clone());
+        let mut subscribers = self.subscribers.lock();
+        if subscribers
+            .get(&key)
+            .is_some_and(|(_, _, channel_id)| *channel_id == self.channel_id)
+        {
+            subscribers.remove(&key);
         }
     }
 }
@@ -414,6 +436,9 @@ impl RpcModule {
                         }
                     }
 
+                    // Every exit path drops the registry entry (a no-op when
+                    // cancel already removed it).
+                    sink.unregister();
                     tracing::debug!("Send notification task ended (chann_id={})", sink.channel_id);
                 });
             }
@@ -685,7 +710,9 @@ mod tests {
     }
 
     /// When the event source closes, the client gets a bare `xrpc.ch.close`
-    /// notification.
+    /// notification, the stream ends, and the registry entry is gone — a
+    /// later cancel finds nothing instead of "closing" the dead channel a
+    /// second time.
     #[tokio::test]
     async fn source_closed_sends_bare_close() {
         let (events, _) = broadcast::channel::<String>(SOURCE_CAPACITY);
@@ -695,6 +722,13 @@ mod tests {
         drop(events);
 
         assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
+        assert_stream_closed(&mut frames).await;
+
+        let response = cancel(&methods, 1).await;
+        assert!(
+            response.get("error").is_some(),
+            "cancel after the channel closed must fail: {response}"
+        );
     }
 
     /// Regression test: a subscriber that falls behind the broadcast source
@@ -721,15 +755,9 @@ mod tests {
         // no value frames arrive, the client is told the channel is gone
         assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
 
-        // the pump exited and dropped its receiver — the source has no
-        // subscribers left, and no stray frames follow the close (the frame
-        // stream stays open because the pump's registry entry is not yet
-        // cleaned up on exit)
+        // the pump exited: it dropped its receiver (the source has no
+        // subscribers left) and its registry entry, so the stream ends
         assert!(events.send("after-close".into()).is_err());
-        tokio::task::yield_now().await;
-        assert!(matches!(
-            frames.try_recv(),
-            Err(mpsc::error::TryRecvError::Empty)
-        ));
+        assert_stream_closed(&mut frames).await;
     }
 }
