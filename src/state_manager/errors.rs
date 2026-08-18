@@ -19,7 +19,7 @@ pub enum Error {
     )]
     ExpensiveFork { epoch: ChainEpoch },
     /// The sender doesn't exist on chain, or is not a valid sender type.
-    #[error("{0}")]
+    #[error("{0}: sender validation failed")]
     SenderValidationFailed(String),
     /// Other state manager error
     #[error("{0}")]

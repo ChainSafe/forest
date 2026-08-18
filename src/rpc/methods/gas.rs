@@ -280,17 +280,21 @@ impl GasEstimateGasLimit {
         if apply_ret.exit_code().is_success() {
             return Ok(apply_ret.gas_used() as i64);
         }
-        let failure = format!(
-            "message execution failed: exit code: {}, reason: {}",
-            apply_ret.exit_code().value(),
-            apply_ret.failure_info().unwrap_or_default()
-        );
         if sender_validation == SenderValidation::Enforce
             && apply_ret.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
         {
-            return Err(crate::state_manager::Error::SenderValidationFailed(failure).into());
+            return Err(crate::state_manager::Error::SenderValidationFailed(format!(
+                "message execution failed (exit=[{}], vm error=[{}])",
+                apply_ret.exit_code(),
+                apply_ret.failure_info().unwrap_or_default()
+            ))
+            .into());
         }
-        anyhow::bail!(failure)
+        anyhow::bail!(
+            "message execution failed: exit code: {}, reason: {}",
+            apply_ret.exit_code().value(),
+            apply_ret.failure_info().unwrap_or_default()
+        )
     }
 }
 

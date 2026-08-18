@@ -192,11 +192,23 @@ impl StateManager {
 
         let from_protocol = match sender_validation {
             SenderValidation::Skip => msg.from.protocol(),
-            SenderValidation::Enforce => self
-                .resolve_to_deterministic_address(msg.from, &ts)
-                .await
-                .unwrap_or(msg.from)
-                .protocol(),
+            SenderValidation::Enforce => {
+                match self.resolve_to_deterministic_address(msg.from, &ts).await {
+                    Ok(from) => from.protocol(),
+                    Err(e) => {
+                        let TipsetState { state_root, .. } = self.load_tipset_state(&ts).await?;
+                        return Err(if self.get_actor(&msg.from, state_root)?.is_some() {
+                            e.context("could not resolve key")
+                        } else {
+                            Error::SenderValidationFailed(format!(
+                                "sender {} not found on chain",
+                                msg.from
+                            ))
+                            .into()
+                        });
+                    }
+                }
+            }
         };
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_protocol);
 
