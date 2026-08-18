@@ -63,8 +63,13 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
-use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
+use crate::shim::{
+    clock::ChainEpoch,
+    state_tree::{ActorState, StateTree},
+};
+use crate::state_manager::{
+    ExecutedMessage, ExecutedTipset, SenderValidation, StateManager, TipsetState, VMFlush,
+};
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
@@ -1882,8 +1887,16 @@ async fn eth_estimate_gas(
     // gas estimation actually run.
     msg.gas_limit = 0;
 
+    if sender_validation_for(ctx, &msg.from, &tipset) == SenderValidation::Skip {
+        return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
+    }
+
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
         Err(server_err) => {
+            if is_sender_validation_failure(&server_err) {
+                return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
+            }
+
             // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
             // it just returns an error. That means we can't get the revert reason.
             //
@@ -1891,8 +1904,8 @@ async fn eth_estimate_gas(
             // guts of EthCall). This will give us an ethereum specific error with revert
             // information.
             msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            let err = match apply_message(ctx, Some(tipset), msg).await {
-                Ok(_) => Error::msg(server_err.to_string()),
+            let err = match apply_message(ctx, Some(&tipset), &msg).await {
+                Ok(_) => server_err,
                 Err(e)
                     if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
                         matches!(eth_err, EthErrors::ExecutionReverted { .. })
@@ -1906,10 +1919,61 @@ async fn eth_estimate_gas(
             Err(err.context("failed to estimate gas").into())
         }
         Ok(gassed_msg) => {
-            let expected_gas = eth_gas_search(ctx, gassed_msg, &tipset.key().into()).await?;
+            let expected_gas =
+                eth_gas_search(ctx, gassed_msg, &tipset, SenderValidation::Enforce).await?;
             Ok(expected_gas.into())
         }
     }
+}
+
+fn is_sender_validation_failure(err: &Error) -> bool {
+    err.downcast_ref::<crate::state_manager::Error>()
+        .is_some_and(|e| matches!(e, crate::state_manager::Error::SenderValidationFailed(_)))
+}
+
+fn sender_validation_for(ctx: &Ctx, from: &FilecoinAddress, tipset: &Tipset) -> SenderValidation {
+    sender_validation_for_actor(ctx.state_manager.get_actor(from, *tipset.parent_state()))
+}
+
+fn sender_validation_for_actor(actor: anyhow::Result<Option<ActorState>>) -> SenderValidation {
+    match actor {
+        Ok(Some(actor)) if is_evm_actor(&actor.code) => SenderValidation::Skip,
+        _ => SenderValidation::Enforce,
+    }
+}
+
+/// Estimates gas for a sender that is a contract or doesn't exist on chain.
+async fn eth_estimate_gas_skip_sender(
+    ctx: &Ctx,
+    mut msg: Message,
+    tipset: &Tipset,
+) -> Result<EthUint64, ServerError> {
+    let gas_limit = match gas::GasEstimateGasLimit::estimate_gas_limit(
+        ctx,
+        msg.clone(),
+        tipset,
+        SenderValidation::Skip,
+    )
+    .await
+    {
+        Ok(gas_limit) => gas_limit,
+        Err(estimate_err) => {
+            // Re-execute only to recover the revert reason, which gas estimation doesn't report.
+            msg.set_gas_limit(BLOCK_GAS_LIMIT);
+            if let Err(e) = apply_message(ctx, Some(tipset), &msg).await
+                && e.downcast_ref::<EthErrors>()
+                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
+            {
+                return Err(e.into());
+            }
+            return Err(estimate_err.context("failed to estimate gas").into());
+        }
+    };
+
+    msg.set_gas_limit(gas::overestimate_gas_limit_capped(ctx, gas_limit as u64));
+
+    let expected_gas = eth_gas_search(ctx, msg, tipset, SenderValidation::Skip).await?;
+    Ok(expected_gas.into())
 }
 
 /// Builds an eth `ExecutionReverted` (code 3) from a failed message's exit code and return
@@ -1923,12 +1987,22 @@ fn execution_reverted_error(
     EthErrors::execution_reverted(exit_code.into(), &reason, vm_error, &data)
 }
 
+fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> bool {
+    match result {
+        Err(e) => is_sender_validation_failure(e),
+        Ok((invoc_res, _)) => invoc_res
+            .msg_rct
+            .as_ref()
+            .is_some_and(|rct| rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID),
+    }
+}
+
 async fn apply_message(
     ctx: &Ctx,
-    tipset: Option<Tipset>,
-    msg: Message,
+    tipset: Option<&Tipset>,
+    msg: &Message,
 ) -> Result<ApiInvocResult, Error> {
-    if let Some(ts) = &tipset
+    if let Some(ts) = tipset
         && ts.epoch() > 0
         && ctx
             .chain_config()
@@ -1937,11 +2011,31 @@ async fn apply_message(
         return Err(crate::state_manager::Error::ExpensiveFork { epoch: ts.epoch() }.into());
     }
 
-    let (invoc_res, _) = ctx
+    let result = ctx
         .state_manager
-        .apply_on_state_with_gas(tipset, msg, VMFlush::Skip, VMTrace::NotTraced)
-        .await
-        .context("failed to apply on state with gas")?;
+        .apply_on_state_with_gas(
+            tipset,
+            msg,
+            VMFlush::Skip,
+            VMTrace::NotTraced,
+            SenderValidation::Enforce,
+        )
+        .await;
+
+    let (invoc_res, _) = if needs_skip_sender(&result) {
+        ctx.state_manager
+            .apply_on_state_with_gas(
+                tipset,
+                msg,
+                VMFlush::Skip,
+                VMTrace::NotTraced,
+                SenderValidation::Skip,
+            )
+            .await
+            .context("failed to apply on state with gas (skipping sender validation)")?
+    } else {
+        result.context("failed to apply on state with gas")?
+    };
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -1961,12 +2055,22 @@ async fn apply_message(
     Ok(invoc_res)
 }
 
-pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> anyhow::Result<u64> {
+pub async fn eth_gas_search(
+    data: &Ctx,
+    msg: Message,
+    curr_ts: &Tipset,
+    sender_validation: SenderValidation,
+) -> anyhow::Result<u64> {
     // Probe the message as the caller specified it: the question is whether *its* limit
     // suffices, which the block maximum would always answer yes to.
-    let (apply_ret, prior_messages, ts, from) =
-        gas::GasEstimateGasLimit::probe_as_specified(data, msg.clone(), tsk, VMTrace::NotTraced)
-            .await?;
+    let (apply_ret, prior_messages, ts, from) = gas::GasEstimateGasLimit::probe_as_specified(
+        data,
+        msg.clone(),
+        curr_ts,
+        VMTrace::NotTraced,
+        sender_validation,
+    )
+    .await?;
     if apply_ret.exit_code().is_success() {
         return Ok(msg.gas_limit());
     }
@@ -1982,6 +2086,7 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
             Some(ts.shallow_clone()),
             VMFlush::Skip,
             VMTrace::Traced,
+            sender_validation,
         )
         .await?
         .0
@@ -1999,8 +2104,16 @@ pub async fn eth_gas_search(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> any
         .into());
     }
 
-    let ret = gas_search(data, &msg, from.protocol(), prior_messages, ts).await?;
-    Ok(((ret as f64) * data.mpool.gas_limit_overestimation()) as u64)
+    let ret = gas_search(
+        data,
+        &msg,
+        from.protocol(),
+        prior_messages,
+        ts,
+        sender_validation,
+    )
+    .await?;
+    Ok(gas::overestimate_gas_limit(data, ret))
 }
 
 /// `gas_search` does an exponential search to find a gas value to execute the
@@ -2013,6 +2126,7 @@ async fn gas_search(
     from_protocol: Protocol,
     prior_messages: Arc<Vec<ChainMessage>>,
     ts: Tipset,
+    sender_validation: SenderValidation,
 ) -> anyhow::Result<u64> {
     // `max(1)` keeps the doubling below able to make progress.
     let mut high = msg.gas_limit.max(1);
@@ -2029,6 +2143,7 @@ async fn gas_search(
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
                 VMTrace::NotTraced,
+                sender_validation,
             )
             .await?;
         anyhow::Ok(apply_ret.exit_code().is_success())
@@ -2753,7 +2868,7 @@ impl RpcMethod<2> for EthCall {
 
 async fn eth_call(ctx: &Ctx, tx: EthCallMessage, ts: Tipset) -> Result<EthBytes, ServerError> {
     let msg = Message::try_from(tx)?;
-    let invoke_result = apply_message(ctx, Some(ts), msg.clone()).await?;
+    let invoke_result = apply_message(ctx, Some(&ts), &msg).await?;
 
     if msg.to() == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
         Ok(EthBytes::default())
@@ -3890,10 +4005,11 @@ impl RpcMethod<3> for EthTraceCall {
         let (invoke_result, post_state_root) = ctx
             .state_manager
             .apply_on_state_with_gas(
-                Some(ts.shallow_clone()),
-                msg.clone(),
+                Some(&ts),
+                &msg,
                 VMFlush::Flush,
                 VMTrace::Traced,
+                SenderValidation::Enforce,
             )
             .await
             .context("failed to apply message")?;
@@ -4263,6 +4379,72 @@ mod test {
         // Surfaces to eth clients as the standard code-3 execution-reverted error.
         let server: ServerError = err.into();
         assert_eq!(server.code(), errors::EXECUTION_REVERTED_CODE);
+    }
+
+    fn invoc_result_with_exit_code(exit_code: fvm_shared4::error::ExitCode) -> ApiInvocResult {
+        ApiInvocResult {
+            msg_rct: Some(Receipt::V4(fvm_shared4::receipt::Receipt {
+                exit_code,
+                return_data: RawBytes::default(),
+                gas_used: 0,
+                events_root: None,
+            })),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn needs_skip_sender_covers_both_shapes_of_sender_rejection() {
+        assert!(needs_skip_sender(&Err(
+            crate::state_manager::Error::SenderValidationFailed("sender t410f... not found".into())
+                .into()
+        )));
+
+        assert!(needs_skip_sender(&Ok((
+            invoc_result_with_exit_code(fvm_shared4::error::ExitCode::SYS_SENDER_INVALID),
+            None
+        ))));
+
+        assert!(!needs_skip_sender(&Ok((
+            invoc_result_with_exit_code(fvm_shared4::error::ExitCode::USR_ASSERTION_FAILED),
+            None
+        ))));
+        assert!(!needs_skip_sender(&Ok((
+            invoc_result_with_exit_code(fvm_shared4::error::ExitCode::OK),
+            None
+        ))));
+        assert!(!needs_skip_sender(&Err(anyhow::anyhow!(
+            "blockstore read failed"
+        ))));
+        assert!(!needs_skip_sender(&Ok((ApiInvocResult::default(), None))));
+    }
+
+    #[test]
+    fn only_an_evm_sender_skips_validation() {
+        use crate::rpc::methods::eth::trace::test_helpers::{
+            create_test_actor, get_evm_actor_code_cid,
+        };
+
+        let evm_code = get_evm_actor_code_cid().expect("EVM actor code CID should be available");
+        let mut evm_actor = create_test_actor(0, 0);
+        evm_actor.code = evm_code;
+        assert_eq!(
+            sender_validation_for_actor(Ok(Some(evm_actor))),
+            SenderValidation::Skip
+        );
+
+        assert_eq!(
+            sender_validation_for_actor(Ok(Some(create_test_actor(0, 0)))),
+            SenderValidation::Enforce
+        );
+        assert_eq!(
+            sender_validation_for_actor(Ok(None)),
+            SenderValidation::Enforce
+        );
+        assert_eq!(
+            sender_validation_for_actor(Err(anyhow::anyhow!("blockstore read failed"))),
+            SenderValidation::Enforce
+        );
     }
 
     #[rstest]

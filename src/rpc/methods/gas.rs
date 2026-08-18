@@ -13,7 +13,7 @@ use crate::shim::{
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
-use crate::state_manager::VMFlush;
+use crate::state_manager::{SenderValidation, VMFlush};
 use anyhow::Result;
 use enumflags2::BitFlags;
 use num::BigInt;
@@ -197,10 +197,11 @@ impl RpcMethod<2> for GasEstimateGasLimit {
 
     async fn handle(
         ctx: Ctx,
-        (msg, tsk): Self::Params,
+        (msg, ApiTipsetKey(tsk)): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(Self::estimate_gas_limit(&ctx, msg, &tsk).await?)
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        Ok(Self::estimate_gas_limit(&ctx, msg, &ts, SenderValidation::Enforce).await?)
     }
 }
 
@@ -209,12 +210,13 @@ impl GasEstimateGasLimit {
     pub async fn measure_gas_used(
         data: &Ctx,
         mut msg: Message,
-        tsk: &ApiTipsetKey,
+        curr_ts: &Tipset,
+        sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
         msg.set_gas_limit(BLOCK_GAS_LIMIT);
         msg.set_gas_fee_cap(TokenAmount::from_atto(0));
         msg.set_gas_premium(TokenAmount::from_atto(0));
-        Self::probe_as_specified(data, msg, tsk, VMTrace::NotTraced).await
+        Self::probe_as_specified(data, msg, curr_ts, VMTrace::NotTraced, sender_validation).await
     }
 
     /// Runs `msg` exactly as given. The limit and fees are left alone: a gas search compares this
@@ -224,14 +226,23 @@ impl GasEstimateGasLimit {
     pub async fn probe_as_specified(
         data: &Ctx,
         msg: Message,
-        ApiTipsetKey(tsk): &ApiTipsetKey,
+        curr_ts: &Tipset,
         vm_trace: VMTrace,
+        sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
-        let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
-        let from_a = data
-            .state_manager
-            .resolve_to_deterministic_address(msg.from, &curr_ts)
-            .await?;
+        let from_a = match sender_validation {
+            SenderValidation::Skip => msg.from,
+            SenderValidation::Enforce => data
+                .state_manager
+                .resolve_to_deterministic_address(msg.from, curr_ts)
+                .await
+                .map_err(|e| {
+                    crate::state_manager::Error::SenderValidationFailed(format!(
+                        "resolving sender {} ({e:#})",
+                        msg.from
+                    ))
+                })?,
+        };
 
         let pending = data.mpool.pending_for(&from_a).await;
         let prior_messages: Arc<Vec<ChainMessage>> = pending
@@ -251,22 +262,35 @@ impl GasEstimateGasLimit {
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
                 vm_trace,
+                sender_validation,
             )
             .await?;
         Ok((apply_ret, prior_messages, ts, from_a))
     }
 
-    pub async fn estimate_gas_limit(data: &Ctx, msg: Message, tsk: &ApiTipsetKey) -> Result<i64> {
-        let (apply_ret, ..) = Self::measure_gas_used(data, msg, tsk)
+    pub async fn estimate_gas_limit(
+        data: &Ctx,
+        msg: Message,
+        curr_ts: &Tipset,
+        sender_validation: SenderValidation,
+    ) -> Result<i64> {
+        let (apply_ret, ..) = Self::measure_gas_used(data, msg, curr_ts, sender_validation)
             .await
             .context("gas estimation failed")?;
-        anyhow::ensure!(
-            apply_ret.exit_code().is_success(),
+        if apply_ret.exit_code().is_success() {
+            return Ok(apply_ret.gas_used() as i64);
+        }
+        let failure = format!(
             "message execution failed: exit code: {}, reason: {}",
             apply_ret.exit_code().value(),
             apply_ret.failure_info().unwrap_or_default()
         );
-        Ok(apply_ret.gas_used() as i64)
+        if sender_validation == SenderValidation::Enforce
+            && apply_ret.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
+        {
+            return Err(crate::state_manager::Error::SenderValidationFailed(failure).into());
+        }
+        anyhow::bail!(failure)
     }
 }
 
@@ -292,16 +316,36 @@ impl RpcMethod<3> for GasEstimateMessageGas {
     }
 }
 
+pub fn overestimate_gas_limit(data: &Ctx, gas: u64) -> u64 {
+    overestimate(gas, data.mpool.gas_limit_overestimation())
+}
+
+/// As [`overestimate_gas_limit`], clamped to the block gas limit.
+pub fn overestimate_gas_limit_capped(data: &Ctx, gas: u64) -> u64 {
+    overestimate_gas_limit(data, gas).min(BLOCK_GAS_LIMIT)
+}
+
+fn overestimate(gas: u64, multiplier: f64) -> u64 {
+    (gas as f64 * multiplier) as u64
+}
+
 pub async fn estimate_message_gas(
     data: &Ctx,
     mut msg: Message,
     msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
-) -> Result<Message, ServerError> {
+) -> anyhow::Result<Message> {
     if msg.gas_limit == 0 {
-        let gl = GasEstimateGasLimit::estimate_gas_limit(data, msg.clone(), &tsk).await?;
-        let gl = gl as f64 * data.mpool.gas_limit_overestimation();
-        msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
+        let ApiTipsetKey(key) = &tsk;
+        let ts = data.chain_store().load_required_tipset_or_heaviest(key)?;
+        let gl = GasEstimateGasLimit::estimate_gas_limit(
+            data,
+            msg.clone(),
+            &ts,
+            SenderValidation::Enforce,
+        )
+        .await?;
+        msg.set_gas_limit(overestimate_gas_limit_capped(data, gl as u64));
     }
     if msg.gas_premium.is_zero() {
         let gp = estimate_gas_premium(data, 10, &tsk).await?;
@@ -576,6 +620,23 @@ mod tests {
 
         assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(1000));
         assert_eq!(msg.gas_premium(), TokenAmount::from_atto(100));
+    }
+
+    #[test]
+    fn test_overestimate_applies_the_multiplier_and_truncates() {
+        assert_eq!(overestimate(1_000_000, 1.25), 1_250_000);
+        // Truncation, not rounding: 3 * 1.25 = 3.75.
+        assert_eq!(overestimate(3, 1.25), 3);
+        assert_eq!(overestimate(0, 1.25), 0);
+        assert_eq!(overestimate(21_000, 1.0), 21_000);
+    }
+
+    #[test]
+    fn test_overestimate_beyond_the_block_gas_limit() {
+        // A block-filling message overestimates past the limit, so only capped callers stay within.
+        let overestimated = overestimate(BLOCK_GAS_LIMIT, 1.25);
+        assert!(overestimated > BLOCK_GAS_LIMIT);
+        assert_eq!(overestimated.min(BLOCK_GAS_LIMIT), BLOCK_GAS_LIMIT);
     }
 
     #[test]
