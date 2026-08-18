@@ -4034,6 +4034,23 @@ methods:
       schema:
         $ref: "#/components/schemas/TokenAmount"
     paramStructure: by-position
+  - name: Filecoin.StateMinerCreationDeposit
+    description: Returns the deposit required to create a new miner actor at the specified tipset.
+    params:
+      - name: tipsetKey
+        required: true
+        schema:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/Cid"
+    result:
+      name: Filecoin.StateMinerCreationDeposit.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/TokenAmount"
+    paramStructure: by-position
   - name: Filecoin.SyncCheckBad
     description: "Returns the reason the given block is marked bad, or an empty string if it is not."
     params:
