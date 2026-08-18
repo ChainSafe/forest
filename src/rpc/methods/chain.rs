@@ -2448,7 +2448,7 @@ mod tests {
         assert_eq!(
             next_batch(&mut rx).await,
             vec![ApiHeadChange {
-                change: "current".into(),
+                change: HeadChangeType::Current,
                 tipset: cs.heaviest_tipset(),
             }]
         );
@@ -2457,14 +2457,14 @@ mod tests {
 
     fn applied(ts: impl MakeTipset) -> ApiHeadChange {
         ApiHeadChange {
-            change: "apply".into(),
+            change: HeadChangeType::Apply,
             tipset: ts.make_tipset(),
         }
     }
 
     fn reverted(ts: impl MakeTipset) -> ApiHeadChange {
         ApiHeadChange {
-            change: "revert".into(),
+            change: HeadChangeType::Revert,
             tipset: ts.make_tipset(),
         }
     }
@@ -2478,7 +2478,7 @@ mod tests {
         assert_eq!(
             next_batch(&mut rx).await,
             vec![ApiHeadChange {
-                change: "current".into(),
+                change: HeadChangeType::Current,
                 tipset: cs.heaviest_tipset(),
             }]
         );
@@ -2736,7 +2736,7 @@ mod tests {
         assert_eq!(
             batch,
             vec![ApiHeadChange {
-                change: "current".into(),
+                change: HeadChangeType::Current,
                 tipset: cs.heaviest_tipset(),
             }]
         );
