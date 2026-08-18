@@ -14,8 +14,10 @@ RPC_URL="http://127.0.0.1:${FOREST_RPC_PORT}/rpc/v1"
 # Confirms the back-fill indexed an epoch, which is what the checks query.
 verify_epoch_indexed() {
   jq -nc --arg epoch "$(printf '0x%x' "$1")" \
-    '{jsonrpc:"2.0",id:1,method:"eth_getBlockByNumber",params:[$epoch,false]}' | curl --silent \
-      --show-error --fail --retry 5 --data @- "${RPC_URL}" | jq -e '.result.number' > /dev/null
+    '{jsonrpc:"2.0",id:1,method:"eth_getBlockByNumber",params:[$epoch,false]}' |
+    curl --silent --show-error --fail --retry 5 --connect-timeout 10 \
+      --header 'Content-Type: application/json' --data @- "${RPC_URL}" |
+    jq -e '.result.number' > /dev/null
 }
 
 # This should not be needed in GH. It is useful for running locally.
