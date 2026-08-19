@@ -88,15 +88,23 @@ impl GenesisInfo {
         root: &Cid,
     ) -> anyhow::Result<CirculatingSupply> {
         let state_tree = StateTree::new_from_root(db, root)?;
+        self.get_vm_circulating_supply_detailed_with_state_tree(height, &state_tree)
+    }
 
+    /// As [`Self::get_vm_circulating_supply_detailed`], but reusing an already-loaded state tree.
+    pub fn get_vm_circulating_supply_detailed_with_state_tree<DB: Blockstore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> anyhow::Result<CirculatingSupply> {
         let fil_vested = get_fil_vested(self, height);
-        let fil_mined = get_fil_mined(&state_tree)?;
-        let fil_burnt = get_fil_burnt(&state_tree)?;
+        let fil_mined = get_fil_mined(state_tree)?;
+        let fil_burnt = get_fil_burnt(state_tree)?;
 
         let network_version = self.chain_config.network_version(height);
-        let fil_locked = get_fil_locked(&state_tree, network_version)?;
+        let fil_locked = get_fil_locked(state_tree, network_version)?;
         let fil_reserve_disbursed = if height > self.chain_config.epoch(Height::Assembly) {
-            get_fil_reserve_disbursed(&self.chain_config, height, &state_tree)?
+            get_fil_reserve_disbursed(&self.chain_config, height, state_tree)?
         } else {
             TokenAmount::default()
         };
