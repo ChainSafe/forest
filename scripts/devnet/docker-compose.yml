@@ -223,11 +223,9 @@ services:
     command:
       - |
         set -euxo pipefail
-        if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
-          sed s/__FOREST_P2P_PORT__/${FOREST_P2P_PORT}/ /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
-          echo name = \"devnet\" >> ${FOREST_DATA_DIR}/forest_config.toml
-        fi
-        forest --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        LOTUS_PEER_ID=$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
+        sed s@__LOTUS_MULTIADDR__@/dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$LOTUS_PEER_ID@ /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
+        forest --chain devnet --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --p2p-listen-address /ip4/0.0.0.0/tcp/${FOREST_P2P_PORT} --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   forest_offline:
     depends_on:
@@ -279,9 +277,8 @@ services:
         NETWORK_NAME=$$(cat ${FOREST_DATA_DIR}/network_name)
         forest-tool api serve --chain $$NETWORK_NAME --genesis ${LOTUS_DATA_DIR}/devgen.car --port ${FOREST_OFFLINE_RPC_PORT}
 
-  # At the moment of writing, Forest was not able to connect to a devnet node using its config.
-  # This is a workaround to force the connection.
-  forest_connecter:
+  # `forest-wallet` always opens an RPC connection, so this cannot run before the daemon is up.
+  forest_wallet_import:
     depends_on:
       forest:
         condition: service_healthy
@@ -300,7 +297,6 @@ services:
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
         export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
         forest-wallet --remote-wallet import ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key || true
-        forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
 
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.
