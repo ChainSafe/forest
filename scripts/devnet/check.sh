@@ -49,7 +49,7 @@ done
 
 # Check the offline RPC, which should be initialized at that point. It should be at the genesis height, so 0.
 height=$(get_sync_height ${FOREST_OFFLINE_RPC_PORT})
-if [ "$height" -ne 0 ]; then
+if [ "$height" != "0" ]; then
   echo "Offline RPC height is not zero: $height"
   exit 1
 fi
