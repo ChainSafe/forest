@@ -38,7 +38,7 @@ services:
           lotus --version
           lotus fetch-params 2048
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
-          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new  --network-name=devnet ${LOTUS_DATA_DIR}/localnet.json
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new --network-name=${NETWORK_NAME} ${LOTUS_DATA_DIR}/localnet.json
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis add-miner ${LOTUS_DATA_DIR}/localnet.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
           touch ${LOTUS_DATA_DIR}/NODE_INITIALISED
         fi
@@ -225,7 +225,7 @@ services:
         set -euxo pipefail
         LOTUS_PEER_ID=$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
         sed s@__LOTUS_MULTIADDR__@/dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$LOTUS_PEER_ID@ /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
-        forest --chain devnet --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --p2p-listen-address /ip4/0.0.0.0/tcp/${FOREST_P2P_PORT} --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        forest --chain ${NETWORK_NAME} --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --p2p-listen-address /ip4/0.0.0.0/tcp/${FOREST_P2P_PORT} --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   forest_offline:
     depends_on:
@@ -271,11 +271,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        if [ ! -f ${FOREST_DATA_DIR}/network_name ]; then
-          grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json | tr -d '"' | tee ${FOREST_DATA_DIR}/network_name
-        fi
-        NETWORK_NAME=$$(cat ${FOREST_DATA_DIR}/network_name)
-        forest-tool api serve --chain $$NETWORK_NAME --genesis ${LOTUS_DATA_DIR}/devgen.car --port ${FOREST_OFFLINE_RPC_PORT}
+        forest-tool api serve --chain ${NETWORK_NAME} --genesis ${LOTUS_DATA_DIR}/devgen.car --port ${FOREST_OFFLINE_RPC_PORT}
 
   # `forest-wallet` always opens an RPC connection, so this cannot run before the daemon is up.
   forest_wallet_import:
