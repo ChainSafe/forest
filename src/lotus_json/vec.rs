@@ -38,7 +38,7 @@ where
 // while an empty `NotNullVec<T>` serializes into `[]`
 // this is a temporary workaround and will likely be deprecated once
 // other issues on serde of `Vec<T>` are resolved.
-#[derive(Debug, Clone, Default, PartialEq, JsonSchema, GetSize)]
+#[derive(Debug, Clone, Default, PartialEq, JsonSchema, GetSize, derive_more::From)]
 pub struct NotNullVec<T>(pub Vec<T>);
 
 impl<T> HasLotusJson for NotNullVec<T>

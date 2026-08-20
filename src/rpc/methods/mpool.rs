@@ -113,7 +113,7 @@ impl RpcMethod<1> for MpoolPending {
 
         // The mpool is already at or past `ts`, so its pending set needs no on-chain merge.
         if mpts.epoch() > ts.epoch() || mpts == ts {
-            return Ok(NotNullVec(pending.into_iter().collect()));
+            return Ok(pending.into());
         }
 
         let mut have_cids = HashSet::new();
@@ -152,7 +152,7 @@ impl RpcMethod<1> for MpoolPending {
 
             ts = ctx.chain_index().load_required_tipset(ts.parents())?;
         }
-        Ok(NotNullVec(pending.into_iter().collect()))
+        Ok(pending.into())
     }
 }
 
