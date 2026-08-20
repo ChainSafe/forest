@@ -188,6 +188,31 @@ pub trait Beacon {
         network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
     ) -> anyhow::Result<u64>;
+
+    /// Unix timestamp (seconds) at which the given `drand` round is produced, or `None`
+    /// (the default) if not derivable - meaning callers should not wait.
+    fn beacon_round_timestamp(&self, _round: u64) -> Option<u64> {
+        None
+    }
+
+    /// Fetches `round`, waiting only until that `drand` round is produced (per
+    /// [`Self::beacon_round_timestamp`]) rather than until the later Filecoin epoch.
+    async fn entry_when_available(&self, round: u64) -> anyhow::Result<BeaconEntry> {
+        if let Some(round_ts) = self.beacon_round_timestamp(round) {
+            let wait = beacon_round_wait(round_ts, chrono::Utc::now().timestamp());
+            if !wait.is_zero() {
+                tokio::time::sleep(wait).await;
+            }
+        }
+        self.entry(round).await
+    }
+}
+
+/// How long to wait until the `drand` round produced at `round_ts` (Unix seconds) is
+/// available, given the current time `now`. Includes a 1s publish-latency buffer.
+pub(crate) fn beacon_round_wait(round_ts: u64, now: i64) -> Duration {
+    let now = now.max(0) as u64;
+    Duration::from_secs(round_ts.saturating_add(1).saturating_sub(now))
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -252,6 +277,23 @@ impl DrandBeacon {
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
+    }
+
+    /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
+    /// into `verified_beacons`. Only unchained rounds verify standalone, so chained ones are skipped.
+    fn cache_fetched_entry(&self, entry: &BeaconEntry) {
+        if !self.network.is_unchained() {
+            return;
+        }
+        if !matches!(
+            self.verify_entries(std::slice::from_ref(entry), entry),
+            Ok(true)
+        ) {
+            debug!(
+                round = entry.round(),
+                "fetched drand entry failed verification"
+            );
+        }
     }
 }
 
@@ -328,68 +370,63 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached = self.verified_beacons.get(&round);
-        match cached {
-            Some(cached_entry) => Ok(Arc::unwrap_or_clone(cached_entry)),
-            None => {
-                async fn fetch_entry_from_url(
-                    url: impl reqwest::IntoUrl,
-                ) -> anyhow::Result<BeaconEntry> {
-                    let resp: BeaconEntryJson = global_http_client()
-                        .get(url)
-                        // More tolerance on slow networks
-                        .timeout(Duration::from_secs(15))
-                        .send()
-                        .await?
-                        .error_for_status()?
-                        .json()
-                        .await?;
-                    anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
-                }
-
-                async fn fetch_entry(
-                    urls: impl Iterator<Item = impl reqwest::IntoUrl>,
-                ) -> anyhow::Result<BeaconEntry> {
-                    let mut errors = vec![];
-                    for url in urls {
-                        match fetch_entry_from_url(url).await {
-                            Ok(e) => return Ok(e),
-                            Err(e) => errors.push(e),
-                        }
-                    }
-                    anyhow::bail!(
-                        "Aggregated errors:\n{}",
-                        errors.into_iter().map(|e| e.to_string()).join("\n\n")
-                    );
-                }
-
-                let urls: Vec<_> = self
-                    .servers
-                    .iter()
-                    .map(|server| {
-                        anyhow::Ok(server.join(&format!("{}/public/{round}", self.hash))?)
-                    })
-                    .try_collect()?;
-                let entry = (|| fetch_entry(urls.iter().cloned()))
-                    .retry(ExponentialBuilder::default())
-                    .notify(|err, dur| {
-                        debug!(
-                            "retrying fetch_entry after {}: {err:#}",
-                            humantime::format_duration(dur)
-                        );
-                    })
-                    .await?;
-                // Callers assume the entry is for the round they asked for. Round 0 is served
-                // as "latest", so it answers with a different round by design:
-                // <https://github.com/drand/drand/blob/v2.1.6/handler/http/server.go#L367>
-                anyhow::ensure!(
-                    round == 0 || entry.round() == round,
-                    "drand returned round {} for round {round}",
-                    entry.round()
-                );
-                Ok(entry)
-            }
+        if let Some(cached_entry) = self.verified_beacons.get(&round) {
+            return Ok(Arc::unwrap_or_clone(cached_entry));
         }
+
+        async fn fetch_entry_from_url(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
+            let resp: BeaconEntryJson = global_http_client()
+                .get(url)
+                // More tolerance on slow networks
+                .timeout(Duration::from_secs(15))
+                .send()
+                .await?
+                .error_for_status()?
+                .json()
+                .await?;
+            anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
+        }
+
+        async fn fetch_entry(
+            urls: impl Iterator<Item = impl reqwest::IntoUrl>,
+        ) -> anyhow::Result<BeaconEntry> {
+            let mut errors = vec![];
+            for url in urls {
+                match fetch_entry_from_url(url).await {
+                    Ok(e) => return Ok(e),
+                    Err(e) => errors.push(e),
+                }
+            }
+            anyhow::bail!(
+                "Aggregated errors:\n{}",
+                errors.into_iter().map(|e| e.to_string()).join("\n\n")
+            );
+        }
+
+        let urls: Vec<_> = self
+            .servers
+            .iter()
+            .map(|server| anyhow::Ok(server.join(&format!("{}/public/{round}", self.hash))?))
+            .try_collect()?;
+        let entry = (|| fetch_entry(urls.iter().cloned()))
+            .retry(ExponentialBuilder::default())
+            .notify(|err, dur| {
+                debug!(
+                    "retrying fetch_entry after {}: {err:#}",
+                    humantime::format_duration(dur)
+                );
+            })
+            .await?;
+        // Callers assume the entry is for the round they asked for. Round 0 is served
+        // as "latest", so it answers with a different round by design:
+        // <https://github.com/drand/drand/blob/v2.1.6/handler/http/server.go#L367>
+        anyhow::ensure!(
+            round == 0 || entry.round() == round,
+            "drand returned round {} for round {round}",
+            entry.round()
+        );
+        self.cache_fetched_entry(&entry);
+        Ok(entry)
     }
 
     fn max_beacon_round_for_epoch(
@@ -424,5 +461,13 @@ impl Beacon for DrandBeacon {
             // round 1 starts at genesis time.
             Ok(from_genesis / self.interval + 1)
         }
+    }
+
+    fn beacon_round_timestamp(&self, round: u64) -> Option<u64> {
+        // Round 1 is produced at drand genesis; round n at genesis + (n-1)*period.
+        Some(
+            self.drand_gen_time
+                .saturating_add(round.saturating_sub(1).saturating_mul(self.interval)),
+        )
     }
 }

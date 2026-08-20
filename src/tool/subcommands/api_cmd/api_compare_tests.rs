@@ -736,6 +736,7 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
         RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
+        RpcTest::basic(NetBandwidthStats::request(()).unwrap()),
         RpcTest::identity(NetVersion::request(()).unwrap()),
         RpcTest::identity(NetProtectAdd::request((vec![PeerId::random().to_string()],)).unwrap()),
         RpcTest::identity(
@@ -913,6 +914,7 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
             1024,
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateMinerCreationDeposit::request((tipset.key().into(),))?),
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),

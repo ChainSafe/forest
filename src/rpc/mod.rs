@@ -195,6 +195,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::net::NetAddrsListen);
         $callback!($crate::rpc::net::NetAgentVersion);
         $callback!($crate::rpc::net::NetAutoNatStatus);
+        $callback!($crate::rpc::net::NetBandwidthStats);
         $callback!($crate::rpc::net::NetConnect);
         $callback!($crate::rpc::net::NetDisconnect);
         $callback!($crate::rpc::net::NetFindPeer);
@@ -280,6 +281,7 @@ macro_rules! for_each_rpc_method {
         $callback!($crate::rpc::state::StateWaitMsg);
         $callback!($crate::rpc::state::StateWaitMsgV0);
         $callback!($crate::rpc::state::StateMinerInitialPledgeForSector);
+        $callback!($crate::rpc::state::StateMinerCreationDeposit);
 
         // sync vertical
         $callback!($crate::rpc::sync::SyncCheckBad);

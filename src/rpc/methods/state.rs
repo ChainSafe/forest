@@ -1116,23 +1116,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         let sector_weight =
             qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let power_smoothed = power_state.total_power_smoothed();
-        let pledge_collateral = power_state.total_locked();
-
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
-        let circ_supply = ctx
-            .state_manager
-            .genesis_info()
-            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
-        let initial_pledge = reward_state.initial_pledge_for_power(
-            &sector_weight,
-            pledge_collateral,
-            power_smoothed,
-            &circ_supply.fil_circulating,
-            power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs(),
-        )?;
+        let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
 
         let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(q)
@@ -1164,7 +1148,9 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             .sector_size()
             .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
-        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+
+        let market_state: market::State = state_tree.get_actor_state()?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.db(),
             address,
@@ -1181,10 +1167,10 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
                 qa_power_max(sector_size)
             };
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
+        let power_state: power::State = state_tree.get_actor_state()?;
         let power_smoothed = power_state.total_power_smoothed();
 
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
+        let reward_state: reward::State = state_tree.get_actor_state()?;
         let deposit: TokenAmount =
             reward_state.pre_commit_deposit_for_power(power_smoothed, sector_weight)?;
         let (value, _) = (deposit * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
@@ -2183,14 +2169,15 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
 
-        let supply = ctx.genesis_info().get_vm_circulating_supply(
-            ts.epoch(),
-            ctx.db(),
-            ts.parent_state(),
-        )?;
+        let power_state: power::State = state_tree.get_actor_state()?;
+        let reward_state: reward::State = state_tree.get_actor_state()?;
+
+        let supply = ctx
+            .genesis_info()
+            .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)?
+            .fil_circulating;
 
         let power_claim = power_state.total_power();
 
@@ -2218,22 +2205,6 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     }
 }
 
-/// How long to wait for `epoch`'s beacon entry, with a 1s clock drift buffer.
-fn beacon_entry_wait(
-    genesis_timestamp: i64,
-    block_delay: i64,
-    epoch: ChainEpoch,
-    now_timestamp: i64,
-) -> anyhow::Result<Duration> {
-    let epoch_timestamp = epoch
-        .checked_mul(block_delay)
-        .and_then(|ts| ts.checked_add(genesis_timestamp))
-        .and_then(|ts| ts.checked_add(1))
-        .with_context(|| format!("epoch {epoch} has no representable timestamp"))?;
-    let seconds = epoch_timestamp.saturating_sub(now_timestamp).max(0);
-    Ok(Duration::from_secs(seconds as u64))
-}
-
 pub enum StateGetBeaconEntry {}
 
 impl RpcMethod<1> for StateGetBeaconEntry {
@@ -2251,20 +2222,26 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let genesis_timestamp = i64::try_from(ctx.chain_store().genesis_block_header().timestamp)
-            .context("genesis timestamp is out of range")?;
-        tokio::time::sleep(beacon_entry_wait(
-            genesis_timestamp,
-            i64::from(ctx.chain_config().block_delay_secs),
-            epoch,
-            chrono::Utc::now().timestamp(),
-        )?)
-        .await;
+        let epoch = epoch.max(0); // negative epochs read genesis (Lotus parity)
+        // Read the entry from on-chain headers (no drand round-trip, like Lotus). Falls
+        // through to the beacon path when the tipset isn't stored locally (partial snapshot).
+        let heaviest = ctx.chain_store().heaviest_tipset();
+        if epoch <= heaviest.epoch() {
+            let chain_rand = ctx.state_manager.chain_rand(heaviest);
+            if let Ok(entry) = tokio::task::spawn_blocking(move || {
+                chain_rand.extract_beacon_entry_for_epoch(epoch)
+            })
+            .await?
+            {
+                return Ok(entry);
+            }
+        }
 
+        // Future epoch (or missing locally): wait only until the drand round is produced.
         let (_, beacon) = ctx.beacon().beacon_for_epoch(epoch)?;
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch)?;
-        let entry = beacon.entry(round).await?;
+        let entry = beacon.entry_when_available(round).await?;
         Ok(entry)
     }
 }
@@ -3387,17 +3364,6 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
 
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
-        let power_state: power::State = ctx.state_manager.get_actor_state(&ts)?;
-        let power_smoothed = power_state.total_power_smoothed();
-        let pledge_collateral = power_state.total_locked();
-
-        let reward_state: reward::State = ctx.state_manager.get_actor_state(&ts)?;
-
-        let circ_supply = ctx
-            .state_manager
-            .genesis_info()
-            .get_vm_circulating_supply_detailed(ts.epoch(), ctx.db(), ts.parent_state())?;
-
         let deal_weight = BigInt::from(0);
         let verified_deal_weight = BigInt::from(verified_size) * sector_duration;
         let sector_weight = qa_power_for_weight(
@@ -3407,41 +3373,75 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             &verified_deal_weight,
         );
 
-        let (epochs_since_start, duration) = get_pledge_ramp_params(&ctx, ts.epoch(), &ts)?;
-
-        let initial_pledge = reward_state.initial_pledge_for_power(
-            &sector_weight,
-            pledge_collateral,
-            power_smoothed,
-            &circ_supply.fil_circulating,
-            epochs_since_start,
-            duration,
-        )?;
+        let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
 
         let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)
     }
 }
 
-fn get_pledge_ramp_params(
-    ctx: &Ctx,
-    height: ChainEpoch,
-    ts: &Tipset,
-) -> anyhow::Result<(ChainEpoch, u64)> {
-    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+pub enum StateMinerCreationDeposit {}
+impl RpcMethod<1> for StateMinerCreationDeposit {
+    const NAME: &'static str = "Filecoin.StateMinerCreationDeposit";
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetKey"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::V1);
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str =
+        "Returns the deposit required to create a new miner actor at the specified tipset.";
 
-    let power_state: power::State = state_tree
-        .get_actor_state()
-        .context("loading power actor state")?;
+    type Params = (ApiTipsetKey,);
+    type Ok = TokenAmount;
 
-    if power_state.ramp_start_epoch() > 0 {
-        Ok((
-            height - power_state.ramp_start_epoch(),
-            power_state.ramp_duration_epochs(),
-        ))
-    } else {
-        Ok((0, 0))
+    async fn handle(
+        ctx: Ctx,
+        (ApiTipsetKey(tsk),): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V27 {
+            return Ok(TokenAmount::from_atto(0));
+        }
+
+        // Reference implementation: https://github.com/filecoin-project/builtin-actors/blob/00db828d09c3dfb61fe768ff6a19416a313444bd/actors/miner/src/lib.rs#L5264-L5279
+        let create_miner_deposit_power: StoragePower =
+            &ctx.chain_config().policy.minimum_consensus_power / 10;
+
+        compute_initial_pledge_for_power(&ctx, &ts, &create_miner_deposit_power)
     }
+}
+
+fn compute_initial_pledge_for_power(
+    ctx: &Ctx,
+    ts: &Tipset,
+    qa_power: &StoragePower,
+) -> Result<TokenAmount, ServerError> {
+    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+    let power_state: power::State = state_tree.get_actor_state()?;
+    let reward_state: reward::State = state_tree.get_actor_state()?;
+
+    let circ_supply = ctx
+        .state_manager
+        .genesis_info()
+        .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)?;
+
+    let (epochs_since_start, duration) = if power_state.ramp_start_epoch() > 0 {
+        (
+            ts.epoch() - power_state.ramp_start_epoch(),
+            power_state.ramp_duration_epochs(),
+        )
+    } else {
+        (0, 0)
+    };
+
+    Ok(reward_state.initial_pledge_for_power(
+        qa_power,
+        power_state.total_locked(),
+        power_state.total_power_smoothed(),
+        &circ_supply.fil_circulating,
+        epochs_since_start,
+        duration,
+    )?)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
@@ -3543,35 +3543,6 @@ mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
     use rstest::rstest;
-
-    const GENESIS: i64 = 1598306400;
-    const BLOCK_DELAY: i64 = crate::shim::clock::EPOCH_DURATION_SECONDS;
-    /// Wall clock at epoch 100.
-    const NOW: i64 = GENESIS + 100 * BLOCK_DELAY;
-
-    #[rstest]
-    #[case(99, Duration::ZERO)]
-    // The 1s clock drift buffer puts the current epoch 1s in the future.
-    #[case(100, Duration::from_secs(1))]
-    #[case(102, Duration::from_secs(61))]
-    fn beacon_entry_wait_until_epoch(#[case] epoch: ChainEpoch, #[case] expected: Duration) {
-        assert_eq!(
-            beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, NOW).unwrap(),
-            expected
-        );
-    }
-
-    #[rstest]
-    #[case(i64::MIN)]
-    #[case(i64::MAX)]
-    fn beacon_entry_wait_rejects_unrepresentable_epochs(#[case] epoch: ChainEpoch) {
-        assert!(beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, NOW).is_err());
-    }
-
-    #[quickcheck]
-    fn beacon_entry_wait_no_panic(epoch: ChainEpoch, now_timestamp: i64) {
-        let _ = beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, now_timestamp);
-    }
 
     #[rstest]
     #[case(1_000, Some(600))]
