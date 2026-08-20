@@ -94,6 +94,8 @@ pub mod values {
         Libp2pMessageKindLabel::new("pubsub_message_block");
     pub const PUBSUB_MESSAGE: Libp2pMessageKindLabel =
         Libp2pMessageKindLabel::new("pubsub_message_message");
+    pub const PUBSUB_DRAND_ENTRY: Libp2pMessageKindLabel =
+        Libp2pMessageKindLabel::new("pubsub_message_drand_entry");
     pub const CHAIN_EXCHANGE_REQUEST_OUTBOUND: Libp2pMessageKindLabel =
         Libp2pMessageKindLabel::new("chain_exchange_request_out");
     pub const CHAIN_EXCHANGE_RESPONSE_INBOUND: Libp2pMessageKindLabel =

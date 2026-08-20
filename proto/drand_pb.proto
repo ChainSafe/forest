@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package drand_pb;
+
+message PublicRandResponse {
+  uint64 round = 1;
+  bytes signature = 2;
+}

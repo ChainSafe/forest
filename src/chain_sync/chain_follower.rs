@@ -304,6 +304,17 @@ async fn chain_follower(
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
                         }
+                        PubsubMessage::DrandEntry {
+                            chain_hash,
+                            response,
+                        } => {
+                            // Signature verification and cache insertion land with the
+                            // beacon-schedule wiring.
+                            tracing::trace!(
+                                "Received drand round {} on chain {chain_hash}",
+                                response.round
+                            );
+                        }
                     },
                     _ => {}
                 }
@@ -480,6 +491,7 @@ fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
         NetworkEvent::PubsubMessage { message } => match message {
             PubsubMessage::Block(_) => metrics::values::PUBSUB_BLOCK,
             PubsubMessage::Message(_) => metrics::values::PUBSUB_MESSAGE,
+            PubsubMessage::DrandEntry { .. } => metrics::values::PUBSUB_DRAND_ENTRY,
         },
         NetworkEvent::ChainExchangeRequestOutbound => {
             metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND

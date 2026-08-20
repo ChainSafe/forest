@@ -10,7 +10,7 @@ use super::{
     PeerManager,
     discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
 };
-use crate::libp2p_bitswap::BitswapBehaviour;
+use crate::{libp2p::PubsubTopicCfg, libp2p_bitswap::BitswapBehaviour};
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use crate::{
     libp2p::{
@@ -79,11 +79,13 @@ const MAX_SUBSCRIPTIONS_PER_REQUEST: usize = 100;
 
 /// Filter accepting only Forest's topics, bounded in count and per request.
 pub(in crate::libp2p) fn build_subscription_filter(
-    network_name: &GenesisNetworkName,
+    cfg: PubsubTopicCfg<'_>
 ) -> MaxCountSubscriptionFilter<WhitelistSubscriptionFilter> {
-    let allowed: Vec<_> = crate::libp2p::pubsub_topics(network_name)
-        .map(|t| t.hash())
+    let allowed: Vec<_> = crate::libp2p::pubsub_topics(cfg)
+        .iter()
+        .map(|(_, t)| t.hash())
         .collect();
+
     MaxCountSubscriptionFilter {
         // Whitelisted topics are the only ones counted, so their number is an
         // exact, self-maintaining bound.
@@ -95,7 +97,7 @@ pub(in crate::libp2p) fn build_subscription_filter(
 
 pub(in crate::libp2p) fn build_gossipsub(
     local_key: &Keypair,
-    network_name: &GenesisNetworkName,
+    cfg: PubsubTopicCfg<'_>
 ) -> anyhow::Result<Gossipsub> {
     let mut gs_config_builder = gossipsub::ConfigBuilder::default();
     gs_config_builder.max_transmit_size(1 << 20);
@@ -109,13 +111,13 @@ pub(in crate::libp2p) fn build_gossipsub(
     let mut gossipsub = Gossipsub::new_with_subscription_filter(
         MessageAuthenticity::Signed(local_key.clone()),
         gossipsub_config,
-        build_subscription_filter(network_name),
+        build_subscription_filter(cfg),
     )
     .map_err(anyhow::Error::msg)?;
 
     gossipsub
         .with_peer_score(
-            build_peer_score_params(network_name),
+            build_peer_score_params(cfg),
             build_peer_score_threshold(),
         )
         .map_err(anyhow::Error::msg)?;
@@ -128,6 +130,7 @@ impl ForestBehaviour {
         local_key: &Keypair,
         config: &Libp2pConfig,
         network_name: &GenesisNetworkName,
+        gossipsub: Gossipsub,
         peer_manager: Arc<PeerManager>,
     ) -> anyhow::Result<Self> {
         const MAX_ESTABLISHED_PER_PEER: u32 = 4;
@@ -145,8 +148,6 @@ impl ForestBehaviour {
 
         let max_concurrent_request_response_streams = (config.target_peer_count as usize)
             .saturating_mul(*MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
-
-        let gossipsub = build_gossipsub(local_key, network_name)?;
 
         let bitswap = BitswapBehaviour::new(
             &[

@@ -3,9 +3,11 @@
 
 pub mod beacon_entries;
 mod drand;
+mod drand_pb;
 pub mod signatures;
 pub use beacon_entries::*;
 pub use drand::*;
+pub use drand_pb::PublicRandResponse;
 
 #[cfg(test)]
 pub mod mock_beacon;
