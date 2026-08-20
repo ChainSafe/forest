@@ -2205,22 +2205,6 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
     }
 }
 
-/// How long to wait for `epoch`'s beacon entry, with a 1s clock drift buffer.
-fn beacon_entry_wait(
-    genesis_timestamp: i64,
-    block_delay: i64,
-    epoch: ChainEpoch,
-    now_timestamp: i64,
-) -> anyhow::Result<Duration> {
-    let epoch_timestamp = epoch
-        .checked_mul(block_delay)
-        .and_then(|ts| ts.checked_add(genesis_timestamp))
-        .and_then(|ts| ts.checked_add(1))
-        .with_context(|| format!("epoch {epoch} has no representable timestamp"))?;
-    let seconds = epoch_timestamp.saturating_sub(now_timestamp).max(0);
-    Ok(Duration::from_secs(seconds as u64))
-}
-
 pub enum StateGetBeaconEntry {}
 
 impl RpcMethod<1> for StateGetBeaconEntry {
@@ -2238,20 +2222,26 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         (epoch,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let genesis_timestamp = i64::try_from(ctx.chain_store().genesis_block_header().timestamp)
-            .context("genesis timestamp is out of range")?;
-        tokio::time::sleep(beacon_entry_wait(
-            genesis_timestamp,
-            i64::from(ctx.chain_config().block_delay_secs),
-            epoch,
-            chrono::Utc::now().timestamp(),
-        )?)
-        .await;
+        let epoch = epoch.max(0); // negative epochs read genesis (Lotus parity)
+        // Read the entry from on-chain headers (no drand round-trip, like Lotus). Falls
+        // through to the beacon path when the tipset isn't stored locally (partial snapshot).
+        let heaviest = ctx.chain_store().heaviest_tipset();
+        if epoch <= heaviest.epoch() {
+            let chain_rand = ctx.state_manager.chain_rand(heaviest);
+            if let Ok(entry) = tokio::task::spawn_blocking(move || {
+                chain_rand.extract_beacon_entry_for_epoch(epoch)
+            })
+            .await?
+            {
+                return Ok(entry);
+            }
+        }
 
+        // Future epoch (or missing locally): wait only until the drand round is produced.
         let (_, beacon) = ctx.beacon().beacon_for_epoch(epoch)?;
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch)?;
-        let entry = beacon.entry(round).await?;
+        let entry = beacon.entry_when_available(round).await?;
         Ok(entry)
     }
 }
@@ -3553,35 +3543,6 @@ mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
     use rstest::rstest;
-
-    const GENESIS: i64 = 1598306400;
-    const BLOCK_DELAY: i64 = crate::shim::clock::EPOCH_DURATION_SECONDS;
-    /// Wall clock at epoch 100.
-    const NOW: i64 = GENESIS + 100 * BLOCK_DELAY;
-
-    #[rstest]
-    #[case(99, Duration::ZERO)]
-    // The 1s clock drift buffer puts the current epoch 1s in the future.
-    #[case(100, Duration::from_secs(1))]
-    #[case(102, Duration::from_secs(61))]
-    fn beacon_entry_wait_until_epoch(#[case] epoch: ChainEpoch, #[case] expected: Duration) {
-        assert_eq!(
-            beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, NOW).unwrap(),
-            expected
-        );
-    }
-
-    #[rstest]
-    #[case(i64::MIN)]
-    #[case(i64::MAX)]
-    fn beacon_entry_wait_rejects_unrepresentable_epochs(#[case] epoch: ChainEpoch) {
-        assert!(beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, NOW).is_err());
-    }
-
-    #[quickcheck]
-    fn beacon_entry_wait_no_panic(epoch: ChainEpoch, now_timestamp: i64) {
-        let _ = beacon_entry_wait(GENESIS, BLOCK_DELAY, epoch, now_timestamp);
-    }
 
     #[rstest]
     #[case(1_000, Some(600))]
