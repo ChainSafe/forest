@@ -54,6 +54,7 @@ use crate::utils::cache::SizeTrackingCache;
 use crate::utils::get_size::GetSize;
 use anyhow::Context as _;
 use chain_rand::ChainRand;
+use itertools::Either;
 use nonzero_ext::nonzero;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -88,6 +89,26 @@ impl GetSize for ExecutedMessage {
                 + self.events.get_heap_size_with_tracker(&mut tracker).0,
             tracker,
         )
+    }
+}
+
+/// A tipset's messages paired with their execution receipts.
+pub enum TipsetMessageReceipts {
+    /// Backed by a full executed tipset (a cache hit, or the fallback loader).
+    Executed(Arc<Vec<ExecutedMessage>>),
+    /// Receipts read directly from the child tipset, paired with the tipset's messages (no events).
+    Stored(Arc<Vec<ChainMessage>>, Vec<Receipt>),
+}
+
+impl TipsetMessageReceipts {
+    /// Iterates the (message, receipt) pairs in index order, by reference.
+    pub fn iter(&self) -> impl Iterator<Item = (&ChainMessage, &Receipt)> + '_ {
+        match self {
+            Self::Executed(messages) => {
+                Either::Left(messages.iter().map(|em| (&em.message, &em.receipt)))
+            }
+            Self::Stored(messages, receipts) => Either::Right(messages.iter().zip(receipts.iter())),
+        }
     }
 }
 
