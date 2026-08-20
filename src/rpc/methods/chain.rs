@@ -2300,10 +2300,7 @@ mod tests {
         let mut rx = chain_notify_inner(&cs);
 
         // First message is the current head.
-        let first = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
-            .await
-            .unwrap()
-            .unwrap();
+        let first = next_batch(&mut rx).await;
         assert_eq!(first.len(), 1);
         assert_eq!(first[0].change, HeadChangeType::Current);
 
@@ -2314,14 +2311,13 @@ mod tests {
         // Every applied tipset must be delivered, in order, with none dropped.
         let mut applied = vec![];
         for _ in 0..3 {
-            match tokio::time::timeout(std::time::Duration::from_millis(500), rx.recv()).await {
-                Ok(Ok(msg)) => applied.extend(
-                    msg.into_iter()
-                        .filter(|c| c.change == HeadChangeType::Apply)
-                        .map(|c| c.tipset),
-                ),
-                _ => break,
-            }
+            applied.extend(
+                next_batch(&mut rx)
+                    .await
+                    .into_iter()
+                    .filter(|c| c.change == HeadChangeType::Apply)
+                    .map(|c| c.tipset),
+            );
         }
         assert_eq!(
             applied,
@@ -2432,7 +2428,7 @@ mod tests {
         )
     }
 
-    const BATCH_TIMEOUT: Duration = Duration::from_secs(5);
+    const BATCH_TIMEOUT: Duration = Duration::from_secs(1);
 
     async fn next_batch(rx: &mut Subscriber<Vec<ApiHeadChange>>) -> Vec<ApiHeadChange> {
         tokio::time::timeout(BATCH_TIMEOUT, rx.recv())

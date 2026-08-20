@@ -477,7 +477,9 @@ mod tests {
     use tokio::sync::broadcast;
 
     const TEST_METHOD: &str = "test.channel";
-    const RECV_TIMEOUT: Duration = Duration::from_secs(5);
+    /// Upper bound on waiting for one frame: a passing test never waits it
+    /// out (frames are already queued), it only caps failure time.
+    const RECV_TIMEOUT: Duration = Duration::from_secs(1);
     /// Capacity of the per-test event source; the lag test overflows it to
     /// force a `Lagged` observation.
     const SOURCE_CAPACITY: usize = 4;
