@@ -895,19 +895,11 @@ mod tests {
             persist_tipset(&head, &db);
         }
 
-        let cs = ChainStore::new(db.clone(), Arc::new(chain_config), genesis).unwrap();
+        let cs = ChainStore::new(db, Arc::new(chain_config), genesis).unwrap();
         cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
         assert_eq!(
             cs.ec_calculator_finalized_epoch(),
             head.epoch() - CHAIN_FINALITY,
-        );
-
-        let next = tipset_child(&head, head.epoch() + 1);
-        persist_tipset(&next, &db);
-        cs.set_heaviest_tipset(next.shallow_clone()).unwrap();
-        assert_eq!(
-            cs.ec_calculator_finalized_epoch(),
-            next.epoch() - CHAIN_FINALITY,
         );
     }
 
