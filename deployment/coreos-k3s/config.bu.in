@@ -76,6 +76,10 @@ storage:
         inline: |
           #!/bin/bash
           set -euo pipefail
+          # pin the hostname so k3s's node name is stable across reboots -- a transient
+          # DHCP/rDNS hostname can revert to localhost.localdomain on a later boot, k3s
+          # then registers a new node and the node-affine local-path PVCs strand the data
+          hostnamectl set-hostname "$(hostname)"
           curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644 --disable traefik" sh -
           # on ostree the installer only *enables* k3s: it queues k3s-selinux via
           # rpm-ostree and skips the start, so start it ourselves and wait for the API

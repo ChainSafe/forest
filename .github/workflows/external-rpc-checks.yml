@@ -1,0 +1,40 @@
+name: data.riba.plus RPC checks
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 13 * * *" # Runs every day at 13:00 UTC
+
+jobs:
+  rpc-checks:
+    name: RPC checks against the data.riba.plus dataset
+    runs-on: warp-ubuntu-2404-x64-8x
+    defaults:
+      run:
+        working-directory: scripts/tests/external-rpc-checks
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v7
+      - name: Run the RPC checks
+        run: ./setup.sh
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Set WORKFLOW_URL
+        if: always()
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
+      - uses: JasonEtco/create-an-issue@v2
+        if: github.ref == 'refs/heads/main' && failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/EXTERNAL_RPC_CHECKS_ISSUE_TEMPLATE.md
