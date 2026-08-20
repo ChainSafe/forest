@@ -2999,8 +2999,8 @@ struct CachedReceipt {
     finalized: bool,
 }
 
-fn is_finalized(ctx: &Ctx, head_epoch: ChainEpoch, receipt_epoch: ChainEpoch) -> bool {
-    receipt_epoch <= head_epoch - ctx.chain_config().policy.chain_finality
+fn is_finalized(ctx: &Ctx, receipt_epoch: ChainEpoch) -> bool {
+    receipt_epoch <= ctx.chain_store().ec_calculator_finalized_epoch()
 }
 
 async fn get_eth_transaction_receipt_with_cache(
@@ -3049,7 +3049,7 @@ async fn get_eth_transaction_receipt_with_cache(
                 }
                 let finalized = receipt
                     .as_ref()
-                    .is_some_and(|r| is_finalized(&ctx, head.epoch(), r.block_number.0));
+                    .is_some_and(|r| is_finalized(&ctx, r.block_number.0));
                 Ok::<_, Uncacheable>(CachedReceipt {
                     receipt,
                     head_key,

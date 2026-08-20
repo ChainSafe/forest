@@ -45,6 +45,8 @@
 
 ### Changed
 
+- [#7356](https://github.com/ChainSafe/forest/issues/7356): Ethereum transaction receipts and ID-to-address resolutions are now cached once the EC finality calculator considers them final, instead of waiting for the static 900-epoch chain finality.
+
 ### Removed
 
 - [#7481](https://github.com/ChainSafe/forest/issues/7481): Removed legacy database migrations from before the NV28 network upgrade.
