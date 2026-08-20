@@ -75,6 +75,45 @@ impl StateManager {
             .await
     }
 
+    /// Returns `ts`'s messages paired with their execution receipts, without loading events.
+    /// `receipt_root` is `ts`'s message-receipt root (the child tipset's `parent_message_receipts`)
+    /// when the caller already knows it, avoiding a `load_child_tipset` lookup; `None` resolves it.
+    pub async fn tipset_message_receipts(
+        &self,
+        ts: &Tipset,
+        receipt_root: Option<Cid>,
+    ) -> anyhow::Result<TipsetMessageReceipts> {
+        if let Some(cached) = self.cache.get(ts.key()) {
+            return Ok(TipsetMessageReceipts::Executed(cached.executed_messages));
+        }
+
+        let receipt_root = match receipt_root {
+            Some(root) => Some(root),
+            None => self
+                .chain_store()
+                .load_child_tipset(ts)
+                .await?
+                .map(|child| *child.parent_message_receipts()),
+        };
+        if let Some(root) = receipt_root
+            && let Ok(receipts) = Receipt::get_receipts(self.cs.db(), root)
+        {
+            let messages = self.chain_store().messages_for_tipset(ts)?;
+            anyhow::ensure!(
+                messages.len() == receipts.len(),
+                "mismatching message and receipt counts ({} messages, {} receipts)",
+                messages.len(),
+                receipts.len()
+            );
+            return Ok(TipsetMessageReceipts::Stored(messages, receipts));
+        }
+        Ok(TipsetMessageReceipts::Executed(
+            self.load_executed_tipset_for_rpc(ts)
+                .await?
+                .executed_messages,
+        ))
+    }
+
     /// Load an executed tipset using an explicitly provided receipt (child) tipset instead of
     /// resolving the child on the current heaviest chain. This is required when serving events
     /// for tipsets that are no longer canonical.
@@ -725,4 +764,47 @@ pub(in crate::state_manager) fn compute_state_blocking(
     )?;
 
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tipset_message_receipts_iter_pairs_in_order() {
+        let msg_count = 3u64;
+        let messages = (0..msg_count)
+            .map(|i| {
+                ChainMessage::Unsigned(Arc::new(Message {
+                    sequence: i,
+                    ..Default::default()
+                }))
+            })
+            .collect_vec();
+        let receipts = (0..msg_count)
+            .map(|i| Receipt::with_gas_used((i + 1) * 10))
+            .collect_vec();
+        let expected = (0..msg_count).map(|i| (i, (i + 1) * 10)).collect_vec();
+
+        let executed = TipsetMessageReceipts::Executed(Arc::new(
+            messages
+                .iter()
+                .zip(receipts.iter())
+                .map(|(m, r)| ExecutedMessage {
+                    message: m.clone(),
+                    receipt: r.clone(),
+                    events: None,
+                })
+                .collect(),
+        ));
+        let stored = TipsetMessageReceipts::Stored(Arc::new(messages), receipts);
+
+        for variant in [&executed, &stored] {
+            let got = variant
+                .iter()
+                .map(|(m, r)| (m.message().sequence, r.gas_used()))
+                .collect_vec();
+            assert_eq!(got, expected);
+        }
+    }
 }

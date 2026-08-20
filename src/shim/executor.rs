@@ -161,10 +161,17 @@ impl Receipt {
     /// Lets tests build receipts without naming a concrete FVM version.
     #[cfg(test)]
     pub fn empty_success() -> Self {
+        Self::with_gas_used(0)
+    }
+
+    /// Test-only constructor: a successful receipt with the given `gas_used` at the latest
+    /// supported FVM version.
+    #[cfg(test)]
+    pub fn with_gas_used(gas_used: u64) -> Self {
         Receipt::V4(Receipt_v4 {
             exit_code: fvm_shared4::error::ExitCode::OK,
             return_data: Default::default(),
-            gas_used: 0,
+            gas_used,
             events_root: None,
         })
     }
