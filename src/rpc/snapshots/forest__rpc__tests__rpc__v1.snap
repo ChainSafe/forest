@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.35.0
+  version: 0.36.0
 methods:
   - name: Filecoin.AuthNew
     description: Creates a new JWT authentication token with the given permissions.
@@ -2385,6 +2385,15 @@ methods:
       required: true
       schema:
         $ref: "#/components/schemas/NatStatusResult"
+    paramStructure: by-position
+  - name: Filecoin.NetBandwidthStats
+    description: "Returns statistics about the node's total bandwidth. Currently a stub that always returns zeros."
+    params: []
+    result:
+      name: Filecoin.NetBandwidthStats.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/BandwidthStats"
     paramStructure: by-position
   - name: Filecoin.NetConnect
     description: Connects to a specified peer.
@@ -5166,6 +5175,27 @@ components:
         - Return
         - GasUsed
         - EventsRoot
+    BandwidthStats:
+      description: "Mirrors go-libp2p's `metrics.Stats`, the return type of Lotus `NetBandwidthStats`."
+      type: object
+      properties:
+        RateIn:
+          type: number
+          format: double
+        RateOut:
+          type: number
+          format: double
+        TotalIn:
+          type: integer
+          format: int64
+        TotalOut:
+          type: integer
+          format: int64
+      required:
+        - TotalIn
+        - TotalOut
+        - RateIn
+        - RateOut
     Base64String:
       type:
         - string
