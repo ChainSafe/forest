@@ -24,9 +24,8 @@ jobs:
       ${{ github.event_name == 'workflow_dispatch'
       || (github.event_name == 'pull_request'
       && (contains(github.event.pull_request.labels.*.name, 'RPC')
-      || contains(github.event.pull_request.labels.*.name, 'Snapshot')
       || contains(github.event.pull_request.labels.*.name, 'Release'))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     env:
       RUSTC_WRAPPER: sccache
       CC: sccache clang
@@ -72,7 +71,7 @@ jobs:
 
   rpc-checks:
     name: RPC checks against the data.riba.plus dataset
-    runs-on: warp-ubuntu-2404-x64-8x
+    runs-on: warp-ubuntu-2404-arm64-8x
     needs: build
     # `build` only runs for dispatches and labelled pull requests; scheduled runs skip
     # it and test `edge-fat`. Unlabelled pull requests do not run the checks at all.
@@ -81,7 +80,6 @@ jobs:
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
       && (github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'RPC')
-      || contains(github.event.pull_request.labels.*.name, 'Snapshot')
       || contains(github.event.pull_request.labels.*.name, 'Release')) }}
     defaults:
       run:
@@ -98,9 +96,13 @@ jobs:
         if: ${{ needs.build.result == 'success' }}
         working-directory: .
         run: |
-          docker build --file scripts/devnet/forest_ci.dockerfile --tag forest-under-test:ci .
+          docker build --platform linux/arm64 --file scripts/devnet/forest_ci.dockerfile --tag forest-under-test:ci .
           # overwrites the .env FOREST_IMAGE envvar
           echo "FOREST_IMAGE=forest-under-test:ci" >> "$GITHUB_ENV"
+      - name: Register QEMU so the amd64-only checks image runs on arm64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64
       - name: Run the RPC checks
         run: ./setup.sh
       - name: Dump docker logs
