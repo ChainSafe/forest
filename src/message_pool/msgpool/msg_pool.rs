@@ -153,6 +153,12 @@ pub(in crate::message_pool) async fn resolve_to_key<T: Provider + Send + Sync + 
     addr: &Address,
     cur_ts: &Tipset,
 ) -> Result<Address, Error> {
+    if matches!(
+        addr.protocol(),
+        Protocol::BLS | Protocol::Secp256k1 | Protocol::Delegated
+    ) {
+        return Ok(*addr);
+    }
     let id = addr.id().ok();
     if let Some(id) = &id
         && let Some(resolved) = key_cache.get(id)
