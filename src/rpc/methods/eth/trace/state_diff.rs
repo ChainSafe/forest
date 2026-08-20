@@ -738,6 +738,16 @@ mod tests {
     }
 
     #[test]
+    fn test_actor_bytecode_evm_tombstoned() {
+        let store = Arc::new(MemoryDB::default());
+        let actor = create_tombstoned_evm_actor(&store, &[0x60, 0x80, 0x60, 0x40, 0x52])
+            .expect("failed to create tombstoned EVM actor fixture");
+        // A self-destructed contract reports no code even though its bytecode is present,
+        // matching the EVM actor's GetBytecode.
+        assert!(actor.eth_bytecode(store.as_ref()).unwrap().is_none());
+    }
+
+    #[test]
     fn test_diff_entry_keys_both_empty() {
         let pre = HashMap::default();
         let post = HashMap::default();
