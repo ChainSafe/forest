@@ -1934,7 +1934,7 @@ async fn eth_estimate_gas(
             ) {
                 return Err(err.into());
             }
-            return Err(err.context("failed to estimate gas").into());
+            Err(err.context("failed to estimate gas").into())
         }
         Ok(gassed_msg) => {
             let expected_gas =
