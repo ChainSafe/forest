@@ -6,8 +6,8 @@ use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _};
 use crate::prelude::*;
-use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::eth::decode_revert_reason;
+use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
