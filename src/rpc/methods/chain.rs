@@ -2087,7 +2087,7 @@ mod tests {
     use super::*;
     use crate::daemon::db_util::RangeSpec;
     use crate::{
-        blocks::{Chain4U, RawBlockHeader, chain4u},
+        blocks::{Chain4U, HeaderBuilder, RawBlockHeader, chain4u},
         db::{
             MemoryDB,
             car::{AnyCar, ManyCar},
@@ -2097,6 +2097,7 @@ mod tests {
     use PathChange::{Apply, Revert};
     use rstest::rstest;
     use std::sync::Arc;
+    use std::time::Duration;
 
     #[rstest]
     #[case(Some(0), None, Some(RangeSpec::To(0)))]
@@ -2299,10 +2300,7 @@ mod tests {
         let mut rx = chain_notify_inner(&cs);
 
         // First message is the current head.
-        let first = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
-            .await
-            .unwrap()
-            .unwrap();
+        let first = next_batch(&mut rx).await;
         assert_eq!(first.len(), 1);
         assert_eq!(first[0].change, HeadChangeType::Current);
 
@@ -2313,14 +2311,13 @@ mod tests {
         // Every applied tipset must be delivered, in order, with none dropped.
         let mut applied = vec![];
         for _ in 0..3 {
-            match tokio::time::timeout(std::time::Duration::from_millis(500), rx.recv()).await {
-                Ok(Ok(msg)) => applied.extend(
-                    msg.into_iter()
-                        .filter(|c| c.change == HeadChangeType::Apply)
-                        .map(|c| c.tipset),
-                ),
-                _ => break,
-            }
+            applied.extend(
+                next_batch(&mut rx)
+                    .await
+                    .into_iter()
+                    .filter(|c| c.change == HeadChangeType::Apply)
+                    .map(|c| c.tipset),
+            );
         }
         assert_eq!(
             applied,
@@ -2429,5 +2426,340 @@ mod tests {
             expected, actual,
             "expected change (left) does not match actual change (right)"
         )
+    }
+
+    const BATCH_TIMEOUT: Duration = Duration::from_secs(1);
+
+    async fn next_batch(rx: &mut Subscriber<Vec<ApiHeadChange>>) -> Vec<ApiHeadChange> {
+        tokio::time::timeout(BATCH_TIMEOUT, rx.recv())
+            .await
+            .expect("timed out waiting for a head-change batch")
+            .expect("chain notify channel closed")
+    }
+
+    /// Open a ChainNotify subscription and consume the immediate `current`
+    /// event, asserting it matches the store head.
+    async fn open_notify(cs: &ChainStore) -> Subscriber<Vec<ApiHeadChange>> {
+        let mut rx = chain_notify_inner(cs);
+        assert_eq!(
+            next_batch(&mut rx).await,
+            vec![ApiHeadChange {
+                change: HeadChangeType::Current,
+                tipset: cs.heaviest_tipset(),
+            }]
+        );
+        rx
+    }
+
+    fn applied(ts: impl MakeTipset) -> ApiHeadChange {
+        ApiHeadChange {
+            change: HeadChangeType::Apply,
+            tipset: ts.make_tipset(),
+        }
+    }
+
+    fn reverted(ts: impl MakeTipset) -> ApiHeadChange {
+        ApiHeadChange {
+            change: HeadChangeType::Revert,
+            tipset: ts.make_tipset(),
+        }
+    }
+
+    #[tokio::test]
+    async fn current_first_matches_store_head() {
+        let cs = ChainStore::calibnet();
+
+        let mut rx = chain_notify_inner(&cs);
+
+        assert_eq!(
+            next_batch(&mut rx).await,
+            vec![ApiHeadChange {
+                change: HeadChangeType::Current,
+                tipset: cs.heaviest_tipset(),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn linear_applies_chain() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c] -> [d]
+        };
+
+        let mut rx = open_notify(&cs).await;
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(b.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(c.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(d.make_tipset()).unwrap();
+
+        // one single-apply batch per head move, in chain order; equality with
+        // the constructed tipsets pins increasing heights and parent linkage
+        assert_eq!(next_batch(&mut rx).await, vec![applied(a)]);
+        assert_eq!(next_batch(&mut rx).await, vec![applied(b)]);
+        assert_eq!(next_batch(&mut rx).await, vec![applied(c)]);
+        assert_eq!(next_batch(&mut rx).await, vec![applied(d)]);
+    }
+
+    #[tokio::test]
+    async fn fork_switch_one_batch_reverts_then_applies() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c]
+        };
+        chain4u! {
+            from [a] in db;
+            [b2] -> [c2] -> [d2]
+        };
+
+        let mut rx = open_notify(&cs).await;
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        assert_eq!(next_batch(&mut rx).await, vec![applied(a)]);
+
+        // advancing over several epochs delivers one multi-apply batch
+        cs.set_heaviest_tipset(c.make_tipset()).unwrap();
+        assert_eq!(next_batch(&mut rx).await, vec![applied(b), applied(c)]);
+
+        // switching to the longer fork delivers a single batch: reverts
+        // newest-first down to the common ancestor, then applies oldest-first
+        cs.set_heaviest_tipset(d2.make_tipset()).unwrap();
+        assert_eq!(
+            next_batch(&mut rx).await,
+            vec![
+                reverted(c),
+                reverted(b),
+                applied(b2),
+                applied(c2),
+                applied(d2)
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn rewind_pure_revert_batch() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c] -> [d]
+        };
+
+        let mut rx = open_notify(&cs).await;
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        assert_eq!(next_batch(&mut rx).await, vec![applied(a)]);
+
+        cs.set_heaviest_tipset(d.make_tipset()).unwrap();
+        assert_eq!(
+            next_batch(&mut rx).await,
+            vec![applied(b), applied(c), applied(d)]
+        );
+
+        // rewinding head to an ancestor (what the admin `ChainSetHead` does)
+        // delivers one pure-revert batch, newest-first, with no applies
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        assert_eq!(
+            next_batch(&mut rx).await,
+            vec![reverted(d), reverted(c), reverted(b)]
+        );
+    }
+
+    #[tokio::test]
+    async fn null_round_height_gaps() {
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b]
+            -> [c = HeaderBuilder::new().with_epoch(5)] // epochs 3 and 4 are null rounds
+            -> [d]
+        };
+        assert_eq!(c.epoch, 5);
+        assert_eq!(c.parents, b.make_tipset().key().clone());
+
+        let mut rx = open_notify(&cs).await;
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(b.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(c.make_tipset()).unwrap();
+        cs.set_heaviest_tipset(d.make_tipset()).unwrap();
+
+        // consecutive applies jump from epoch 2 to epoch 5 over the null
+        // rounds; no filler events are emitted for the missing epochs
+        assert_eq!(next_batch(&mut rx).await, vec![applied(a)]);
+        assert_eq!(next_batch(&mut rx).await, vec![applied(b)]);
+        assert_eq!(next_batch(&mut rx).await, vec![applied(c)]);
+        assert_eq!(next_batch(&mut rx).await, vec![applied(d)]);
+    }
+
+    #[tokio::test]
+    async fn over_finality_fallback_single_apply() {
+        let cs = ChainStore::calibnet();
+        let finality = cs.chain_config().policy.chain_finality;
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c]
+        };
+        chain4u! {
+            from [a] in db;
+            [far = HeaderBuilder::new().with_epoch(finality + 4)]
+        };
+
+        let mut rx = open_notify(&cs).await;
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        assert_eq!(next_batch(&mut rx).await, vec![applied(a)]);
+
+        cs.set_heaviest_tipset(c.make_tipset()).unwrap();
+        assert_eq!(next_batch(&mut rx).await, vec![applied(b), applied(c)]);
+
+        // `far` forks off `a`, so a real path from `c` would start with
+        // reverts of `c` and `b`. But the head jump is wider than chain
+        // finality, so the path computation bails out and the batch degrades
+        // to a single apply with no reverts.
+        cs.set_heaviest_tipset(far.make_tipset()).unwrap();
+        assert_eq!(next_batch(&mut rx).await, vec![applied(far)]);
+    }
+
+    /// End-to-end weld: a real jsonrpsee server serving just the pubsub
+    /// module (no auth stack), a raw WebSocket client, and a real
+    /// `ChainStore`. A fork switch must arrive as one correctly framed
+    /// `xrpc.ch.val` notification carrying the revert+apply batch.
+    #[tokio::test]
+    async fn ws_weld_end_to_end() {
+        use crate::rpc::channel::{NOTIF_METHOD_NAME, RpcModule as FilRpcModule};
+        use futures::{SinkExt, StreamExt};
+        use serde_json::Value;
+        use tokio_tungstenite::tungstenite::Message;
+
+        /// Assert `xrpc.ch.val` framing (positional `[channelId, payload]`
+        /// params) and decode the payload.
+        fn decode_val_frame(frame: Value) -> (u64, Vec<ApiHeadChange>) {
+            assert_eq!(
+                frame.get("method").and_then(Value::as_str),
+                Some(NOTIF_METHOD_NAME),
+                "not an xrpc.ch.val frame: {frame}"
+            );
+            let params = frame
+                .get("params")
+                .and_then(Value::as_array)
+                .unwrap_or_else(|| panic!("params must be a positional array: {frame}"));
+            let [channel_id, payload] = params.as_slice() else {
+                panic!("params must be [channelId, payload]: {frame}");
+            };
+            let channel_id = channel_id.as_u64().expect("channel id must be a u64");
+            let batch = serde_json::from_value(payload.clone())
+                .expect("payload must decode as Vec<ApiHeadChange>");
+            (channel_id, batch)
+        }
+
+        let cs = ChainStore::calibnet();
+        let db = Chain4U::with_blockstore(cs.db_owned());
+        chain4u! {
+            in db;
+            [_genesis = cs.genesis_block_header()]
+            -> [a] -> [b] -> [c]
+        };
+        chain4u! {
+            from [a] in db;
+            [b2] -> [c2] -> [d2]
+        };
+
+        // serve only the pubsub module (no auth stack)
+        let mut pubsub = FilRpcModule::default();
+        pubsub
+            .register_channel("Filecoin.ChainNotify", {
+                let chain_store = cs.shallow_clone();
+                move |_params| chain_notify_inner(&chain_store)
+            })
+            .unwrap();
+        let server = jsonrpsee::server::Server::builder()
+            .build("127.0.0.1:0")
+            .await
+            .unwrap();
+        let addr = server.local_addr().unwrap();
+        let _server_handle = server.start(pubsub);
+
+        let (mut ws, _) = tokio_tungstenite::connect_async(format!("ws://{addr}"))
+            .await
+            .unwrap();
+
+        async fn next_ws_json(
+            ws: &mut (
+                     impl StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
+                     + Unpin
+                 ),
+        ) -> Value {
+            loop {
+                let message = tokio::time::timeout(BATCH_TIMEOUT, ws.next())
+                    .await
+                    .expect("timed out waiting for a websocket frame")
+                    .expect("websocket closed")
+                    .unwrap();
+                if message.is_text() {
+                    return serde_json::from_str(message.into_text().unwrap().as_str()).unwrap();
+                }
+            }
+        }
+
+        // subscribe: the response carries a bare u64 channel id
+        ws.send(Message::text(
+            r#"{"jsonrpc":"2.0","id":1,"method":"Filecoin.ChainNotify","params":[]}"#,
+        ))
+        .await
+        .unwrap();
+        let response = next_ws_json(&mut ws).await;
+        let channel_id = response
+            .get("result")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(|| panic!("channel id must be a bare u64: {response}"));
+
+        // the first frame is the `current` event for the store head
+        let (frame_channel, batch) = decode_val_frame(next_ws_json(&mut ws).await);
+        assert_eq!(frame_channel, channel_id);
+        assert_eq!(
+            batch,
+            vec![ApiHeadChange {
+                change: HeadChangeType::Current,
+                tipset: cs.heaviest_tipset(),
+            }]
+        );
+
+        cs.set_heaviest_tipset(a.make_tipset()).unwrap();
+        let (frame_channel, batch) = decode_val_frame(next_ws_json(&mut ws).await);
+        assert_eq!(frame_channel, channel_id);
+        assert_eq!(batch, vec![applied(a)]);
+
+        cs.set_heaviest_tipset(c.make_tipset()).unwrap();
+        let (frame_channel, batch) = decode_val_frame(next_ws_json(&mut ws).await);
+        assert_eq!(frame_channel, channel_id);
+        assert_eq!(batch, vec![applied(b), applied(c)]);
+
+        // fork switch: one frame carrying reverts-then-applies
+        cs.set_heaviest_tipset(d2.make_tipset()).unwrap();
+        let (frame_channel, batch) = decode_val_frame(next_ws_json(&mut ws).await);
+        assert_eq!(frame_channel, channel_id);
+        assert_eq!(
+            batch,
+            vec![
+                reverted(c),
+                reverted(b),
+                applied(b2),
+                applied(c2),
+                applied(d2)
+            ]
+        );
     }
 }
