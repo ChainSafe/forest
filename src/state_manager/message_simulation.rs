@@ -7,7 +7,7 @@ use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTra
 use crate::message::{MessageRead as _, MessageReadWrite as _};
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
 use crate::shim::executor::ApplyRet;
-use crate::shim::message::Message;
+use crate::shim::message::{METHOD_SEND, Message};
 use crate::state_migration::run_state_migrations;
 use std::time::Duration;
 use tracing::instrument;
@@ -182,18 +182,33 @@ impl StateManager {
 
     pub async fn apply_on_state_with_gas(
         &self,
-        tipset: Option<Tipset>,
-        msg: Message,
+        tipset: Option<&Tipset>,
+        msg: &Message,
         vm_flush: VMFlush,
         vm_trace: VMTrace,
+        sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApiInvocResult, Option<Cid>)> {
-        let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
+        let ts = tipset.map_or_else(|| self.heaviest_tipset(), Tipset::shallow_clone);
 
-        let from_a = self.resolve_to_deterministic_address(msg.from, &ts).await?;
-        let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_a.protocol());
+        let from_protocol = match sender_validation {
+            SenderValidation::Skip => msg.from.protocol(),
+            SenderValidation::Enforce => self
+                .resolve_to_deterministic_address(msg.from, &ts)
+                .await
+                .context("could not resolve key")?
+                .protocol(),
+        };
+        let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_protocol);
 
         let (apply_ret, duration, state_root) = self
-            .call_with_gas(chain_msg, Default::default(), Some(ts), vm_flush, vm_trace)
+            .call_with_gas(
+                chain_msg,
+                Default::default(),
+                Some(ts),
+                vm_flush,
+                vm_trace,
+                sender_validation,
+            )
             .await?;
 
         let msg_rct = Some(apply_ret.msg_receipt());
@@ -201,7 +216,7 @@ impl StateManager {
         Ok((
             ApiInvocResult {
                 msg_cid: msg.cid(),
-                msg,
+                msg: msg.clone(),
                 msg_rct,
                 error,
                 duration: duration.as_nanos().clamp(0, u128::from(u64::MAX)) as u64,
@@ -222,6 +237,7 @@ impl StateManager {
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
         vm_trace: VMTrace,
+        sender_validation: SenderValidation,
     ) -> Result<(ApplyRet, Duration, Option<Cid>), Error> {
         let ts = tipset.unwrap_or_else(|| self.heaviest_tipset());
         let TipsetState { state_root, .. } = self
@@ -237,7 +253,7 @@ impl StateManager {
         tokio::task::spawn_blocking(move || {
             // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
             // FVM, but that introduces some constraints, and possible deadlocks.
-            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> anyhow::Result<_> {
+            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> Result<_, Error> {
                 let mut vm = VM::new(
                     ExecutionContext {
                         heaviest_tipset: ts.clone(),
@@ -262,13 +278,17 @@ impl StateManager {
                     vm.apply_message(msg)?;
                 }
 
-                let from_actor = vm
-                    .get_actor(&message.from())
-                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
-                    .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
-
+                let (from_actor, apply) =
+                    sender_for_simulation(&mut vm, message.from(), sender_validation)?;
                 message.set_sequence(from_actor.sequence);
-                let (ret, duration) = vm.apply_message(&message)?;
+                let (ret, duration) = match apply {
+                    // An existing non-account sender needs the implicit path, which skips the
+                    // account-type, nonce and balance checks, and charges no inclusion cost.
+                    SenderApply::Implicit => vm.apply_implicit_message(message.message())?,
+                    // A fresh placeholder is a valid sender, so the explicit path keeps gas
+                    // accounting, inclusion cost included, matching a real first send.
+                    SenderApply::Explicit => vm.apply_message(&message)?,
+                };
                 let state_root = match vm_flush {
                     VMFlush::Flush => Some(vm.flush()?),
                     VMFlush::Skip => None,
@@ -279,5 +299,64 @@ impl StateManager {
             Ok((ret, duration, state_cid))
         })
         .await?
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum SenderApply {
+    Explicit,
+    Implicit,
+}
+
+/// Looks up `from` and decides how to apply the simulated message.
+///
+/// With [`SenderValidation::Skip`], eth methods accept a missing or non-account (EVM) sender.
+/// A missing sender is created as an ephemeral placeholder via an implicit system send, then the
+/// user message is applied explicitly so first-send gas still matches a real send. An existing
+/// non-account must be applied implicitly to bypass account-type / nonce / balance checks.
+fn sender_for_simulation(
+    vm: &mut VM,
+    from: Address,
+    sender_validation: SenderValidation,
+) -> Result<(ActorState, SenderApply), Error> {
+    match (
+        vm.get_actor(&from)
+            .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?,
+        sender_validation,
+    ) {
+        (Some(actor), SenderValidation::Enforce) => Ok((actor, SenderApply::Explicit)),
+        (Some(actor), SenderValidation::Skip) => Ok((actor, SenderApply::Implicit)),
+        (None, SenderValidation::Enforce) => Err(Error::SenderValidationFailed(format!(
+            "sender {from} not found on chain"
+        ))),
+        (None, SenderValidation::Skip) => {
+            let (create_ret, _) = vm.apply_implicit_message(&placeholder_send(from))?;
+            let exit_code = create_ret.msg_receipt().exit_code();
+            if !exit_code.is_success() {
+                return Err(Error::Other(format!(
+                    "failed to create ephemeral sender placeholder {from} (exit={exit_code}): {}",
+                    create_ret.failure_info().unwrap_or_default()
+                )));
+            }
+            let actor = vm
+                .get_actor(&from)
+                .map_err(|e| Error::Other(format!("Could not get placeholder actor: {e:#}")))?
+                .ok_or_else(|| {
+                    Error::Other(format!(
+                        "ephemeral sender placeholder {from} missing after creation"
+                    ))
+                })?;
+            Ok((actor, SenderApply::Explicit))
+        }
+    }
+}
+
+fn placeholder_send(to: Address) -> Message {
+    Message {
+        from: Address::SYSTEM_ACTOR,
+        to,
+        method_num: METHOD_SEND,
+        gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
+        ..Default::default()
     }
 }

@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7394](https://github.com/ChainSafe/forest/issues/7394): `eth_call` and `eth_estimateGas` now accept a `from` address that is an EVM contract or that doesn't exist on chain, matching Lotus.
+
 - [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now closes the subscription channel when a client falls too far behind instead of silently dropping head changes, matching Lotus, so clients can detect the gap and resubscribe.
 
 ## Forest v0.36.0 "bafy2bzacedpdckv7nsqfjwqnqwtgu7ipqbox4tfuuhwxhdox27uuznfyv3o2g"
