@@ -12,12 +12,38 @@ use crate::utils::encoding::hex;
 use ahash::HashMap;
 
 use crate::rpc::eth::{EVM_WORD_LENGTH, EthUint64};
+use crate::shim::actors::evm::U256;
 use anyhow::{Result, bail};
 use cbor4ii::core::Value;
 use cbor4ii::core::dec::Decode as _;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
+use fvm_ipld_kamt::{AsHashedKey, Config as KamtConfig, HashedKey, Kamt};
 use serde::de;
+use std::borrow::Cow;
 use std::sync::LazyLock;
+
+/// KAMT configuration matching the EVM actor in builtin-actors.
+// <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/interpreter/system.rs#L47>
+pub(crate) fn evm_kamt_config() -> KamtConfig {
+    KamtConfig {
+        bit_width: 5,
+        min_data_depth: 0,
+        max_array_width: 1,
+    }
+}
+
+/// Hash algorithm for the EVM storage KAMT: the key's big-endian bytes are the hash, so slots
+/// with common prefixes sit near each other in the tree.
+// <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/interpreter/system.rs#L49>
+pub(crate) struct EvmStateHashAlgorithm;
+
+impl AsHashedKey<U256, 32> for EvmStateHashAlgorithm {
+    fn as_hashed_key(key: &U256) -> Cow<'_, HashedKey<32>> {
+        Cow::Owned(key.to_big_endian())
+    }
+}
+
+pub(crate) type EvmStorageKamt<BS> = Kamt<BS, U256, U256, EvmStateHashAlgorithm>;
 
 pub fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
@@ -66,6 +92,13 @@ pub(crate) trait ActorStateEthExt {
     fn eth_nonce<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<EthUint64>;
     /// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM actors.
     fn eth_bytecode<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<Option<EthBytes>>;
+    /// Returns the 32-byte storage value at `position`, matching the EVM actor's `GetStorageAt`: a
+    /// zeroed word for a non-EVM actor, a dead (tombstoned) contract, or an unset slot.
+    fn eth_storage_at<DB: Blockstore>(
+        &self,
+        store: &DB,
+        position: &[u8; EVM_WORD_LENGTH],
+    ) -> anyhow::Result<[u8; EVM_WORD_LENGTH]>;
 }
 
 impl ActorStateEthExt for ActorState {
@@ -89,6 +122,34 @@ impl ActorStateEthExt for ActorState {
             .get(&evm_state.bytecode())
             .context("failed to read EVM bytecode")?;
         Ok(bytecode.map(EthBytes))
+    }
+
+    fn eth_storage_at<DB: Blockstore>(
+        &self,
+        store: &DB,
+        position: &[u8; EVM_WORD_LENGTH],
+    ) -> anyhow::Result<[u8; EVM_WORD_LENGTH]> {
+        // Mirrors the EVM actor's `GetStorageAt` method, read directly from state instead of via the VM.
+        // <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/lib.rs#L309>
+        if !is_evm_actor(&self.code) {
+            return Ok([0; EVM_WORD_LENGTH]);
+        }
+        let evm_state = evm::State::load(store, self.code, self.state)
+            .context("failed to load EVM state for storage")?;
+        // A dead (tombstoned) contract reads as empty storage.
+        // <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/interpreter/system.rs#L181>
+        if !evm_state.is_alive() {
+            return Ok([0; EVM_WORD_LENGTH]);
+        }
+        let kamt: EvmStorageKamt<&DB> =
+            Kamt::load_with_config(&evm_state.contract_state(), store, evm_kamt_config())
+                .context("failed to load EVM storage KAMT")?;
+        let value = kamt
+            .get(&U256::from_big_endian(position))
+            .context("failed to read EVM storage slot")?
+            .copied()
+            .unwrap_or_default();
+        Ok(value.to_big_endian())
     }
 }
 
@@ -272,6 +333,81 @@ fn parse_panic_revert(data: &[u8]) -> String {
 mod test {
     use super::*;
     use rstest::rstest;
+
+    #[test]
+    fn eth_storage_at_matches_evm_storage() {
+        use crate::db::MemoryDB;
+        use crate::networks::ACTOR_BUNDLES_METADATA;
+        use crate::shim::econ::TokenAmount;
+        use crate::shim::machine::BuiltinActor;
+        use crate::shim::state_tree::ActorState;
+        use crate::utils::db::CborStoreExt as _;
+        use ::cid::Cid;
+
+        let store = MemoryDB::default();
+        let zero = [0u8; EVM_WORD_LENGTH];
+        let word = |n: u8| {
+            let mut w = [0u8; EVM_WORD_LENGTH];
+            w[EVM_WORD_LENGTH - 1] = n;
+            w
+        };
+        // Newest bundled EVM actor CID, matching the version `default_latest_version` builds.
+        let evm_code_cid = ACTOR_BUNDLES_METADATA
+            .values()
+            .filter_map(|bundle| {
+                Some((
+                    bundle.actor_major_version().ok()?,
+                    bundle.manifest.get(BuiltinActor::EVM).ok()?,
+                ))
+            })
+            .max_by_key(|(version, _)| *version)
+            .map(|(_, cid)| cid)
+            .expect("bundled EVM actor code CID");
+        let evm_actor = |state: &evm::State| {
+            let state_cid = store.put_cbor_default(state).unwrap();
+            ActorState::new(evm_code_cid, state_cid, TokenAmount::default(), 0, None)
+        };
+
+        // A non-EVM actor has no EVM storage: reads as a zero word.
+        let non_evm = ActorState::new(
+            Cid::default(),
+            Cid::default(),
+            TokenAmount::default(),
+            0,
+            None,
+        );
+        assert_eq!(non_evm.eth_storage_at(&store, &zero).unwrap(), zero);
+
+        // A live contract returns the stored slot value, and a zero word for an unset slot.
+        let mut slots: EvmStorageKamt<&MemoryDB> =
+            EvmStorageKamt::new_with_config(&store, evm_kamt_config());
+        slots.set(U256::from(5u64), U256::from(42u64)).unwrap();
+        let contract_state = slots.flush().unwrap();
+        let alive = evm_actor(&evm::State::default_latest_version(
+            Cid::default(),
+            [0; 32],
+            contract_state,
+            None,
+            0,
+            None,
+        ));
+        assert_eq!(alive.eth_storage_at(&store, &word(5)).unwrap(), word(42));
+        assert_eq!(alive.eth_storage_at(&store, &word(6)).unwrap(), zero);
+
+        // A dead (tombstoned) contract reads a zero word even though the same slots are populated.
+        let dead = evm_actor(&evm::State::default_latest_version(
+            Cid::default(),
+            [0; 32],
+            contract_state,
+            None,
+            0,
+            Some(evm::Tombstone {
+                origin: 100,
+                nonce: 1,
+            }),
+        ));
+        assert_eq!(dead.eth_storage_at(&store, &word(5)).unwrap(), zero);
+    }
 
     fn create_error_data(msg: &str) -> Vec<u8> {
         let mut encoded = Vec::new();
