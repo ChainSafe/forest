@@ -12,6 +12,8 @@ pub(crate) mod trace;
 pub mod types;
 mod utils;
 
+pub(crate) use utils::decode_revert_reason;
+
 use crate::utils::encoding::hex;
 pub use bloom::Bloom;
 pub(crate) use bloom::store_block_logs_bloom;
@@ -47,7 +49,6 @@ use crate::rpc::{
             EventRevertStatus, SkipEvent, event::EventFilter, mempool::MempoolFilter,
             tipset::TipSetFilter,
         },
-        utils::decode_revert_reason,
     },
     methods::chain::{ChainGetTipSetV2, PathChange},
     state::ApiInvocResult,
@@ -1918,21 +1919,22 @@ async fn eth_estimate_gas(
     }
 
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
-        Err(server_err) => {
+        Err(err) => {
             if matches!(
-                server_err.downcast_ref(),
+                err.downcast_ref(),
                 Some(StateManagerError::SenderValidationFailed(_))
             ) {
                 return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
             }
 
-            // On failure, GasEstimateMessageGas doesn't actually return the invocation result,
-            // it just returns an error. That means we can't get the revert reason.
-            //
-            // So we re-execute the message with EthCall (well, applyMessage which contains the
-            // guts of EthCall). This will give us an ethereum specific error with revert
-            // information.
-            return Err(recover_estimate_gas_error(ctx, msg, &tipset, server_err).await);
+            // Return reverts as-is to preserve the JSON-RPC error codec.
+            if matches!(
+                err.downcast_ref(),
+                Some(EthErrors::ExecutionReverted { .. })
+            ) {
+                return Err(err.into());
+            }
+            return Err(err.context("failed to estimate gas").into());
         }
         Ok(gassed_msg) => {
             let expected_gas =

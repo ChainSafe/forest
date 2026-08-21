@@ -6,6 +6,8 @@ use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
 use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _};
 use crate::prelude::*;
+use crate::rpc::eth::errors::EthErrors;
+use crate::rpc::eth::decode_revert_reason;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
@@ -291,11 +293,9 @@ impl GasEstimateGasLimit {
             ))
             .into());
         }
-        anyhow::bail!(
-            "message execution failed: exit code: {}, reason: {}",
-            exit_code.value(),
-            apply_ret.failure_info().unwrap_or_default()
-        )
+        let vm_error = apply_ret.failure_info().unwrap_or_default();
+        let (data, reason) = decode_revert_reason(apply_ret.return_data());
+        Err(EthErrors::execution_reverted(exit_code.into(), &reason, &vm_error, &data).into())
     }
 }
 
