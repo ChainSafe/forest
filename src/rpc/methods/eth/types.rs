@@ -12,8 +12,6 @@ use rand::Rng;
 use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
-pub const METHOD_GET_STORAGE_AT: u64 = 5;
-
 const UNCOMPRESSED_PUBLIC_KEY_SIZE: usize = 65;
 
 /// Source of a method call
@@ -67,7 +65,7 @@ impl FromStr for EthBytes {
     }
 }
 
-const GET_STORAGE_AT_PARAMS_ARRAY_LENGTH: usize = 32;
+const GET_STORAGE_AT_PARAMS_ARRAY_LENGTH: usize = EVM_WORD_LENGTH;
 const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

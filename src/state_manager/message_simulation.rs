@@ -16,7 +16,6 @@ impl StateManager {
     #[instrument(skip(self))]
     fn call_raw_blocking(
         &self,
-        state_cid: Option<Cid>,
         msg: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
@@ -25,19 +24,15 @@ impl StateManager {
 
         let tipset = if let Some(ts) = tipset {
             if ts.epoch() > 0 {
-                // Explicit-state calls already hold every fork below the tipset epoch, so only a
-                // migration at the tipset epoch itself is refused. Parent-state calls (no explicit
-                // state) lag a tipset, so a migration at the parent epoch must also be refused.
-                let (fork_floor, fork_height) = if state_cid.is_some() {
-                    (ts.epoch(), ts.epoch() + 1)
-                } else {
-                    let parent = self
-                        .chain_index()
-                        .load_required_tipset(ts.parents())
-                        .map_err(Error::other)?;
-                    (parent.epoch(), ts.epoch() + 1)
-                };
-                if let Some(epoch) = chain_config.expensive_fork_between(fork_floor, fork_height) {
+                // The call runs on the parent state, so it lags a tipset: a migration at the
+                // parent epoch must be refused too.
+                let parent = self
+                    .chain_index()
+                    .load_required_tipset(ts.parents())
+                    .map_err(Error::other)?;
+                if let Some(epoch) =
+                    chain_config.expensive_fork_between(parent.epoch(), ts.epoch() + 1)
+                {
                     return Err(Error::ExpensiveFork { epoch });
                 }
             }
@@ -59,7 +54,7 @@ impl StateManager {
             heaviest_ts
         };
 
-        let state_cid = state_cid.unwrap_or(*tipset.parent_state());
+        let state_cid = *tipset.parent_state();
 
         // Handle state forks
         let state_cid = match run_state_migrations(
@@ -152,32 +147,7 @@ impl StateManager {
         message: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
-        self.call_raw_blocking(None, message, tipset)
-    }
-
-    /// Same as [`StateManager::call`] but runs the message on the given state and not
-    /// on the parent state of the tipset.
-    pub async fn call_on_state(
-        &self,
-        state_cid: Cid,
-        message: Arc<Message>,
-        tipset: Option<Tipset>,
-    ) -> Result<ApiInvocResult, Error> {
-        let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || {
-            this.call_on_state_blocking(state_cid, &message, tipset)
-        })
-        .await?
-    }
-
-    /// Blocking version of [`Self::call_on_state`], use with caution.
-    pub fn call_on_state_blocking(
-        &self,
-        state_cid: Cid,
-        message: &Message,
-        tipset: Option<Tipset>,
-    ) -> Result<ApiInvocResult, Error> {
-        self.call_raw_blocking(Some(state_cid), message, tipset)
+        self.call_raw_blocking(message, tipset)
     }
 
     pub async fn apply_on_state_with_gas(
