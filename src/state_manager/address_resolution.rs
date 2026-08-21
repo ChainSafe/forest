@@ -103,15 +103,38 @@ impl StateManager {
         ts: &Tipset,
     ) -> anyhow::Result<Address> {
         // First try to resolve the actor in the parent state, so we don't have to compute anything.
-        if let Ok(state) = self.get_state_tree(ts.parent_state())
-            && let Ok(address) = state.resolve_to_deterministic_address(self.db(), address)
-        {
-            return Ok(address);
+        if let Ok(state) = self.get_state_tree(ts.parent_state()) {
+            match state.resolve_to_deterministic_address(self.db(), address) {
+                Ok(resolved) => return Ok(resolved),
+                // Re-executing the tipset can only change this for an actor absent
+                // from the parent state, or one a migration rewrites
+                // while `ts` is computed (e.g. FIP-0085). No point in doing it for
+                // keyless actors.
+                Err(e)
+                    if matches!(state.get_actor(&address), Ok(Some(_)))
+                        && !self.computes_across_migration(ts) =>
+                {
+                    return Err(e);
+                }
+                Err(_) => {}
+            }
         }
         // If that fails, compute the tip-set and try again.
         let TipsetState { state_root, .. } = self.load_tipset_state(ts).await?;
         let state = self.get_state_tree(&state_root)?;
         state.resolve_to_deterministic_address(self.db(), address)
+    }
+
+    /// Whether computing `ts`'s state runs a network-upgrade migration. Such a
+    /// migration can rewrite an actor's code, so the pre-migration parent state
+    /// is not authoritative for a present actor across that boundary. Errs on
+    /// the side of `true` when the parent tipset cannot be loaded.
+    fn computes_across_migration(&self, ts: &Tipset) -> bool {
+        let Ok(parent) = self.chain_index().load_required_tipset(ts.parents()) else {
+            return true;
+        };
+        self.chain_config()
+            .has_expensive_fork_between(parent.epoch(), ts.epoch())
     }
 }
 
@@ -131,6 +154,10 @@ mod tests {
     const OLD_ACTOR: u64 = 300;
     /// Present only in the head's parent state — younger than finality.
     const YOUNG_ACTOR: u64 = 400;
+    /// Present from genesis but with a non-account code and no delegated
+    /// address, so it exists yet has no resolvable key address (a miner, a
+    /// singleton, ...).
+    const NON_ACCOUNT_ACTOR: u64 = 500;
 
     /// Builds a 3-tipset chain (genesis, ts1, head at epoch 2). Genesis and
     /// ts1 carry `root_a` (contains f0300 -> bls_a); head carries `root_b`,
@@ -150,6 +177,11 @@ mod tests {
         st_a.set_actor(
             &Address::new_id(OLD_ACTOR),
             ActorState::new_empty(Cid::default(), Some(bls_a)),
+        )
+        .unwrap();
+        st_a.set_actor(
+            &Address::new_id(NON_ACCOUNT_ACTOR),
+            ActorState::new_empty(Cid::default(), None),
         )
         .unwrap();
         let root_a = st_a.flush().unwrap();
@@ -270,6 +302,23 @@ mod tests {
             sm.id_to_deterministic_address_cache().unwrap().len(),
             0,
             "epoch == chain_finality is not finality-deep and must not be cached"
+        );
+    }
+
+    #[tokio::test]
+    async fn present_non_account_actor_errors_without_caching() {
+        let (sm, head, _bls_a, _bls_b) = setup_with_finality(1);
+        let resolved = sm
+            .resolve_to_deterministic_address(Address::new_id(NON_ACCOUNT_ACTOR), &head)
+            .await;
+        assert!(
+            resolved.is_err(),
+            "an actor that is present but is not an account has no key address"
+        );
+        assert_eq!(
+            sm.id_to_deterministic_address_cache().unwrap().len(),
+            0,
+            "an unresolvable actor must not be cached"
         );
     }
 
