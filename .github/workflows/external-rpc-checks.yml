@@ -99,10 +99,6 @@ jobs:
           docker build --platform linux/arm64 --file scripts/devnet/forest_ci.dockerfile --tag forest-under-test:ci .
           # overwrites the .env FOREST_IMAGE envvar
           echo "FOREST_IMAGE=forest-under-test:ci" >> "$GITHUB_ENV"
-      - name: Register QEMU so the amd64-only checks image runs on arm64
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64
       - name: Run the RPC checks
         run: ./setup.sh
       - name: Dump docker logs
