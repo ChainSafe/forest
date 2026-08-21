@@ -13,7 +13,6 @@ use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
-pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
 const UNCOMPRESSED_PUBLIC_KEY_SIZE: usize = 65;
 

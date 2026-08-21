@@ -8,41 +8,17 @@
 
 use super::super::EthBigInt;
 use super::super::types::{EthAddress, EthHash};
-use super::super::utils::ActorStateEthExt as _;
+use super::super::utils::{ActorStateEthExt as _, EvmStorageKamt, evm_kamt_config};
 use super::types::{AccountDiff, ChangedType, Delta, StateDiff};
 use super::utils::{ZERO_HASH, u256_to_eth_hash};
 use crate::prelude::*;
+use crate::shim::actors::evm::U256;
 use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
-use fil_actor_evm_state::evm_shared::v17::uints::U256;
-use fvm_ipld_kamt::{AsHashedKey, Config as KamtConfig, HashedKey, Kamt};
-use std::borrow::Cow;
+use fvm_ipld_kamt::Kamt;
 use std::collections::BTreeMap;
 use tracing::debug;
-
-/// KAMT configuration matching the EVM actor in builtin-actors.
-// Code is taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L47
-fn evm_kamt_config() -> KamtConfig {
-    KamtConfig {
-        bit_width: 5,       // 32 children per node (2^5)
-        min_data_depth: 0,  // Data can be stored at root level
-        max_array_width: 1, // Max 1 key-value pair per bucket
-    }
-}
-
-/// Hash algorithm for EVM storage KAMT.
-// Code taken from: https://github.com/filecoin-project/builtin-actors/blob/v17.0.0/actors/evm/src/interpreter/system.rs#L49.
-struct EvmStateHashAlgorithm;
-
-impl AsHashedKey<U256, 32> for EvmStateHashAlgorithm {
-    fn as_hashed_key(key: &U256) -> Cow<'_, HashedKey<32>> {
-        Cow::Owned(key.to_big_endian())
-    }
-}
-
-/// Type alias for EVM storage KAMT with configuration.
-type EvmStorageKamt<BS> = Kamt<BS, U256, U256, EvmStateHashAlgorithm>;
 
 /// Build state diff by comparing pre and post-execution states for touched addresses.
 pub fn build_state_diff<S: Blockstore, T: Blockstore>(

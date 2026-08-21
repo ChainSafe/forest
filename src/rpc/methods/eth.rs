@@ -86,7 +86,7 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::{LazyLock, OnceLock};
-use utils::{decode_payload, lookup_eth_address};
+use utils::{ActorStateEthExt as _, decode_payload, lookup_eth_address};
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
@@ -2361,71 +2361,21 @@ async fn get_storage_at(
 ) -> Result<EthBytes, ServerError> {
     let to_address = FilecoinAddress::try_from(&eth_address)?;
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&ts).await?;
-    let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
     let Some(actor) = ctx
         .state_manager
         .get_actor(&to_address, state_root)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
     else {
-        return Ok(make_empty_result());
+        return Ok(EthBytes(vec![0; EVM_WORD_LENGTH]));
     };
 
-    if !is_evm_actor(&actor.code) {
-        return Ok(make_empty_result());
-    }
-
-    let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
-    let message = Arc::new(Message {
-        from: FilecoinAddress::SYSTEM_ACTOR,
-        to: to_address,
-        method_num: METHOD_GET_STORAGE_AT,
-        gas_limit: BLOCK_GAS_LIMIT,
-        params,
-        ..Default::default()
-    });
-    // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
-    // result comes from state_root (ts only supplies execution context), so recomputing it for the
-    // parent would read an earlier epoch's storage.
-    let mut ts = ts;
-    let api_invoc_result = loop {
-        match ctx
-            .state_manager
-            .call_on_state(
-                state_root,
-                message.shallow_clone(),
-                Some(ts.shallow_clone()),
-            )
-            .await
-        {
-            Ok(res) => break res,
-            Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
-                ts = ctx
-                    .chain_index()
-                    .load_required_tipset(ts.parents())
-                    .map_err(|e| anyhow::anyhow!("getting parent tipset: {e}"))?;
-            }
-            Err(e) => return Err(e.into()),
-        }
-    };
-    let Some(msg_rct) = api_invoc_result.msg_rct else {
-        return Err(anyhow::anyhow!("no message receipt").into());
-    };
-    if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
-        return Err(
-            anyhow::anyhow!("failed to lookup storage slot: {}", api_invoc_result.error).into(),
-        );
-    }
-
-    let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
-        .bytes()
-        .to_vec();
-    if ret.len() < EVM_WORD_LENGTH {
-        let mut with_padding = vec![0; EVM_WORD_LENGTH.saturating_sub(ret.len())];
-        with_padding.append(&mut ret);
-        Ok(EthBytes(with_padding))
-    } else {
-        Ok(EthBytes(ret))
-    }
+    // Read the slot straight from the EVM actor's storage KAMT (see `eth_storage_at`), instead of
+    // invoking its `GetStorageAt` method through the VM. `GetStorageAtParams::new` validates and
+    // left-pads the position to a 32-byte big-endian key, matching the actor.
+    let position = GetStorageAtParams::new(position.0)?.0;
+    Ok(EthBytes(
+        actor.eth_storage_at(ctx.db(), &position)?.to_vec(),
+    ))
 }
 
 pub enum EthGetTransactionCount {}
