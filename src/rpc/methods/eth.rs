@@ -1431,6 +1431,7 @@ pub async fn eth_logs_for_block_and_transaction(
     EthEventHandler::collect_events(
         &ctx.state_manager,
         ts,
+        None,
         Some(&parsed_filter),
         SkipEvent::OnUnresolvedAddress,
         &mut events,

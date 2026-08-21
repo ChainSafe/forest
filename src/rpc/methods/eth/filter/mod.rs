@@ -356,14 +356,17 @@ impl EthEventHandler {
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let mut tasks = FuturesOrdered::new();
+        let mut child: Option<Tipset> = None;
         for tipset in tipsets {
+            let receipt_ts = child.replace(tipset.shallow_clone());
             let state_manager = ctx.state_manager.shallow_clone();
-            let spec = spec.as_ref().map(|v| v.shallow_clone());
+            let spec = spec.map(|v| v.shallow_clone());
             let task = AbortOnDropHandle::new(tokio::spawn(async move {
                 let mut events = vec![];
                 Self::collect_events(
                     &state_manager,
                     &tipset,
+                    receipt_ts.as_ref(),
                     spec.as_ref(),
                     skip_event,
                     &mut events,
@@ -390,16 +393,26 @@ impl EthEventHandler {
         Ok(())
     }
 
+    /// Collects a single tipset's events. `receipt_ts` is the tipset holding `tipset`'s message
+    /// receipts (its child); pass `None` to resolve it on the current heaviest chain.
     pub async fn collect_events(
         state_manager: &StateManager,
         tipset: &Tipset,
+        receipt_ts: Option<&Tipset>,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
         let ExecutedTipset {
             executed_messages, ..
-        } = state_manager.load_executed_tipset_for_rpc(tipset).await?;
+        } = match receipt_ts {
+            Some(receipt_ts) => {
+                state_manager
+                    .load_executed_tipset_with_receipt(tipset, receipt_ts)
+                    .await?
+            }
+            None => state_manager.load_executed_tipset_for_rpc(tipset).await?,
+        };
         Self::collect_events_from_messages(
             state_manager,
             tipset,
@@ -538,6 +551,7 @@ impl EthEventHandler {
                 Self::collect_events(
                     &ctx.state_manager,
                     &tipset,
+                    None,
                     Some(pf),
                     skip_event,
                     &mut collected_events,
@@ -549,6 +563,7 @@ impl EthEventHandler {
                 Self::collect_events(
                     &ctx.state_manager,
                     &tipset,
+                    None,
                     Some(pf),
                     skip_event,
                     &mut collected_events,
