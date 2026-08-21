@@ -68,7 +68,8 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
 };
 use crate::state_manager::{
-    ExecutedMessage, ExecutedTipset, SenderValidation, StateManager, TipsetState, VMFlush,
+    Error as StateManagerError, ExecutedMessage, ExecutedTipset, SenderValidation, StateManager,
+    TipsetState, VMFlush,
 };
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::db::BlockstoreExt as _;
@@ -1908,13 +1909,20 @@ async fn eth_estimate_gas(
     // gas estimation actually run.
     msg.gas_limit = 0;
 
-    if sender_validation_for(ctx, &msg.from, &tipset) == SenderValidation::Skip {
+    if sender_validation_for_actor(
+        ctx.state_manager
+            .get_actor(&msg.from, *tipset.parent_state()),
+    ) == SenderValidation::Skip
+    {
         return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
     }
 
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
         Err(server_err) => {
-            if is_sender_validation_failure(&server_err) {
+            if matches!(
+                server_err.downcast_ref(),
+                Some(StateManagerError::SenderValidationFailed(_))
+            ) {
                 return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
             }
 
@@ -1924,20 +1932,7 @@ async fn eth_estimate_gas(
             // So we re-execute the message with EthCall (well, applyMessage which contains the
             // guts of EthCall). This will give us an ethereum specific error with revert
             // information.
-            msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            let err = match apply_message(ctx, Some(&tipset), &msg).await {
-                Ok(_) => server_err,
-                Err(e)
-                    if e.downcast_ref::<EthErrors>().is_some_and(|eth_err| {
-                        matches!(eth_err, EthErrors::ExecutionReverted { .. })
-                    }) =>
-                {
-                    return Err(e.into());
-                }
-                Err(e) => e,
-            };
-
-            Err(err.context("failed to estimate gas").into())
+            return Err(recover_estimate_gas_error(ctx, msg, &tipset, server_err).await);
         }
         Ok(gassed_msg) => {
             let expected_gas =
@@ -1945,15 +1940,6 @@ async fn eth_estimate_gas(
             Ok(expected_gas.into())
         }
     }
-}
-
-fn is_sender_validation_failure(err: &Error) -> bool {
-    err.downcast_ref::<crate::state_manager::Error>()
-        .is_some_and(|e| matches!(e, crate::state_manager::Error::SenderValidationFailed(_)))
-}
-
-fn sender_validation_for(ctx: &Ctx, from: &FilecoinAddress, tipset: &Tipset) -> SenderValidation {
-    sender_validation_for_actor(ctx.state_manager.get_actor(from, *tipset.parent_state()))
 }
 
 fn sender_validation_for_actor(actor: anyhow::Result<Option<ActorState>>) -> SenderValidation {
@@ -1979,22 +1965,31 @@ async fn eth_estimate_gas_skip_sender(
     {
         Ok(gas_limit) => gas_limit,
         Err(estimate_err) => {
-            // Re-execute only to recover the revert reason, which gas estimation doesn't report.
-            msg.set_gas_limit(BLOCK_GAS_LIMIT);
-            if let Err(e) = apply_message(ctx, Some(tipset), &msg).await
-                && e.downcast_ref::<EthErrors>()
-                    .is_some_and(|eth_err| matches!(eth_err, EthErrors::ExecutionReverted { .. }))
-            {
-                return Err(e.into());
-            }
-            return Err(estimate_err.context("failed to estimate gas").into());
+            return Err(recover_estimate_gas_error(ctx, msg, tipset, estimate_err).await);
         }
     };
 
-    msg.set_gas_limit(gas::overestimate_gas_limit_capped(ctx, gas_limit as u64));
+    let gas_limit = (gas_limit as f64 * ctx.mpool.gas_limit_overestimation()) as u64;
+    msg.set_gas_limit(gas_limit.min(BLOCK_GAS_LIMIT));
 
     let expected_gas = eth_gas_search(ctx, msg, tipset, SenderValidation::Skip).await?;
     Ok(expected_gas.into())
+}
+
+/// Re-execute to recover an `ExecutionReverted` from a failed gas estimate.
+async fn recover_estimate_gas_error(
+    ctx: &Ctx,
+    mut msg: Message,
+    tipset: &Tipset,
+    estimate_err: anyhow::Error,
+) -> ServerError {
+    msg.set_gas_limit(BLOCK_GAS_LIMIT);
+    if let Err(e) = apply_message(ctx, Some(tipset), &msg).await
+        && matches!(e.downcast_ref(), Some(EthErrors::ExecutionReverted { .. }))
+    {
+        return e.into();
+    }
+    estimate_err.context("failed to estimate gas").into()
 }
 
 /// Builds an eth `ExecutionReverted` (code 3) from a failed message's exit code and return
@@ -2010,7 +2005,10 @@ fn execution_reverted_error(
 
 fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> bool {
     match result {
-        Err(e) => is_sender_validation_failure(e),
+        Err(e) => matches!(
+            e.downcast_ref(),
+            Some(StateManagerError::SenderValidationFailed(_))
+        ),
         Ok((invoc_res, _)) => invoc_res
             .msg_rct
             .as_ref()
@@ -2134,7 +2132,7 @@ pub async fn eth_gas_search(
         sender_validation,
     )
     .await?;
-    Ok(gas::overestimate_gas_limit(data, ret))
+    Ok((ret as f64 * data.mpool.gas_limit_overestimation()) as u64)
 }
 
 /// `gas_search` does an exponential search to find a gas value to execute the

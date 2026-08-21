@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- [#7394](https://github.com/ChainSafe/forest/issues/7394): `eth_call` and `eth_estimateGas` now accept a `from` address that is an EVM contract or that doesn't exist on chain. Ports ([filecoin-project/lotus#13724](https://github.com/filecoin-project/lotus/pull/13724)).
+- [#7394](https://github.com/ChainSafe/forest/issues/7394): `eth_call` and `eth_estimateGas` now accept a `from` address that is an EVM contract or that doesn't exist on chain, matching Lotus.
 
 ## Forest v0.36.0 "bafy2bzacedpdckv7nsqfjwqnqwtgu7ipqbox4tfuuhwxhdox27uuznfyv3o2g"
 

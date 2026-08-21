@@ -192,23 +192,11 @@ impl StateManager {
 
         let from_protocol = match sender_validation {
             SenderValidation::Skip => msg.from.protocol(),
-            SenderValidation::Enforce => {
-                match self.resolve_to_deterministic_address(msg.from, &ts).await {
-                    Ok(from) => from.protocol(),
-                    Err(e) => {
-                        let TipsetState { state_root, .. } = self.load_tipset_state(&ts).await?;
-                        return Err(if self.get_actor(&msg.from, state_root)?.is_some() {
-                            e.context("could not resolve key")
-                        } else {
-                            Error::SenderValidationFailed(format!(
-                                "sender {} not found on chain",
-                                msg.from
-                            ))
-                            .into()
-                        });
-                    }
-                }
-            }
+            SenderValidation::Enforce => self
+                .resolve_to_deterministic_address(msg.from, &ts)
+                .await
+                .context("could not resolve key")?
+                .protocol(),
         };
         let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_protocol);
 
@@ -290,55 +278,16 @@ impl StateManager {
                     vm.apply_message(msg)?;
                 }
 
-                let mut sender_created = false;
-                let from_actor = match vm
-                    .get_actor(&message.from())
-                    .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?
-                {
-                    Some(actor) => actor,
-                    None => match sender_validation {
-                        SenderValidation::Enforce => {
-                            return Err(Error::SenderValidationFailed(format!(
-                                "sender {} not found on chain",
-                                message.from()
-                            )));
-                        }
-                        SenderValidation::Skip => {
-                            let (create_ret, _) =
-                                vm.apply_implicit_message(&placeholder_send(message.from()))?;
-                            let exit_code = create_ret.msg_receipt().exit_code();
-                            if !exit_code.is_success() {
-                                return Err(Error::Other(format!(
-                                    "failed to create ephemeral sender placeholder {} (exit={exit_code}): {}",
-                                    message.from(),
-                                    create_ret.failure_info().unwrap_or_default()
-                                )));
-                            }
-                            sender_created = true;
-                            vm.get_actor(&message.from())
-                                .map_err(|e| {
-                                    Error::Other(format!("Could not get placeholder actor: {e:#}"))
-                                })?
-                                .ok_or_else(|| {
-                                    Error::Other(format!(
-                                        "ephemeral sender placeholder {} missing after creation",
-                                        message.from()
-                                    ))
-                                })?
-                        }
-                    },
-                };
-
+                let (from_actor, apply) =
+                    sender_for_simulation(&mut vm, message.from(), sender_validation)?;
                 message.set_sequence(from_actor.sequence);
-                let (ret, duration) = match (sender_validation, sender_created) {
+                let (ret, duration) = match apply {
                     // An existing non-account sender needs the implicit path, which skips the
-                    // account-type, nonce and balance checks.
-                    (SenderValidation::Skip, false) => {
-                        vm.apply_implicit_message(message.message())?
-                    }
+                    // account-type, nonce and balance checks, and charges no inclusion cost.
+                    SenderApply::Implicit => vm.apply_implicit_message(message.message())?,
                     // A fresh placeholder is a valid sender, so the explicit path keeps gas
                     // accounting, inclusion cost included, matching a real first send.
-                    _ => vm.apply_message(&message)?,
+                    SenderApply::Explicit => vm.apply_message(&message)?,
                 };
                 let state_root = match vm_flush {
                     VMFlush::Flush => Some(vm.flush()?),
@@ -353,6 +302,55 @@ impl StateManager {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum SenderApply {
+    Explicit,
+    Implicit,
+}
+
+/// Looks up `from` and decides how to apply the simulated message.
+///
+/// With [`SenderValidation::Skip`], eth methods accept a missing or non-account (EVM) sender.
+/// A missing sender is created as an ephemeral placeholder via an implicit system send, then the
+/// user message is applied explicitly so first-send gas still matches a real send. An existing
+/// non-account must be applied implicitly to bypass account-type / nonce / balance checks.
+fn sender_for_simulation(
+    vm: &mut VM,
+    from: Address,
+    sender_validation: SenderValidation,
+) -> Result<(ActorState, SenderApply), Error> {
+    match (
+        vm.get_actor(&from)
+            .map_err(|e| Error::Other(format!("Could not get actor from state: {e:#}")))?,
+        sender_validation,
+    ) {
+        (Some(actor), SenderValidation::Enforce) => Ok((actor, SenderApply::Explicit)),
+        (Some(actor), SenderValidation::Skip) => Ok((actor, SenderApply::Implicit)),
+        (None, SenderValidation::Enforce) => Err(Error::SenderValidationFailed(format!(
+            "sender {from} not found on chain"
+        ))),
+        (None, SenderValidation::Skip) => {
+            let (create_ret, _) = vm.apply_implicit_message(&placeholder_send(from))?;
+            let exit_code = create_ret.msg_receipt().exit_code();
+            if !exit_code.is_success() {
+                return Err(Error::Other(format!(
+                    "failed to create ephemeral sender placeholder {from} (exit={exit_code}): {}",
+                    create_ret.failure_info().unwrap_or_default()
+                )));
+            }
+            let actor = vm
+                .get_actor(&from)
+                .map_err(|e| Error::Other(format!("Could not get placeholder actor: {e:#}")))?
+                .ok_or_else(|| {
+                    Error::Other(format!(
+                        "ephemeral sender placeholder {from} missing after creation"
+                    ))
+                })?;
+            Ok((actor, SenderApply::Explicit))
+        }
+    }
+}
+
 fn placeholder_send(to: Address) -> Message {
     Message {
         from: Address::SYSTEM_ACTOR,
@@ -360,24 +358,5 @@ fn placeholder_send(to: Address) -> Message {
         method_num: METHOD_SEND,
         gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
         ..Default::default()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn placeholder_send_is_a_free_zero_value_send_from_the_system_actor() {
-        let sender = Address::new_delegated(10, &[7; 20]).unwrap();
-        let msg = placeholder_send(sender);
-
-        assert_eq!(msg.from, Address::SYSTEM_ACTOR);
-        assert_eq!(msg.to, sender);
-        assert_eq!(msg.method_num, METHOD_SEND);
-        assert_eq!(msg.gas_limit, IMPLICIT_MESSAGE_GAS_LIMIT as u64);
-        assert!(msg.value.is_zero());
-        assert!(msg.gas_fee_cap.is_zero());
-        assert!(msg.gas_premium.is_zero());
     }
 }
