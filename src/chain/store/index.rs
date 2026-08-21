@@ -477,10 +477,13 @@ pub mod tests {
         }))
     }
 
-    pub fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
-        // Use a static counter to give all tipsets a unique timestamp
+    fn next_tipset_nonce() -> u64 {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    }
+
+    pub fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
+        let n = next_tipset_nonce();
         Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: parent.key().clone(),
             ticket: dummy_ticket(n as u8),
@@ -488,6 +491,30 @@ pub mod tests {
             timestamp: n,
             ..Default::default()
         }))
+    }
+
+    pub fn tipset_child_with_blocks(
+        parent: &Tipset,
+        epoch: ChainEpoch,
+        n: usize,
+        state_root: Cid,
+    ) -> Tipset {
+        assert!(n > 0, "tipset must have at least one block");
+        let headers: Vec<_> = (0..n)
+            .map(|i| {
+                let nonce = next_tipset_nonce();
+                CachingBlockHeader::new(RawBlockHeader {
+                    parents: parent.key().clone(),
+                    miner_address: Address::new_id(i as u64),
+                    ticket: dummy_ticket(nonce as u8),
+                    epoch,
+                    timestamp: nonce,
+                    state_root,
+                    ..Default::default()
+                })
+            })
+            .collect();
+        Tipset::new(headers).expect("valid multi-block tipset")
     }
 
     #[test]
