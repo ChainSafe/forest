@@ -308,3 +308,25 @@ async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
         );
     }
 }
+
+#[tokio::test]
+async fn entry_source_metrics() {
+    use crate::beacon::metrics;
+
+    let source = |label| metrics::DRAND_ENTRY_SOURCE_TOTAL.get_or_create(label).get();
+    let (http_before, cache_before) = (source(&metrics::HTTP), source(&metrics::CACHE));
+
+    // A round well inside quicknet's history, so it is always available.
+    let round = 1_000_000;
+    QUICKNET.entry(round).await.unwrap();
+    assert_eq!(source(&metrics::HTTP), http_before + 1);
+    assert_eq!(source(&metrics::CACHE), cache_before);
+
+    QUICKNET.entry(round).await.unwrap();
+    assert_eq!(
+        source(&metrics::HTTP),
+        http_before + 1,
+        "second call must not reach the network"
+    );
+    assert_eq!(source(&metrics::CACHE), cache_before + 1);
+}

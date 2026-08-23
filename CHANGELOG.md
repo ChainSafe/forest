@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7414](https://github.com/ChainSafe/forest/issues/7414): New `drand_entry_source_total` and `drand_http_fetch_time` metrics, recording whether each drand round was served from the in-memory cache or fetched over HTTP, and how long those fetches take.
+
 ### Changed
 
 ### Removed

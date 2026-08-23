@@ -14,6 +14,8 @@ use super::{
         PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2, verify_messages_chained,
     },
 };
+use crate::beacon::metrics;
+use crate::metrics::HistogramTimerExt as _;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
@@ -371,8 +373,14 @@ impl Beacon for DrandBeacon {
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
         if let Some(cached_entry) = self.verified_beacons.get(&round) {
+            metrics::DRAND_ENTRY_SOURCE_TOTAL
+                .get_or_create(&metrics::CACHE)
+                .inc();
             return Ok(Arc::unwrap_or_clone(cached_entry));
         }
+
+        // Observes on drop, so it spans the whole retry chain rather than one attempt.
+        let _timer = metrics::DRAND_HTTP_FETCH_TIME.start_timer();
 
         async fn fetch_entry_from_url(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
             let resp: BeaconEntryJson = global_http_client()
@@ -416,16 +424,25 @@ impl Beacon for DrandBeacon {
                     humantime::format_duration(dur)
                 );
             })
-            .await?;
+            .await
+            .inspect_err(|_| {
+                metrics::DRAND_ENTRY_SOURCE_TOTAL
+                    .get_or_create(&metrics::HTTP_ERROR)
+                    .inc();
+            })?;
         // Callers assume the entry is for the round they asked for. Round 0 is served
         // as "latest", so it answers with a different round by design:
         // <https://github.com/drand/drand/blob/v2.1.6/handler/http/server.go#L367>
-        anyhow::ensure!(
-            round == 0 || entry.round() == round,
-            "drand returned round {} for round {round}",
-            entry.round()
-        );
+        if round != 0 && entry.round() != round {
+            metrics::DRAND_ENTRY_SOURCE_TOTAL
+                .get_or_create(&metrics::HTTP_ERROR)
+                .inc();
+            anyhow::bail!("drand returned round {} for round {round}", entry.round());
+        }
         self.cache_fetched_entry(&entry);
+        metrics::DRAND_ENTRY_SOURCE_TOTAL
+            .get_or_create(&metrics::HTTP)
+            .inc();
         Ok(entry)
     }
 
