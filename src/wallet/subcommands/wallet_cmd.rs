@@ -36,9 +36,11 @@ use crate::{
     },
 };
 use anyhow::{Context as _, bail};
+use cbor4ii::core::Value;
 use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
+use fvm_ipld_encoding::RawBytes;
 use jsonrpsee::core::ClientError;
 use num::Zero as _;
 use tabled::{builder::Builder, settings::Style};
@@ -314,6 +316,15 @@ pub enum WalletCommands {
         gas_limit: i64,
         #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
         gas_premium: TokenAmount,
+        /// Hex-encoded calldata for the message params (a leading `0x` is
+        /// accepted). For a contract target it is CBOR-wrapped the way the EVM
+        /// actor expects, matching `lotus send --params-hex`.
+        #[arg(long)]
+        params_hex: Option<String>,
+        /// Explicitly set the message method number. Cannot be combined with a
+        /// contract target, whose method is always `InvokeContract`.
+        #[arg(long)]
+        method: Option<u64>,
         /// Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`.
         /// The command waits until the message has been on chain for at least `confidence` epochs.
         #[arg(long)]
@@ -507,6 +518,8 @@ impl WalletCommands {
                 gas_feecap,
                 gas_limit,
                 gas_premium,
+                params_hex,
+                method,
                 wait_confidence,
                 wait_timeout,
             } => {
@@ -532,13 +545,15 @@ impl WalletCommands {
                             )
                         })?;
                 }
-                let method_num = resolve_method_num(&from, &to, is_0x_recipient);
+                let method_num = resolve_send_method_num(&from, &to, is_0x_recipient, method)?;
+                let params = encode_message_params(params_hex.as_deref(), method_num)?;
 
                 let message = Message {
                     from,
                     to,
                     value: amount,
                     method_num,
+                    params,
                     gas_limit: gas_limit as u64,
                     gas_fee_cap: gas_feecap,
                     gas_premium,
@@ -690,6 +705,48 @@ fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> u6
     }
 }
 
+/// Resolves the method number for a `send`, honoring an explicit `--method`
+/// override. Like `lotus send`, an explicit method is rejected for a contract
+/// target, whose method is always `InvokeContract`.
+fn resolve_send_method_num(
+    from: &Address,
+    to: &Address,
+    is_0x_recipient: bool,
+    explicit: Option<u64>,
+) -> anyhow::Result<u64> {
+    let resolved = resolve_method_num(from, to, is_0x_recipient);
+    match explicit {
+        Some(_) if resolved == EVMMethod::InvokeContract as u64 => bail!(
+            "--method cannot be used with a contract target; the method is always InvokeContract"
+        ),
+        Some(m) => Ok(m),
+        None => Ok(resolved),
+    }
+}
+
+/// Builds the message params from optional hex calldata. For an
+/// `InvokeContract` target the calldata is CBOR-wrapped as a byte string, the
+/// way the EVM actor expects (matching `lotus send --params-hex`); for any
+/// other method the decoded bytes are used verbatim. Empty or absent calldata
+/// yields empty params.
+fn encode_message_params(params_hex: Option<&str>, method_num: u64) -> anyhow::Result<RawBytes> {
+    let Some(hex_str) = params_hex else {
+        return Ok(RawBytes::default());
+    };
+    let bytes =
+        hex::decode(hex_str.trim_start_matches("0x")).context("--params-hex must be valid hex")?;
+    if bytes.is_empty() {
+        return Ok(RawBytes::default());
+    }
+    if method_num == EVMMethod::InvokeContract as u64 {
+        let wrapped = cbor4ii::serde::to_vec(Vec::new(), &Value::Bytes(bytes))
+            .context("failed to CBOR-encode calldata params")?;
+        Ok(RawBytes::new(wrapped))
+    } else {
+        Ok(RawBytes::new(bytes))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -700,7 +757,11 @@ mod tests {
     use crate::shim::message::METHOD_SEND;
     use rstest::rstest;
 
-    use super::{SignatureType, resolve_method_num, resolve_target_address, wrap_frc0102};
+    use super::{
+        SignatureType, encode_message_params, resolve_method_num, resolve_send_method_num,
+        resolve_target_address, wrap_frc0102,
+    };
+    use fvm_ipld_encoding::RawBytes;
 
     #[test]
     fn test_resolve_target_address_id() {
@@ -851,6 +912,78 @@ mod tests {
         assert_eq!(&wrapped[..26], b"\x19Filecoin Signed Message:\n");
         assert_eq!(&wrapped[26..26 + digits.len()], digits.as_bytes());
         assert_eq!(&wrapped[26 + digits.len()..], msg.as_slice());
+    }
+
+    #[test]
+    fn test_resolve_send_method_num_explicit_override() {
+        // A plain send to a native actor may carry an explicit method number.
+        let from = Address::from_str("f01234").unwrap();
+        let to = Address::from_str("f05678").unwrap();
+        assert_eq!(
+            resolve_send_method_num(&from, &to, false, Some(42)).unwrap(),
+            42
+        );
+        // Without an override it falls back to the resolved method.
+        assert_eq!(
+            resolve_send_method_num(&from, &to, false, None).unwrap(),
+            METHOD_SEND
+        );
+    }
+
+    #[test]
+    fn test_resolve_send_method_num_rejects_method_on_contract() {
+        // A contract target resolves to `InvokeContract`; an explicit method is rejected.
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        assert_eq!(
+            resolve_send_method_num(&from, &to, false, None).unwrap(),
+            EVMMethod::InvokeContract as u64
+        );
+        let err = resolve_send_method_num(&from, &to, false, Some(7)).unwrap_err();
+        assert!(err.to_string().contains("--method cannot be used"));
+    }
+
+    #[test]
+    fn test_encode_message_params_none_and_empty() {
+        assert_eq!(
+            encode_message_params(None, METHOD_SEND).unwrap(),
+            RawBytes::default()
+        );
+        // Empty calldata yields empty params, even for a contract target.
+        assert_eq!(
+            encode_message_params(Some(""), EVMMethod::InvokeContract as u64).unwrap(),
+            RawBytes::default()
+        );
+    }
+
+    #[test]
+    fn test_encode_message_params_raw_for_non_contract() {
+        // A non-`InvokeContract` method carries the decoded bytes verbatim.
+        assert_eq!(
+            encode_message_params(Some("1234"), METHOD_SEND).unwrap(),
+            RawBytes::new(vec![0x12, 0x34])
+        );
+    }
+
+    #[test]
+    fn test_encode_message_params_cbor_wraps_calldata() {
+        // For `InvokeContract` the calldata is wrapped as a CBOR byte string:
+        // major type 2, length 4 (`0x44`) followed by the 4 calldata bytes.
+        assert_eq!(
+            encode_message_params(Some("12345678"), EVMMethod::InvokeContract as u64).unwrap(),
+            RawBytes::new(vec![0x44, 0x12, 0x34, 0x56, 0x78])
+        );
+        // A leading `0x` is accepted.
+        assert_eq!(
+            encode_message_params(Some("0x12345678"), EVMMethod::InvokeContract as u64).unwrap(),
+            RawBytes::new(vec![0x44, 0x12, 0x34, 0x56, 0x78])
+        );
+    }
+
+    #[test]
+    fn test_encode_message_params_rejects_invalid_hex() {
+        let err = encode_message_params(Some("nothex"), METHOD_SEND).unwrap_err();
+        assert!(err.to_string().contains("must be valid hex"));
     }
 
     #[test]

@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7472](https://github.com/ChainSafe/forest/issues/7472): `forest-wallet send` now accepts `--params-hex` to attach calldata (CBOR-wrapped for contract `InvokeContract` targets, matching `lotus send`), so it can call a method on a contract, and `--method` to set the message method number explicitly for non-contract targets.
+
 ### Changed
 
 ### Removed
