@@ -12,7 +12,6 @@ use rand::Rng;
 use serde::de::{IntoDeserializer, value::StringDeserializer};
 use std::{hash::Hash, ops::Deref};
 
-pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
 const UNCOMPRESSED_PUBLIC_KEY_SIZE: usize = 65;
@@ -67,9 +66,6 @@ impl FromStr for EthBytes {
         Ok(Self(bytes))
     }
 }
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct GetBytecodeReturn(pub Option<Cid>);
 
 const GET_STORAGE_AT_PARAMS_ARRAY_LENGTH: usize = 32;
 const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
@@ -627,18 +623,6 @@ mod tests {
     #[quickcheck_macros::quickcheck]
     fn get_storage_at_deserialize_params_no_panic(bz: Vec<u8>) {
         let _ = GetStorageAtParams::deserialize_params(&bz);
-    }
-
-    #[test]
-    fn get_bytecode_return_roundtrip() {
-        let bytes = hex::decode("d82a5827000155a0e40220fa0b7a54007ba2e76d5818b6e60793fb0b8bdbe177995e1b20dcfb6873d69779").unwrap();
-        let des: GetBytecodeReturn = fvm_ipld_encoding::from_slice(&bytes).unwrap();
-        assert_eq!(
-            des.0.unwrap().to_string(),
-            "bafk2bzaced5aw6suab52fz3nlamlnzqhsp5qxc634f3zsxq3edopw2dt22lxs"
-        );
-        let ser = fvm_ipld_encoding::to_vec(&des).unwrap();
-        assert_eq!(ser, bytes);
     }
 
     #[test]
