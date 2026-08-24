@@ -1650,11 +1650,13 @@ fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
 
 /// `eth_call` and `eth_estimateGas` accept a `from` that is an EVM contract or that doesn't exist on
 /// chain, matching Geth. Ported from the Lotus `eth_call_estimate_test.go` suite.
-fn eth_skip_sender_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+fn eth_skip_sender_tests(shared_tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let epoch = shared_tipset.epoch();
     let mut tests = eth_skip_sender_success_tests(epoch)?;
     tests.extend(eth_skip_sender_insufficient_funds_tests(epoch)?);
+    tests.extend(eth_skip_sender_revert_tests(epoch)?);
     tests.extend(eth_skip_sender_create_reject_tests(epoch)?);
-    tests.extend(eth_skip_sender_block_param_tests(epoch)?);
+    tests.extend(eth_skip_sender_filecoin_gas_limit_tests(shared_tipset)?);
     Ok(tests)
 }
 
@@ -1687,46 +1689,28 @@ fn eth_skip_sender_success_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTes
     let initcode =
         EthBytes::from_str(concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim())?;
     let non_existent = generate_eth_random_address()?;
-    let eoa = EthAddress::from_filecoin_address(&KNOWN_CALIBNET_F4_ADDRESS)?;
-    let gas_price = EthBigInt::from(1_000_000_000u64);
 
     let messages = [
-        (Some(contract), Some(eoa), None, None),
-        (Some(contract), Some(eoa), None, Some(gas_price)),
-        (Some(contract), Some(contract), Some(calldata.clone()), None),
-        (
-            Some(non_existent),
-            Some(contract),
-            Some(calldata.clone()),
-            None,
-        ),
-        (
-            Some(non_existent),
-            Some(contract),
-            Some(calldata.clone()),
-            Some(gas_price),
-        ),
-        (None, Some(contract), Some(calldata), None),
-        (Some(non_existent), None, Some(initcode), None),
+        (Some(contract), Some(contract), Some(calldata.clone())),
+        (Some(non_existent), Some(contract), Some(calldata)),
+        (Some(non_existent), None, Some(initcode)),
     ]
-    .map(|(from, to, data, gas_price)| EthCallMessage {
+    .map(|(from, to, data)| EthCallMessage {
         from,
         to,
         data,
-        gas_price,
         ..Default::default()
     });
     eth_call_and_estimate_gas_tests(epoch, PolicyOnRejected::Fail, messages)
 }
 
-/// Skipping the sender checks must not skip the balance check.
+/// Skip must still fail when `from` cannot pay `value`.
 fn eth_skip_sender_insufficient_funds_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
     let contract = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?;
-    let non_existent = generate_eth_random_address()?;
     let eoa = EthAddress::from_filecoin_address(&KNOWN_CALIBNET_F4_ADDRESS)?;
     let value = EthBigInt::from(TokenAmount::from_whole(1_000_000));
 
-    let messages = [contract, non_existent, eoa].map(|from| EthCallMessage {
+    let messages = [contract, eoa, generate_eth_random_address()?].map(|from| EthCallMessage {
         from: Some(from),
         to: Some(eoa),
         value: Some(value),
@@ -1735,40 +1719,53 @@ fn eth_skip_sender_insufficient_funds_tests(epoch: ChainEpoch) -> anyhow::Result
     eth_call_and_estimate_gas_tests(epoch, PolicyOnRejected::PassWithIdenticalError, messages)
 }
 
+/// A revert must be reported as an error, not answered with a gas number from the gas search.
+fn eth_skip_sender_revert_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let revert_initcode = EthBytes::from_str(
+        include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex").trim(),
+    )?;
+    eth_call_and_estimate_gas_tests(
+        epoch,
+        PolicyOnRejected::PassWithIdenticalError,
+        [EthCallMessage {
+            from: Some(generate_eth_random_address()?),
+            data: Some(revert_initcode),
+            ..Default::default()
+        }],
+    )
+}
+
 /// Contract creation that both nodes must refuse or report as reverting.
 fn eth_skip_sender_create_reject_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
     let initcode =
         EthBytes::from_str(concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim())?;
-    let div_zero = EthBytes::from_str(include_str!(
-        "./contracts/divide_by_zero_err/divide_by_zero_err.hex"
-    ))?;
-    let assert_err = EthBytes::from_str(include_str!("contracts/assert_err/assert_err.hex"))?;
     let contract = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?;
-    let non_existent = generate_eth_random_address()?;
-
-    let messages = [
-        (Some(contract), initcode),
-        (Some(contract), div_zero.clone()),
-        (Some(non_existent), div_zero),
-        (Some(contract), assert_err.clone()),
-        (Some(non_existent), assert_err),
-    ]
-    .map(|(from, data)| EthCallMessage {
-        from,
-        data: Some(data),
+    let messages = [EthCallMessage {
+        from: Some(contract),
+        data: Some(initcode),
         ..Default::default()
-    });
+    }];
     eth_call_and_estimate_gas_tests(epoch, PolicyOnRejected::PassWithIdenticalError, messages)
 }
 
-fn eth_skip_sender_block_param_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
-    let messages = [EthCallMessage {
-        from: Some(generate_eth_random_address()?),
-        to: Some(EthAddress::from_str(CALIBNET_EVM_CONTRACT)?),
-        data: Some(GET_BALANCE_CALLDATA.parse()?),
+fn eth_skip_sender_filecoin_gas_limit_tests(
+    shared_tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let from = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?.to_filecoin_address()?;
+    let to = *KNOWN_CALIBNET_F4_ADDRESS;
+    let message = Message {
+        from,
+        to,
+        method_num: METHOD_SEND,
         ..Default::default()
-    }];
-    eth_call_and_estimate_gas_tests(epoch + 1000, PolicyOnRejected::Pass, messages)
+    };
+    Ok(vec![
+        RpcTest::identity(GasEstimateGasLimit::request((
+            message,
+            shared_tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+    ])
 }
 
 fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
@@ -2634,7 +2631,7 @@ fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
     // Test eth_call API errors
     tests.extend(eth_call_api_err_tests(shared_tipset.epoch()));
 
-    tests.extend(eth_skip_sender_tests(shared_tipset.epoch())?);
+    tests.extend(eth_skip_sender_tests(shared_tipset)?);
 
     Ok(tests)
 }

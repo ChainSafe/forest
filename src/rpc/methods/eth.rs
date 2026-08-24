@@ -1911,11 +1911,10 @@ async fn eth_estimate_gas(
     // gas estimation actually run.
     msg.gas_limit = 0;
 
-    if sender_validation_for_actor(
+    if sender_is_evm_contract(
         ctx.state_manager
             .get_actor(&msg.from, *tipset.parent_state()),
-    ) == SenderValidation::Skip
-    {
+    ) {
         return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
     }
 
@@ -1945,11 +1944,8 @@ async fn eth_estimate_gas(
     }
 }
 
-fn sender_validation_for_actor(actor: anyhow::Result<Option<ActorState>>) -> SenderValidation {
-    match actor {
-        Ok(Some(actor)) if is_evm_actor(&actor.code) => SenderValidation::Skip,
-        _ => SenderValidation::Enforce,
-    }
+fn sender_is_evm_contract(actor: anyhow::Result<Option<ActorState>>) -> bool {
+    matches!(actor, Ok(Some(actor)) if is_evm_actor(&actor.code))
 }
 
 /// Estimates gas for a sender that is a contract or doesn't exist on chain.
@@ -4454,23 +4450,13 @@ mod test {
         let evm_code = get_evm_actor_code_cid().expect("EVM actor code CID should be available");
         let mut evm_actor = create_test_actor(0, 0);
         evm_actor.code = evm_code;
-        assert_eq!(
-            sender_validation_for_actor(Ok(Some(evm_actor))),
-            SenderValidation::Skip
-        );
+        assert!(sender_is_evm_contract(Ok(Some(evm_actor))));
 
-        assert_eq!(
-            sender_validation_for_actor(Ok(Some(create_test_actor(0, 0)))),
-            SenderValidation::Enforce
-        );
-        assert_eq!(
-            sender_validation_for_actor(Ok(None)),
-            SenderValidation::Enforce
-        );
-        assert_eq!(
-            sender_validation_for_actor(Err(anyhow::anyhow!("blockstore read failed"))),
-            SenderValidation::Enforce
-        );
+        assert!(!sender_is_evm_contract(Ok(Some(create_test_actor(0, 0)))));
+        assert!(!sender_is_evm_contract(Ok(None)));
+        assert!(!sender_is_evm_contract(Err(anyhow::anyhow!(
+            "blockstore read failed"
+        ))));
     }
 
     #[rstest]
