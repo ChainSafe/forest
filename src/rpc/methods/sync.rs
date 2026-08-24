@@ -5,13 +5,13 @@ mod types;
 
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::chain;
-use crate::chain_sync::{NodeSyncStatus, SyncStatusReport, TipsetValidator};
+use crate::chain_sync::{SyncStatusReport, TipsetValidator};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::prelude::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
-use anyhow::anyhow;
 use enumflags2::BitFlags;
 use fvm_ipld_encoding::to_vec;
+use std::time::Duration;
 pub use types::*;
 
 pub enum SyncCheckBad {}
@@ -125,9 +125,6 @@ impl RpcMethod<1> for SyncSubmitBlock {
         (block_msg,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_status.load().status, NodeSyncStatus::Synced) {
-            Err(anyhow!("the node isn't in 'follow' mode"))?
-        }
         let genesis_network_name = ctx.chain_config().network.genesis_name();
         let encoded_message = to_vec(&block_msg)?;
         let pubsub_block_str = format!("{PUBSUB_BLOCK_STR}/{genesis_network_name}");
@@ -150,6 +147,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
             )
             .context("failed to validate the tipset")?;
 
+        let submitted_epoch = ts.epoch();
         ctx.tipset_send
             .try_send(ts)
             .context("tipset queue is full")?;
@@ -158,6 +156,26 @@ impl RpcMethod<1> for SyncSubmitBlock {
             topic: IdentTopic::new(pubsub_block_str),
             message: encoded_message,
         })?;
+
+        // Forest applies the submitted tipset via the async follower, unlike Lotus whose
+        // `Syncer.Sync` sets the head synchronously. Wait (bounded by ~one block time) for the
+        // head to reflect it, else a caller mining on the head re-selects the
+        // same base and stalls a full block time each round.
+        let block_delay_secs = ctx.chain_config().block_delay_secs.into();
+        if tokio::time::timeout(Duration::from_secs(block_delay_secs), async {
+            while ctx.chain_store().heaviest_tipset().epoch() < submitted_epoch {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!(
+                submitted_epoch,
+                block_delay_secs,
+                "SyncSubmitBlock: head did not catch up within one block time"
+            );
+        }
         Ok(())
     }
 }
@@ -171,6 +189,7 @@ mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
+    use crate::chain_sync::NodeSyncStatus;
     use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::db::{Blockstore as _, MemoryDB};
     use crate::key_management::{KeyStore, KeyStoreConfig};
