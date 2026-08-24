@@ -88,6 +88,40 @@ pub fn create_evm_actor_with_bytecode(
     ))
 }
 
+/// Like [`create_evm_actor_with_bytecode`] but marks the actor self-destructed via a
+/// tombstone, so it must report no bytecode even though the code block is present.
+pub fn create_tombstoned_evm_actor(store: &MemoryDB, bytecode: &[u8]) -> Option<ActorState> {
+    use fvm_ipld_blockstore::Blockstore as _;
+    use multihash_codetable::MultihashDigest as _;
+
+    let evm_code_cid = get_evm_actor_code_cid()?;
+    let mh = multihash_codetable::Code::Blake2b256.digest(bytecode);
+    let bytecode_cid = Cid::new_v1(fvm_ipld_encoding::IPLD_RAW, mh);
+    store.put_keyed(&bytecode_cid, bytecode).ok()?;
+
+    let evm_state = fil_actor_evm_state::v17::State {
+        bytecode: bytecode_cid,
+        bytecode_hash: fil_actor_evm_state::v17::BytecodeHash::from(
+            keccak_hash::keccak(bytecode).0,
+        ),
+        contract_state: Cid::default(),
+        transient_data: None,
+        nonce: 0,
+        tombstone: Some(fil_actor_evm_state::v17::Tombstone {
+            origin: 0,
+            nonce: 0,
+        }),
+    };
+    let state_cid = store.put_cbor_default(&evm_state).ok()?;
+    Some(ActorState::new(
+        evm_code_cid,
+        state_cid,
+        TokenAmount::from_atto(0),
+        0,
+        None,
+    ))
+}
+
 pub fn create_masked_id_eth_address(actor_id: u64) -> EthAddress {
     EthAddress::from_actor_id(actor_id)
 }
