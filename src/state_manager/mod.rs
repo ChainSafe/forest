@@ -92,7 +92,8 @@ impl GetSize for ExecutedMessage {
     }
 }
 
-/// A tipset's messages paired with their execution receipts.
+/// A tipset's messages paired with their execution receipts. The variants are an internal detail of
+/// how the pairs were loaded; consumers iterate them via [`Self::iter`].
 pub enum TipsetMessageReceipts {
     /// Backed by a full executed tipset (a cache hit, or the fallback loader).
     Executed(Arc<Vec<ExecutedMessage>>),

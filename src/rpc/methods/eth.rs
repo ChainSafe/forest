@@ -2127,10 +2127,10 @@ async fn eth_fee_history(
     )];
     let mut rewards_array = vec![];
     let mut gas_used_ratio_array = vec![];
-    // The walk goes newest -> oldest, so each tipset is the child of the next. Carry the current
-    // tipset's `parent_message_receipts` forward: it is exactly the next (older) tipset's receipt
-    // root, so only the newest tipset needs a `load_child_tipset` lookup (`None` on the first pass).
-    let mut receipt_root = None;
+    // The walk goes newest -> oldest, so each tipset is the child of the next. Carry it forward as the
+    // receipt source for the next (older) tipset, so only the newest needs a `load_child_tipset` lookup
+    // (`None` on the first pass).
+    let mut child: Option<Tipset> = None;
     for ts in tipset
         .chain(ctx.db())
         .filter(|i| i.epoch() > 0)
@@ -2139,7 +2139,7 @@ async fn eth_fee_history(
         let base_fee = &ts.block_headers().first().parent_base_fee;
         let message_receipts = ctx
             .state_manager
-            .tipset_message_receipts(&ts, receipt_root)
+            .tipset_message_receipts(&ts, child.as_ref())
             .await?;
         let tx_gas_rewards = message_receipts
             .iter()
@@ -2158,8 +2158,8 @@ async fn eth_fee_history(
         rewards_array.push(rewards);
 
         oldest_block_height = ts.epoch();
-        // Child root for the next (older) tipset.
-        receipt_root = Some(*ts.parent_message_receipts());
+        // This tipset is the receipt source (child) of the next (older) one.
+        child = Some(ts);
     }
 
     // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.

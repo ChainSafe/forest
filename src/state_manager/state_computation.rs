@@ -76,36 +76,38 @@ impl StateManager {
     }
 
     /// Returns `ts`'s messages paired with their execution receipts, without loading events.
-    /// `receipt_root` is `ts`'s message-receipt root (the child tipset's `parent_message_receipts`)
-    /// when the caller already knows it, avoiding a `load_child_tipset` lookup; `None` resolves it.
+    /// `receipt_ts` is `ts`'s child (whose `parent_message_receipts` is `ts`'s receipt root) when the
+    /// caller already knows it, avoiding a `load_child_tipset` lookup; `None` resolves it.
     pub async fn tipset_message_receipts(
         &self,
         ts: &Tipset,
-        receipt_root: Option<Cid>,
+        receipt_ts: Option<&Tipset>,
     ) -> anyhow::Result<TipsetMessageReceipts> {
         if let Some(cached) = self.cache.get(ts.key()) {
             return Ok(TipsetMessageReceipts::Executed(cached.executed_messages));
         }
 
-        let receipt_root = match receipt_root {
-            Some(root) => Some(root),
-            None => self
-                .chain_store()
-                .load_child_tipset(ts)
-                .await?
-                .map(|child| *child.parent_message_receipts()),
+        let receipt_ts = match receipt_ts {
+            Some(child) => Some(child.shallow_clone()),
+            None => self.chain_store().load_child_tipset(ts).await?,
         };
-        if let Some(root) = receipt_root
-            && let Ok(receipts) = Receipt::get_receipts(self.cs.db(), root)
-        {
-            let messages = self.chain_store().messages_for_tipset(ts)?;
+        if let Some(child) = &receipt_ts {
             anyhow::ensure!(
-                messages.len() == receipts.len(),
-                "mismatching message and receipt counts ({} messages, {} receipts)",
-                messages.len(),
-                receipts.len()
+                ts.key() == child.parents(),
+                "message tipset should be the parent of message receipt tipset"
             );
-            return Ok(TipsetMessageReceipts::Stored(messages, receipts));
+            if let Ok(receipts) =
+                Receipt::get_receipts(self.cs.db(), *child.parent_message_receipts())
+            {
+                let messages = self.chain_store().messages_for_tipset(ts)?;
+                anyhow::ensure!(
+                    messages.len() == receipts.len(),
+                    "mismatching message and receipt counts ({} messages, {} receipts)",
+                    messages.len(),
+                    receipts.len()
+                );
+                return Ok(TipsetMessageReceipts::Stored(messages, receipts));
+            }
         }
         Ok(TipsetMessageReceipts::Executed(
             self.load_executed_tipset_for_rpc(ts)
@@ -769,6 +771,8 @@ pub(in crate::state_manager) fn compute_state_blocking(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader, TipsetKey, TxMeta};
+    use crate::utils::db::CborStoreExt as _;
 
     #[test]
     fn tipset_message_receipts_iter_pairs_in_order() {
@@ -806,5 +810,138 @@ mod tests {
                 .collect_vec();
             assert_eq!(got, expected);
         }
+    }
+
+    /// A `TxMeta` with empty message roots, so `messages_for_tipset` yields zero messages.
+    fn empty_message_meta(db: &impl Blockstore) -> Cid {
+        let empty = Amtv0::<Cid, _>::new(db).flush().unwrap();
+        db.put_cbor_default(&TxMeta {
+            bls_message_root: empty,
+            secp_message_root: empty,
+        })
+        .unwrap()
+    }
+
+    /// A single block with the given epoch, parents, message meta and receipt root. The nonzero
+    /// timestamp lets an epoch-0 block serve as a genesis (which must not be at time 0).
+    fn block(
+        epoch: ChainEpoch,
+        parents: TipsetKey,
+        messages: Cid,
+        receipts: Cid,
+    ) -> CachingBlockHeader {
+        CachingBlockHeader::new(RawBlockHeader {
+            parents,
+            epoch,
+            messages,
+            message_receipts: receipts,
+            timestamp: 1,
+            ..Default::default()
+        })
+    }
+
+    #[tokio::test]
+    async fn tipset_message_receipts_covers_all_paths() {
+        use crate::chain::ChainStore;
+        use crate::db::MemoryDB;
+        use crate::networks::ChainConfig;
+
+        let db = Arc::new(MemoryDB::default());
+        let genesis = block(0, TipsetKey::default(), Cid::default(), Cid::default());
+        db.put_cbor_default(&genesis).unwrap();
+        let cs = ChainStore::new(db.clone(), Arc::new(ChainConfig::default()), genesis).unwrap();
+        let genesis_key = cs.genesis_tipset().key().clone();
+
+        // `ts` (epoch 1, no messages) and `head` (epoch 2), its child and the chain head, so
+        // `load_child_tipset(ts)` resolves `head`.
+        let ts = Tipset::from(block(
+            1,
+            genesis_key.clone(),
+            empty_message_meta(&db),
+            Cid::default(),
+        ));
+        let head = Tipset::from(block(
+            2,
+            ts.key().clone(),
+            Cid::default(),
+            Receipt::store_receipts(&db, 0).unwrap(),
+        ));
+        for b in ts.block_headers().iter().chain(head.block_headers().iter()) {
+            db.put_cbor_default(b).unwrap();
+        }
+        cs.set_heaviest_tipset(head.clone()).unwrap();
+        let sm = StateManager::new(cs).unwrap();
+
+        // Cache hit -> Executed.
+        sm.cache.insert(
+            ts.key().clone(),
+            ExecutedTipset {
+                state_root: Cid::default(),
+                receipt_root: Cid::default(),
+                executed_messages: Arc::new(vec![]),
+            },
+        );
+        assert!(matches!(
+            sm.tipset_message_receipts(&ts, None).await.unwrap(),
+            TipsetMessageReceipts::Executed(_)
+        ));
+        sm.cache.remove(ts.key());
+
+        // Caller-supplied child -> Stored (assertion holds, receipts read, counts match).
+        assert!(matches!(
+            sm.tipset_message_receipts(&ts, Some(&head)).await.unwrap(),
+            TipsetMessageReceipts::Stored(m, r) if m.is_empty() && r.is_empty()
+        ));
+
+        // `None` resolves the child via `load_child_tipset` -> Stored.
+        assert!(matches!(
+            sm.tipset_message_receipts(&ts, None).await.unwrap(),
+            TipsetMessageReceipts::Stored(..)
+        ));
+
+        // `head` has no child, so `None` resolves to nothing and the loader fallback errors.
+        assert!(sm.tipset_message_receipts(&head, None).await.is_err());
+
+        // Receipt tipset that is not `ts`'s child -> parent-mismatch error.
+        let wrong = Tipset::from(block(
+            2,
+            genesis_key,
+            Cid::default(),
+            Receipt::store_receipts(&db, 0).unwrap(),
+        ));
+        assert!(
+            sm.tipset_message_receipts(&ts, Some(&wrong))
+                .await
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("should be the parent")
+        );
+
+        // Receipt count != message count -> error.
+        let extra = Tipset::from(block(
+            2,
+            ts.key().clone(),
+            Cid::default(),
+            Receipt::store_receipts(&db, 1).unwrap(),
+        ));
+        assert!(
+            sm.tipset_message_receipts(&ts, Some(&extra))
+                .await
+                .err()
+                .expect("expected error")
+                .to_string()
+                .contains("mismatching message and receipt counts")
+        );
+
+        // Unreadable receipt root -> falls back to the full loader (re-resolves the on-chain child).
+        // Keep last: this populates `ts`'s cache, which would mask the `Stored` cases above.
+        let unreadable = Tipset::from(block(2, ts.key().clone(), Cid::default(), Cid::default()));
+        assert!(matches!(
+            sm.tipset_message_receipts(&ts, Some(&unreadable))
+                .await
+                .unwrap(),
+            TipsetMessageReceipts::Executed(_)
+        ));
     }
 }
