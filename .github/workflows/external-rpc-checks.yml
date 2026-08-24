@@ -106,7 +106,10 @@ jobs:
           echo "FOREST_IMAGE=forest-under-test:ci" >> "$GITHUB_ENV"
       - name: Use the image given to the dispatch
         if: ${{ inputs.forest_image != '' }}
-        run: echo "FOREST_IMAGE=${{ inputs.forest_image }}" >> "$GITHUB_ENV"
+        working-directory: .
+        env:
+          FOREST_IMAGE_INPUT: ${{ inputs.forest_image }}
+        run: ruby scripts/sanitize_image.rb
       - name: Run the RPC checks
         run: ./setup.sh
       - name: Dump docker logs
