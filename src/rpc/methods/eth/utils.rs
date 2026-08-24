@@ -64,7 +64,7 @@ pub fn lookup_eth_address<DB: Blockstore>(
 pub(crate) trait ActorStateEthExt {
     /// Returns the effective nonce: EVM nonce for EVM actors, sequence otherwise.
     fn eth_nonce<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<EthUint64>;
-    /// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM actors.
+    /// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM or self-destructed actors.
     fn eth_bytecode<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<Option<EthBytes>>;
 }
 
@@ -85,6 +85,10 @@ impl ActorStateEthExt for ActorState {
         }
         let evm_state = evm::State::load(store, self.code, self.state)
             .context("failed to load EVM state for bytecode")?;
+        // A self-destructed contract reports no code, matching the actor's GetBytecode.
+        if !evm_state.is_alive() {
+            return Ok(None);
+        }
         let bytecode = store
             .get(&evm_state.bytecode())
             .context("failed to read EVM bytecode")?;

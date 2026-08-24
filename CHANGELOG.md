@@ -27,6 +27,22 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now closes the subscription channel when a client falls too far behind instead of silently dropping head changes, matching Lotus, so clients can detect the gap and resubscribe.
+
+## Forest v0.36.0 "bafy2bzacedpdckv7nsqfjwqnqwtgu7ipqbox4tfuuhwxhdox27uuznfyv3o2g"
+
+Non-mandatory release for all node operators. Lots of fixes and improvements, notably around RPC methods. It's also the first release where a Forest + Curio pair managed to successfully produce blocks on a devnet! Great success!
+
+### Breaking
+
 - [#7422](https://github.com/ChainSafe/forest/issues/7422): `Filecoin.MinerGetBaseInfo` now requires a non-empty tipset key and rejects a `null` or empty one, matching Lotus. Previously it silently fell back to the heaviest tipset.
 
 - [#7339](https://github.com/ChainSafe/forest/issues/7339): Forest-owned RPC methods now use `camelCase` field names consistently in requests and responses: `Forest.SyncStatus`, `Forest.NetInfo`, `Forest.ChainExport`, `Forest.ChainExportDiff`, `Forest.ChainExportStatus`, `Forest.StateActorInfo`, `Forest.StateCompute` and `Filecoin.ChainExport` (e.g. `num_peers` → `numPeers`, `start_epoch` → `startEpoch`, `StateRoot` → `stateRoot`). The named parameters of `Filecoin.StateMinerInitialPledgeForSector` are now `sectorDuration`, `sectorSize`, `verifiedSize` and `tipsetKey` (positional calls are unaffected). The generated OpenRPC document is now tested for casing regressions.
@@ -43,13 +59,13 @@
 
 - [#7505](https://github.com/ChainSafe/forest/pull/7505): Implemented the `Filecoin.NetBandwidthStats` RPC method for Lotus API compatibility. It is currently a stub that returns zeros, which is enough to unblock Curio's dashboard when pointed at a Forest node.
 
-### Changed
-
 ### Removed
 
 - [#7481](https://github.com/ChainSafe/forest/issues/7481): Removed legacy database migrations from before the NV28 network upgrade.
 
 ### Fixed
+
+- [#7508](https://github.com/ChainSafe/forest/pull/7508): `Filecoin.StateGetBeaconEntry` and `Filecoin.BeaconGetEntry` no longer over-wait for a beacon entry: past and current epochs are read from on-chain block headers (no drand round-trip, matching Lotus) and future epochs wait only until the drand round itself is produced rather than until the later Filecoin epoch. This lets a storage provider (e.g. Curio) using Forest as its node fetch the beacon in time to produce blocks that get included.
 
 - [#7473](https://github.com/ChainSafe/forest/pull/7473): Fixed `eth_estimateGas` under-estimating gas for nested contract calls (EIP-150's 63/64 rule), which could make transactions fail on chain with `SYS_OUT_OF_GAS`; the estimate is now raised until the message succeeds. Genuine reverts return an `execution reverted` error (JSON-RPC code `3`) with the decoded reason and data, matching Lotus.
 

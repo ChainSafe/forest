@@ -50,6 +50,12 @@ Forest.
 Forest does not yet support mining and none of the mining-related RPC calls will
 be implemented in the foreseeable future.
 
+## External dataset checks
+
+Forest is also checked against the external `data.riba.plus` dataset of recorded
+RPC responses, see `.github/workflows/external-rpc-checks.yml` and
+`scripts/tests/external-rpc-checks`.
+
 ## Gateway
 
 The `lotus-gateway` executable is a reverse-proxy that sanitizes RPC calls

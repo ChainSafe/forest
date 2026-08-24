@@ -1,0 +1,68 @@
+name: external-rpc-checks
+
+x-forest-service: &forest-service
+  image: ghcr.io/chainsafe/forest:edge-fat
+  volumes:
+    - node-data:/data
+  environment:
+    # keeps the database in the container's volume, shared across containers
+    - FOREST_PATH=/data
+  user: 0:0
+
+services:
+  # Resolves yesterday's snapshot, imports it and back-fills the chain index.
+  init:
+    <<: *forest-service
+    volumes:
+      - node-data:/data
+      - ./init.sh:/init.sh:ro
+    entrypoint: ["/bin/bash", "/init.sh"]
+
+  forest:
+    <<: *forest-service
+    environment:
+      - FOREST_PATH=/data
+      - FOREST_CHAIN_INDEXER_ENABLED=1
+    command:
+      - --chain=calibnet
+      - --encrypt-keystore=false
+      - --no-gc
+      - --rpc-address=0.0.0.0:${FOREST_RPC_PORT}
+      - --healthcheck-address=0.0.0.0:${FOREST_HEALTHZ_RPC_PORT}
+    healthcheck:
+      # `/livez` from inside the container: RPC answering and peers connected.
+      test:
+        [
+          "CMD",
+          "forest-cli",
+          "healthcheck",
+          "live",
+          "--healthcheck-port",
+          "${FOREST_HEALTHZ_RPC_PORT}",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5m
+      start_interval: 5s
+
+  # Probes the node for the epochs the checks are about to query.
+  verify:
+    image: ghcr.io/chainsafe/forest-rpc-checks:latest
+    depends_on:
+      forest:
+        condition: service_healthy
+    volumes:
+      - ./verify.rb:/verify.rb:ro
+    entrypoint: ["ruby", "/verify.rb"]
+    environment:
+      FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
+
+  # The image entrypoints into `bundle exec ruby check_rpc.rb`, so only the epochs are appended.
+  rpc-checks:
+    image: ghcr.io/chainsafe/forest-rpc-checks:latest
+    environment:
+      FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
+
+volumes:
+  node-data:
