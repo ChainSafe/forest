@@ -8,15 +8,14 @@
 
 use super::super::EthBigInt;
 use super::super::types::{EthAddress, EthHash};
-use super::super::utils::{ActorStateEthExt as _, EvmStorageKamt, evm_kamt_config};
+use super::super::utils::{ActorStateEthExt as _, EvmStorageKamt, evm_kamt_config, live_evm_state};
 use super::types::{AccountDiff, ChangedType, Delta, StateDiff};
 use super::utils::{ZERO_HASH, u256_to_eth_hash};
 use crate::prelude::*;
 use crate::shim::actors::evm::U256;
-use crate::shim::actors::{EVMActorStateLoad as _, evm, is_evm_actor};
+use crate::shim::actors::is_evm_actor;
 use crate::shim::state_tree::{ActorState, StateTree};
 use ahash::{HashMap, HashSet};
-use fvm_ipld_kamt::Kamt;
 use std::collections::BTreeMap;
 use tracing::debug;
 
@@ -92,6 +91,8 @@ fn build_account_diff<DB: Blockstore>(
 /// - Account deleted (EVM → None): storage slots are `Delta::Removed`
 /// - Account modified (EVM → EVM): storage slots are `Delta::Changed`
 /// - Actor type changed (EVM ↔ non-EVM): treated as deletion + creation
+/// - Contract self-destructed (EVM → tombstoned EVM): its storage reads as empty, so the slots are
+///   `Delta::Changed` to zero
 fn diff_evm_storage_for_actors<DB: Blockstore>(
     store: &DB,
     pre_actor: Option<&ActorState>,
@@ -178,18 +179,19 @@ fn diff_evm_storage_for_actors<DB: Blockstore>(
 }
 
 /// Extract all storage entries from an EVM actor's KAMT.
-/// Returns empty map if actor is None, not an EVM actor, or state cannot be loaded.
+/// Returns an empty map if the actor is absent, not an EVM actor, self-destructed, or its state
+/// cannot be loaded.
 pub fn extract_evm_storage_entries<DB: Blockstore>(
     store: &DB,
     actor: Option<&ActorState>,
 ) -> HashMap<[u8; 32], U256> {
-    let actor = match actor {
-        Some(a) if is_evm_actor(&a.code) => a,
-        _ => return HashMap::default(),
+    let Some(actor) = actor else {
+        return HashMap::default();
     };
-
-    let evm_state = match evm::State::load(store, actor.code, actor.state) {
-        Ok(state) => state,
+    let evm_state = match live_evm_state(store, actor) {
+        Ok(Some(state)) => state,
+        // Not an EVM actor, or a dead (self-destructed) contract: its storage reads as empty.
+        Ok(None) => return HashMap::default(),
         Err(e) => {
             debug!("failed to load EVM state for storage extraction: {e:#}");
             return HashMap::default();
@@ -199,7 +201,7 @@ pub fn extract_evm_storage_entries<DB: Blockstore>(
     let storage_cid = evm_state.contract_state();
     let config = evm_kamt_config();
 
-    let kamt: EvmStorageKamt<&DB> = match Kamt::load_with_config(&storage_cid, store, config) {
+    let kamt = match EvmStorageKamt::load_with_config(&storage_cid, store, config) {
         Ok(k) => k,
         Err(e) => {
             debug!("failed to load storage KAMT: {e}");
@@ -252,6 +254,7 @@ mod tests {
     use crate::rpc::eth::EthUint64;
     use crate::rpc::eth::types::EthBytes;
     use crate::shim::address::Address as FilecoinAddress;
+    use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::StateTreeVersion;
 
     #[test]
@@ -716,11 +719,102 @@ mod tests {
     #[test]
     fn test_actor_bytecode_evm_tombstoned() {
         let store = Arc::new(MemoryDB::default());
-        let actor = create_tombstoned_evm_actor(&store, &[0x60, 0x80, 0x60, 0x40, 0x52])
-            .expect("failed to create tombstoned EVM actor fixture");
+        let actor =
+            create_tombstoned_evm_actor(&store, &[0x60, 0x80, 0x60, 0x40, 0x52], 0, Cid::default())
+                .expect("failed to create tombstoned EVM actor fixture");
         // A self-destructed contract reports no code even though its bytecode is present,
         // matching the EVM actor's GetBytecode.
         assert!(actor.eth_bytecode(store.as_ref()).unwrap().is_none());
+    }
+
+    /// Builds a storage KAMT holding `slot -> value` and returns its root.
+    fn storage_with_slot(store: &MemoryDB, slot: u64, value: u64) -> Cid {
+        let mut kamt = EvmStorageKamt::new_with_config(store, evm_kamt_config());
+        kamt.set(U256::from(slot), U256::from(value)).unwrap();
+        kamt.flush().unwrap()
+    }
+
+    /// A self-destructed contract reports a zero nonce even though its state carries one, mirroring
+    /// Lotus's `itests/eth_bytecode_test.go` (nonce is 1 after deploy, zero after `destroy()`).
+    #[test]
+    fn test_actor_nonce_evm_tombstoned() {
+        let store = MemoryDB::default();
+        // Actor sequence 0 but EVM nonce 7, so this also pins that the EVM nonce is what's read.
+        let alive = create_evm_actor_with_bytecode(&store, 0, 0, 7, Some(&[0x60]))
+            .expect("failed to create EVM actor fixture");
+        assert_eq!(alive.eth_nonce(&store).unwrap().0, 7);
+
+        let mut dead = create_tombstoned_evm_actor(&store, &[0x60], 7, Cid::default())
+            .expect("failed to create tombstoned EVM actor fixture");
+        // Nonzero sequence, so falling through to the non-EVM branch would not also yield 0.
+        dead.sequence = 9;
+        assert_eq!(dead.eth_nonce(&store).unwrap().0, 0);
+    }
+
+    /// A self-destructed contract's storage reads as empty, matching the EVM actor's `System::load`.
+    #[test]
+    fn test_extract_evm_storage_entries_tombstoned() {
+        let store = MemoryDB::default();
+        let contract_state = storage_with_slot(&store, 5, 42);
+
+        // Sanity: the same KAMT is visible while the contract is alive.
+        let alive = create_evm_actor_with_storage(&store, contract_state)
+            .expect("failed to create EVM actor fixture");
+        assert_eq!(
+            extract_evm_storage_entries(&store, Some(&alive)).len(),
+            1,
+            "live contract must expose its slots"
+        );
+
+        let dead = create_tombstoned_evm_actor(&store, &[0x60], 0, contract_state)
+            .expect("failed to create tombstoned EVM actor fixture");
+        assert!(
+            extract_evm_storage_entries(&store, Some(&dead)).is_empty(),
+            "self-destructed contract must read as empty storage"
+        );
+    }
+
+    /// An absent actor, or one whose EVM state cannot be loaded, reads as empty storage.
+    #[test]
+    fn test_extract_evm_storage_entries_absent_or_unloadable() {
+        let store = MemoryDB::default();
+        assert!(extract_evm_storage_entries(&store, None).is_empty());
+
+        // EVM code CID, but the state block is not in the store.
+        let unloadable = ActorState::new(
+            get_evm_actor_code_cid().expect("bundled EVM actor code CID"),
+            Cid::default(),
+            TokenAmount::default(),
+            0,
+            None,
+        );
+        assert!(
+            extract_evm_storage_entries(&store, Some(&unloadable)).is_empty(),
+            "unloadable EVM state must read as empty storage"
+        );
+    }
+
+    /// Self-destructing clears the slots, so the diff reports them going to zero rather than
+    /// reporting no change at all.
+    #[test]
+    fn test_diff_evm_storage_reports_slots_cleared_on_selfdestruct() {
+        let store = MemoryDB::default();
+        let contract_state = storage_with_slot(&store, 5, 42);
+        let pre = create_evm_actor_with_storage(&store, contract_state)
+            .expect("failed to create EVM actor fixture");
+        let post = create_tombstoned_evm_actor(&store, &[0x60], 0, contract_state)
+            .expect("failed to create tombstoned EVM actor fixture");
+
+        let diff = diff_evm_storage_for_actors(&store, Some(&pre), Some(&post)).unwrap();
+        let slot = u256_to_eth_hash(&U256::from(5u64));
+        assert_eq!(
+            diff.get(&slot),
+            Some(&Delta::Changed(ChangedType {
+                from: u256_to_eth_hash(&U256::from(42u64)),
+                to: ZERO_HASH,
+            })),
+            "destroyed contract's slot must be reported as cleared"
+        );
     }
 
     #[test]

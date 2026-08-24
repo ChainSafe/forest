@@ -13,8 +13,9 @@ use std::time::Duration;
 use tracing::instrument;
 
 impl StateManager {
+    /// Blocking version of [`Self::call`], use with caution.
     #[instrument(skip(self))]
-    fn call_raw_blocking(
+    pub fn call_blocking(
         &self,
         msg: &Message,
         tipset: Option<Tipset>,
@@ -139,15 +140,6 @@ impl StateManager {
     ) -> Result<ApiInvocResult, Error> {
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || this.call_blocking(&message, tipset)).await?
-    }
-
-    /// Blocking version of [`Self::call`], use with caution.
-    pub fn call_blocking(
-        &self,
-        message: &Message,
-        tipset: Option<Tipset>,
-    ) -> Result<ApiInvocResult, Error> {
-        self.call_raw_blocking(message, tipset)
     }
 
     pub async fn apply_on_state_with_gas(
