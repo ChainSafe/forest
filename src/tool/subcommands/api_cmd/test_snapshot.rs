@@ -270,6 +270,7 @@ async fn ctx(
         start_time: chrono::Utc::now(),
         shutdown,
         tipset_send,
+        block_validation_subscriber: Default::default(),
         snapshot_progress_tracker: Default::default(),
         mpool_locker: MpoolLocker::new(),
         nonce_tracker,
