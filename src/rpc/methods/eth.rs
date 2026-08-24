@@ -66,7 +66,6 @@ use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_manager::{ExecutedMessage, ExecutedTipset, StateManager, TipsetState, VMFlush};
 use crate::utils::cache::SizeTrackingCache;
-use crate::utils::db::BlockstoreExt as _;
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
@@ -86,7 +85,7 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::sync::{LazyLock, OnceLock};
-use utils::{decode_payload, lookup_eth_address};
+use utils::{ActorStateEthExt as _, decode_payload, lookup_eth_address};
 
 static FOREST_TRACE_FILTER_MAX_RESULT: LazyLock<u64> =
     LazyLock::new(|| env_or_default("FOREST_TRACE_FILTER_MAX_RESULT", 500));
@@ -1431,6 +1430,7 @@ pub async fn eth_logs_for_block_and_transaction(
     EthEventHandler::collect_events(
         &ctx.state_manager,
         ts,
+        None,
         Some(&parsed_filter),
         SkipEvent::OnUnresolvedAddress,
         &mut events,
@@ -2127,26 +2127,27 @@ async fn eth_fee_history(
     )];
     let mut rewards_array = vec![];
     let mut gas_used_ratio_array = vec![];
+    // The walk goes newest -> oldest, so each tipset is the child of the next. Carry it forward as the
+    // receipt source for the next (older) tipset, so only the newest needs a `load_child_tipset` lookup
+    // (`None` on the first pass).
+    let mut child: Option<Tipset> = None;
     for ts in tipset
         .chain(ctx.db())
         .filter(|i| i.epoch() > 0)
         .take(block_count as _)
     {
         let base_fee = &ts.block_headers().first().parent_base_fee;
-        let ExecutedTipset {
-            executed_messages, ..
-        } = ctx.state_manager.load_executed_tipset_for_rpc(&ts).await?;
-        let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
-        for ExecutedMessage {
-            message, receipt, ..
-        } in executed_messages.iter()
-        {
-            let premium = message.effective_gas_premium(base_fee);
-            tx_gas_rewards.push(GasReward {
+        let message_receipts = ctx
+            .state_manager
+            .tipset_message_receipts(&ts, child.as_ref())
+            .await?;
+        let tx_gas_rewards = message_receipts
+            .iter()
+            .map(|(message, receipt)| GasReward {
                 gas_used: receipt.gas_used(),
-                premium,
-            });
-        }
+                premium: message.effective_gas_premium(base_fee),
+            })
+            .collect_vec();
         let (rewards, total_gas_used) =
             calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
         let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
@@ -2157,6 +2158,8 @@ async fn eth_fee_history(
         rewards_array.push(rewards);
 
         oldest_block_height = ts.epoch();
+        // This tipset is the receipt source (child) of the next (older) one.
+        child = Some(ts);
     }
 
     // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
@@ -2258,71 +2261,15 @@ async fn eth_get_code(
 ) -> Result<EthBytes, ServerError> {
     let to_address = FilecoinAddress::try_from(eth_address)?;
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
-    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
-    let Some(actor) = state_tree
-        .get_actor(&to_address)
+    let Some(actor) = ctx
+        .state_manager
+        .get_actor(&to_address, state_root)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
     else {
         return Ok(Default::default());
     };
 
-    // Not a contract. We could try to distinguish between accounts and "native" contracts here,
-    // but it's not worth it.
-    if !is_evm_actor(&actor.code) {
-        return Ok(Default::default());
-    }
-
-    let message = Arc::new(Message {
-        from: FilecoinAddress::SYSTEM_ACTOR,
-        to: to_address,
-        method_num: METHOD_GET_BYTE_CODE,
-        gas_limit: BLOCK_GAS_LIMIT,
-        ..Default::default()
-    });
-
-    // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
-    // result comes from state_root (ts only supplies execution context), so recomputing it for the
-    // parent would read an earlier epoch's bytecode.
-    let mut ts = ts.shallow_clone();
-    let api_invoc_result = loop {
-        match ctx
-            .state_manager
-            .call_on_state(
-                state_root,
-                message.shallow_clone(),
-                Some(ts.shallow_clone()),
-            )
-            .await
-        {
-            Ok(res) => break res,
-            Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
-                ts = ctx
-                    .chain_index()
-                    .load_required_tipset(ts.parents())
-                    .map_err(|e| anyhow::anyhow!("getting parent tipset: {e}"))?;
-            }
-            Err(e) => return Err(e.into()),
-        }
-    };
-    let Some(msg_rct) = api_invoc_result.msg_rct else {
-        return Err(anyhow::anyhow!("no message receipt").into());
-    };
-    if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
-        return Err(anyhow::anyhow!(
-            "GetBytecode failed: exit={} error={}",
-            msg_rct.exit_code(),
-            api_invoc_result.error
-        )
-        .into());
-    }
-
-    let get_bytecode_return: GetBytecodeReturn =
-        fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
-    if let Some(cid) = get_bytecode_return.0 {
-        Ok(EthBytes(ctx.db().get_required(&cid)?))
-    } else {
-        Ok(Default::default())
-    }
+    Ok(actor.eth_bytecode(ctx.db())?.unwrap_or_default())
 }
 
 pub enum EthGetStorageAt {}

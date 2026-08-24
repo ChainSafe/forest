@@ -474,6 +474,7 @@ async fn prefill_rpc_caches_for_tipset(
                 if let Err(e) = EthEventHandler::collect_events(
                     &state_manager,
                     &ts,
+                    None,
                     Some(&CollectEventsCachePrefillingMatcher),
                     SkipEvent::OnUnresolvedAddress,
                     &mut collected_events,
