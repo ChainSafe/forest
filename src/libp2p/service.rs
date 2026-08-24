@@ -3,6 +3,7 @@
 
 use std::time::{Duration, UNIX_EPOCH};
 
+use crate::beacon::{BeaconEntry, PublicRandResponse};
 use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
@@ -10,7 +11,6 @@ use crate::{
     libp2p_bitswap::{BitswapStoreReadWrite, request_manager::BitswapRequestManager},
     utils::flume::FlumeSenderExt as _,
 };
-use crate::beacon::PublicRandResponse;
 use crate::{message::SignedMessage, networks::GenesisNetworkName};
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -31,8 +31,8 @@ use libp2p::{
     swarm::{DialError, SwarmEvent},
     tcp, yamux,
 };
-use quick_protobuf::deserialize_from_slice;
 use nonzero_ext::nonzero;
+use quick_protobuf::deserialize_from_slice;
 
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
@@ -106,24 +106,25 @@ pub struct PubsubTopicCfg<'a> {
 }
 
 /// All gossipsub topics on `network_name`.
-pub fn pubsub_topics(
-    cfg: PubsubTopicCfg<'_>,
-) -> Vec<(PubsubTopic, IdentTopic)> {
+pub fn pubsub_topics(cfg: PubsubTopicCfg<'_>) -> Vec<(PubsubTopic, IdentTopic)> {
     use strum::IntoEnumIterator as _;
 
     let mut topics = Vec::new();
     for kind in PubsubTopic::iter() {
         match kind {
             PubsubTopic::Blocks | PubsubTopic::Messages => {
-                topics.push((kind, IdentTopic::new(format!("{kind}/{}", cfg.network_name))));
-            },
+                topics.push((
+                    kind,
+                    IdentTopic::new(format!("{kind}/{}", cfg.network_name)),
+                ));
+            }
             PubsubTopic::Drand => {
                 topics.extend(
                     cfg.drand_chain_hashes
                         .iter()
-                        .map(move |h| (kind, IdentTopic::new(format!("{kind}/{h}"))))
+                        .map(move |h| (kind, IdentTopic::new(format!("{kind}/{h}")))),
                 );
-            },
+            }
         }
     }
     topics
@@ -162,10 +163,7 @@ pub enum PubsubMessage {
     /// Messages that come over the message topic
     Message(SignedMessage),
     /// Messages that come over the drand topic
-    DrandEntry {
-        chain_hash: String,
-        response: PublicRandResponse,
-    },
+    DrandEntry(BeaconEntry),
 }
 
 /// Messages into the service to handle.
@@ -721,50 +719,47 @@ async fn handle_gossip_event(
                 Err(e) => {
                     warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
                 }
-            }
-            Some(PubsubTopic::Messages) => match from_slice_with_fallback::<SignedMessage>(&message) {
-                Ok(m) => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Message(m),
-                        },
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
-                }
-            }
-            Some(PubsubTopic::Drand) => {
-                // `IdentTopic` hashes to its own string, so the chain hash is the topic suffix.
-                let Some(chain_hash) = topic
-                    .as_str()
-                    .strip_prefix(PUBSUB_DRAND_STR)
-                    .and_then(|suffix| suffix.strip_prefix('/'))
-                else {
-                    warn!("Malformed drand topic: {topic}");
-                    return;
-                };
-                match deserialize_from_slice::<PublicRandResponse>(&message) {
-                    Ok(response) => {
+            },
+            Some(PubsubTopic::Messages) => {
+                match from_slice_with_fallback::<SignedMessage>(&message) {
+                    Ok(m) => {
                         emit_event(
                             network_sender_out,
                             NetworkEvent::PubsubMessage {
-                                message: PubsubMessage::DrandEntry {
-                                    chain_hash: chain_hash.to_string(),
-                                    response,
-                                },
+                                message: PubsubMessage::Message(m),
                             },
                         )
                         .await;
                     }
                     Err(e) => {
-                        warn!("Gossip drand entry from peer {source:?} could not be decoded: {e:#}");
+                        warn!(
+                            "Gossip Message from peer {source:?} could not be deserialized: {e:#}"
+                        );
                     }
                 }
             }
-            None =>  warn!("Getting gossip messages from unknown topic: {topic}"),
+            Some(PubsubTopic::Drand) => {
+                match deserialize_from_slice::<PublicRandResponse>(&message) {
+                    Ok(r) => {
+                        emit_event(
+                            network_sender_out,
+                            NetworkEvent::PubsubMessage {
+                                message: PubsubMessage::DrandEntry(BeaconEntry::new(
+                                    r.round,
+                                    r.signature,
+                                )),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Gossip drand entry from peer {source:?} could not be decoded: {e:#}"
+                        );
+                    }
+                }
+            }
+            None => warn!("Getting gossip messages from unknown topic: {topic}"),
         }
     }
 }

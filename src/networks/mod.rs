@@ -1,9 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::slice::Iter;
 use std::str::FromStr;
 use std::sync::LazyLock;
-use std::slice::Iter;
 
 use indexmap::IndexMap;
 use libp2p::Multiaddr;
@@ -487,7 +487,7 @@ impl ChainConfig {
         0
     }
 
-    fn drand_points(&self) -> Iter<'_, DrandPoint<'static>>  {
+    fn drand_points(&self) -> Iter<'_, DrandPoint<'static>> {
         match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
@@ -495,12 +495,20 @@ impl ChainConfig {
             NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
         }
     }
-    
+
     pub fn drand_gossip_chain_hashes(&self) -> Vec<String> {
         self.drand_points()
             .filter(|p| p.config.network_type.is_unchained())
             .map(|p| p.config.chain_info.hash.to_string())
             .collect()
+    }
+
+    /// Round interval, in seconds, of the drand network Forest subscribes to over
+    /// gossipsub. `None` when the network has no unchained drand point.
+    pub fn drand_gossip_period_secs(&self) -> Option<u64> {
+        self.drand_points()
+            .find(|p| p.config.network_type.is_unchained())
+            .map(|p| p.config.chain_info.period as u64)
     }
 
     pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {

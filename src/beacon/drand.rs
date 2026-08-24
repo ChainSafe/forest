@@ -14,6 +14,8 @@ use super::{
         PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2, verify_messages_chained,
     },
 };
+use crate::beacon::metrics;
+use crate::metrics::HistogramTimerExt as _;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
@@ -37,7 +39,8 @@ pub static IGNORE_DRAND: LazyLock<bool> = LazyLock::new(|| is_env_truthy(IGNORE_
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
-#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize, strum::Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum DrandNetwork {
     Mainnet,
     Quicknet,
@@ -133,6 +136,13 @@ impl BeaconSchedule {
             out.reverse();
             Ok(out)
         }
+    }
+
+    pub fn unchained_beacon(&self) -> Option<&BeaconImpl> {
+        self.0
+            .iter()
+            .map(|point| &point.beacon)
+            .find(|beacon| beacon.network().is_unchained())
     }
 
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
@@ -271,7 +281,10 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: SizeTrackingCache::new_with_metrics("verified_beacons", CACHE_SIZE),
+            verified_beacons: SizeTrackingCache::new_with_metrics(
+                format!("verified_beacons_{}", config.network_type),
+                CACHE_SIZE,
+            ),
         }
     }
 
@@ -371,8 +384,13 @@ impl Beacon for DrandBeacon {
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
         if let Some(cached_entry) = self.verified_beacons.get(&round) {
+            metrics::DRAND_ENTRY_SOURCE_TOTAL
+                .get_or_create(&metrics::CACHE)
+                .inc();
             return Ok(Arc::unwrap_or_clone(cached_entry));
         }
+
+        let _timer = metrics::DRAND_HTTP_FETCH_TIME.start_timer();
 
         async fn fetch_entry_from_url(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
             let resp: BeaconEntryJson = global_http_client()
@@ -416,16 +434,25 @@ impl Beacon for DrandBeacon {
                     humantime::format_duration(dur)
                 );
             })
-            .await?;
+            .await
+            .inspect_err(|_| {
+                metrics::DRAND_ENTRY_SOURCE_TOTAL
+                    .get_or_create(&metrics::HTTP_ERROR)
+                    .inc();
+            })?;
         // Callers assume the entry is for the round they asked for. Round 0 is served
         // as "latest", so it answers with a different round by design:
         // <https://github.com/drand/drand/blob/v2.1.6/handler/http/server.go#L367>
-        anyhow::ensure!(
-            round == 0 || entry.round() == round,
-            "drand returned round {} for round {round}",
-            entry.round()
-        );
+        if round != 0 && entry.round() != round {
+            metrics::DRAND_ENTRY_SOURCE_TOTAL
+                .get_or_create(&metrics::HTTP_ERROR)
+                .inc();
+            anyhow::bail!("drand returned round {} for round {round}", entry.round());
+        }
         self.cache_fetched_entry(&entry);
+        metrics::DRAND_ENTRY_SOURCE_TOTAL
+            .get_or_create(&metrics::HTTP)
+            .inc();
         Ok(entry)
     }
 

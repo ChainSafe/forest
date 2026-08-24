@@ -14,14 +14,51 @@ use libp2p::{
 };
 use libp2p_swarm_test::SwarmExt as _;
 
-use crate::libp2p::{Gossipsub, build_gossipsub, build_subscription_filter, pubsub_topics};
+use crate::libp2p::{
+    Gossipsub, PubsubTopicCfg, build_gossipsub, build_subscription_filter, pubsub_topics,
+};
+use crate::networks::GenesisNetworkName;
 
 const NETWORK: &str = "testnetname";
+/// quicknet, the one unchained drand network Forest subscribes to.
+const DRAND_HASH: &str = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
+
+/// Owns what [`PubsubTopicCfg`] borrows.
+struct TopicCfgOwner {
+    network_name: GenesisNetworkName,
+    drand_chain_hashes: Vec<String>,
+}
+
+impl TopicCfgOwner {
+    fn new() -> Self {
+        Self {
+            network_name: NETWORK.into(),
+            drand_chain_hashes: vec![DRAND_HASH.to_string()],
+        }
+    }
+
+    fn cfg(&self) -> PubsubTopicCfg<'_> {
+        PubsubTopicCfg {
+            network_name: &self.network_name,
+            drand_chain_hashes: &self.drand_chain_hashes,
+        }
+    }
+}
+
+/// Every topic the node should accept, drand included.
+fn allowed_topics() -> Vec<IdentTopic> {
+    let owner = TopicCfgOwner::new();
+    pubsub_topics(owner.cfg())
+        .into_iter()
+        .map(|(_, topic)| topic)
+        .collect()
+}
 
 /// Swarm using Forest's subscription filter (the code under test).
 fn filtered_swarm() -> Swarm<Gossipsub> {
     Swarm::new_ephemeral_tokio(|identity| {
-        build_gossipsub(&identity, &NETWORK.into()).expect("failed to build gossipsub")
+        let owner = TopicCfgOwner::new();
+        build_gossipsub(&identity, owner.cfg()).expect("failed to build gossipsub")
     })
 }
 
@@ -53,7 +90,7 @@ async fn only_whitelisted_topics_are_tracked() {
         let unlisted = IdentTopic::new(format!("/other/topic/{i}"));
         peer.behaviour_mut().subscribe(&unlisted).unwrap();
     }
-    let allowed: Vec<IdentTopic> = pubsub_topics(NETWORK).collect();
+    let allowed = allowed_topics();
     for topic in &allowed {
         peer.behaviour_mut().subscribe(topic).unwrap();
     }
@@ -84,19 +121,22 @@ async fn only_whitelisted_topics_are_tracked() {
 
 #[test]
 fn filter_allows_only_whitelisted_topics() {
-    let mut filter = build_subscription_filter(&NETWORK.into());
-    for topic in pubsub_topics(NETWORK) {
+    let owner = TopicCfgOwner::new();
+    let mut filter = build_subscription_filter(owner.cfg());
+    for topic in allowed_topics() {
         assert!(filter.can_subscribe(&topic.hash()));
     }
     assert!(!filter.can_subscribe(&IdentTopic::new("/cth/ulhu").hash()));
     assert!(!filter.can_subscribe(&TopicHash::from_raw("x".repeat(1 << 20))));
     // Wrong network suffix must not match.
     assert!(!filter.can_subscribe(&IdentTopic::new("/fil/blocks/lovecraftnet").hash()));
+    assert!(!filter.can_subscribe(&IdentTopic::new("/drand/pubsub/v0.0.0/deadbeef").hash()));
 }
 
 #[test]
 fn filter_caps_are_set() {
-    let filter = build_subscription_filter(&NETWORK.into());
-    assert_eq!(filter.max_subscribed_topics, pubsub_topics(NETWORK).count());
+    let owner = TopicCfgOwner::new();
+    let filter = build_subscription_filter(owner.cfg());
+    assert_eq!(filter.max_subscribed_topics, allowed_topics().len());
     assert_eq!(filter.max_subscriptions_per_request, 100);
 }

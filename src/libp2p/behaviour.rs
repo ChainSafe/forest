@@ -10,8 +10,8 @@ use super::{
     PeerManager,
     discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
 };
-use crate::{libp2p::PubsubTopicCfg, libp2p_bitswap::BitswapBehaviour};
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
+use crate::{libp2p::PubsubTopicCfg, libp2p_bitswap::BitswapBehaviour};
 use crate::{
     libp2p::{
         chain_exchange::ChainExchangeBehaviour,
@@ -79,7 +79,7 @@ const MAX_SUBSCRIPTIONS_PER_REQUEST: usize = 100;
 
 /// Filter accepting only Forest's topics, bounded in count and per request.
 pub(in crate::libp2p) fn build_subscription_filter(
-    cfg: PubsubTopicCfg<'_>
+    cfg: PubsubTopicCfg<'_>,
 ) -> MaxCountSubscriptionFilter<WhitelistSubscriptionFilter> {
     let allowed: Vec<_> = crate::libp2p::pubsub_topics(cfg)
         .iter()
@@ -97,7 +97,7 @@ pub(in crate::libp2p) fn build_subscription_filter(
 
 pub(in crate::libp2p) fn build_gossipsub(
     local_key: &Keypair,
-    cfg: PubsubTopicCfg<'_>
+    cfg: PubsubTopicCfg<'_>,
 ) -> anyhow::Result<Gossipsub> {
     let mut gs_config_builder = gossipsub::ConfigBuilder::default();
     gs_config_builder.max_transmit_size(1 << 20);
@@ -116,10 +116,7 @@ pub(in crate::libp2p) fn build_gossipsub(
     .map_err(anyhow::Error::msg)?;
 
     gossipsub
-        .with_peer_score(
-            build_peer_score_params(cfg),
-            build_peer_score_threshold(),
-        )
+        .with_peer_score(build_peer_score_params(cfg), build_peer_score_threshold())
         .map_err(anyhow::Error::msg)?;
 
     Ok(gossipsub)

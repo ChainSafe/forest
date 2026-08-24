@@ -18,6 +18,7 @@
 
 use super::network_context::SyncNetworkContext;
 use crate::{
+    beacon::{Beacon, BeaconEntry},
     blocks::{Block, FullTipset, Tipset, TipsetKey},
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{
@@ -41,6 +42,7 @@ use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{
     borrow::Cow,
     sync::LazyLock,
@@ -223,6 +225,8 @@ async fn chain_follower(
 
     let hello_fetch_limiter = Arc::new(Semaphore::new(*MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES));
 
+    let last_drand_entry = Arc::new(AtomicU64::new(0));
+
     let mut set = JoinSet::new();
     let cancellation_token = CancellationToken::new();
     let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
@@ -238,6 +242,7 @@ async fn chain_follower(
         let cancellation_token = cancellation_token.clone();
         let hello_fetch_limiter = hello_fetch_limiter.shallow_clone();
         let tipset_sender = tipset_sender.clone();
+        let last_drand_entry = last_drand_entry.clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -304,21 +309,49 @@ async fn chain_follower(
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
                         }
-                        PubsubMessage::DrandEntry {
-                            chain_hash,
-                            response,
-                        } => {
-                            // Signature verification and cache insertion land with the
-                            // beacon-schedule wiring.
-                            tracing::trace!(
-                                "Received drand round {} on chain {chain_hash}",
-                                response.round
-                            );
+                        PubsubMessage::DrandEntry(entry) => {
+                            if entry.round() == 0 || entry.signature().is_empty() {
+                                continue;
+                            }
+                            let beacon_schedule = state_manager.beacon_schedule().clone();
+                            let last_drand_entry = last_drand_entry.clone();
+                            tokio::task::spawn_blocking(move || {
+                                let Some(beacon) = beacon_schedule.unchained_beacon() else {
+                                    return;
+                                };
+
+                                if matches!(
+                                    beacon.verify_entries(
+                                        std::slice::from_ref(&entry),
+                                        &BeaconEntry::default()
+                                    ),
+                                    Ok(true)
+                                ) {
+                                    last_drand_entry.store(
+                                        Utc::now().timestamp().max(0) as u64,
+                                        Ordering::Relaxed,
+                                    );
+                                } else {
+                                    debug!(
+                                        round = entry.round(),
+                                        "received invalid drand entry over gossipsub"
+                                    );
+                                }
+                            });
                         }
                     },
                     _ => {}
                 }
             }
+        }
+    });
+
+    set.spawn({
+        let state_manager = state_manager.shallow_clone();
+        let last_drand_entry = last_drand_entry.clone();
+        let cancellation_token = cancellation_token.clone();
+        async move {
+            drand_gossip_watchdog(state_manager, last_drand_entry, cancellation_token).await;
         }
     });
 
@@ -477,6 +510,66 @@ async fn chain_follower(
 
     set.join_all().await;
     Ok(())
+}
+
+/// Watch the drand gossipsub for staleness, if a drand breacon entry
+/// is not received in half a chain epoch then we consider it stale for
+/// that epoch and fallback to fetch the beacon through HTTP
+async fn drand_gossip_watchdog(
+    state_manager: StateManager,
+    last_drand_entry: Arc<AtomicU64>,
+    cancellation_token: CancellationToken,
+) {
+    let chain_config = state_manager.chain_config();
+    let Some(period_secs) = chain_config.drand_gossip_period_secs() else {
+        return;
+    };
+
+    let deadline = Duration::from_secs(period_secs.div_ceil(2));
+
+    let mut ticker = tokio::time::interval(deadline);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut stale = false;
+
+    while cancellation_token
+        .run_until_cancelled(ticker.tick())
+        .await
+        .is_some()
+    {
+        let last_seen = last_drand_entry.load(Ordering::Relaxed);
+        let now = Utc::now().timestamp().max(0) as u64;
+        if last_seen != 0 && now.saturating_sub(last_seen) < deadline.as_secs() {
+            if stale {
+                stale = false;
+                info!("drand gossipsub entries are flowing again");
+            }
+            continue;
+        }
+
+        if !stale {
+            stale = true;
+            warn!(
+                deadline_secs = deadline.as_secs(),
+                "no verified drand entry over gossipsub within the deadline, falling back to HTTP"
+            );
+        }
+
+        let Some(beacon) = state_manager.beacon_schedule().unchained_beacon() else {
+            continue;
+        };
+        let epoch = state_manager.heaviest_tipset().epoch() + 1;
+        let network_version = state_manager.get_network_version(epoch);
+        let round = match beacon.max_beacon_round_for_epoch(network_version, epoch) {
+            Ok(round) => round,
+            Err(e) => {
+                debug!("no drand round for epoch {epoch}: {e:#}");
+                continue;
+            }
+        };
+        if let Err(e) = beacon.entry(round).await {
+            debug!("drand HTTP fallback for round {round} failed: {e:#}");
+        }
+    }
 }
 
 // Increment the gossipsub event metrics.
