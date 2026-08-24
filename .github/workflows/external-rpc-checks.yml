@@ -9,6 +9,11 @@ concurrency:
 
 on:
   workflow_dispatch:
+    inputs:
+      forest_image:
+        description: "Test this image instead of building one. Must be a `fat` image, so that the filecoin proof parameters are already present."
+        required: false
+        type: string
   pull_request:
     branches:
       - main
@@ -93,12 +98,15 @@ jobs:
         with:
           name: "forest-${{ runner.os }}"
       - name: Build an image from those binaries
-        if: ${{ needs.build.result == 'success' }}
+        if: ${{ needs.build.result == 'success' && inputs.forest_image == '' }}
         working-directory: .
         run: |
           docker build --platform linux/arm64 --file scripts/devnet/forest_ci.dockerfile --tag forest-under-test:ci .
           # overwrites the .env FOREST_IMAGE envvar
           echo "FOREST_IMAGE=forest-under-test:ci" >> "$GITHUB_ENV"
+      - name: Use the image given to the dispatch
+        if: ${{ inputs.forest_image != '' }}
+        run: echo "FOREST_IMAGE=${{ inputs.forest_image }}" >> "$GITHUB_ENV"
       - name: Run the RPC checks
         run: ./setup.sh
       - name: Dump docker logs
