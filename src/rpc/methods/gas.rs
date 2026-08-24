@@ -283,6 +283,9 @@ impl GasEstimateGasLimit {
         if exit_code.is_success() {
             return Ok(apply_ret.gas_used() as i64);
         }
+        if exit_code == fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS {
+            return Err(EthErrors::OutOfGas.into());
+        }
         if sender_validation == SenderValidation::Enforce
             && exit_code == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
         {
