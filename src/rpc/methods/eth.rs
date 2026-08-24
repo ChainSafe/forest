@@ -2127,26 +2127,27 @@ async fn eth_fee_history(
     )];
     let mut rewards_array = vec![];
     let mut gas_used_ratio_array = vec![];
+    // The walk goes newest -> oldest, so each tipset is the child of the next. Carry it forward as the
+    // receipt source for the next (older) tipset, so only the newest needs a `load_child_tipset` lookup
+    // (`None` on the first pass).
+    let mut child: Option<Tipset> = None;
     for ts in tipset
         .chain(ctx.db())
         .filter(|i| i.epoch() > 0)
         .take(block_count as _)
     {
         let base_fee = &ts.block_headers().first().parent_base_fee;
-        let ExecutedTipset {
-            executed_messages, ..
-        } = ctx.state_manager.load_executed_tipset_for_rpc(&ts).await?;
-        let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
-        for ExecutedMessage {
-            message, receipt, ..
-        } in executed_messages.iter()
-        {
-            let premium = message.effective_gas_premium(base_fee);
-            tx_gas_rewards.push(GasReward {
+        let message_receipts = ctx
+            .state_manager
+            .tipset_message_receipts(&ts, child.as_ref())
+            .await?;
+        let tx_gas_rewards = message_receipts
+            .iter()
+            .map(|(message, receipt)| GasReward {
                 gas_used: receipt.gas_used(),
-                premium,
-            });
-        }
+                premium: message.effective_gas_premium(base_fee),
+            })
+            .collect_vec();
         let (rewards, total_gas_used) =
             calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
         let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
@@ -2157,6 +2158,8 @@ async fn eth_fee_history(
         rewards_array.push(rewards);
 
         oldest_block_height = ts.epoch();
+        // This tipset is the receipt source (child) of the next (older) one.
+        child = Some(ts);
     }
 
     // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
