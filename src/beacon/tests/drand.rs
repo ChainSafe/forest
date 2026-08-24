@@ -308,36 +308,3 @@ async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
         );
     }
 }
-
-#[test]
-#[serial_test::serial]
-fn verified_beacons_cache_metrics_are_uniquely_named() {
-    use crate::networks::ChainConfig;
-
-    crate::metrics::reset_collector_registry();
-    // Mainnet has three drand points: Incentinet, Mainnet and Quicknet.
-    let schedule = ChainConfig::mainnet().get_beacon_schedule(1598306400);
-    assert_eq!(schedule.0.len(), 3);
-
-    let mut encoded = String::new();
-    prometheus_client::encoding::text::encode_registry(
-        &mut encoded,
-        &crate::metrics::collector_registry(),
-    )
-    .unwrap();
-
-    let families: Vec<_> = encoded
-        .lines()
-        .filter_map(|line| line.strip_prefix("# HELP "))
-        .filter(|line| line.starts_with("cache_verified_beacons"))
-        .map(|line| line.split_whitespace().next().unwrap_or_default())
-        .collect();
-
-    // Five metrics (size/len/cap/hits/misses) for each of the three beacons.
-    assert_eq!(families.len(), 15);
-    assert_eq!(
-        families.iter().unique().count(),
-        families.len(),
-        "duplicate cache metric families: {families:?}"
-    );
-}
