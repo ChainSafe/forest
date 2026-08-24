@@ -37,8 +37,7 @@ pub static IGNORE_DRAND: LazyLock<bool> = LazyLock::new(|| is_env_truthy(IGNORE_
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
-#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize, strum::Display)]
-#[strum(serialize_all = "snake_case")]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize)]
 pub enum DrandNetwork {
     Mainnet,
     Quicknet,
@@ -65,6 +64,8 @@ pub struct DrandConfig<'a> {
     pub chain_info: ChainInfo<'a>,
     /// Network type
     pub network_type: DrandNetwork,
+    /// Whether to keep verified entries in an in-memory cache.
+    pub use_cache: bool,
 }
 
 /// Contains the vector of `BeaconPoint`, which are mappings of epoch to the
@@ -253,8 +254,8 @@ pub struct DrandBeacon {
     fil_gen_time: u64,
     fil_round_time: u64,
 
-    /// Keeps track of verified beacon entries.
-    verified_beacons: SizeTrackingCache<u64, Arc<BeaconEntry>>,
+    /// Keeps track of verified beacon entries. `None` when `use_cache` is unset.
+    verified_beacons: Option<SizeTrackingCache<u64, Arc<BeaconEntry>>>,
 }
 
 impl DrandBeacon {
@@ -272,15 +273,16 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: SizeTrackingCache::new_with_metrics(
-                format!("verified_beacons_{}", config.network_type),
-                CACHE_SIZE,
-            ),
+            verified_beacons: config
+                .use_cache
+                .then(|| SizeTrackingCache::new_with_metrics("verified_beacons", CACHE_SIZE)),
         }
     }
 
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
-        self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
+        self.verified_beacons
+            .as_ref()
+            .is_some_and(|cache| cache.get(&entry.round()).as_deref() == Some(entry))
     }
 
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
@@ -359,14 +361,16 @@ impl Beacon for DrandBeacon {
             )
         };
 
-        if is_valid && !validated.is_empty() {
-            let capacity = self.verified_beacons.capacity() as usize;
+        if let Some(cache) = self.verified_beacons.as_ref()
+            && is_valid
+            && !validated.is_empty()
+        {
+            let capacity = cache.capacity() as usize;
             if capacity < validated.len() {
                 tracing::warn!(%capacity, validated_len=%validated.len(), "verified_beacons.capacity() is too small");
             }
             for entry in validated {
-                self.verified_beacons
-                    .insert(entry.round(), Arc::new(entry.clone()));
+                cache.insert(entry.round(), Arc::new(entry.clone()));
             }
         }
 
@@ -374,7 +378,11 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        if let Some(cached_entry) = self.verified_beacons.get(&round) {
+        if let Some(cached_entry) = self
+            .verified_beacons
+            .as_ref()
+            .and_then(|cache| cache.get(&round))
+        {
             return Ok(Arc::unwrap_or_clone(cached_entry));
         }
 

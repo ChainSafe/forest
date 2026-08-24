@@ -46,6 +46,7 @@ fn new_beacon_mainnet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Mainnet,
+            use_cache: true,
         },
     )
 }
@@ -78,6 +79,7 @@ pub fn new_beacon_quicknet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Quicknet,
+            use_cache: true,
         },
     )
 }
@@ -309,12 +311,25 @@ async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
     }
 }
 
+/// A `BeaconSchedule` builds one `DrandBeacon` per drand point, but only those with
+/// `use_cache` instantiate a cache and register its collector. Without that, mainnet's
+/// three points would export the same metric families three times in one exposition.
 #[test]
 #[serial_test::serial]
-fn verified_beacons_cache_metrics_are_uniquely_named() {
+fn only_caching_beacons_register_cache_metrics() {
     use crate::networks::ChainConfig;
 
+    /// The collector registry is process-global, so clear it however this test exits.
+    struct ResetCollectorRegistry;
+    impl Drop for ResetCollectorRegistry {
+        fn drop(&mut self) {
+            crate::metrics::reset_collector_registry();
+        }
+    }
+
     crate::metrics::reset_collector_registry();
+    let _reset = ResetCollectorRegistry;
+
     // Mainnet has three drand points: Incentinet, Mainnet and Quicknet.
     let schedule = ChainConfig::mainnet().get_beacon_schedule(1598306400);
     assert_eq!(schedule.0.len(), 3);
@@ -333,8 +348,8 @@ fn verified_beacons_cache_metrics_are_uniquely_named() {
         .map(|line| line.split_whitespace().next().unwrap_or_default())
         .collect();
 
-    // Five metrics (size/len/cap/hits/misses) for each of the three beacons.
-    assert_eq!(families.len(), 15);
+    // Five metrics (size/len/cap/hits/misses) for the one caching beacon.
+    assert_eq!(families.len(), 5, "got {families:?}");
     assert_eq!(
         families.iter().unique().count(),
         families.len(),

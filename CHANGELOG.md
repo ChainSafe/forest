@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- [#7414](https://github.com/ChainSafe/forest/issues/7414): The drand entry cache metrics are now named per drand network (`cache_verified_beacons_quicknet_*` and so on). They previously all shared the name `cache_verified_beacons_*`, so a network with more than one drand point (such as mainnet) exported duplicate metric families in a single scrape.
+- [#7414](https://github.com/ChainSafe/forest/issues/7414): The historical drand beacons (`mainnet` and `incentinet`) no longer keep a verified-entry cache; only the active `quicknet` beacon does. This also stops Forest exporting duplicate `cache_verified_beacons_*` metric families
 
 - [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now closes the subscription channel when a client falls too far behind instead of silently dropping head changes, matching Lotus, so clients can detect the gap and resubscribe.
 
