@@ -43,12 +43,6 @@ pub trait BlockstoreExt: Blockstore {
 
         Ok(cids)
     }
-
-    /// Gets the block from the blockstore. Return an error when not found.
-    fn get_required(&self, cid: &Cid) -> anyhow::Result<Vec<u8>> {
-        self.get(cid)?
-            .with_context(|| format!("Entry not found in block store: cid={cid}"))
-    }
 }
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
