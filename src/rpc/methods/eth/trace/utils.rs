@@ -4,7 +4,7 @@
 use crate::rpc::eth::types::{EthAddress, EthBytes, EthHash};
 use crate::rpc::eth::utils::parse_eth_revert;
 use crate::rpc::state::ActorTrace;
-use fil_actor_evm_state::evm_shared::v17::uints::U256;
+use crate::shim::actors::evm::U256;
 
 /// The zero-valued `EthHash`, used as a sentinel for cleared storage slots.   
 pub const ZERO_HASH: EthHash = EthHash(ethereum_types::H256([0u8; 32]));

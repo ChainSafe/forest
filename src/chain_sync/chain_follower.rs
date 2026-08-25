@@ -199,6 +199,11 @@ impl ChainFollower {
             .validated_tipset_broadcast_tx
             .subscribe()
     }
+
+    /// Subscribe-only handle to per-block validation outcomes (see [`BlockValidationOutcome`]).
+    pub fn block_validation_subscriber(&self) -> BlockValidationSubscriber {
+        BlockValidationSubscriber(self.state_machine.lock().block_validation_tx.clone())
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -685,6 +690,35 @@ pub fn load_full_tipset(
     Ok(fts)
 }
 
+/// Per-block validation outcome from the sync state machine. `Filecoin.SyncSubmitBlock`
+/// awaits its block's outcome instead of inferring it from head movement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlockValidationOutcome {
+    Applied,
+    Rejected,
+}
+
+/// Subscribe-only handle to the per-block validation outcome broadcast (keyed by block CID).
+/// `Default` yields a handle wired to no follower, for contexts that never submit blocks (tests,
+/// the offline RPC server).
+#[derive(Clone)]
+pub struct BlockValidationSubscriber(tokio::sync::broadcast::Sender<(Cid, BlockValidationOutcome)>);
+
+impl Default for BlockValidationSubscriber {
+    fn default() -> Self {
+        Self(tokio::sync::broadcast::Sender::new(1))
+    }
+}
+
+impl BlockValidationSubscriber {
+    /// Returns a receiver delivering `(Cid, BlockValidationOutcome)` for each block the follower
+    /// validates or rejects, following Tokio broadcast semantics: only outcomes broadcast after
+    /// this call are delivered, and a slow reader may observe `RecvError::Lagged`.
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<(Cid, BlockValidationOutcome)> {
+        self.0.subscribe()
+    }
+}
+
 enum SyncEvent {
     NewFullTipsets(Vec<FullTipset>),
     BadTipset(FullTipset),
@@ -732,6 +766,8 @@ struct SyncStateMachine {
     stateless_mode: bool,
     /// Broadcast channel for validated tipsets, used to notify other components of new validated tipsets.
     validated_tipset_broadcast_tx: tokio::sync::broadcast::Sender<TipsetKey>,
+    /// Broadcast of each block's validation outcome, keyed by block CID.
+    block_validation_tx: tokio::sync::broadcast::Sender<(Cid, BlockValidationOutcome)>,
 }
 
 impl SyncStateMachine {
@@ -746,6 +782,27 @@ impl SyncStateMachine {
             tipsets: HashMap::default(),
             stateless_mode,
             validated_tipset_broadcast_tx: tokio::sync::broadcast::Sender::new(1024),
+            block_validation_tx: tokio::sync::broadcast::Sender::new(1024),
+        }
+    }
+
+    /// Report `Rejected` for the blocks the validator actually flagged bad. Keyed on
+    /// `bad_block_cache` membership rather than the whole tipset, so a valid block merged into
+    /// the same tipset as a bad sibling (`validate_tipset` fails the tipset on one bad block) is
+    /// not wrongly rejected.
+    fn notify_rejected(&self, tipset: &FullTipset) {
+        if crate::utils::broadcast::has_subscribers(&self.block_validation_tx) {
+            for cid in tipset.key().to_cids() {
+                if self
+                    .bad_block_cache
+                    .as_ref()
+                    .is_some_and(|c| c.get(&cid).is_some())
+                {
+                    let _ = self
+                        .block_validation_tx
+                        .send((cid, BlockValidationOutcome::Rejected));
+                }
+            }
         }
     }
 
@@ -882,6 +939,9 @@ impl SyncStateMachine {
     // Mark all descendants of tipsets as bad.
     // Remove all bad tipsets from the tipset map.
     fn mark_bad_tipset(&mut self, tipset: FullTipset) {
+        // Only the entered tipset can carry a submitted block; descendants are marked bad by
+        // cascade, so reporting the outcome once here avoids flooding the channel.
+        self.notify_rejected(&tipset);
         let mut stack = vec![tipset];
         while let Some(tipset) = stack.pop() {
             self.tipsets.remove(tipset.key());
@@ -951,12 +1011,25 @@ impl SyncStateMachine {
                 tipset,
                 is_proposed_head,
             } => {
-                if self.try_mark_tipset_as_validated(tipset, is_proposed_head)
-                    && crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
-                    // Sending the actual head key here as it could be expanded from the above tipset when `is_proposed_head` is `true`
-                    && let Err(e) = self.validated_tipset_broadcast_tx.send(self.cs.heaviest_tipset().key().clone())
-                {
-                    warn!("Failed to broadcast validated tipset: {e}");
+                // Capture CIDs before `try_mark` consumes the tipset, but only when a submitter is
+                // waiting, to avoid allocating on the steady-state sync path.
+                let applied_cids =
+                    crate::utils::broadcast::has_subscribers(&self.block_validation_tx)
+                        .then(|| tipset.key().to_cids());
+                if self.try_mark_tipset_as_validated(tipset, is_proposed_head) {
+                    if let Some(cids) = applied_cids {
+                        for cid in cids {
+                            let _ = self
+                                .block_validation_tx
+                                .send((cid, BlockValidationOutcome::Applied));
+                        }
+                    }
+                    if crate::utils::broadcast::has_subscribers(&self.validated_tipset_broadcast_tx)
+                        // Sending the actual head key here as it could be expanded from the above tipset when `is_proposed_head` is `true`
+                        && let Err(e) = self.validated_tipset_broadcast_tx.send(self.cs.heaviest_tipset().key().clone())
+                    {
+                        warn!("Failed to broadcast validated tipset: {e}");
+                    }
                 }
             }
         }
@@ -1254,7 +1327,7 @@ mod metrics_collection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
+    use crate::blocks::{CachingBlockHeader, Chain4U, HeaderBuilder, chain4u};
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt as _;
     use num_bigint::BigInt;
@@ -1411,5 +1484,63 @@ mod tests {
 
         // Both chains should start at the same tipset
         assert_eq!(chains, vec![vec![1, 3], vec![1, 2]]);
+    }
+
+    fn single_block_tipset(header: CachingBlockHeader) -> FullTipset {
+        FullTipset::new(vec![Block {
+            header,
+            bls_messages: vec![],
+            secp_messages: vec![],
+        }])
+        .unwrap()
+    }
+
+    #[test]
+    fn notify_rejected_reports_only_bad_block_cache_members() {
+        let (cs, c4u) = setup();
+        let db = cs.db_owned();
+        chain4u! { from [genesis_header] in c4u; [a = dummy_node(&db, 1)] };
+
+        let bad_blocks = BadBlockCache::default();
+        let state_machine =
+            SyncStateMachine::new(cs.shallow_clone(), Some(bad_blocks.shallow_clone()), true);
+        let mut rx = state_machine.block_validation_tx.subscribe();
+
+        let tipset = single_block_tipset(a.clone().into());
+        let block_cid = *tipset.blocks().first().cid();
+
+        // Not flagged bad: a valid block sharing a tipset with a bad sibling must not be rejected.
+        state_machine.notify_rejected(&tipset);
+        assert!(rx.try_recv().is_err());
+
+        // Flagged bad by the validator: reported as rejected.
+        bad_blocks.push(block_cid);
+        state_machine.notify_rejected(&tipset);
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            (block_cid, BlockValidationOutcome::Rejected)
+        );
+    }
+
+    #[test]
+    fn validated_tipset_reports_applied() {
+        let (cs, c4u) = setup();
+        let db = cs.db_owned();
+        chain4u! { from [genesis_header] in c4u; [a = dummy_node(&db, 1)] };
+
+        let mut state_machine = SyncStateMachine::new(cs.shallow_clone(), Default::default(), true);
+        let mut rx = state_machine.block_validation_tx.subscribe();
+
+        let tipset = single_block_tipset(a.clone().into());
+        let block_cid = *tipset.blocks().first().cid();
+
+        state_machine.update(SyncEvent::ValidatedTipset {
+            tipset,
+            is_proposed_head: false,
+        });
+        assert_eq!(
+            rx.try_recv().unwrap(),
+            (block_cid, BlockValidationOutcome::Applied)
+        );
     }
 }

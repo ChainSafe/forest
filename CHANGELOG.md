@@ -31,9 +31,13 @@
 
 ### Changed
 
+- [#7535](https://github.com/ChainSafe/forest/pull/7535): `Filecoin.Version` now reports the API version of the endpoint being served (`1.5.0` over `/rpc/v0`, `2.3.0` over `/rpc/v1`), matching Lotus, and `Filecoin.SyncSubmitBlock` no longer requires the node to be in the `Synced` state and waits up to one block time for the submitted block to become the chain head. Together these let Forest act as the full node for an external block producer such as `lotus-miner` or `curio` (verified on a local devnet, calibnet/mainnet tests to come).
+
 ### Removed
 
 ### Fixed
+
+- [#7537](https://github.com/ChainSafe/forest/pull/7537): Self-destructed EVM contracts no longer report stale state in the trace RPCs. `Forest.EthTraceCall` (`trace_call`) `stateDiff` and `Forest.EthDebugTraceTransaction` (`debug_traceTransaction`) `prestateTracer` now report a zero nonce and empty storage for them, matching `Filecoin.EthGetTransactionCount`, `Filecoin.EthGetCode`, `Filecoin.EthGetStorageAt` and Lotus. Previously a contract that self-destructed during the traced message showed no storage change at all.
 
 - [#7414](https://github.com/ChainSafe/forest/issues/7414): The historical drand beacons (`mainnet` and `incentinet`) no longer keep a verified-entry cache; only the active `quicknet` beacon does. Cache metrics are also named per drand network now (`cache_verified_beacons_quicknet_*`), where every beacon in a schedule previously registered under `cache_verified_beacons_*` and so exported duplicate metric families in a single scrape.
 
