@@ -109,7 +109,8 @@ jobs:
         working-directory: .
         env:
           FOREST_IMAGE_INPUT: ${{ inputs.forest_image }}
-        run: ruby scripts/sanitize_image.rb
+        run: |
+          echo "FOREST_IMAGE=${FOREST_IMAGE_INPUT}" >> "$GITHUB_ENV"
       - name: Run the RPC checks
         run: ./setup.sh
       - name: Dump docker logs
