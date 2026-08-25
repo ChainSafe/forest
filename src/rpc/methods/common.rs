@@ -44,13 +44,18 @@ impl RpcMethod<0> for Version {
     async fn handle(
         ctx: Ctx,
         (): Self::Params,
-        _: &http::Extensions,
+        ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        // Report the API version for the endpoint actually being served, so V0
+        // clients (e.g. lotus-miner over `/rpc/v0`) accept the version handshake.
+        // Values from Lotus `api/version.go`: <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/api/version.go#L57-L58>
+        let api_version = match ext.get::<ApiPaths>() {
+            Some(ApiPaths::V0) => ShiftingVersion::new(1, 5, 0),
+            Some(ApiPaths::V1 | ApiPaths::V2) | None => ShiftingVersion::new(2, 3, 0),
+        };
         Ok(PublicVersion {
             version: crate::utils::version::FOREST_VERSION_STRING.clone(),
-            // This matches Lotus's versioning for the API v1.
-            // For the API v0, we don't support it but it should be `1.5.0`.
-            api_version: ShiftingVersion::new(2, 3, 0),
+            api_version,
             block_delay: ctx.chain_config().block_delay_secs,
             agent: "forest".into(),
         })

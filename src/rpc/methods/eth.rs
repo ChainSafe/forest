@@ -53,7 +53,7 @@ use crate::rpc::{
     state::ApiInvocResult,
     types::{ApiTipsetKey, EventEntry, MessageLookup},
 };
-use crate::shim::actors::{EVMActorStateLoad as _, eam, evm, is_evm_actor, system};
+use crate::shim::actors::{eam, system};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
@@ -2127,26 +2127,27 @@ async fn eth_fee_history(
     )];
     let mut rewards_array = vec![];
     let mut gas_used_ratio_array = vec![];
+    // The walk goes newest -> oldest, so each tipset is the child of the next. Carry it forward as the
+    // receipt source for the next (older) tipset, so only the newest needs a `load_child_tipset` lookup
+    // (`None` on the first pass).
+    let mut child: Option<Tipset> = None;
     for ts in tipset
         .chain(ctx.db())
         .filter(|i| i.epoch() > 0)
         .take(block_count as _)
     {
         let base_fee = &ts.block_headers().first().parent_base_fee;
-        let ExecutedTipset {
-            executed_messages, ..
-        } = ctx.state_manager.load_executed_tipset_for_rpc(&ts).await?;
-        let mut tx_gas_rewards = Vec::with_capacity(executed_messages.len());
-        for ExecutedMessage {
-            message, receipt, ..
-        } in executed_messages.iter()
-        {
-            let premium = message.effective_gas_premium(base_fee);
-            tx_gas_rewards.push(GasReward {
+        let message_receipts = ctx
+            .state_manager
+            .tipset_message_receipts(&ts, child.as_ref())
+            .await?;
+        let tx_gas_rewards = message_receipts
+            .iter()
+            .map(|(message, receipt)| GasReward {
                 gas_used: receipt.gas_used(),
-                premium,
-            });
-        }
+                premium: message.effective_gas_premium(base_fee),
+            })
+            .collect_vec();
         let (rewards, total_gas_used) =
             calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
         let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
@@ -2157,6 +2158,8 @@ async fn eth_fee_history(
         rewards_array.push(rewards);
 
         oldest_block_height = ts.epoch();
+        // This tipset is the receipt source (child) of the next (older) one.
+        child = Some(ts);
     }
 
     // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
@@ -2292,83 +2295,29 @@ impl RpcMethod<3> for EthGetStorageAt {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_number_or_hash, ResolveNullTipset::TakeOlder)
             .await?;
-        get_storage_at(&ctx, ts, eth_address, position).await
+        eth_get_storage_at(&ctx, &ts, eth_address, position).await
     }
 }
 
-async fn get_storage_at(
+async fn eth_get_storage_at(
     ctx: &Ctx,
-    ts: Tipset,
+    ts: &Tipset,
     eth_address: EthAddress,
     position: EthBytes,
 ) -> Result<EthBytes, ServerError> {
+    // Validate and left-pad before touching state, as Lotus does.
+    let position = GetStorageAtParams::new(position.0)?.0;
     let to_address = FilecoinAddress::try_from(&eth_address)?;
-    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&ts).await?;
-    let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
-    let Some(actor) = ctx
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
+    let value = match ctx
         .state_manager
         .get_actor(&to_address, state_root)
         .with_context(|| format!("failed to lookup contract {}", eth_address.0))?
-    else {
-        return Ok(make_empty_result());
+    {
+        Some(actor) => actor.eth_storage_at(ctx.db(), &position)?,
+        None => [0; EVM_WORD_LENGTH],
     };
-
-    if !is_evm_actor(&actor.code) {
-        return Ok(make_empty_result());
-    }
-
-    let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
-    let message = Arc::new(Message {
-        from: FilecoinAddress::SYSTEM_ACTOR,
-        to: to_address,
-        method_num: METHOD_GET_STORAGE_AT,
-        gas_limit: BLOCK_GAS_LIMIT,
-        params,
-        ..Default::default()
-    });
-    // Rewind ts to escape the fork guard, but keep state_root fixed to the requested epoch: the
-    // result comes from state_root (ts only supplies execution context), so recomputing it for the
-    // parent would read an earlier epoch's storage.
-    let mut ts = ts;
-    let api_invoc_result = loop {
-        match ctx
-            .state_manager
-            .call_on_state(
-                state_root,
-                message.shallow_clone(),
-                Some(ts.shallow_clone()),
-            )
-            .await
-        {
-            Ok(res) => break res,
-            Err(crate::state_manager::Error::ExpensiveFork { .. }) => {
-                ts = ctx
-                    .chain_index()
-                    .load_required_tipset(ts.parents())
-                    .map_err(|e| anyhow::anyhow!("getting parent tipset: {e}"))?;
-            }
-            Err(e) => return Err(e.into()),
-        }
-    };
-    let Some(msg_rct) = api_invoc_result.msg_rct else {
-        return Err(anyhow::anyhow!("no message receipt").into());
-    };
-    if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
-        return Err(
-            anyhow::anyhow!("failed to lookup storage slot: {}", api_invoc_result.error).into(),
-        );
-    }
-
-    let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
-        .bytes()
-        .to_vec();
-    if ret.len() < EVM_WORD_LENGTH {
-        let mut with_padding = vec![0; EVM_WORD_LENGTH.saturating_sub(ret.len())];
-        with_padding.append(&mut ret);
-        Ok(EthBytes(with_padding))
-    } else {
-        Ok(EthBytes(ret))
-    }
+    Ok(EthBytes(value.to_vec()))
 }
 
 pub enum EthGetTransactionCount {}
@@ -2417,15 +2366,7 @@ async fn eth_get_transaction_count(
         None => return Ok(EthUint64(0)),
     };
 
-    if is_evm_actor(&actor.code) {
-        let evm_state = evm::State::load(ctx.db(), actor.code, actor.state)?;
-        if !evm_state.is_alive() {
-            return Ok(EthUint64(0));
-        }
-        Ok(EthUint64(evm_state.nonce()))
-    } else {
-        Ok(EthUint64(actor.sequence))
-    }
+    Ok(actor.eth_nonce(ctx.db())?)
 }
 
 pub enum EthMaxPriorityFeePerGas {}

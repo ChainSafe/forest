@@ -509,6 +509,7 @@ pub struct RPCState {
     pub eth_logs_feed: std::sync::OnceLock<eth::pubsub::LogsFeed>,
     pub sync_network_context: SyncNetworkContext,
     pub tipset_send: flume::Sender<FullTipset>,
+    pub block_validation_subscriber: crate::chain_sync::BlockValidationSubscriber,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,
