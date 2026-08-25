@@ -173,6 +173,7 @@ pub enum NetworkMessage {
         topic: IdentTopic,
         message: Vec<u8>,
     },
+    ResubscribeTopic(PubsubTopic),
     ChainExchangeRequest {
         peer_id: PeerId,
         request: ChainExchangeRequest,
@@ -400,7 +401,9 @@ impl Libp2pService {
                             bitswap_request_manager.shallow_clone(),
                             message,
                             &self.network_sender_out,
-                            &self.peer_manager).await;
+                            &self.peer_manager,
+                            &pubsub_topic_kinds,
+                        ).await;
                     }
                     None => { break; }
                 },
@@ -503,6 +506,7 @@ async fn handle_network_message(
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
     peer_manager: &PeerManager,
+    pubsub_topic_kinds: &HashMap<TopicHash, PubsubTopic>,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -515,6 +519,30 @@ async fn handle_network_message(
                 }
                 Err(e) => {
                     warn!("Failed to send gossipsub message: {e:#}");
+                }
+            }
+        }
+        NetworkMessage::ResubscribeTopic(pubsub_topic) => {
+            for (topic_hash, kind) in pubsub_topic_kinds.iter() {
+                if !matches!(kind, pubsub_topic) {
+                    continue;
+                }
+
+                let topic = IdentTopic::new(topic_hash.as_str());
+                let mesh_peers_before = swarm
+                    .behaviour()
+                    .mesh_peers(&topic_hash)
+                    .count();
+
+                swarm.behaviour_mut().unsubscribe(&topic);
+
+                match swarm.behaviour_mut().subscribe(&topic) {
+                    Ok(_) => info!(
+                        %topic,
+                        mesh_peers_before,
+                        "re-subscribed to drand topic after repeated silence"
+                    ),
+                    Err(e) => warn!(%topic, "failed to re-subscribe to drand topic: {e}"),
                 }
             }
         }

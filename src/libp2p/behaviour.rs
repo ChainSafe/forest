@@ -24,16 +24,9 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use libp2p::{
-    Multiaddr, allow_block_list, connection_limits,
-    gossipsub::{
-        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAuthenticity, MessageId,
-        PublishError, SubscriptionError, ValidationMode, WhitelistSubscriptionFilter,
-    },
-    identity::{Keypair, PeerId},
-    kad::QueryId,
-    metrics::{Metrics, Recorder},
-    ping, request_response,
-    swarm::NetworkBehaviour,
+    Multiaddr, allow_block_list, connection_limits, gossipsub::{
+        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAuthenticity, MessageId, PublishError, SubscriptionError, TopicHash, ValidationMode, WhitelistSubscriptionFilter,
+    }, identity::{Keypair, PeerId}, kad::QueryId, metrics::{Metrics, Recorder}, ping, request_response, swarm::NetworkBehaviour,
 };
 use tracing::info;
 
@@ -228,6 +221,15 @@ impl ForestBehaviour {
     /// Subscribe to a gossip topic.
     pub fn subscribe(&mut self, topic: &Topic) -> Result<bool, SubscriptionError> {
         self.gossipsub.subscribe(topic)
+    }
+
+    /// Unsubscribe from a gossip topic.
+    pub fn unsubscribe(&mut self, topic: &Topic) -> bool {
+        self.gossipsub.unsubscribe(topic)
+    }
+
+    pub fn mesh_peers(&self, topic_hash: &TopicHash) -> impl Iterator<Item = &PeerId> {
+        self.gossipsub.mesh_peers(topic_hash)
     }
 
     /// Returns a set of peer ids

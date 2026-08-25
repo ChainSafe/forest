@@ -18,23 +18,16 @@
 
 use super::network_context::SyncNetworkContext;
 use crate::{
-    beacon::{Beacon, BeaconEntry},
-    blocks::{Block, FullTipset, Tipset, TipsetKey},
-    chain::{ChainStore, index::ResolveNullTipset},
-    chain_sync::{
+    beacon::{Beacon, BeaconEntry}, blocks::{Block, FullTipset, Tipset, TipsetKey}, chain::{ChainStore, index::ResolveNullTipset}, chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
         bad_block_cache::{BadBlockCache, SeenBlockCache},
         metrics,
         tipset_syncer::{TipsetSyncerError, validate_tipset},
         validation::GossipBlockValidator,
+    }, libp2p::{NetworkEvent, NetworkMessage, PubsubMessage, PubsubTopic, hello::HelloRequest}, message_pool::MessagePool, networks::calculate_expected_epoch, prelude::*, shim::clock::ChainEpoch, state_manager::StateManager, utils::{
+        flume::FlumeSenderExt as _,
+        misc::env::env_or_default_logged,
     },
-    libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
-    message_pool::MessagePool,
-    networks::calculate_expected_epoch,
-    prelude::*,
-    shim::clock::ChainEpoch,
-    state_manager::StateManager,
-    utils::misc::env::env_or_default_logged,
 };
 use arc_swap::ArcSwap;
 use chrono::Utc;
@@ -357,10 +350,16 @@ async fn chain_follower(
 
     set.spawn({
         let state_manager = state_manager.shallow_clone();
+        let network = network.shallow_clone();
         let last_drand_entry = last_drand_entry.clone();
         let cancellation_token = cancellation_token.clone();
         async move {
-            drand_gossip_watchdog(state_manager, last_drand_entry, cancellation_token).await;
+            drand_gossip_watchdog(
+                state_manager,
+                network,
+                last_drand_entry,
+                cancellation_token,
+            ).await;
         }
     });
 
@@ -526,6 +525,7 @@ async fn chain_follower(
 /// that epoch and fallback to fetch the beacon through HTTP
 async fn drand_gossip_watchdog(
     state_manager: StateManager,
+    network: SyncNetworkContext,
     last_drand_entry: Arc<AtomicU64>,
     cancellation_token: CancellationToken,
 ) {
@@ -538,7 +538,11 @@ async fn drand_gossip_watchdog(
 
     let mut ticker = tokio::time::interval(deadline);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    const MAX_CONSECUTIVE_MISSES: u32 = 3;
+
     let mut stale = false;
+    let mut consecutive_misses = 0_u32;
 
     while cancellation_token
         .run_until_cancelled(ticker.tick())
@@ -548,6 +552,7 @@ async fn drand_gossip_watchdog(
         let last_seen = last_drand_entry.load(Ordering::Relaxed);
         let now = Utc::now().timestamp().max(0) as u64;
         if last_seen != 0 && now.saturating_sub(last_seen) < deadline.as_secs() {
+            consecutive_misses = 0;
             if stale {
                 stale = false;
                 info!("drand gossipsub entries are flowing again");
@@ -577,6 +582,18 @@ async fn drand_gossip_watchdog(
         };
         if let Err(e) = beacon.entry(round).await {
             debug!("drand HTTP fallback for round {round} failed: {e:#}");
+        }
+
+        consecutive_misses += 1;
+        if consecutive_misses >= MAX_CONSECUTIVE_MISSES {
+            consecutive_misses = 0;
+            warn!(
+                misses = MAX_CONSECUTIVE_MISSES,
+                "forcing a drand topic re-subscription",
+            );
+            network
+                .network_send()
+                .send_or_warn(NetworkMessage::ResubscribeTopic(PubsubTopic::Drand));
         }
     }
 }
