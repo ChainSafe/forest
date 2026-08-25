@@ -5,13 +5,14 @@ mod types;
 
 use crate::blocks::{Block, FullTipset, GossipBlock};
 use crate::chain;
-use crate::chain_sync::{NodeSyncStatus, SyncStatusReport, TipsetValidator};
+use crate::chain_sync::{BlockValidationOutcome, SyncStatusReport, TipsetValidator};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::prelude::*;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
-use anyhow::anyhow;
 use enumflags2::BitFlags;
 use fvm_ipld_encoding::to_vec;
+use std::time::Duration;
+use tokio::sync::broadcast::error::RecvError;
 pub use types::*;
 
 pub enum SyncCheckBad {}
@@ -125,14 +126,12 @@ impl RpcMethod<1> for SyncSubmitBlock {
         (block_msg,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if !matches!(ctx.sync_status.load().status, NodeSyncStatus::Synced) {
-            Err(anyhow!("the node isn't in 'follow' mode"))?
-        }
         let genesis_network_name = ctx.chain_config().network.genesis_name();
         let encoded_message = to_vec(&block_msg)?;
         let pubsub_block_str = format!("{PUBSUB_BLOCK_STR}/{genesis_network_name}");
         let (bls_messages, secp_messages) =
             chain::store::block_messages(ctx.db(), &block_msg.header)?;
+        let block_cid = *block_msg.header.cid();
         let block = Block {
             header: block_msg.header,
             bls_messages,
@@ -150,10 +149,46 @@ impl RpcMethod<1> for SyncSubmitBlock {
             )
             .context("failed to validate the tipset")?;
 
+        // Subscribe before injecting the tipset so the follower's verdict cannot be missed.
+        let mut outcomes = ctx.block_validation_subscriber.subscribe();
         ctx.tipset_send
             .try_send(ts)
             .context("tipset queue is full")?;
 
+        // Forest applies the tipset via the async follower, unlike Lotus whose `Syncer.Sync` is
+        // synchronous. Wait (bounded by ~one block time) for the follower's verdict; for a block
+        // that extends the head (the mining case) an applied verdict means the head has advanced,
+        // so lotus-miner does not re-select the same base.
+        let block_delay_secs = ctx.chain_config().block_delay_secs.into();
+        let verdict = tokio::time::timeout(Duration::from_secs(block_delay_secs), async {
+            loop {
+                match outcomes.recv().await {
+                    Ok((cid, outcome)) if cid == block_cid => return Some(outcome),
+                    Ok(_) | Err(RecvError::Lagged(_)) => {}
+                    Err(RecvError::Closed) => return None,
+                }
+            }
+        })
+        .await;
+
+        // Publish the block unless the follower definitively rejected it: Lotus publishes after a
+        // successful `Syncer.Sync` and errors on failure, and on no verdict within a block time we
+        // still publish best-effort (the block passed the synchronous `TipsetValidator` and is not
+        // known-bad; gossiping an unincluded block is not slashable, peers just reject it).
+        match verdict {
+            Ok(Some(BlockValidationOutcome::Rejected)) => {
+                return Err(anyhow::anyhow!(
+                    "submitted block {block_cid} was rejected during validation"
+                )
+                .into());
+            }
+            Ok(Some(BlockValidationOutcome::Applied)) | Ok(None) => {}
+            Err(_elapsed) => tracing::warn!(
+                %block_cid,
+                block_delay_secs,
+                "SyncSubmitBlock: no validation verdict within one block time; publishing best-effort"
+            ),
+        }
         ctx.network_send().send(NetworkMessage::PubsubMessage {
             topic: IdentTopic::new(pubsub_block_str),
             message: encoded_message,
@@ -171,6 +206,7 @@ mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
+    use crate::chain_sync::NodeSyncStatus;
     use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::db::{Blockstore as _, MemoryDB};
     use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -243,6 +279,7 @@ mod tests {
             start_time,
             shutdown: mpsc::channel(1).0, // dummy for tests
             tipset_send,
+            block_validation_subscriber: Default::default(),
             snapshot_progress_tracker: Default::default(),
             mpool_locker: MpoolLocker::new(),
             nonce_tracker,

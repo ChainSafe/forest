@@ -88,9 +88,34 @@ pub fn create_evm_actor_with_bytecode(
     ))
 }
 
-/// Like [`create_evm_actor_with_bytecode`] but marks the actor self-destructed via a
-/// tombstone, so it must report no bytecode even though the code block is present.
-pub fn create_tombstoned_evm_actor(store: &MemoryDB, bytecode: &[u8]) -> Option<ActorState> {
+/// An alive EVM actor whose storage KAMT root is `contract_state`.
+pub fn create_evm_actor_with_storage(store: &MemoryDB, contract_state: Cid) -> Option<ActorState> {
+    let evm_state = fil_actor_evm_state::v17::State {
+        bytecode: Cid::default(),
+        bytecode_hash: fil_actor_evm_state::v17::BytecodeHash::EMPTY,
+        contract_state,
+        transient_data: None,
+        nonce: 0,
+        tombstone: None,
+    };
+    Some(ActorState::new(
+        get_evm_actor_code_cid()?,
+        store.put_cbor_default(&evm_state).ok()?,
+        TokenAmount::from_atto(0),
+        0,
+        None,
+    ))
+}
+
+/// Like [`create_evm_actor_with_bytecode`] but marks the actor self-destructed via a tombstone,
+/// so it must report no bytecode, a zero nonce and empty storage even though `bytecode`,
+/// `evm_nonce` and `contract_state` are all populated.
+pub fn create_tombstoned_evm_actor(
+    store: &MemoryDB,
+    bytecode: &[u8],
+    evm_nonce: u64,
+    contract_state: Cid,
+) -> Option<ActorState> {
     use fvm_ipld_blockstore::Blockstore as _;
     use multihash_codetable::MultihashDigest as _;
 
@@ -104,9 +129,9 @@ pub fn create_tombstoned_evm_actor(store: &MemoryDB, bytecode: &[u8]) -> Option<
         bytecode_hash: fil_actor_evm_state::v17::BytecodeHash::from(
             keccak_hash::keccak(bytecode).0,
         ),
-        contract_state: Cid::default(),
+        contract_state,
         transient_data: None,
-        nonce: 0,
+        nonce: evm_nonce,
         tombstone: Some(fil_actor_evm_state::v17::Tombstone {
             origin: 0,
             nonce: 0,
