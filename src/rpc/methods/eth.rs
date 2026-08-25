@@ -53,7 +53,7 @@ use crate::rpc::{
     state::ApiInvocResult,
     types::{ApiTipsetKey, EventEntry, MessageLookup},
 };
-use crate::shim::actors::{EVMActorStateLoad as _, eam, evm, is_evm_actor, system};
+use crate::shim::actors::{eam, system};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
@@ -2305,13 +2305,10 @@ async fn eth_get_storage_at(
     eth_address: EthAddress,
     position: EthBytes,
 ) -> Result<EthBytes, ServerError> {
-    // `GetStorageAtParams::new` validates and left-pads the position to a 32-byte big-endian key,
-    // matching the actor. Validate before touching state, as Lotus does.
+    // Validate and left-pad before touching state, as Lotus does.
     let position = GetStorageAtParams::new(position.0)?.0;
     let to_address = FilecoinAddress::try_from(&eth_address)?;
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(ts).await?;
-    // Read the slot straight from the EVM actor's storage KAMT (see `eth_storage_at`), instead of
-    // invoking its `GetStorageAt` method through the VM.
     let value = match ctx
         .state_manager
         .get_actor(&to_address, state_root)
@@ -2369,15 +2366,7 @@ async fn eth_get_transaction_count(
         None => return Ok(EthUint64(0)),
     };
 
-    if is_evm_actor(&actor.code) {
-        let evm_state = evm::State::load(ctx.db(), actor.code, actor.state)?;
-        if !evm_state.is_alive() {
-            return Ok(EthUint64(0));
-        }
-        Ok(EthUint64(evm_state.nonce()))
-    } else {
-        Ok(EthUint64(actor.sequence))
-    }
+    Ok(actor.eth_nonce(ctx.db())?)
 }
 
 pub enum EthMaxPriorityFeePerGas {}

@@ -85,24 +85,29 @@ pub fn lookup_eth_address<DB: Blockstore>(
     Ok(Some(EthAddress::from_actor_id(id_addr)))
 }
 
-/// The actor's EVM state, or `None` when it is not an EVM actor or is a dead (self-destructed)
-/// contract, which reads as empty.
-// <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/interpreter/system.rs#L181>
-fn live_evm_state<DB: Blockstore>(
-    actor: &ActorState,
-    store: &DB,
-) -> anyhow::Result<Option<evm::State>> {
+/// The actor's EVM state, or `None` when it is not an EVM actor.
+fn evm_state<DB: Blockstore>(store: &DB, actor: &ActorState) -> anyhow::Result<Option<evm::State>> {
     if !is_evm_actor(&actor.code) {
         return Ok(None);
     }
-    let state =
-        evm::State::load(store, actor.code, actor.state).context("failed to load EVM state")?;
-    Ok(state.is_alive().then_some(state))
+    Ok(Some(
+        evm::State::load(store, actor.code, actor.state).context("failed to load EVM state")?,
+    ))
+}
+
+/// As [`evm_state`], but also `None` for a dead (self-destructed) contract, which reads as empty.
+// <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/interpreter/system.rs#L181>
+pub(crate) fn live_evm_state<DB: Blockstore>(
+    store: &DB,
+    actor: &ActorState,
+) -> anyhow::Result<Option<evm::State>> {
+    Ok(evm_state(store, actor)?.filter(|state| state.is_alive()))
 }
 
 /// Extension trait for querying Ethereum-relevant state from a Filecoin actor.
 pub(crate) trait ActorStateEthExt {
-    /// Returns the effective nonce: EVM nonce for EVM actors, sequence otherwise.
+    /// Returns the effective nonce: EVM nonce for EVM actors (zero once self-destructed),
+    /// sequence otherwise.
     fn eth_nonce<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<EthUint64>;
     /// Returns the deployed bytecode of an EVM actor, or `None` for non-EVM or self-destructed actors.
     fn eth_bytecode<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<Option<EthBytes>>;
@@ -117,17 +122,16 @@ pub(crate) trait ActorStateEthExt {
 
 impl ActorStateEthExt for ActorState {
     fn eth_nonce<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<EthUint64> {
-        if is_evm_actor(&self.code) {
-            let evm_state = evm::State::load(store, self.code, self.state)
-                .context("failed to load EVM state for nonce")?;
-            Ok(EthUint64::from(evm_state.nonce()))
-        } else {
-            Ok(EthUint64::from(self.sequence))
-        }
+        Ok(EthUint64(match evm_state(store, self)? {
+            Some(state) if state.is_alive() => state.nonce(),
+            // A dead contract's state still carries a nonce, but it reports zero.
+            Some(_) => 0,
+            None => self.sequence,
+        }))
     }
 
     fn eth_bytecode<DB: Blockstore>(&self, store: &DB) -> anyhow::Result<Option<EthBytes>> {
-        let Some(evm_state) = live_evm_state(self, store)? else {
+        let Some(evm_state) = live_evm_state(store, self)? else {
             return Ok(None);
         };
         let bytecode = store
@@ -143,7 +147,7 @@ impl ActorStateEthExt for ActorState {
     ) -> anyhow::Result<[u8; EVM_WORD_LENGTH]> {
         // Mirrors the EVM actor's `GetStorageAt`.
         // <https://github.com/filecoin-project/builtin-actors/blob/v18.0.0/actors/evm/src/lib.rs#L309>
-        let Some(evm_state) = live_evm_state(self, store)? else {
+        let Some(evm_state) = live_evm_state(store, self)? else {
             return Ok([0; EVM_WORD_LENGTH]);
         };
         let kamt =
