@@ -503,14 +503,6 @@ impl ChainConfig {
             .collect()
     }
 
-    /// Round interval, in seconds, of the drand network Forest subscribes to over
-    /// gossipsub. `None` when the network has no unchained drand point.
-    pub fn drand_gossip_period_secs(&self) -> Option<u64> {
-        self.drand_points()
-            .find(|p| p.config.network_type.is_unchained())
-            .map(|p| p.config.chain_info.period as u64)
-    }
-
     pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
         BeaconSchedule(
             self.drand_points()

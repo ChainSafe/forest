@@ -327,6 +327,10 @@ async fn chain_follower(
                                     ),
                                     Ok(true)
                                 ) {
+                                    info!(
+                                        round = entry.round(),
+                                        "verified drand entry from gossipsub"
+                                    );
                                     last_drand_entry.store(
                                         Utc::now().timestamp().max(0) as u64,
                                         Ordering::Relaxed,
@@ -520,12 +524,12 @@ async fn drand_gossip_watchdog(
     last_drand_entry: Arc<AtomicU64>,
     cancellation_token: CancellationToken,
 ) {
-    let chain_config = state_manager.chain_config();
-    let Some(period_secs) = chain_config.drand_gossip_period_secs() else {
+    if state_manager.beacon_schedule().unchained_beacon().is_none() {
         return;
-    };
+    }
 
-    let deadline = Duration::from_secs(period_secs.div_ceil(2));
+    let deadline =
+        Duration::from_secs(u64::from(state_manager.chain_config().block_delay_secs).div_ceil(2));
 
     let mut ticker = tokio::time::interval(deadline);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

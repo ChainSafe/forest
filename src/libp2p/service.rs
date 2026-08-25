@@ -32,7 +32,7 @@ use libp2p::{
     tcp, yamux,
 };
 use nonzero_ext::nonzero;
-use quick_protobuf::deserialize_from_slice;
+use quick_protobuf::{BytesReader, MessageRead as _};
 
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
@@ -271,6 +271,7 @@ impl Libp2pService {
                 .behaviour_mut()
                 .subscribe(&topic)
                 .with_context(|| format!("Failed to subscribe gossipsub topic {topic}"))?;
+            info!("Subscribed to gossipsub topic {topic} ({kind:?})");
             pubsub_topic_kinds.insert(topic.hash(), kind);
         }
 
@@ -739,8 +740,13 @@ async fn handle_gossip_event(
                 }
             }
             Some(PubsubTopic::Drand) => {
-                match deserialize_from_slice::<PublicRandResponse>(&message) {
+                let mut reader = BytesReader::from_bytes(&message);
+                match PublicRandResponse::from_reader(&mut reader, &message) {
                     Ok(r) => {
+                        info!(
+                            "Received drand round {} from peer {source:?} on {topic}",
+                            r.round
+                        );
                         emit_event(
                             network_sender_out,
                             NetworkEvent::PubsubMessage {
