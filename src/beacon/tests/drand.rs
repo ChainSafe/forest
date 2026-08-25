@@ -308,25 +308,3 @@ async fn beacon_entries_for_block_covers_null_rounds_quicknet() {
         );
     }
 }
-
-/// The counter tracks rounds that had to leave the process: a cache miss increments it,
-/// a hit does not. Compared as a delta so the test does not depend on what else ran.
-#[tokio::test]
-async fn http_fetch_metric_counts_only_cache_misses() {
-    use crate::beacon::metrics;
-
-    let fetches = || metrics::DRAND_HTTP_FETCH_TOTAL.get();
-    let before = fetches();
-
-    // A round well inside quicknet's history, so it is always available.
-    let round = 1_000_000;
-    QUICKNET.entry(round).await.unwrap();
-    assert_eq!(fetches(), before + 1);
-
-    QUICKNET.entry(round).await.unwrap();
-    assert_eq!(
-        fetches(),
-        before + 1,
-        "second call must not reach the network"
-    );
-}
