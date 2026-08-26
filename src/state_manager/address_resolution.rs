@@ -288,11 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn does_not_cache_at_exact_finality_boundary() {
-        // Head epoch == chain_finality: the guard is strictly `>`, so this is
-        // not finality-deep and the lookback degrades to resolving at the
-        // head's own parent state (which does contain f0300, since `root_b`
-        // was built on top of `root_a`). The resolution succeeds but, being
-        // `Unstable`, must not be cached.
+        // Head is exactly `ec_depth` epochs deep, so lookback does not apply.
         let (sm, head, bls_a, _bls_b) = setup_with_finality(2);
         let resolved = sm
             .resolve_to_deterministic_address(Address::new_id(OLD_ACTOR), &head)
@@ -302,7 +298,7 @@ mod tests {
         assert_eq!(
             sm.id_to_deterministic_address_cache().unwrap().len(),
             0,
-            "epoch == chain_finality is not finality-deep and must not be cached"
+            "epoch == ec_depth cannot look back and must not be cached"
         );
     }
 
@@ -334,8 +330,10 @@ mod tests {
         assert_eq!(sm.id_to_deterministic_address_cache().unwrap().len(), 0);
     }
 
-    #[tokio::test]
-    async fn caches_when_ec_finality_is_shallower_than_chain_finality() {
+    /// Healthy 40-epoch chain at 5 blocks/epoch: EC finality is shallower than
+    /// default `chain_finality` (900), so only the calculator can make a
+    /// resolution cacheable.
+    fn setup_healthy_ec_chain() -> (StateManager, Tipset, Address) {
         use crate::chain::ec_finality::calculator::DEFAULT_BLOCKS_PER_EPOCH;
         use crate::chain::store::index::tests::{persist_tipset, tipset_child_with_blocks};
 
@@ -384,6 +382,12 @@ mod tests {
         );
 
         let sm = StateManager::new(cs).unwrap();
+        (sm, head, bls)
+    }
+
+    #[tokio::test]
+    async fn caches_when_ec_finality_is_shallower_than_chain_finality() {
+        let (sm, head, bls) = setup_healthy_ec_chain();
         let resolved = sm
             .resolve_to_deterministic_address(Address::new_id(OLD_ACTOR), &head)
             .await
