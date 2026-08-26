@@ -111,7 +111,7 @@ impl Provider for ChainStore {
     ) -> Result<Address, Error> {
         ChainStore::resolve_to_deterministic_address_at_finality(self, addr, ts)
             .map(AtFinalityResolution::into_address)
-            .map_err(|e| Error::Other(e.to_string()))
+            .map_err(|e| Error::Other(format!("{e:#}")))
     }
 
     fn messages_for_tipset(&self, ts: &Tipset) -> Result<Arc<Vec<ChainMessage>>, Error> {

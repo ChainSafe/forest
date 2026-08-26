@@ -392,13 +392,35 @@ impl ChainStore {
                 let ec_depth =
                     (self.heaviest_tipset().epoch() - self.ec_calculator_finalized_epoch()).max(0);
                 if ec_depth > 0 && ts.epoch() > ec_depth {
-                    let lookback_ts = self.chain_index().load_required_tipset_by_height_blocking(
-                        ts.epoch() - ec_depth,
-                        ts.shallow_clone(),
-                        ResolveNullTipset::TakeOlder,
-                    )?;
-                    let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())?;
-                    let resolved = state.resolve_to_deterministic_address(self.db(), *addr)?;
+                    let lookback_ts = self
+                        .chain_index()
+                        .load_required_tipset_by_height_blocking(
+                            ts.epoch() - ec_depth,
+                            ts.shallow_clone(),
+                            ResolveNullTipset::TakeOlder,
+                        )
+                        .with_context(|| {
+                            format!(
+                                "failed to load EC-finality lookback at epoch {} from {}",
+                                ts.epoch() - ec_depth,
+                                ts.key()
+                            )
+                        })?;
+                    let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())
+                        .with_context(|| {
+                            format!(
+                                "failed to load state for EC-finality lookback {}",
+                                lookback_ts.key()
+                            )
+                        })?;
+                    let resolved = state
+                        .resolve_to_deterministic_address(self.db(), *addr)
+                        .with_context(|| {
+                            format!(
+                                "failed to resolve ID address {addr} at {}",
+                                lookback_ts.key()
+                            )
+                        })?;
                     Ok(AtFinalityResolution::ReorgStable(resolved))
                 } else {
                     let state = StateTree::new_from_root(self.db(), ts.parent_state())?;
