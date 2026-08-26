@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7414](https://github.com/ChainSafe/forest/issues/7414): Forest now subscribes to the drand gossipsub topic, verifying and caching the beacon entries it receives there. The drand HTTP endpoints are only queried when no entry has arrived for half a chain epoch.
+
 ### Changed
 
 - [#7535](https://github.com/ChainSafe/forest/pull/7535): `Filecoin.Version` now reports the API version of the endpoint being served (`1.5.0` over `/rpc/v0`, `2.3.0` over `/rpc/v1`), matching Lotus, and `Filecoin.SyncSubmitBlock` no longer requires the node to be in the `Synced` state and waits up to one block time for the submitted block to become the chain head. Together these let Forest act as the full node for an external block producer such as `lotus-miner` or `curio` (verified on a local devnet, calibnet/mainnet tests to come).
