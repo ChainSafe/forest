@@ -122,12 +122,16 @@ async fn wait_until_meshed(
 
 #[tokio::test]
 async fn silence_past_deadline_fallback_to_http() {
-    use axum::{routing::get, Router, extract::Path, Json};
+    use axum::{Json, Router, extract::Path, routing::get};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     // mocks drand HTTP
     let hits = Arc::new(AtomicUsize::new(0));
-    let signer = Arc::new(FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME));
+    let signer = Arc::new(FakeDrand::new(
+        vec![],
+        FAKE_DRAND_PERIOD,
+        FAKE_DRAND_GENESIS_TIME,
+    ));
 
     let app = {
         let (hits, signer) = (hits.clone(), signer.clone());
@@ -139,12 +143,14 @@ async fn silence_past_deadline_fallback_to_http() {
                     hits.fetch_add(1, Ordering::Relaxed);
                     Json(signer.to_json(round))
                 }
-            })
+            }),
         )
     };
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let base: url::Url = format!("http://{}/", listener.local_addr().unwrap()).parse().unwrap();
+    let base: url::Url = format!("http://{}/", listener.local_addr().unwrap())
+        .parse()
+        .unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
     let drand = FakeDrand::new(vec![base], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
@@ -160,5 +166,9 @@ async fn silence_past_deadline_fallback_to_http() {
 
     // second call, same round, should fetch from cache
     beacon.entry(42).await.unwrap();
-    assert_eq!(hits.load(Ordering::Relaxed), 1, "second call must not reach HTTP");
+    assert_eq!(
+        hits.load(Ordering::Relaxed),
+        1,
+        "second call must not reach HTTP"
+    );
 }

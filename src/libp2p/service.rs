@@ -83,7 +83,7 @@ crate::def_is_env_truthy!(libp2p_metrics_enabled, "FOREST_LIBP2P_METRICS_ENABLED
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 /// `Gossipsub` Filecoin messages topic identifier.
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
-/// `Gossipsub` drand randomness topic identifier.
+/// `Gossipsub` `drand` randomness topic identifier.
 pub const PUBSUB_DRAND_STR: &str = "/drand/pubsub/v0.0.0";
 
 /// Gossipsub topics Forest uses. Subscription, the subscription-filter
@@ -162,7 +162,7 @@ pub enum PubsubMessage {
     Block(GossipBlock),
     /// Messages that come over the message topic
     Message(SignedMessage),
-    /// Messages that come over the drand topic
+    /// Messages that come over the `drand` topic
     DrandEntry(BeaconEntry),
 }
 
@@ -529,7 +529,7 @@ async fn handle_network_message(
                 }
 
                 let topic = IdentTopic::new(topic_hash.as_str());
-                let mesh_peers_before = swarm.behaviour().mesh_peers(&topic_hash).count();
+                let mesh_peers_before = swarm.behaviour().mesh_peers(topic_hash).count();
 
                 swarm.behaviour_mut().unsubscribe(&topic);
 

@@ -523,9 +523,9 @@ async fn chain_follower(
     Ok(())
 }
 
-/// Watch the drand gossipsub for staleness, if a drand breacon entry
+/// Watch the `drand` `gossipsub` topic for staleness: if a `drand` beacon entry
 /// is not received in half a chain epoch then we consider it stale for
-/// that epoch and fallback to fetch the beacon through HTTP
+/// that epoch and fall back to fetching the beacon over HTTP.
 async fn drand_gossip_watchdog(
     state_manager: StateManager,
     network: SyncNetworkContext,
