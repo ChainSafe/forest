@@ -375,6 +375,9 @@ impl Beacon for DrandBeacon {
             return Ok(Arc::unwrap_or_clone(cached_entry));
         }
 
+        // counting when cache miss and needed to go fetch via HTTP
+        metrics::DRAND_HTTP_FETCH_TOTAL.inc();
+
         async fn fetch_entry_from_url(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
             let resp: BeaconEntryJson = global_http_client()
                 .get(url)
@@ -427,7 +430,6 @@ impl Beacon for DrandBeacon {
             entry.round()
         );
         self.cache_fetched_entry(&entry);
-        metrics::DRAND_HTTP_FETCH_TOTAL.inc();
         Ok(entry)
     }
 
