@@ -46,7 +46,6 @@ fn new_beacon_mainnet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Mainnet,
-            use_cache: true,
         },
     )
 }
@@ -79,7 +78,6 @@ pub fn new_beacon_quicknet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Quicknet,
-            use_cache: true,
         },
     )
 }

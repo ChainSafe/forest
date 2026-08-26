@@ -38,7 +38,6 @@ pub(super) static DRAND_MAINNET: LazyLock<DrandConfig<'static>> = LazyLock::new(
             ),
         },
         network_type: DrandNetwork::Mainnet,
-        use_cache: false,
     };
     parse_drand_config_from_env_var("FOREST_DRAND_MAINNET_CONFIG").unwrap_or(default)
 });
@@ -76,7 +75,6 @@ pub(super) static DRAND_QUICKNET: LazyLock<DrandConfig<'static>> = LazyLock::new
             ),
         },
         network_type: DrandNetwork::Quicknet,
-        use_cache: true,
     };
     parse_drand_config_from_env_var("FOREST_DRAND_QUICKNET_CONFIG").unwrap_or(default)
 });
@@ -99,7 +97,6 @@ pub(super) static DRAND_INCENTINET: LazyLock<DrandConfig<'static>> = LazyLock::n
             ),
         },
         network_type: DrandNetwork::Incentinet,
-        use_cache: false,
     };
     parse_drand_config_from_env_var("FOREST_DRAND_INCENTINET_CONFIG").unwrap_or(default)
 });
