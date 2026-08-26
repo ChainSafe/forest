@@ -145,7 +145,7 @@ const RPC_RETRY_DELAY: Duration = Duration::from_secs(15);
 
 /// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
 /// [`POLL_WAIT_TIME`] between attempts.
-async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
+pub async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = anyhow::Result<Option<T>>>,
@@ -186,14 +186,24 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-/// Run a `lotus` command, retrying while it fails with the transient mpool `check has failed`
-/// (the mpool briefly lags the chain head just after the sender is funded, so a submit can be
-/// rejected until it catches up). Any other failure propagates immediately.
+/// Run a `lotus` command, retrying while it fails because Lotus's mpool has not yet
+/// caught up to a sender that was just funded (the miner talks to Lotus, not Forest).
+/// Any other failure propagates immediately.
 pub async fn lotus_exec_retrying_mpool(args: &[&str]) -> anyhow::Result<String> {
     poll(&format!("lotus {}", args.join(" ")), || async {
         match lotus_exec(args) {
             Ok(out) => Ok(Some(out)),
-            Err(e) if format!("{e:#}").contains("check has failed") => Ok(None),
+            Err(e)
+                if [
+                    "check has failed",
+                    "failed to get nonce from mempool",
+                    "resolution lookup failed",
+                ]
+                .iter()
+                .any(|s| format!("{e:#}").contains(s)) =>
+            {
+                Ok(None)
+            }
             Err(e) => Err(e),
         }
     })

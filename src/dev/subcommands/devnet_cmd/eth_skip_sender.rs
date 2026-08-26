@@ -139,29 +139,31 @@ fn abi_address_word(addr: EthAddress) -> Vec<u8> {
     word
 }
 
-fn send_coin_calldata(to: EthAddress, amount: u64) -> Vec<u8> {
-    let mut out = selector(SEND_COIN_SIGNATURE);
-    out.extend(abi_address_word(to));
-    out.extend_from_slice(&ethereum_types::U256::from(amount).to_big_endian());
+fn calldata(sig: &str, extra: &[u8]) -> Vec<u8> {
+    let mut out = selector(sig);
+    out.extend_from_slice(extra);
     out
+}
+
+fn send_coin_calldata(to: EthAddress, amount: u64) -> Vec<u8> {
+    let mut extra = abi_address_word(to);
+    extra.extend_from_slice(&ethereum_types::U256::from(amount).to_big_endian());
+    calldata(SEND_COIN_SIGNATURE, &extra)
 }
 
 fn set_contract_b_calldata(addr: EthAddress) -> Vec<u8> {
-    let mut out = selector(SET_CONTRACT_B_SIGNATURE);
-    out.extend(abi_address_word(addr));
-    out
+    calldata(SET_CONTRACT_B_SIGNATURE, &abi_address_word(addr))
 }
 
 fn recurse_calldata(depth: u64) -> Vec<u8> {
-    let mut out = selector(RECURSE_SIGNATURE);
-    out.extend_from_slice(&ethereum_types::U256::from(depth).to_big_endian());
-    out
+    calldata(
+        RECURSE_SIGNATURE,
+        &ethereum_types::U256::from(depth).to_big_endian(),
+    )
 }
 
 fn get_balance_calldata(addr: EthAddress) -> Vec<u8> {
-    let mut out = selector(GET_BALANCE_SIGNATURE);
-    out.extend(abi_address_word(addr));
-    out
+    calldata(GET_BALANCE_SIGNATURE, &abi_address_word(addr))
 }
 
 fn simple_coin_initcode() -> anyhow::Result<EthBytes> {
@@ -187,6 +189,13 @@ struct Deployed {
     f4: Address,
 }
 
+/// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
+struct Wallet {
+    cli: String,
+    f4: Address,
+    eth: EthAddress,
+}
+
 /// Dedicated delegated wallet used to deploy and to credit `SimpleCoin`.
 /// Not the genesis/miner key: that wallet races with the miner on nonce.
 async fn deployer() -> anyhow::Result<&'static Address> {
@@ -194,16 +203,7 @@ async fn deployer() -> anyhow::Result<&'static Address> {
     DEPLOYER
         .get_or_try_init(|| async {
             let addr = lotus_exec(&["wallet", "new", "delegated"])?;
-            let msg = send_from(
-                &FOREST_TEST_PRELOADED_ADDRESS,
-                &addr,
-                DEPLOYER_FUND_AMT,
-                Backend::Local,
-            )?;
-            eprintln!("funding deployer {addr} with {DEPLOYER_FUND_AMT}, msg: {msg}");
-            let balance = poll_until_funded(&addr, Backend::Local).await?;
-            eprintln!("deployer {addr} funded balance: {balance}");
-            Address::from_str(&addr).context("parsing the deployer address")
+            fund_on_chain(&addr, DEPLOYER_FUND_AMT).await
         })
         .await
 }
@@ -278,13 +278,13 @@ async fn table_env() -> anyhow::Result<&'static TableEnv> {
     ENV.get_or_try_init(|| async {
         let coin = simple_coin().await?;
         let errors = errors_contract().await?;
-        let (_eoa_f4, eoa) = new_funded(EOA_FUND_AMT).await?;
-        let (_eoa2_f4, eoa2) = new_unfunded().await?;
+        let eoa = new_funded(EOA_FUND_AMT).await?;
+        let eoa2 = new_unfunded().await?;
         Ok(TableEnv {
             coin: coin.eth,
             errors: errors.eth,
-            eoa,
-            eoa2,
+            eoa: eoa.eth,
+            eoa2: eoa2.eth,
         })
     })
     .await
@@ -298,40 +298,66 @@ async fn linked_contracts() -> anyhow::Result<&'static (Deployed, Deployed)> {
             let b = contract_b().await?;
             let a = deploy_hex("ContractA", CONTRACT_A_HEX, "/tmp/contract_a.hex").await?;
             invoke(&a.f4, &set_contract_b_calldata(b.eth)).await?;
-            Ok((
-                a,
-                Deployed {
-                    eth: b.eth,
-                    f4: b.f4,
-                },
-            ))
+            Ok((a, *b))
         })
         .await
 }
 
 async fn get_actor(client: &Client, addr: Address) -> anyhow::Result<Option<ActorState>> {
-    client
+    match client
         .call(StateGetActor::request((addr, ApiTipsetKey(None)))?)
         .await
-        .map_err(|e| anyhow::anyhow!("{e:#}"))
+    {
+        Ok(actor) => Ok(actor),
+        Err(e)
+            if ["actor not found", "resolution lookup failed"]
+                .iter()
+                .any(|s| format!("{e:#}").contains(s)) =>
+        {
+            Ok(None)
+        }
+        Err(e) => Err(anyhow::anyhow!("{e:#}")),
+    }
 }
 
 async fn poll_until_actor(addr: Address) -> anyhow::Result<ActorState> {
-    let client = forest_client()?;
-    let started = tokio::time::Instant::now();
-    let mut attempt = 0u32;
-    loop {
-        attempt += 1;
-        eprintln!("Polling StateGetActor {addr} attempt {attempt}");
-        if let Some(actor) = get_actor(&client, addr).await? {
-            return Ok(actor);
-        }
-        if started.elapsed() >= POLL_TIMEOUT {
-            anyhow::bail!("Timed out waiting for actor {addr} after {POLL_TIMEOUT:?}");
-        }
-        let remaining = POLL_TIMEOUT.saturating_sub(started.elapsed());
-        tokio::time::sleep(POLL_WAIT_TIME.min(remaining)).await;
-    }
+    poll_until_actor_on("forest", addr, forest_client).await
+}
+
+/// The miner only talks to Lotus, so `lotus send` / `lotus evm deploy --from`
+/// fail with `actor not found` until Lotus's state has the Forest-funded sender.
+async fn poll_until_lotus_actor(addr: Address) -> anyhow::Result<ActorState> {
+    poll_until_actor_on("lotus", addr, lotus_client).await
+}
+
+async fn poll_until_actor_on(
+    node: &str,
+    addr: Address,
+    make_client: fn() -> anyhow::Result<Client>,
+) -> anyhow::Result<ActorState> {
+    poll(&format!("{node} StateGetActor {addr}"), || async {
+        get_actor(&make_client()?, addr).await
+    })
+    .await
+}
+
+/// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
+/// both Forest and Lotus see the actor. Lotus visibility is required before any
+/// `lotus --from`. Pass the Lotus string into `forest-wallet`; it rejects Forest
+/// `Address::to_string()` (`f4…`) while `CurrentNetwork` stays Mainnet.
+async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
+    let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
+    let msg = send_from(
+        &FOREST_TEST_PRELOADED_ADDRESS,
+        cli_addr,
+        amount,
+        Backend::Local,
+    )?;
+    eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
+    let balance = poll_until_funded(cli_addr, Backend::Local).await?;
+    eprintln!("{cli_addr} funded on forest, balance: {balance}");
+    poll_until_lotus_actor(addr).await?;
+    Ok(addr)
 }
 
 async fn wait_for_cid(forest: &Client, cid: Cid) -> anyhow::Result<()> {
@@ -347,22 +373,48 @@ async fn wait_for_cid(forest: &Client, cid: Cid) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<Cid> {
+async fn lotus_send(
+    from: &Address,
+    to: &Address,
+    calldata: &[u8],
+    gas_limit: Option<u64>,
+) -> anyhow::Result<Cid> {
     let forest = forest_client()?;
-    let from = deployer().await?.to_string();
+    let from_s = from.to_string();
     let to_s = to.to_string();
     let params = hex::encode(calldata);
-    let out =
-        lotus_exec_retrying_mpool(&["send", "--from", &from, "--params-hex", &params, &to_s, "0"])
-            .await?;
+    let gas = gas_limit.map(|g| g.to_string());
+    let mut args = vec![
+        "send",
+        "--from",
+        from_s.as_str(),
+        "--params-hex",
+        params.as_str(),
+    ];
+    if let Some(gas) = gas.as_deref() {
+        args.extend(["--gas-limit", gas]);
+    }
+    args.extend([to_s.as_str(), "0"]);
+    let out = lotus_exec_retrying_mpool(&args).await?;
     let cid = Cid::from_str(
         out.lines()
             .last()
             .context("no cid from `lotus send`")?
             .trim(),
     )?;
-    wait_for_cid(&forest, cid).await?;
+    if let Some(limit) = gas_limit {
+        eprintln!("submitted at estimate {limit}: {cid}");
+        wait_for_cid(&forest, cid)
+            .await
+            .with_context(|| format!("transaction submitted at eth_estimateGas {limit} failed"))?;
+    } else {
+        wait_for_cid(&forest, cid).await?;
+    }
     Ok(cid)
+}
+
+async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<Cid> {
+    lotus_send(deployer().await?, to, calldata, None).await
 }
 
 async fn submit_at_gas_limit(
@@ -371,54 +423,7 @@ async fn submit_at_gas_limit(
     calldata: &[u8],
     gas_limit: u64,
 ) -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let from_s = from.to_string();
-    let to_s = to.to_string();
-    let params = hex::encode(calldata);
-    let gas = gas_limit.to_string();
-    let out = lotus_exec_retrying_mpool(&[
-        "send",
-        "--from",
-        &from_s,
-        "--params-hex",
-        &params,
-        "--gas-limit",
-        &gas,
-        &to_s,
-        "0",
-    ])
-    .await?;
-    let cid = Cid::from_str(
-        out.lines()
-            .last()
-            .context("no cid from `lotus send`")?
-            .trim(),
-    )?;
-    eprintln!("submitted at estimate {gas_limit}: {cid}");
-    wait_for_cid(&forest, cid).await?;
-    let hash = forest
-        .call(EthGetTransactionHashByCid::request((cid,))?)
-        .await
-        .map_err(|e| anyhow::anyhow!("{e:#}"))?
-        .context("no Ethereum transaction hash for submitted CID")?;
-    let receipt = forest
-        .call(EthGetTransactionReceipt::request((hash,))?)
-        .await
-        .map_err(|e| anyhow::anyhow!("{e:#}"))?
-        .context("no Ethereum receipt for submitted transaction")?;
-    // `EthTxReceipt` fields are module-private; read `status` through serde.
-    #[derive(serde::Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct ReceiptStatus {
-        status: crate::rpc::eth::EthUint64,
-    }
-    let status = serde_json::from_value::<ReceiptStatus>(serde_json::to_value(&receipt)?)?
-        .status
-        .0;
-    ensure!(
-        status == 1,
-        "estimated gas limit {gas_limit} must be sufficient; receipt status is {status}"
-    );
+    lotus_send(from, to, calldata, Some(gas_limit)).await?;
     Ok(())
 }
 
@@ -451,6 +456,7 @@ fn rpc_data(obj: &jsonrpsee::types::ErrorObjectOwned) -> Option<String> {
         .or_else(|| Some(raw.get().trim_matches('"').to_string()))
 }
 
+#[derive(Clone)]
 enum Expect {
     Success,
     SuccessGas,
@@ -469,6 +475,44 @@ struct SkipSenderCase {
     estimate: Option<Expect>,
 }
 
+impl SkipSenderCase {
+    fn success(name: &'static str, msg: EthCallMessage) -> Self {
+        Self {
+            name,
+            msg,
+            call: Some(Expect::Success),
+            estimate: Some(Expect::SuccessGas),
+        }
+    }
+
+    fn err_both(name: &'static str, msg: EthCallMessage, needle: &'static str) -> Self {
+        Self {
+            name,
+            msg,
+            call: Some(Expect::ErrContains(needle)),
+            estimate: Some(Expect::ErrContains(needle)),
+        }
+    }
+
+    fn revert_both(name: &'static str, msg: EthCallMessage, expect: Expect) -> Self {
+        Self {
+            name,
+            msg,
+            call: Some(expect.clone()),
+            estimate: Some(expect),
+        }
+    }
+
+    fn call_only(name: &'static str, msg: EthCallMessage, expect: Expect) -> Self {
+        Self {
+            name,
+            msg,
+            call: Some(expect),
+            estimate: None,
+        }
+    }
+}
+
 fn fil(whole: u64) -> EthBigInt {
     EthBigInt::from(TokenAmount::from_whole(whole))
 }
@@ -478,240 +522,156 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
     let missing = non_existent(0x01)?;
     let gas_price = Some(EthBigInt::from(GAS_PRICE));
     let custom = hex::encode(selector("CustomError()"));
+    let revert_empty = Expect::Reverted {
+        msg: "none",
+        data_contains: None,
+        data_eq: Some("0x"),
+    };
 
     let transfer = |from: Option<EthAddress>, to: Option<EthAddress>| EthCallMessage {
         from,
         to,
         ..Default::default()
     };
+    let errors_from_eoa = |sig: &'static str| EthCallMessage {
+        from: Some(env.eoa),
+        to: Some(env.errors),
+        data: Some(EthBytes(selector(sig))),
+        ..Default::default()
+    };
 
     Ok(vec![
-        SkipSenderCase {
-            name: "CreateFromContract",
-            msg: EthCallMessage {
+        SkipSenderCase::err_both(
+            "CreateFromContract",
+            EthCallMessage {
                 from: Some(env.coin),
                 to: None,
                 data: Some(initcode.clone()),
                 ..Default::default()
             },
-            call: Some(Expect::ErrContains("disallowed caller")),
-            estimate: Some(Expect::ErrContains("disallowed caller")),
-        },
-        SkipSenderCase {
-            name: "CreateFromNonExistent",
-            msg: EthCallMessage {
+            "disallowed caller",
+        ),
+        SkipSenderCase::success(
+            "CreateFromNonExistent",
+            EthCallMessage {
                 from: Some(missing),
                 to: None,
                 data: Some(initcode),
                 ..Default::default()
             },
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromContract",
-            msg: transfer(Some(env.coin), Some(env.eoa)),
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromContractWithGasPrice",
-            msg: EthCallMessage {
+        ),
+        SkipSenderCase::success("FromContract", transfer(Some(env.coin), Some(env.eoa))),
+        SkipSenderCase::success(
+            "FromContractWithGasPrice",
+            EthCallMessage {
                 from: Some(env.coin),
                 to: Some(env.eoa),
                 gas_price,
                 ..Default::default()
             },
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromContractToSelf",
-            msg: EthCallMessage {
+        ),
+        SkipSenderCase::success(
+            "FromContractToSelf",
+            EthCallMessage {
                 from: Some(env.coin),
                 to: Some(env.coin),
                 data: Some(EthBytes(get_balance_calldata(env.coin))),
                 ..Default::default()
             },
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromContractWithValue",
-            msg: EthCallMessage {
+        ),
+        SkipSenderCase::err_both(
+            "FromContractWithValue",
+            EthCallMessage {
                 from: Some(env.coin),
                 to: Some(env.eoa),
                 value: Some(fil(1)),
                 ..Default::default()
             },
-            call: Some(Expect::ErrContains("insufficient")),
-            estimate: Some(Expect::ErrContains("insufficient")),
-        },
-        SkipSenderCase {
-            name: "FromNonExistent",
-            msg: transfer(Some(missing), Some(env.eoa)),
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromNonExistentWithGasPrice",
-            msg: EthCallMessage {
+            "insufficient",
+        ),
+        SkipSenderCase::success("FromNonExistent", transfer(Some(missing), Some(env.eoa))),
+        SkipSenderCase::success(
+            "FromNonExistentWithGasPrice",
+            EthCallMessage {
                 from: Some(missing),
                 to: Some(env.eoa),
                 gas_price,
                 ..Default::default()
             },
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromNonExistentToContractWithData",
-            msg: EthCallMessage {
+        ),
+        SkipSenderCase::revert_both(
+            "FromNonExistentToContractWithData",
+            EthCallMessage {
                 from: Some(missing),
                 to: Some(env.errors),
                 data: Some(EthBytes(selector(FAIL_REVERT_EMPTY))),
                 ..Default::default()
             },
-            call: Some(Expect::Reverted {
-                msg: "none",
-                data_contains: None,
-                data_eq: Some("0x"),
-            }),
-            estimate: Some(Expect::Reverted {
-                msg: "none",
-                data_contains: None,
-                data_eq: Some("0x"),
-            }),
-        },
-        SkipSenderCase {
-            name: "FromNonExistentWithValue",
-            msg: EthCallMessage {
+            revert_empty.clone(),
+        ),
+        SkipSenderCase::call_only(
+            "FromNonExistentWithValue",
+            EthCallMessage {
                 from: Some(missing),
                 to: Some(env.eoa),
                 value: Some(fil(1)),
                 ..Default::default()
             },
-            call: Some(Expect::ErrContains("insufficient")),
-            estimate: None,
-        },
-        SkipSenderCase {
-            name: "FromEOA",
-            msg: transfer(Some(env.eoa), Some(env.eoa2)),
-            call: Some(Expect::Success),
-            estimate: Some(Expect::SuccessGas),
-        },
-        SkipSenderCase {
-            name: "FromNil",
-            msg: transfer(None, Some(env.eoa)),
-            call: Some(Expect::Success),
-            estimate: None,
-        },
-        SkipSenderCase {
-            name: "ValueOverBalance",
-            msg: EthCallMessage {
+            Expect::ErrContains("insufficient"),
+        ),
+        SkipSenderCase::success("FromEOA", transfer(Some(env.eoa), Some(env.eoa2))),
+        SkipSenderCase::call_only("FromNil", transfer(None, Some(env.eoa)), Expect::Success),
+        SkipSenderCase::call_only(
+            "ValueOverBalance",
+            EthCallMessage {
                 from: Some(env.eoa),
                 to: Some(missing),
                 value: Some(fil(11)),
                 ..Default::default()
             },
-            call: Some(Expect::ErrContains("insufficient")),
-            estimate: None,
-        },
-        SkipSenderCase {
-            name: "RevertDivideByZero",
-            msg: EthCallMessage {
-                from: Some(env.eoa),
-                to: Some(env.errors),
-                data: Some(EthBytes(selector(FAIL_DIV_ZERO))),
-                ..Default::default()
-            },
-            call: Some(Expect::Reverted {
+            Expect::ErrContains("insufficient"),
+        ),
+        SkipSenderCase::revert_both(
+            "RevertDivideByZero",
+            errors_from_eoa(FAIL_DIV_ZERO),
+            Expect::Reverted {
                 msg: "DivideByZero",
                 data_contains: Some(PANIC_DIV_ZERO.to_string()),
                 data_eq: None,
-            }),
-            estimate: Some(Expect::Reverted {
-                msg: "DivideByZero",
-                data_contains: Some(PANIC_DIV_ZERO.to_string()),
-                data_eq: None,
-            }),
-        },
-        SkipSenderCase {
-            name: "RevertAssert",
-            msg: EthCallMessage {
-                from: Some(env.eoa),
-                to: Some(env.errors),
-                data: Some(EthBytes(selector(FAIL_ASSERT))),
-                ..Default::default()
             },
-            call: Some(Expect::Reverted {
+        ),
+        SkipSenderCase::revert_both(
+            "RevertAssert",
+            errors_from_eoa(FAIL_ASSERT),
+            Expect::Reverted {
                 msg: "Assert",
                 data_contains: Some(PANIC_ASSERT.to_string()),
                 data_eq: None,
-            }),
-            estimate: Some(Expect::Reverted {
-                msg: "Assert",
-                data_contains: Some(PANIC_ASSERT.to_string()),
-                data_eq: None,
-            }),
-        },
-        SkipSenderCase {
-            name: "RevertWithReason",
-            msg: EthCallMessage {
-                from: Some(env.eoa),
-                to: Some(env.errors),
-                data: Some(EthBytes(selector(FAIL_REVERT_REASON))),
-                ..Default::default()
             },
-            call: Some(Expect::Reverted {
+        ),
+        SkipSenderCase::revert_both(
+            "RevertWithReason",
+            errors_from_eoa(FAIL_REVERT_REASON),
+            Expect::Reverted {
                 msg: "my reason",
                 data_contains: None,
                 data_eq: None,
-            }),
-            estimate: Some(Expect::Reverted {
-                msg: "my reason",
-                data_contains: None,
-                data_eq: None,
-            }),
-        },
-        SkipSenderCase {
-            name: "RevertEmpty",
-            msg: EthCallMessage {
-                from: Some(env.eoa),
-                to: Some(env.errors),
-                data: Some(EthBytes(selector(FAIL_REVERT_EMPTY))),
-                ..Default::default()
             },
-            call: Some(Expect::Reverted {
-                msg: "none",
-                data_contains: None,
-                data_eq: Some("0x"),
-            }),
-            estimate: Some(Expect::Reverted {
-                msg: "none",
-                data_contains: None,
-                data_eq: Some("0x"),
-            }),
-        },
-        SkipSenderCase {
-            name: "RevertCustomError",
-            msg: EthCallMessage {
-                from: Some(env.eoa),
-                to: Some(env.errors),
-                data: Some(EthBytes(selector(FAIL_CUSTOM))),
-                ..Default::default()
-            },
-            call: Some(Expect::Reverted {
-                msg: "",
-                data_contains: Some(custom.clone()),
-                data_eq: None,
-            }),
-            estimate: Some(Expect::Reverted {
+        ),
+        SkipSenderCase::revert_both(
+            "RevertEmpty",
+            errors_from_eoa(FAIL_REVERT_EMPTY),
+            revert_empty,
+        ),
+        SkipSenderCase::revert_both(
+            "RevertCustomError",
+            errors_from_eoa(FAIL_CUSTOM),
+            Expect::Reverted {
                 msg: "",
                 data_contains: Some(custom),
                 data_eq: None,
-            }),
-        },
+            },
+        ),
     ])
 }
 
@@ -828,13 +788,13 @@ async fn estimate_gas_skip_sender() -> anyhow::Result<()> {
 
 async fn funded_placeholder_sender() -> anyhow::Result<()> {
     let forest = forest_client()?;
-    let (_from_f4, from) = new_funded(PLACEHOLDER_FUND_AMT).await?;
-    let (_to_f4, to) = new_funded(ROUND_TRIP_FUND_AMT).await?;
+    let from = new_funded(PLACEHOLDER_FUND_AMT).await?;
+    let to = new_funded(ROUND_TRIP_FUND_AMT).await?;
     eth_call_msg(
         &forest,
         EthCallMessage {
-            from: Some(from),
-            to: Some(to),
+            from: Some(from.eth),
+            to: Some(to.eth),
             value: Some(fil(1)),
             ..Default::default()
         },
@@ -870,16 +830,17 @@ async fn eth_call(
     data: Vec<u8>,
     block: BlockNumberOrHash,
 ) -> anyhow::Result<EthBytes> {
-    let msg = EthCallMessage {
-        from: Some(from),
-        to: Some(to),
-        data: (!data.is_empty()).then_some(EthBytes(data)),
-        ..Default::default()
-    };
-    client
-        .call(EthCall::request((msg, block))?)
-        .await
-        .map_err(|e| anyhow::anyhow!("{e:#}"))
+    eth_call_msg(
+        client,
+        EthCallMessage {
+            from: Some(from),
+            to: Some(to),
+            data: (!data.is_empty()).then_some(EthBytes(data)),
+            ..Default::default()
+        },
+        block,
+    )
+    .await
 }
 
 fn within_parity(skip: u64, funded: u64) -> bool {
@@ -887,24 +848,17 @@ fn within_parity(skip: u64, funded: u64) -> bool {
     (skip as f64 - funded as f64).abs() / denom <= ESTIMATE_PARITY
 }
 
-async fn new_unfunded() -> anyhow::Result<(Address, EthAddress)> {
-    let addr = lotus_exec(&["wallet", "new", "delegated"])?;
-    let f4 = Address::from_str(&addr).context("parsing unfunded delegated address")?;
+async fn new_unfunded() -> anyhow::Result<Wallet> {
+    let cli = lotus_exec(&["wallet", "new", "delegated"])?;
+    let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
     let eth = EthAddress::from_filecoin_address(&f4)?;
-    Ok((f4, eth))
+    Ok(Wallet { cli, f4, eth })
 }
 
-async fn new_funded(amount: &str) -> anyhow::Result<(Address, EthAddress)> {
-    let (f4, eth) = new_unfunded().await?;
-    let msg = send_from(
-        &FOREST_TEST_PRELOADED_ADDRESS,
-        &f4.to_string(),
-        amount,
-        Backend::Local,
-    )?;
-    eprintln!("funding placeholder {f4} with {amount}, msg: {msg}");
-    poll_until_funded(&f4.to_string(), Backend::Local).await?;
-    Ok((f4, eth))
+async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
+    let wallet = new_unfunded().await?;
+    fund_on_chain(&wallet.cli, amount).await?;
+    Ok(wallet)
 }
 
 async fn round_trip_from_unfunded() -> anyhow::Result<()> {
@@ -913,36 +867,31 @@ async fn round_trip_from_unfunded() -> anyhow::Result<()> {
     let recipient = non_existent(0x01)?;
     let calldata = send_coin_calldata(recipient, 0);
 
-    let (from_f4, from_eth) = new_unfunded().await?;
-    let gas = estimate_gas(&forest, from_eth, coin.eth, calldata.clone())
+    let from = new_unfunded().await?;
+    let gas = estimate_gas(&forest, from.eth, coin.eth, calldata.clone())
         .await
         .context("eth_estimateGas from unfunded sender")?;
-    eprintln!("skip-sender estimate {gas} from {from_f4}");
+    eprintln!("skip-sender estimate {gas} from {}", from.cli);
 
     ensure!(
-        get_actor(&forest, from_f4).await?.is_none(),
-        "ephemeral placeholder for {from_f4} leaked onto chain during estimate"
+        get_actor(&forest, from.f4).await?.is_none(),
+        "ephemeral placeholder for {} leaked onto chain during estimate",
+        from.f4
     );
 
-    let fund_msg = send_from(
-        &FOREST_TEST_PRELOADED_ADDRESS,
-        &from_f4.to_string(),
-        ROUND_TRIP_FUND_AMT,
-        Backend::Local,
-    )?;
-    eprintln!("funding round-trip sender {from_f4}, msg: {fund_msg}");
-    poll_until_funded(&from_f4.to_string(), Backend::Local).await?;
-    let actor = poll_until_actor(from_f4).await?;
+    fund_on_chain(&from.cli, ROUND_TRIP_FUND_AMT).await?;
+    let actor = poll_until_actor(from.f4).await?;
     ensure!(
         actor.sequence == 0,
-        "pre-submit nonce of {from_f4} is {}, expected 0 (placeholder must not have incremented it)",
+        "pre-submit nonce of {} is {}, expected 0 (placeholder must not have incremented it)",
+        from.f4,
         actor.sequence
     );
 
-    submit_at_gas_limit(&from_f4, &coin.f4, &calldata, gas).await?;
-    let after = get_actor(&forest, from_f4)
+    submit_at_gas_limit(&from.f4, &coin.f4, &calldata, gas).await?;
+    let after = get_actor(&forest, from.f4)
         .await?
-        .with_context(|| format!("actor {from_f4} missing after successful submit"))?;
+        .with_context(|| format!("actor {} missing after successful submit", from.f4))?;
     ensure!(
         after.sequence == 1,
         "successful tx must use nonce 0; on-chain nonce is now {}",
@@ -959,8 +908,8 @@ async fn parity_with_existing_sender() -> anyhow::Result<()> {
     let skip = estimate_gas(&forest, non_existent(0x42)?, coin.eth, calldata.clone())
         .await
         .context("eth_estimateGas from missing from")?;
-    let (_placeholder, placeholder_eth) = new_funded(ROUND_TRIP_FUND_AMT).await?;
-    let funded = estimate_gas(&forest, placeholder_eth, coin.eth, calldata)
+    let placeholder = new_funded(ROUND_TRIP_FUND_AMT).await?;
+    let funded = estimate_gas(&forest, placeholder.eth, coin.eth, calldata)
         .await
         .context("eth_estimateGas from funded placeholder")?;
     eprintln!("parity skip={skip} funded={funded}");
@@ -976,13 +925,13 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
     let nested = nested_gas().await?;
     let calldata = recurse_calldata(NESTED_DEPTH);
 
-    let (from_f4, from_eth) = new_unfunded().await?;
-    let gas = estimate_gas(&forest, from_eth, nested.eth, calldata.clone())
+    let from = new_unfunded().await?;
+    let gas = estimate_gas(&forest, from.eth, nested.eth, calldata.clone())
         .await
         .context("skip-sender eth_estimateGas recurse(100)")?;
 
-    let (_placeholder, placeholder_eth) = new_funded(RECURSIVE_FUND_AMT).await?;
-    let funded = estimate_gas(&forest, placeholder_eth, nested.eth, calldata.clone())
+    let placeholder = new_funded(RECURSIVE_FUND_AMT).await?;
+    let funded = estimate_gas(&forest, placeholder.eth, nested.eth, calldata.clone())
         .await
         .context("funded-placeholder eth_estimateGas recurse(100)")?;
     eprintln!("recursive skip={gas} funded={funded}");
@@ -991,15 +940,8 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
         "recursive skip-sender estimate {gas} vs funded-placeholder {funded} exceeds 10%"
     );
 
-    let fund_msg = send_from(
-        &FOREST_TEST_PRELOADED_ADDRESS,
-        &from_f4.to_string(),
-        RECURSIVE_FUND_AMT,
-        Backend::Local,
-    )?;
-    eprintln!("funding recursive sender {from_f4}, msg: {fund_msg}");
-    poll_until_funded(&from_f4.to_string(), Backend::Local).await?;
-    submit_at_gas_limit(&from_f4, &nested.f4, &calldata, gas).await
+    fund_on_chain(&from.cli, RECURSIVE_FUND_AMT).await?;
+    submit_at_gas_limit(&from.f4, &nested.f4, &calldata, gas).await
 }
 
 async fn call_sender_identity() -> anyhow::Result<()> {
@@ -1036,22 +978,13 @@ async fn call_sender_identity() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn isolation_call(
-    forest: &Client,
-    from: EthAddress,
-    to: EthAddress,
-    block: BlockNumberOrHash,
-) -> anyhow::Result<EthBytes> {
-    eth_call(forest, from, to, Vec::new(), block).await
-}
-
 async fn skip_sender_state_isolation() -> anyhow::Result<()> {
     let forest = forest_client()?;
     let to = EthAddress::from_filecoin_address(deployer().await?)?;
     let from = non_existent(0x03)?;
 
-    let first = isolation_call(&forest, from, to, latest()).await?;
-    let second = isolation_call(&forest, from, to, latest()).await?;
+    let first = eth_call(&forest, from, to, Vec::new(), latest()).await?;
+    let second = eth_call(&forest, from, to, Vec::new(), latest()).await?;
     ensure!(
         first == second,
         "repeated skip-sender eth_call results must match"
@@ -1067,7 +1000,7 @@ async fn skip_sender_state_isolation() -> anyhow::Result<()> {
     for _ in 0..8 {
         futs.push(async move {
             let client = forest_client()?;
-            isolation_call(&client, from, to, latest()).await
+            eth_call(&client, from, to, Vec::new(), latest()).await
         });
     }
     let concurrent = futures::future::try_join_all(futs).await?;
@@ -1094,83 +1027,69 @@ async fn skip_sender_historical_call() -> anyhow::Result<()> {
         head.0
     );
     let hist = BlockNumberOrHash::from_block_number((head.0 - 2) as i64);
-    isolation_call(&forest, from, to, hist)
+    eth_call(&forest, from, to, Vec::new(), hist)
         .await
         .context("historical skip-sender eth_call at head-2")?;
     Ok(())
 }
 
-async fn cross_contract_from_contract() -> anyhow::Result<()> {
+async fn assert_call_b(
+    from: EthAddress,
+    sig: &str,
+    expected: u8,
+    label: &str,
+) -> anyhow::Result<()> {
     let forest = forest_client()?;
-    let (a, b) = linked_contracts().await?;
+    let (a, _) = linked_contracts().await?;
     assert_abi_u256(
-        eth_call(
-            &forest,
-            b.eth,
-            a.eth,
-            selector(CALL_B_AND_READ_BACK),
-            latest(),
-        )
-        .await
-        .context("callBAndReadBack from contract from")?,
+        eth_call(&forest, from, a.eth, selector(sig), latest())
+            .await
+            .with_context(|| label.to_string())?,
+        expected,
+        label,
+    )
+}
+
+async fn cross_contract_from_contract() -> anyhow::Result<()> {
+    let (_, b) = linked_contracts().await?;
+    assert_call_b(
+        b.eth,
+        CALL_B_AND_READ_BACK,
         42,
         "cross-contract callback from contract from",
     )
+    .await
 }
 
 async fn cross_contract_from_missing() -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let (a, _b) = linked_contracts().await?;
-    assert_abi_u256(
-        eth_call(
-            &forest,
-            non_existent(0x10)?,
-            a.eth,
-            selector(CALL_B_AND_READ_BACK),
-            latest(),
-        )
-        .await
-        .context("callBAndReadBack from missing from")?,
+    assert_call_b(
+        non_existent(0x10)?,
+        CALL_B_AND_READ_BACK,
         42,
         "cross-contract callback from missing from",
     )
+    .await
 }
 
 async fn cross_contract_from_eoa() -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let (a, _b) = linked_contracts().await?;
-    let (_from_f4, from) = new_funded(ROUND_TRIP_FUND_AMT).await?;
-    assert_abi_u256(
-        eth_call(
-            &forest,
-            from,
-            a.eth,
-            selector(CALL_B_AND_READ_BACK),
-            latest(),
-        )
-        .await
-        .context("callBAndReadBack from EOA from")?,
+    let from = new_funded(ROUND_TRIP_FUND_AMT).await?;
+    assert_call_b(
+        from.eth,
+        CALL_B_AND_READ_BACK,
         42,
         "cross-contract callback from EOA from",
     )
+    .await
 }
 
 async fn cross_contract_double_callback() -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let (a, _b) = linked_contracts().await?;
-    assert_abi_u256(
-        eth_call(
-            &forest,
-            non_existent(0x11)?,
-            a.eth,
-            selector(CALL_B_AND_DOUBLE),
-            latest(),
-        )
-        .await
-        .context("callBAndDouble from missing from")?,
+    assert_call_b(
+        non_existent(0x11)?,
+        CALL_B_AND_DOUBLE,
         84,
         "cross-contract double callback from missing from",
     )
+    .await
 }
 
 fn assert_abi_u256(ret: EthBytes, expected: u8, label: &str) -> anyhow::Result<()> {
