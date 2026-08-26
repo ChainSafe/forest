@@ -456,10 +456,20 @@ jobs:
         run: ./scripts/tests/calibnet_db_migration.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   local-devnet-check:
-    name: Devnet checks
+    name: Devnet checks${{ matrix.label }}
     runs-on: ubuntu-24.04
     needs:
       - build-ubuntu
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: ""
+            dir: scripts/devnet
+            proofs_volume: devnet_filecoin-proofs
+          - label: " (Forest miner)"
+            dir: scripts/devnet-forest-miner
+            proofs_volume: devnet-forest-miner_filecoin-proofs
     env: # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
@@ -471,9 +481,9 @@ jobs:
       - name: Load cache into volume
         if: steps.cache.outputs.cache-hit == 'true'
         run: |
-          docker volume create devnet_filecoin-proofs
+          docker volume create "${{ matrix.proofs_volume }}"
           docker run --rm \
-            -v devnet_filecoin-proofs:/proofs \
+            -v "${{ matrix.proofs_volume }}":/proofs \
             -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
             "$SHELL_IMAGE" \
             sh -c "cp /cache/* /proofs"
@@ -482,10 +492,10 @@ jobs:
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
-        run: ./scripts/devnet/setup.sh
+        run: ./${{ matrix.dir }}/setup.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Devnet check
-        run: ./scripts/devnet/check.sh
+        run: ./${{ matrix.dir }}/check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Add forest binaries to PATH
         run: |
@@ -494,6 +504,7 @@ jobs:
       - name: Devnet tests
         run: |
           set -euo pipefail
+          export DEVNET_DIR=${{ matrix.dir }}
           source ./scripts/devnet/test_harness.sh
           devnet_test_env_init
           forest-dev tests mpool
@@ -507,7 +518,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           docker run --rm \
-            -v devnet_filecoin-proofs:/proofs \
+            -v "${{ matrix.proofs_volume }}":/proofs \
             -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
             "$SHELL_IMAGE" \
             sh -c "cp /proofs/* /cache"
@@ -600,7 +611,6 @@ jobs:
       - calibnet-api-test-stateful
       - db-migration-checks
       - local-devnet-check
-      # - local-devnet-curio-check
       - bootstrap-checks-forest
       - bootstrap-checks-lotus
     name: Integration tests status
