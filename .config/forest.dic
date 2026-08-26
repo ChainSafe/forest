@@ -1,4 +1,4 @@
-295
+296
 ABI
 Algorand/M
 API's
@@ -36,6 +36,7 @@ bootstrapper/S
 BuildKit
 butterflynet
 bytecode
+cacheable
 Caddy
 calibnet
 calldata
