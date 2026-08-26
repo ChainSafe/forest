@@ -24,20 +24,20 @@ const NETWORK: &str = "testnetname";
 const DRAND_HASH: &str = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
 
 /// Owns what [`PubsubTopicCfg`] borrows.
-struct TopicCfgOwner {
+pub(in crate::libp2p) struct TopicCfgOwner {
     network_name: GenesisNetworkName,
     drand_chain_hashes: Vec<String>,
 }
 
 impl TopicCfgOwner {
-    fn new() -> Self {
+    pub(in crate::libp2p) fn new() -> Self {
         Self {
             network_name: NETWORK.into(),
             drand_chain_hashes: vec![DRAND_HASH.to_string()],
         }
     }
 
-    fn cfg(&self) -> PubsubTopicCfg<'_> {
+    pub(in crate::libp2p) fn cfg(&self) -> PubsubTopicCfg<'_> {
         PubsubTopicCfg {
             network_name: &self.network_name,
             drand_chain_hashes: &self.drand_chain_hashes,
@@ -56,8 +56,8 @@ fn allowed_topics() -> Vec<IdentTopic> {
 
 /// Swarm using Forest's subscription filter (the code under test).
 fn filtered_swarm() -> Swarm<Gossipsub> {
+    let owner = TopicCfgOwner::new();
     Swarm::new_ephemeral_tokio(|identity| {
-        let owner = TopicCfgOwner::new();
         build_gossipsub(&identity, owner.cfg()).expect("failed to build gossipsub")
     })
 }

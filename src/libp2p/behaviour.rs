@@ -24,9 +24,16 @@ use crate::{
 };
 use ahash::{HashMap, HashSet};
 use libp2p::{
-    Multiaddr, allow_block_list, connection_limits, gossipsub::{
-        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAuthenticity, MessageId, PublishError, SubscriptionError, TopicHash, ValidationMode, WhitelistSubscriptionFilter,
-    }, identity::{Keypair, PeerId}, kad::QueryId, metrics::{Metrics, Recorder}, ping, request_response, swarm::NetworkBehaviour,
+    Multiaddr, allow_block_list, connection_limits,
+    gossipsub::{
+        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAuthenticity, MessageId,
+        PublishError, SubscriptionError, TopicHash, ValidationMode, WhitelistSubscriptionFilter,
+    },
+    identity::{Keypair, PeerId},
+    kad::QueryId,
+    metrics::{Metrics, Recorder},
+    ping, request_response,
+    swarm::NetworkBehaviour,
 };
 use tracing::info;
 

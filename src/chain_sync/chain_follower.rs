@@ -18,16 +18,23 @@
 
 use super::network_context::SyncNetworkContext;
 use crate::{
-    beacon::{Beacon, BeaconEntry}, blocks::{Block, FullTipset, Tipset, TipsetKey}, chain::{ChainStore, index::ResolveNullTipset}, chain_sync::{
+    beacon::{Beacon, BeaconEntry},
+    blocks::{Block, FullTipset, Tipset, TipsetKey},
+    chain::{ChainStore, index::ResolveNullTipset},
+    chain_sync::{
         ForkSyncInfo, ForkSyncStage, SyncStatus, SyncStatusReport, TipsetValidator,
         bad_block_cache::{BadBlockCache, SeenBlockCache},
         metrics,
         tipset_syncer::{TipsetSyncerError, validate_tipset},
         validation::GossipBlockValidator,
-    }, libp2p::{NetworkEvent, NetworkMessage, PubsubMessage, PubsubTopic, hello::HelloRequest}, message_pool::MessagePool, networks::calculate_expected_epoch, prelude::*, shim::clock::ChainEpoch, state_manager::StateManager, utils::{
-        flume::FlumeSenderExt as _,
-        misc::env::env_or_default_logged,
     },
+    libp2p::{NetworkEvent, NetworkMessage, PubsubMessage, PubsubTopic, hello::HelloRequest},
+    message_pool::MessagePool,
+    networks::calculate_expected_epoch,
+    prelude::*,
+    shim::clock::ChainEpoch,
+    state_manager::StateManager,
+    utils::{flume::FlumeSenderExt as _, misc::env::env_or_default_logged},
 };
 use arc_swap::ArcSwap;
 use chrono::Utc;
@@ -354,12 +361,8 @@ async fn chain_follower(
         let last_drand_entry = last_drand_entry.clone();
         let cancellation_token = cancellation_token.clone();
         async move {
-            drand_gossip_watchdog(
-                state_manager,
-                network,
-                last_drand_entry,
-                cancellation_token,
-            ).await;
+            drand_gossip_watchdog(state_manager, network, last_drand_entry, cancellation_token)
+                .await;
         }
     });
 

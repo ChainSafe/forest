@@ -16,4 +16,5 @@ pub mod tests {
     // `pub` so that helpers such as `drand::new_beacon_quicknet` can be shared with
     // tests in other modules.
     pub mod drand;
+    pub mod fake_drand;
 }

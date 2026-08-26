@@ -89,7 +89,7 @@ pub const PUBSUB_DRAND_STR: &str = "/drand/pubsub/v0.0.0";
 /// Gossipsub topics Forest uses. Subscription, the subscription-filter
 /// whitelist, and peer-score params all iterate the variants, so adding one is
 /// handled everywhere.
-#[derive(Copy, Clone, Debug, strum::EnumIter, derive_more::Display)]
+#[derive(Copy, Clone, Debug, strum::EnumIter, derive_more::Display, Eq, PartialEq)]
 pub enum PubsubTopic {
     #[display("{PUBSUB_BLOCK_STR}")]
     Blocks,
@@ -524,15 +524,12 @@ async fn handle_network_message(
         }
         NetworkMessage::ResubscribeTopic(pubsub_topic) => {
             for (topic_hash, kind) in pubsub_topic_kinds.iter() {
-                if !matches!(kind, pubsub_topic) {
+                if !pubsub_topic.eq(kind) {
                     continue;
                 }
 
                 let topic = IdentTopic::new(topic_hash.as_str());
-                let mesh_peers_before = swarm
-                    .behaviour()
-                    .mesh_peers(&topic_hash)
-                    .count();
+                let mesh_peers_before = swarm.behaviour().mesh_peers(&topic_hash).count();
 
                 swarm.behaviour_mut().unsubscribe(&topic);
 
