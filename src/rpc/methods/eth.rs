@@ -12,8 +12,6 @@ pub(crate) mod trace;
 pub mod types;
 mod utils;
 
-pub(crate) use utils::decode_revert_reason;
-
 use crate::utils::encoding::hex;
 pub use bloom::Bloom;
 pub(crate) use bloom::store_block_logs_bloom;
@@ -58,7 +56,6 @@ use crate::shim::actors::{eam, is_evm_actor, system};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
-use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
@@ -1990,17 +1987,6 @@ async fn recover_estimate_gas_error(
     estimate_err.context("failed to estimate gas").into()
 }
 
-/// Builds an eth `ExecutionReverted` (code 3) from a failed message's exit code and return
-/// payload, decoding the revert reason and data.
-fn execution_reverted_error(
-    exit_code: impl Into<ExitCode>,
-    return_data: RawBytes,
-    vm_error: &str,
-) -> EthErrors {
-    let (data, reason) = decode_revert_reason(return_data);
-    EthErrors::execution_reverted(exit_code.into(), &reason, vm_error, &data)
-}
-
 fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> bool {
     match result {
         Err(e) => matches!(
@@ -2059,7 +2045,7 @@ async fn apply_message(
         None => return Err(anyhow::anyhow!("no message receipt in execution result")),
         Some(receipt) => {
             if !receipt.exit_code().is_success() {
-                return Err(execution_reverted_error(
+                return Err(EthErrors::execution_reverted_from_result(
                     receipt.exit_code(),
                     receipt.return_data(),
                     &invoc_res.error,
@@ -2112,7 +2098,7 @@ pub async fn eth_gas_search(
         // Match Lotus: a code-3 `ExecutionReverted` with the decoded revert data, so eth tooling
         // gets the code and can ABI-decode the reason.
         let vm_error = apply_ret.failure_info().unwrap_or_default();
-        return Err(execution_reverted_error(
+        return Err(EthErrors::execution_reverted_from_result(
             apply_ret.exit_code(),
             apply_ret.return_data(),
             &vm_error,
@@ -4269,7 +4255,11 @@ mod test {
             events_root: None,
         });
 
-        let err = execution_reverted_error(receipt.exit_code(), receipt.return_data(), "backtrace");
+        let err = EthErrors::execution_reverted_from_result(
+            receipt.exit_code(),
+            receipt.return_data(),
+            "backtrace",
+        );
         let EthErrors::ExecutionReverted { message, data } = err.clone() else {
             panic!("expected ExecutionReverted, got {err:?}");
         };

@@ -1,10 +1,12 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::utils::decode_revert_reason;
 use crate::rpc::error::RpcErrorData;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::utils::encoding::hex;
+use fvm_ipld_encoding::RawBytes;
 use serde::Serialize;
 use std::fmt::Debug;
 use thiserror::Error;
@@ -52,6 +54,17 @@ impl EthErrors {
             ),
             data: hex::encode_prefixed(data),
         }
+    }
+
+    /// Builds an eth `ExecutionReverted` (code 3) from a failed message's exit code and return
+    /// payload, decoding the revert reason and data.
+    pub fn execution_reverted_from_result(
+        exit_code: impl Into<ExitCode>,
+        return_data: RawBytes,
+        vm_error: &str,
+    ) -> Self {
+        let (data, reason) = decode_revert_reason(return_data);
+        Self::execution_reverted(exit_code.into(), &reason, vm_error, &data)
     }
 
     /// Prepends `prefix` to the message, keeping the code and data. Needed because the RPC layer
