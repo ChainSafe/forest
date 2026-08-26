@@ -474,6 +474,7 @@ async fn prefill_rpc_caches_for_tipset(
                 if let Err(e) = EthEventHandler::collect_events(
                     &state_manager,
                     &ts,
+                    None,
                     Some(&CollectEventsCachePrefillingMatcher),
                     SkipEvent::OnUnresolvedAddress,
                     &mut collected_events,
@@ -600,6 +601,7 @@ fn maybe_start_rpc_service(
             let sync_status = chain_follower.sync_status.shallow_clone();
             let sync_network_context = chain_follower.network.shallow_clone();
             let tipset_send = chain_follower.tipset_sender.clone();
+            let block_validation_subscriber = chain_follower.block_validation_subscriber();
             let keystore = ctx.keystore.shallow_clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
             let nonce_tracker = NonceTracker::new();
@@ -624,6 +626,7 @@ fn maybe_start_rpc_service(
                         start_time,
                         shutdown,
                         tipset_send,
+                        block_validation_subscriber,
                         snapshot_progress_tracker,
                         mpool_locker,
                         nonce_tracker,
