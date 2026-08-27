@@ -577,7 +577,7 @@ fn trace_evm_private(
             let dp = decode_params::<evm12::DelegateCallParams>(&trace.msg)?;
 
             let output = decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec)
-                .map_err(|e| anyhow::anyhow!("failed to decode delegate-call return: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("failed to decode delegate-call return: {e}"))?;
 
             Ok((
                 Some(EthTrace {

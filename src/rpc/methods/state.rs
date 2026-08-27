@@ -1903,7 +1903,7 @@ impl RpcMethod<2> for StateReadState {
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
         let state_json = load_and_serialize_actor_state(ctx.db(), &actor.code, &actor.state)
-            .map_err(|e| anyhow::anyhow!("Failed to load actor state: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to load actor state: {e}"))?;
         Ok(ApiActorState {
             balance: actor.balance.clone().into(),
             code: actor.code,
@@ -3481,7 +3481,7 @@ impl std::fmt::Display for StateActorCodeCidsOutput {
             .max()
             .unwrap_or(0);
         for (name, cid) in &self.actor_cids {
-            writeln!(f, "  {:width$} : {}", name, cid, width = longest_name)?;
+            writeln!(f, "  {name:longest_name$} : {cid}")?;
         }
         Ok(())
     }
