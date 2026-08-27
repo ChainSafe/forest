@@ -145,7 +145,7 @@ const RPC_RETRY_DELAY: Duration = Duration::from_secs(15);
 
 /// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
 /// [`POLL_WAIT_TIME`] between attempts.
-async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
+pub async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = anyhow::Result<Option<T>>>,
@@ -186,14 +186,30 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-/// Run a `lotus` command, retrying while it fails with the transient mpool `check has failed`
-/// (the mpool briefly lags the chain head just after the sender is funded, so a submit can be
-/// rejected until it catches up). Any other failure propagates immediately.
-pub async fn lotus_exec_retrying_mpool(args: &[&str]) -> anyhow::Result<String> {
+/// True for a `lotus` CLI failure that clears once the node catches up to the chain head: the
+/// mpool briefly rejecting a submit just after the sender is funded (`check has failed`,
+/// `failed to get nonce from mempool`), or a node that trails the funding block being unable to
+/// resolve the freshly-created sender actor (`actor not found`, `resolution lookup failed`; the
+/// Lotus node trails Forest by a block on the forest-produced devnet).
+fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
+    let msg = format!("{e:#}");
+    [
+        "check has failed",
+        "failed to get nonce from mempool",
+        "actor not found",
+        "resolution lookup failed",
+    ]
+    .iter()
+    .any(|s| msg.contains(s))
+}
+
+/// Run a `lotus` command, retrying while it fails with a transient error (see
+/// [`is_transient_lotus_error`]). Any other failure propagates immediately.
+pub async fn lotus_exec_retrying_transient(args: &[&str]) -> anyhow::Result<String> {
     poll(&format!("lotus {}", args.join(" ")), || async {
         match lotus_exec(args) {
             Ok(out) => Ok(Some(out)),
-            Err(e) if format!("{e:#}").contains("check has failed") => Ok(None),
+            Err(e) if is_transient_lotus_error(&e) => Ok(None),
             Err(e) => Err(e),
         }
     })
