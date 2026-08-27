@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7414](https://github.com/ChainSafe/forest/issues/7414): New `drand_http_fetch_total` metric, counting the drand rounds that had to be fetched over HTTP rather than served from the in-memory cache.
+
 ### Changed
 
 - [#7535](https://github.com/ChainSafe/forest/pull/7535): `Filecoin.Version` now reports the API version of the endpoint being served (`1.5.0` over `/rpc/v0`, `2.3.0` over `/rpc/v1`), matching Lotus, and `Filecoin.SyncSubmitBlock` no longer requires the node to be in the `Synced` state and waits up to one block time for the submitted block to become the chain head. Together these let Forest act as the full node for an external block producer such as `lotus-miner` or `curio` (verified on a local devnet, calibnet/mainnet tests to come).
