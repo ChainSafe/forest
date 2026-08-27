@@ -392,6 +392,9 @@ ref_option_ref = "deny"
 cast_lossless = "deny"
 redundant_clone = "deny"
 uninlined_format_args = "warn"
+or_fun_call = "warn"
+assigning_clones = "warn"
+stable_sort_primitive = "warn"
 
 [workspace]
 members = ["interop-tests"]

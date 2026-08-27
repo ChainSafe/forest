@@ -707,7 +707,7 @@ mod test {
                         .get(1)
                         .filter(|s| !s.is_empty())
                         .and_then(|s| s.parse::<u64>().ok())
-                        .unwrap_or(content_len.saturating_sub(1));
+                        .unwrap_or_else(|| content_len.saturating_sub(1));
 
                     // Handle empty content case
                     if content_len == 0 {

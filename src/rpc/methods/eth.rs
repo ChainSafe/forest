@@ -3541,9 +3541,9 @@ impl RpcMethod<1> for EthGetFilterChanges {
                         &Arc::new(ParsedFilter::new_with_tipset(ParsedFilterTipsets::Range(
                             // heaviest tipset doesn't have events because its messages haven't been executed yet
                             RangeInclusive::new(
-                                tipset_filter
-                                    .collected()
-                                    .unwrap_or(ctx.chain_store().heaviest_tipset().epoch() - 1),
+                                tipset_filter.collected().unwrap_or_else(|| {
+                                    ctx.chain_store().heaviest_tipset().epoch() - 1
+                                }),
                                 // Use -1 to indicate that the range extends until the latest available tipset.
                                 -1,
                             ),
@@ -3745,7 +3745,7 @@ async fn debug_trace_transaction(
     let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
     let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None, cancellation_token)
         .await?
-        .ok_or(ServerError::internal_error("transaction not found", None))?;
+        .ok_or_else(|| ServerError::internal_error("transaction not found", None))?;
 
     // Mempool/pending transactions cannot be traced — they have no containing tipset.
     if eth_txn.block_hash == EthHash::default() {
@@ -4010,7 +4010,7 @@ impl RpcMethod<1> for EthTraceTransaction {
         let eth_hash = EthHash::from_str(&tx_hash).context("invalid transaction hash")?;
         let eth_txn = get_eth_transaction_by_hash(&ctx, &eth_hash, None, &cancellation_token)
             .await?
-            .ok_or(ServerError::internal_error("transaction not found", None))?;
+            .ok_or_else(|| ServerError::internal_error("transaction not found", None))?;
 
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver

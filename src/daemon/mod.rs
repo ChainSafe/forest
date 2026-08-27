@@ -295,7 +295,10 @@ async fn create_p2p_service(
 ) -> anyhow::Result<Libp2pService> {
     // if bootstrap peers are not set, set them
     if config.network.bootstrap_peers.is_empty() {
-        config.network.bootstrap_peers = ctx.state_manager.chain_config().bootstrap_peers.clone();
+        config
+            .network
+            .bootstrap_peers
+            .clone_from(&ctx.state_manager.chain_config().bootstrap_peers);
     }
 
     let peer_manager = Arc::new(PeerManager::default());
