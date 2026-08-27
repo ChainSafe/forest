@@ -738,7 +738,7 @@ pub mod structured {
     fn to_return_trace(ret: CallTreeReturn) -> ReturnTrace {
         match ret {
             CallTreeReturn::Return(return_code) => {
-                let exit_code = return_code.exit_code.unwrap_or(0.into());
+                let exit_code = return_code.exit_code.unwrap_or_else(|| 0.into());
                 let (bytes, codec) = to_bytes_codec(return_code.data);
                 ReturnTrace {
                     exit_code,

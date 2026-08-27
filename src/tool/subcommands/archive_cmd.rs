@@ -575,7 +575,7 @@ where
     let network =
         NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid());
 
-    let epoch = epoch_option.unwrap_or(ts.epoch());
+    let epoch = epoch_option.unwrap_or_else(|| ts.epoch());
 
     let finality = ChainConfig::from_chain(&network)
         .policy

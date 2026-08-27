@@ -282,7 +282,7 @@ impl StateManager {
             let default = std::thread::available_parallelism()
                 .ok()
                 .and_then(|n| NonZeroUsize::new(n.get() / 2))
-                .unwrap_or(nonzero!(1usize));
+                .unwrap_or_else(|| nonzero!(1usize));
             crate::utils::misc::env::env_or_default("FOREST_RPC_REPLAY_CONCURRENCY", default)
         });
         VALUE.get()
