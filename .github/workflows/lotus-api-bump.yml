@@ -23,10 +23,12 @@ jobs:
           # largest version for calibration network compatibility.
           if [[ "$(printf '%s\n' "$TAG" "$CURRENT_TAG" | sort -V | tail -n1)" != "$CURRENT_TAG" || "$CURRENT_TAG" == "$TAG"* ]]; then
             echo "Updating Lotus version to $TAG"
-            sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-calibnet/" ./scripts/tests/api_compare/.env
-            sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-calibnet/" ./scripts/tests/bootstrapper/.env
-            sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-calibnet/" ./scripts/tests/snapshot_parity/.env
-            sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-2k/" ./scripts/devnet/.env
+            for env in ./scripts/tests/api_compare/.env ./scripts/tests/bootstrapper/.env ./scripts/tests/snapshot_parity/.env; do
+              sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-calibnet/" "$env"
+            done
+            for env in ./scripts/devnet/.env ./scripts/devnet-forest-miner/.env; do
+              sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-2k/" "$env"
+            done
           else
             echo "Lotus version is already up to date"
           fi

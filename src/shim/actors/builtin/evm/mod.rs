@@ -3,10 +3,13 @@
 
 use crate::lotus_json::HasLotusJson;
 use ::cid::Cid;
-use fil_actor_evm_state::v18::{BytecodeHash, Tombstone, TransientData};
+use fil_actor_evm_state::v18::{BytecodeHash, TransientData};
 use fvm_shared2::address::Address;
 use serde::Serialize;
 use spire_enum::prelude::delegated_enum;
+
+pub use fil_actor_evm_state::evm_shared::v18::uints::U256;
+pub use fil_actor_evm_state::v18::Tombstone;
 
 /// EVM actor method.
 pub type Method = fil_actor_evm_state::v10::Method;
