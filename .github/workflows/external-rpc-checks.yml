@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       forest_image:
-        description: "Test this image instead of building one. Must be a `fat` image, so that the filecoin proof parameters are already present."
+        description: "Test this image instead of building one. Prefer a `fat` image: it ships the filecoin proof parameters, which a slim one downloads on first boot instead."
         required: false
         type: string
   pull_request:
