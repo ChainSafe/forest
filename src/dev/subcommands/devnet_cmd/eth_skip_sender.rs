@@ -235,7 +235,7 @@ async fn deploy_hex(label: &str, bytecode: &str, container_path: &str) -> anyhow
 
     let from = deployer.to_string();
     let deploy =
-        lotus_exec_retrying_mpool(&["evm", "deploy", "--from", &from, "--hex", container_path])
+        lotus_exec_retrying_transient(&["evm", "deploy", "--from", &from, "--hex", container_path])
             .await?;
     let f4 = deploy
         .lines()
@@ -408,7 +408,7 @@ async fn lotus_send(
         args.extend(["--gas-limit", gas]);
     }
     args.extend([to_s.as_str(), "0"]);
-    let out = lotus_exec_retrying_mpool(&args).await?;
+    let out = lotus_exec_retrying_transient(&args).await?;
     let cid = Cid::from_str(
         out.lines()
             .last()

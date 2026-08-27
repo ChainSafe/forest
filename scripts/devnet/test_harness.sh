@@ -6,10 +6,13 @@
 # sender causes nonce contention. We fund a dedicated wallet instead.
 
 TEST_HARNESS_PARENT_PATH=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+# Devnet directory whose `.env`/config to load. Defaults to this harness's own directory (the
+# lotus-produced devnet); the forest-produced devnet sets `DEVNET_DIR` to reuse this same harness.
+DEVNET_DIR="${DEVNET_DIR:-${TEST_HARNESS_PARENT_PATH}}"
 # Export everything in `.env` so the test binaries inherit the devnet config (ports, data dirs)
 # as environment variables; `source` on its own would only set shell variables.
 set -a
-source "${TEST_HARNESS_PARENT_PATH}/.env"
+source "${DEVNET_DIR}/.env"
 set +a
 
 export FOREST_CLI_PATH="${FOREST_CLI_PATH:-forest-cli}"
@@ -24,8 +27,11 @@ function devnet_test_env_init {
   local tmp
   tmp="$(mktemp --directory)"
 
+  # The funded genesis sender (the miner's pre-seal key) is imported into Forest's keystore as its
+  # default on both devnets, so read it from Forest. The Lotus node is unfunded on the
+  # forest-produced devnet, so `lotus wallet default` cannot be used there.
   local genesis_addr
-  genesis_addr="$(docker exec lotus lotus wallet default)"
+  genesis_addr="$(${FOREST_WALLET_PATH} --remote-wallet default)"
 
   # Fresh sender the miner never touches; mirror to the remote keystore so both
   # `Backend::Local` and `Backend::Remote` variants work.
