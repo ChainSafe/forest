@@ -168,7 +168,9 @@ async fn sender_addr() -> anyhow::Result<&'static Address> {
             eprintln!("funding sender {addr} with {SENDER_FUND_AMT}, msg: {msg}");
             let balance = poll_until_funded(&addr, Backend::Local).await?;
             eprintln!("sender {addr} funded balance: {balance}");
-            Address::from_str(&addr).context("parsing the sender address")
+            let sender = Address::from_str(&addr).context("parsing the sender address")?;
+            poll_until_actor_on("lotus", sender, lotus_client).await?;
+            Ok(sender)
         })
         .await
 }

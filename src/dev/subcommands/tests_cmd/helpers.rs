@@ -12,6 +12,12 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
+use crate::rpc::Client;
+use crate::rpc::prelude::*;
+use crate::rpc::types::ApiTipsetKey;
+use crate::shim::address::Address;
+use crate::shim::state_tree::ActorState;
+
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
     std::env::var("FOREST_TEST_PRELOADED_ADDRESS")
@@ -186,10 +192,37 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-/// True for a `lotus` CLI failure that clears once the node catches up to the chain head: the
-/// mpool briefly rejecting a submit just after the sender is funded (`check has failed`,
-/// `failed to get nonce from mempool`), or a node that trails the funding block being unable to
-/// resolve the freshly-created sender actor (`actor not found`, `resolution lookup failed`; the
+pub async fn get_actor(client: &Client, addr: Address) -> anyhow::Result<Option<ActorState>> {
+    match client
+        .call(StateGetActor::request((addr, ApiTipsetKey(None)))?)
+        .await
+    {
+        Ok(actor) => Ok(actor),
+        Err(e)
+            if ["actor not found", "resolution lookup failed"]
+                .iter()
+                .any(|s| format!("{e:#}").contains(s)) =>
+        {
+            Ok(None)
+        }
+        Err(e) => Err(anyhow::anyhow!("{e:#}")),
+    }
+}
+
+/// Poll until `node`'s state has an actor at `addr` (the Lotus node trails Forest by a block on the
+/// forest-produced devnet, so a Forest-funded sender must be awaited before any `lotus --from`).
+pub async fn poll_until_actor_on(
+    node: &str,
+    addr: Address,
+    make_client: fn() -> anyhow::Result<Client>,
+) -> anyhow::Result<ActorState> {
+    poll(&format!("{node} StateGetActor {addr}"), || async {
+        get_actor(&make_client()?, addr).await
+    })
+    .await
+}
+
+/// True for a `lotus` CLI failure that clears once the node catches up to the funding block (the
 /// Lotus node trails Forest by a block on the forest-produced devnet).
 fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
     let msg = format!("{e:#}");
@@ -198,6 +231,7 @@ fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
         "failed to get nonce from mempool",
         "actor not found",
         "resolution lookup failed",
+        "not enough funds",
     ]
     .iter()
     .any(|s| msg.contains(s))
