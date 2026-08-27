@@ -510,6 +510,7 @@ jobs:
           forest-dev tests mpool
           forest-dev tests wallet
           forest-dev devnet eth-gas
+          forest-dev devnet eth-skip-sender
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()

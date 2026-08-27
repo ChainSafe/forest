@@ -1,6 +1,6 @@
 #!/bin/bash
 # Sourced (not executed) helpers for the devnet test suites (wallet, mpool,
-# eth-gas) on the docker devnet. Run after the devnet is up (`setup.sh`) and synced (`check.sh`).
+# eth-gas, eth-skip-sender) on the docker devnet. Run after the devnet is up (`setup.sh`) and synced (`check.sh`).
 #
 # The genesis key is the Lotus miner's default wallet, so using it as the test
 # sender causes nonce contention. We fund a dedicated wallet instead.
