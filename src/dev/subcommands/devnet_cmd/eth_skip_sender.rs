@@ -20,7 +20,6 @@ use crate::rpc::eth::{
     types::{EthAddress, EthBytes, EthCallMessage},
 };
 use crate::rpc::prelude::*;
-use crate::rpc::types::ApiTipsetKey;
 use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
 use crate::shim::state_tree::ActorState;
@@ -316,23 +315,6 @@ async fn linked_contracts() -> anyhow::Result<&'static (Deployed, Deployed)> {
         .await
 }
 
-async fn get_actor(client: &Client, addr: Address) -> anyhow::Result<Option<ActorState>> {
-    match client
-        .call(StateGetActor::request((addr, ApiTipsetKey(None)))?)
-        .await
-    {
-        Ok(actor) => Ok(actor),
-        Err(e)
-            if ["actor not found", "resolution lookup failed"]
-                .iter()
-                .any(|s| format!("{e:#}").contains(s)) =>
-        {
-            Ok(None)
-        }
-        Err(e) => Err(anyhow::anyhow!("{e:#}")),
-    }
-}
-
 async fn poll_until_actor(addr: Address) -> anyhow::Result<ActorState> {
     poll_until_actor_on("forest", addr, forest_client).await
 }
@@ -341,17 +323,6 @@ async fn poll_until_actor(addr: Address) -> anyhow::Result<ActorState> {
 /// fail with `actor not found` until Lotus's state has the Forest-funded sender.
 async fn poll_until_lotus_actor(addr: Address) -> anyhow::Result<ActorState> {
     poll_until_actor_on("lotus", addr, lotus_client).await
-}
-
-async fn poll_until_actor_on(
-    node: &str,
-    addr: Address,
-    make_client: fn() -> anyhow::Result<Client>,
-) -> anyhow::Result<ActorState> {
-    poll(&format!("{node} StateGetActor {addr}"), || async {
-        get_actor(&make_client()?, addr).await
-    })
-    .await
 }
 
 /// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
