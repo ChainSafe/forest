@@ -124,7 +124,16 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
                 &format!("lotus:{HEX_IN_CONTAINER}"),
             ])?;
 
-            let deploy = lotus_exec(&["evm", "deploy", "--hex", HEX_IN_CONTAINER])?;
+            let from = sender_addr().await?.to_string();
+            let deploy = lotus_exec_retrying_transient(&[
+                "evm",
+                "deploy",
+                "--from",
+                &from,
+                "--hex",
+                HEX_IN_CONTAINER,
+            ])
+            .await?;
             let f4 = deploy
                 .lines()
                 .find_map(|l| l.trim().strip_prefix("f4 Address: "))
@@ -143,7 +152,8 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
 /// estimation from an unfunded or non-`f4` sender, so both properties are required.
 ///
 /// Created in Lotus's keystore rather than Forest's: estimation only needs the address to
-/// exist on chain, while submitting needs whoever signs to hold the key.
+/// exist on chain, while submitting messages and deploying the contract (both run on Lotus)
+/// need whoever signs to hold the key.
 async fn sender_addr() -> anyhow::Result<&'static Address> {
     static SENDER: OnceCell<Address> = OnceCell::const_new();
     SENDER
@@ -251,7 +261,7 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
     // `lotus send` infers `InvokeContract` and CBOR-wraps the params when the sender is an
     // eth account, and rejects an explicit `--method`, so pass the bare calldata. Retry the
     // submit while Lotus's mpool briefly lags the freshly funded sender.
-    let out = lotus_exec_retrying_mpool(&[
+    let out = lotus_exec_retrying_transient(&[
         "send",
         "--from",
         &sender,

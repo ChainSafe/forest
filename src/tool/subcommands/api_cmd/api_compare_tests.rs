@@ -16,7 +16,7 @@ use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::{
-    ApiEthTx, BlockNumberOrHash, EthInt64, Predefined, new_eth_tx_from_signed_message,
+    ApiEthTx, BlockNumberOrHash, EthBigInt, EthInt64, Predefined, new_eth_tx_from_signed_message,
     trace::types::*, types::*,
 };
 use crate::rpc::gas::{GasEstimateGasLimit, GasEstimateMessageGas};
@@ -147,7 +147,11 @@ const ZERO_ADDRESS: &str = "0x0000000000000000000000000000000000000000";
 // miner actor address `t078216`
 const MINER_ADDRESS: Address = Address::new_id(78216); // https://calibration.filscan.io/en/miner/t078216
 const ACCOUNT_ADDRESS: Address = Address::new_id(1234); // account actor address `t01234`
-const EVM_ADDRESS: &str = "t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i";
+// An EVM contract, `t410fbqoynu2oi2lxam43knqt6ordiowm2ywlml27z4i`, and a `getBalance(address)` call
+// against it.
+const CALIBNET_EVM_CONTRACT: &str = "0x0c1d86d34e469770339b53613f3a2343accd62cb";
+const GET_BALANCE_CALLDATA: &str =
+    "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6";
 
 /// Brief description of a single method call against a single host
 #[derive(
@@ -264,6 +268,7 @@ pub struct TestResult {
     pub duration: Duration,
 }
 
+#[derive(Clone, Copy)]
 pub(super) enum PolicyOnRejected {
     Fail,
     Pass,
@@ -1504,13 +1509,8 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
 
         let cases = [
             (
-                Some(EthAddress::from_str(
-                    "0x0c1d86d34e469770339b53613f3a2343accd62cb",
-                )?),
-                Some(
-                    "0xf8b2cb4f000000000000000000000000CbfF24DED1CE6B53712078759233Ac8f91ea71B6"
-                        .parse()?,
-                ),
+                Some(EthAddress::from_str(CALIBNET_EVM_CONTRACT)?),
+                Some(GET_BALANCE_CALLDATA.parse()?),
             ),
             (Some(EthAddress::from_str(ZERO_ADDRESS)?), None),
             // Assert contract creation, which is invoked via setting the `to` field to `None` and
@@ -1551,11 +1551,11 @@ fn eth_tests(server_mode: ServerMode) -> anyhow::Result<Vec<RpcTest>> {
         let cases = [
             Some(EthAddressList::List(vec![])),
             Some(EthAddressList::List(vec![
-                EthAddress::from_str("0x0c1d86d34e469770339b53613f3a2343accd62cb")?,
+                EthAddress::from_str(CALIBNET_EVM_CONTRACT)?,
                 EthAddress::from_str("0x89beb26addec4bc7e9f475aacfd084300d6de719")?,
             ])),
             Some(EthAddressList::Single(EthAddress::from_str(
-                "0x0c1d86d34e469770339b53613f3a2343accd62cb",
+                CALIBNET_EVM_CONTRACT,
             )?)),
             None,
         ];
@@ -1646,6 +1646,126 @@ fn eth_call_api_err_tests(epoch: ChainEpoch) -> Vec<RpcTest> {
     }
 
     tests
+}
+
+/// `eth_call` and `eth_estimateGas` accept a `from` that is an EVM contract or that doesn't exist on
+/// chain, matching Geth. Ported from the Lotus `eth_call_estimate_test.go` suite.
+fn eth_skip_sender_tests(shared_tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
+    let epoch = shared_tipset.epoch();
+    let mut tests = eth_skip_sender_success_tests(epoch)?;
+    tests.extend(eth_skip_sender_insufficient_funds_tests(epoch)?);
+    tests.extend(eth_skip_sender_revert_tests(epoch)?);
+    tests.extend(eth_skip_sender_create_reject_tests(epoch)?);
+    tests.extend(eth_skip_sender_filecoin_gas_limit_tests(shared_tipset)?);
+    Ok(tests)
+}
+
+/// Both methods share the sender-validation logic, so every message is tested against both.
+fn eth_call_and_estimate_gas_tests(
+    epoch: ChainEpoch,
+    policy: PolicyOnRejected,
+    messages: impl IntoIterator<Item = EthCallMessage, IntoIter: ExactSizeIterator>,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let messages = messages.into_iter();
+    let mut tests = Vec::with_capacity(2 * messages.len());
+    let block = BlockNumberOrHash::from_block_number(epoch);
+    for msg in messages {
+        tests.push(
+            RpcTest::identity(EthCall::request((msg.clone(), block.clone()))?)
+                .policy_on_rejected(policy),
+        );
+        tests.push(
+            RpcTest::identity(EthEstimateGas::request((msg, Some(block.clone())))?)
+                .policy_on_rejected(policy),
+        );
+    }
+    Ok(tests)
+}
+
+/// The senders that used to be rejected outright, and now have to work on both nodes.
+fn eth_skip_sender_success_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let contract = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?;
+    let calldata: EthBytes = GET_BALANCE_CALLDATA.parse()?;
+    let initcode =
+        EthBytes::from_str(concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim())?;
+    let non_existent = generate_eth_random_address()?;
+
+    let messages = [
+        (Some(contract), Some(contract), Some(calldata.clone())),
+        (Some(non_existent), Some(contract), Some(calldata)),
+        (Some(non_existent), None, Some(initcode)),
+    ]
+    .map(|(from, to, data)| EthCallMessage {
+        from,
+        to,
+        data,
+        ..Default::default()
+    });
+    eth_call_and_estimate_gas_tests(epoch, PolicyOnRejected::Fail, messages)
+}
+
+/// Skip must still fail when `from` cannot pay `value`.
+fn eth_skip_sender_insufficient_funds_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let contract = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?;
+    let eoa = EthAddress::from_filecoin_address(&KNOWN_CALIBNET_F4_ADDRESS)?;
+    let value = EthBigInt::from(TokenAmount::from_whole(1_000_000));
+
+    let messages = [contract, eoa, generate_eth_random_address()?].map(|from| EthCallMessage {
+        from: Some(from),
+        to: Some(eoa),
+        value: Some(value),
+        ..Default::default()
+    });
+    eth_call_and_estimate_gas_tests(epoch, PolicyOnRejected::PassWithIdenticalError, messages)
+}
+
+/// A revert must be reported as an error, not answered with a gas number from the gas search.
+fn eth_skip_sender_revert_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let revert_initcode = EthBytes::from_str(
+        include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex").trim(),
+    )?;
+    eth_call_and_estimate_gas_tests(
+        epoch,
+        PolicyOnRejected::PassWithIdenticalError,
+        [EthCallMessage {
+            from: Some(generate_eth_random_address()?),
+            data: Some(revert_initcode),
+            ..Default::default()
+        }],
+    )
+}
+
+/// Contract creation that both nodes must refuse or report as reverting.
+fn eth_skip_sender_create_reject_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest>> {
+    let initcode =
+        EthBytes::from_str(concat!("0x", include_str!("contracts/cthulhu/invoke.hex")).trim())?;
+    let contract = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?;
+    let messages = [EthCallMessage {
+        from: Some(contract),
+        data: Some(initcode),
+        ..Default::default()
+    }];
+    eth_call_and_estimate_gas_tests(epoch, PolicyOnRejected::PassWithIdenticalError, messages)
+}
+
+fn eth_skip_sender_filecoin_gas_limit_tests(
+    shared_tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let from = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?.to_filecoin_address()?;
+    let to = *KNOWN_CALIBNET_F4_ADDRESS;
+    let message = Message {
+        from,
+        to,
+        method_num: METHOD_SEND,
+        ..Default::default()
+    };
+    Ok(vec![
+        RpcTest::identity(GasEstimateGasLimit::request((
+            message,
+            shared_tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+    ])
 }
 
 fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
@@ -2453,7 +2573,7 @@ fn read_state_api_tests(tipset: &Tipset) -> anyhow::Result<Vec<RpcTest>> {
             tipset.key().into(),
         ))?),
         RpcTest::identity(StateReadState::request((
-            Address::from_str(EVM_ADDRESS)?, // evm actor
+            EthAddress::from_str(CALIBNET_EVM_CONTRACT)?.to_filecoin_address()?, // evm actor
             tipset.key().into(),
         ))?),
     ];
@@ -2510,6 +2630,8 @@ fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
 
     // Test eth_call API errors
     tests.extend(eth_call_api_err_tests(shared_tipset.epoch()));
+
+    tests.extend(eth_skip_sender_tests(shared_tipset)?);
 
     Ok(tests)
 }
