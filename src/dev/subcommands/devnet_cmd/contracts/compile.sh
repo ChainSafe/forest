@@ -15,5 +15,5 @@ for sol in "${DIR}"/*/*.sol; do
   echo "compiling ${name} with solc ${SOLC_VERSION}"
   docker run --rm --volume "${contract_dir}:/src:ro" "ethereum/solc:${SOLC_VERSION}" \
     --bin "/src/${name}.sol" |
-    awk '/^Binary:/ { getline; print }' > "${contract_dir}/${name}.hex"
+    awk '/^Binary:/ { getline; if ($0 != "") print }' > "${contract_dir}/${name}.hex"
 done
