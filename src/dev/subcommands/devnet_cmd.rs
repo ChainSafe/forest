@@ -7,6 +7,7 @@
 //! that environment is missing, rather than letting a suite surface it as an opaque mid-run error.
 
 mod eth_gas;
+mod eth_skip_sender;
 
 use crate::dev::subcommands::tests_cmd::helpers::{docker, forest_client, lotus_client};
 use crate::rpc::prelude::*;
@@ -16,6 +17,7 @@ use anyhow::{Context as _, ensure};
 #[derive(Debug, clap::Subcommand)]
 pub enum DevnetCommand {
     EthGas(eth_gas::EthGasTestCommand),
+    EthSkipSender(eth_skip_sender::EthSkipSenderTestCommand),
 }
 
 impl DevnetCommand {
@@ -23,6 +25,7 @@ impl DevnetCommand {
         preflight().await.context("devnet pre-flight failed")?;
         match self {
             Self::EthGas(cmd) => cmd.run().await,
+            Self::EthSkipSender(cmd) => cmd.run().await,
         }
     }
 }

@@ -14,6 +14,7 @@ use super::{
         PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2, verify_messages_chained,
     },
 };
+use crate::beacon::metrics;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
@@ -386,6 +387,7 @@ impl Beacon for DrandBeacon {
         }
 
         async fn fetch_entry_from_url(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
+            metrics::DRAND_HTTP_FETCH_TOTAL.inc();
             let resp: BeaconEntryJson = global_http_client()
                 .get(url)
                 // More tolerance on slow networks
