@@ -299,7 +299,7 @@ async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::
         .chain_id(ETH_CHAIN_ID)
         .unsigned_message(&unsigned_msg)?
         .build()
-        .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to build EIP-1559 transaction: {e}"))?;
     let eth_tx = crate::eth::EthTx::from(eth_tx_args);
     let data = eth_tx.rlp_unsigned_message(ETH_CHAIN_ID)?;
 

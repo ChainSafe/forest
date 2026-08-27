@@ -325,7 +325,7 @@ async fn download_http_parallel(
         };
 
         async move {
-            let range = format!("bytes={}-{}", start, end);
+            let range = format!("bytes={start}-{end}");
             let expected_size = (end - start + 1) as usize;
 
             // Retry logic for each chunk
@@ -426,7 +426,7 @@ async fn download_http_parallel(
             download_chunk
                 .retry(ExponentialBuilder::default().with_max_times(5))
                 .await
-                .with_context(|| format!("Failed to download chunk {} after retries", i))
+                .with_context(|| format!("Failed to download chunk {i} after retries"))
         }
     });
 
@@ -438,7 +438,7 @@ async fn download_http_parallel(
 
     // Check if any chunk failed
     for (i, result) in results.into_iter().enumerate() {
-        result.with_context(|| format!("Chunk {} failed", i))?;
+        result.with_context(|| format!("Chunk {i} failed"))?;
     }
 
     // Rename to final destination
@@ -713,7 +713,7 @@ mod test {
                     if content_len == 0 {
                         return Response::builder()
                             .status(StatusCode::RANGE_NOT_SATISFIABLE)
-                            .header(header::CONTENT_RANGE, format!("bytes */{}", content_len))
+                            .header(header::CONTENT_RANGE, format!("bytes */{content_len}"))
                             .body(Body::empty())
                             .unwrap();
                     }
@@ -730,7 +730,7 @@ mod test {
                                 .header(header::CONTENT_LENGTH, range_content.len())
                                 .header(
                                     header::CONTENT_RANGE,
-                                    format!("bytes {}-{}/{}", start, end, content_len),
+                                    format!("bytes {start}-{end}/{content_len}"),
                                 )
                                 .header(header::ACCEPT_RANGES, "bytes")
                                 .body(Body::from(range_content))
@@ -739,7 +739,7 @@ mod test {
                             // Range is out of bounds
                             return Response::builder()
                                 .status(StatusCode::RANGE_NOT_SATISFIABLE)
-                                .header(header::CONTENT_RANGE, format!("bytes */{}", content_len))
+                                .header(header::CONTENT_RANGE, format!("bytes */{content_len}"))
                                 .body(Body::empty())
                                 .unwrap();
                         }
@@ -885,9 +885,7 @@ mod test {
             {
                 assert!(
                     progress >= last_progress,
-                    "Progress should increase: {} < {}",
-                    progress,
-                    last_progress
+                    "Progress should increase: {progress} < {last_progress}"
                 );
                 last_progress = progress;
             }
@@ -896,11 +894,10 @@ mod test {
         // Should reach 100% for small test files
         assert!(
             last_progress >= 90,
-            "Should reach at least 90% progress, got {}",
-            last_progress
+            "Should reach at least 90% progress, got {last_progress}"
         );
 
-        println!("Progress updates: {:?}", updates);
+        println!("Progress updates: {updates:?}");
     }
 
     #[tokio::test]

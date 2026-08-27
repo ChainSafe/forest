@@ -60,8 +60,7 @@ impl EthLegacyHomesteadTxArgs {
         // Check if signature length is correct
         ensure!(
             sig.len() == HOMESTEAD_SIG_LEN,
-            "signature is not {} bytes",
-            HOMESTEAD_SIG_LEN
+            "signature is not {HOMESTEAD_SIG_LEN} bytes"
         );
 
         Ok(Signature {
@@ -108,7 +107,7 @@ impl EthLegacyHomesteadTxArgs {
                 *value = 1
             };
         } else {
-            bail!("invalid 'v' value: expected 27 or 28, got {}", v_value);
+            bail!("invalid 'v' value: expected 27 or 28, got {v_value}");
         }
 
         Ok(sig)

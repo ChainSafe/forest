@@ -82,10 +82,7 @@ impl StateManager {
         let mut selected_sectors = BitField::new();
         for n in ids {
             let sno = iter.nth(n as usize).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Error iterating over proving sectors, id {} does not exist",
-                    n
-                )
+                anyhow::anyhow!("Error iterating over proving sectors, id {n} does not exist")
             })?;
             selected_sectors.set(sno);
         }
