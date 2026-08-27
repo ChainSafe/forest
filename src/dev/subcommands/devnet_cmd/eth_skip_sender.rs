@@ -10,11 +10,11 @@
 //! nested `recurse`), estimate parity with a funded placeholder, `msg.sender`
 //! identity via `sendCoin`, skip-call state isolation, a historical `eth_call`,
 //! cross-contract callbacks, and the skip-sender success/error matrix (CREATE,
-//! `gasPrice`, `FromNil`, `FromEOA`, value, revert data).
+//! `gasPrice`, `FromNil`, `FromEOA`, value, revert data, out-of-gas).
 
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::rpc::Client;
-use crate::rpc::eth::errors::EXECUTION_REVERTED_CODE;
+use crate::rpc::eth::errors::{EXECUTION_REVERTED_CODE, OUT_OF_GAS_CODE};
 use crate::rpc::eth::{
     BlockNumberOrHash, EthBigInt, Predefined,
     types::{EthAddress, EthBytes, EthCallMessage},
@@ -67,6 +67,8 @@ const PANIC_ASSERT: &str =
     "4e487b710000000000000000000000000000000000000000000000000000000000000001";
 const PANIC_DIV_ZERO: &str =
     "4e487b710000000000000000000000000000000000000000000000000000000000000012";
+/// `JUMPDEST PUSH1 0x00 JUMP` CREATE payload; constructor loops until `BLOCK_GAS_LIMIT`.
+const OOG_INITCODE: &str = "5b600056";
 
 /// Skip-sender integration tests that need a private chain with a miner
 #[derive(Debug, clap::Args)]
@@ -170,6 +172,17 @@ fn simple_coin_initcode() -> anyhow::Result<EthBytes> {
     Ok(EthBytes(
         hex::decode(SIMPLE_COIN_HEX.trim()).context("decoding SimpleCoin initcode")?,
     ))
+}
+
+fn oog_create(from: Option<EthAddress>) -> anyhow::Result<EthCallMessage> {
+    Ok(EthCallMessage {
+        from,
+        to: None,
+        data: Some(EthBytes(
+            hex::decode(OOG_INITCODE).context("decoding OOG initcode")?,
+        )),
+        ..Default::default()
+    })
 }
 
 /// Missing eth address: `0xdeadbeef` then zeros, last byte `seed`.
@@ -466,6 +479,10 @@ enum Expect {
         data_contains: Option<String>,
         data_eq: Option<&'static str>,
     },
+    ErrCode {
+        code: i32,
+        contains: &'static str,
+    },
 }
 
 struct SkipSenderCase {
@@ -527,6 +544,10 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
         data_contains: None,
         data_eq: Some("0x"),
     };
+    let oog_err = Expect::ErrCode {
+        code: EXECUTION_REVERTED_CODE,
+        contains: "SysErrOutOfGas",
+    };
 
     let transfer = |from: Option<EthAddress>, to: Option<EthAddress>| EthCallMessage {
         from,
@@ -560,6 +581,20 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
                 ..Default::default()
             },
         ),
+        SkipSenderCase::revert_both(
+            "OutOfGasFromNonExistent",
+            oog_create(Some(missing))?,
+            oog_err.clone(),
+        ),
+        SkipSenderCase {
+            name: "OutOfGasFromEoa",
+            msg: oog_create(Some(env.eoa))?,
+            call: Some(oog_err),
+            estimate: Some(Expect::ErrCode {
+                code: OUT_OF_GAS_CODE,
+                contains: "call ran out of gas",
+            }),
+        },
         SkipSenderCase::success("FromContract", transfer(Some(env.coin), Some(env.eoa))),
         SkipSenderCase::success(
             "FromContractWithGasPrice",
@@ -752,6 +787,25 @@ fn assert_expect(
                     "{label}: revert data `{data}` does not contain `{want}`"
                 );
             }
+            Ok(())
+        }
+        Expect::ErrCode { code, contains } => {
+            let err = result.err().with_context(|| {
+                format!("{label}: expected error code {code}, but the call succeeded")
+            })?;
+            let obj = rpc_call_err(&err)
+                .with_context(|| format!("{label}: expected a JSON-RPC error, got {err:#}"))?;
+            ensure!(
+                obj.code() == *code,
+                "{label}: expected error code {code}, got {}: {}",
+                obj.code(),
+                obj.message()
+            );
+            ensure!(
+                obj.message().contains(contains),
+                "{label}: error `{}` does not contain `{contains}`",
+                obj.message()
+            );
             Ok(())
         }
     }
