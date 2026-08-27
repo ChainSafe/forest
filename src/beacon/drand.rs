@@ -37,7 +37,8 @@ pub static IGNORE_DRAND: LazyLock<bool> = LazyLock::new(|| is_env_truthy(IGNORE_
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
-#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, SerdeSerialize, SerdeDeserialize, strum::Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum DrandNetwork {
     Mainnet,
     Quicknet,
@@ -64,6 +65,9 @@ pub struct DrandConfig<'a> {
     pub chain_info: ChainInfo<'a>,
     /// Network type
     pub network_type: DrandNetwork,
+    /// Whether this beacon's entry cache reports Prometheus metrics.
+    #[serde(default)]
+    pub register_metrics: bool,
 }
 
 /// Contains the vector of `BeaconPoint`, which are mappings of epoch to the
@@ -271,8 +275,11 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            verified_beacons: if config.network_type.is_unchained() {
-                SizeTrackingCache::new_with_metrics("verified_beacons", CACHE_SIZE)
+            verified_beacons: if config.register_metrics {
+                SizeTrackingCache::new_with_metrics(
+                    format!("verified_beacons_{}", config.network_type),
+                    CACHE_SIZE,
+                )
             } else {
                 SizeTrackingCache::new_without_metrics_registry("verified_beacons", CACHE_SIZE)
             },
