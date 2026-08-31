@@ -82,13 +82,14 @@ async fn export_import_roundtrip(backend: Backend) {
     let deleted = wallet(backend, &["delete", &addr]).unwrap();
     eprintln!("delete output ({}): {deleted}", backend.label());
 
-    let imported = wallet(backend, &["import", path]).unwrap();
+    let imported = wallet(backend, &["import", "--as-default", path]).unwrap();
     assert_eq!(
         imported,
         addr,
         "round-trip mismatch on {} backend: {imported} != {addr}",
         backend.label(),
     );
+    assert_eq!(wallet(backend, &["default"]).unwrap(), imported);
 }
 
 async fn market_add_balance_message_on_chain() {
