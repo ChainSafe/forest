@@ -29,6 +29,7 @@
 
 ### Added
 
+- [#7555](https://github.com/ChainSafe/forest/issues/7555): Added `--as-default` to `forest-wallet import`.
 - [#7414](https://github.com/ChainSafe/forest/issues/7414): New `drand_http_fetch_total` metric, counting the drand rounds that had to be fetched over HTTP rather than served from the in-memory cache.
 
 - [#7414](https://github.com/ChainSafe/forest/issues/7414): Forest now subscribes to the drand gossipsub topic, verifying and caching the beacon entries it receives there. The drand HTTP endpoints are only queried when no entry has arrived for half a chain epoch.
