@@ -37,7 +37,7 @@ impl FakeDrand {
         }
     }
 
-    // sing H(round) on G1, exactly what `verifies_entries` checks for unchained
+    // sign H(round) on G1, exactly what `verify_entries` checks for unchained.
     pub fn entry(&self, round: u64) -> BeaconEntry {
         let msg = BeaconEntry::message_unchained(round);
         let point =

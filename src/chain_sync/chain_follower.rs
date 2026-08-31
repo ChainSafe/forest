@@ -230,6 +230,8 @@ async fn chain_follower(
 
     let hello_fetch_limiter = Arc::new(Semaphore::new(*MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES));
 
+    let drand_verify_limiter = Arc::new(Semaphore::new(*MAX_CONCURRENT_DRAND_VERIFICATIONS));
+
     let last_drand_entry = Arc::new(AtomicU64::new(0));
 
     let mut set = JoinSet::new();
@@ -248,6 +250,7 @@ async fn chain_follower(
         let hello_fetch_limiter = hello_fetch_limiter.shallow_clone();
         let tipset_sender = tipset_sender.clone();
         let last_drand_entry = last_drand_entry.clone();
+        let drand_verify_limiter = drand_verify_limiter.shallow_clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -318,9 +321,19 @@ async fn chain_follower(
                             if entry.round() == 0 || entry.signature().is_empty() {
                                 continue;
                             }
+                            let Ok(permit) =
+                                drand_verify_limiter.shallow_clone().try_acquire_owned()
+                            else {
+                                debug!(
+                                    round = entry.round(),
+                                    "dropping drand entry: too many verifications in flight"
+                                );
+                                continue;
+                            };
                             let beacon_schedule = state_manager.beacon_schedule().clone();
                             let last_drand_entry = last_drand_entry.clone();
                             tokio::task::spawn_blocking(move || {
+                                let _permit = permit;
                                 let Some(beacon) = beacon_schedule.unchained_beacon() else {
                                     return;
                                 };
@@ -718,6 +731,16 @@ static MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES: LazyLock<usize> = LazyLock::new(|
     env_or_default_logged(
         "FOREST_MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES",
         nonzero!(16_usize),
+    )
+    .get()
+    .min(Semaphore::MAX_PERMITS)
+});
+
+/// Concurrency cap for `drand` entries verified from `gossipsub`. Excess is dropped, not queued.
+static MAX_CONCURRENT_DRAND_VERIFICATIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_or_default_logged(
+        "FOREST_MAX_CONCURRENT_DRAND_VERIFICATIONS",
+        nonzero!(4_usize),
     )
     .get()
     .min(Semaphore::MAX_PERMITS)
