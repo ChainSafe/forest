@@ -596,8 +596,15 @@ async fn drand_gossip_watchdog(
                 continue;
             }
         };
-        if let Err(e) = beacon.entry(round).await {
-            debug!("drand HTTP fallback for round {round} failed: {e:#}");
+        // Inside the cancellation scope: `entry` retries with a 15s timeout across every
+        // configured server, so an in-flight fetch would otherwise hold up `join_all`.
+        match cancellation_token
+            .run_until_cancelled(beacon.entry(round))
+            .await
+        {
+            None => return,
+            Some(Err(e)) => debug!("drand HTTP fallback for round {round} failed: {e:#}"),
+            Some(Ok(_)) => {}
         }
 
         consecutive_misses += 1;
