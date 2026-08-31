@@ -136,7 +136,8 @@ pub async fn validate_tipset(
                     .chain_store()
                     .add_to_tipset_tracker(block.header());
             }
-            Err((cid, why)) => {
+            Err(boxed) => {
+                let (cid, why) = *boxed;
                 warn!(
                     "Validating block [CID = {cid}, PARENT_STATE = {parent_state}] in EPOCH = {epoch} failed: {why}",
                 );
@@ -184,7 +185,7 @@ pub async fn validate_tipset(
 async fn validate_block(
     state_manager: StateManager,
     block: Arc<Block>,
-) -> Result<Arc<Block>, (Cid, TipsetSyncerError)> {
+) -> Result<Arc<Block>, Box<(Cid, TipsetSyncerError)>> {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule().clone());
     trace!(
         "Validating block: epoch = {}, weight = {}, key = {}",
@@ -206,8 +207,8 @@ async fn validate_block(
     let header = block.header();
 
     // Check to ensure all optional values exist
-    block_sanity_checks(header).map_err(|e| (*block_cid, e))?;
-    block_timestamp_checks(header).map_err(|e| (*block_cid, e))?;
+    block_sanity_checks(header).map_err(|e| Box::new((*block_cid, e)))?;
+    block_timestamp_checks(header).map_err(|e| Box::new((*block_cid, e)))?;
 
     let base_tipset = chain_store
         .chain_index()
@@ -217,7 +218,7 @@ async fn validate_block(
         // have been committed to the store. When validate_block is called from sync_tipset
         // this guarantee does not exist, so we create a specific error to inform the caller
         // not to add this block to the bad blocks cache.
-        .map_err(|why| (*block_cid, TipsetSyncerError::TipsetParentNotFound(why)))?;
+        .map_err(|why| Box::new((*block_cid, TipsetSyncerError::TipsetParentNotFound(why))))?;
 
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
@@ -227,14 +228,14 @@ async fn validate_block(
         block.header().epoch,
     )
     .await
-    .map_err(|e| (*block_cid, e.into()))
+    .map_err(|e| Box::new((*block_cid, e.into())))
     .map(|(_, s)| Arc::new(s))?;
 
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
     let work_addr = state_manager
         .get_miner_work_addr(*lookback_state, &header.miner_address)
-        .map_err(|e| (*block_cid, e.into()))?;
+        .map_err(|e| Box::new((*block_cid, e.into())))?;
 
     // Async validations
     let mut validations = JoinSet::new();
@@ -358,7 +359,7 @@ async fn validate_block(
 
     // Collect the errors from the async validations
     if let Err(errs) = collect_errs(validations).await {
-        return Err((*block_cid, TipsetSyncerError::concat(errs)));
+        return Err(Box::new((*block_cid, TipsetSyncerError::concat(errs))));
     }
 
     chain_store.mark_block_as_validated(block_cid);

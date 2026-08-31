@@ -10,11 +10,11 @@ pub fn summary(cid: &Cid) -> NonMaximalU64 {
     NonMaximalU64::fit(
         cid.hash()
             .digest()
-            .chunks_exact(8)
-            .map(<[u8; 8]>::try_from)
-            .filter_map(Result::ok)
+            .as_chunks::<8>()
+            .0
+            .iter()
             .fold(cid.codec() ^ cid.hash().code(), |hash, chunk| {
-                hash ^ u64::from_le_bytes(chunk)
+                hash ^ u64::from_le_bytes(*chunk)
             }),
     )
 }
