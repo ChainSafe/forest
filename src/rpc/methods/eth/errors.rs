@@ -1,14 +1,17 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::utils::decode_revert_reason;
 use crate::rpc::error::RpcErrorData;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::utils::encoding::hex;
+use fvm_ipld_encoding::RawBytes;
 use serde::Serialize;
 use std::fmt::Debug;
 use thiserror::Error;
 
+pub const OUT_OF_GAS_CODE: i32 = 2;
 /// This error indicates that the execution reverted while executing the message.
 /// Error code 3 was introduced in geth v1.9.15 and is now expected by most Ethereum ecosystem tooling for automatic ABI decoding of revert reasons from the error data field.
 pub const EXECUTION_REVERTED_CODE: i32 = 3;
@@ -20,6 +23,8 @@ pub const NULL_ROUND_CODE: i32 = 12;
 
 #[derive(Clone, Debug, Error, Serialize)]
 pub enum EthErrors {
+    #[error("call ran out of gas")]
+    OutOfGas,
     #[error("{message}")]
     ExecutionReverted { message: String, data: String },
     #[error("{message}")]
@@ -51,6 +56,17 @@ impl EthErrors {
         }
     }
 
+    /// Builds an eth `ExecutionReverted` (code 3) from a failed message's exit code and return
+    /// payload, decoding the revert reason and data.
+    pub fn execution_reverted_from_result(
+        exit_code: impl Into<ExitCode>,
+        return_data: RawBytes,
+        vm_error: &str,
+    ) -> Self {
+        let (data, reason) = decode_revert_reason(return_data);
+        Self::execution_reverted(exit_code.into(), &reason, vm_error, &data)
+    }
+
     /// Prepends `prefix` to the message, keeping the code and data. Needed because the RPC layer
     /// rebuilds the wire message from the typed error alone, dropping any `anyhow` context.
     #[must_use]
@@ -59,7 +75,7 @@ impl EthErrors {
             Self::ExecutionReverted { message, .. } | Self::BlockRangeExceeded { message, .. } => {
                 *message = format!("{prefix}: {message}");
             }
-            Self::EventsNotYetAvailable | Self::NullRound { .. } => {}
+            Self::OutOfGas | Self::EventsNotYetAvailable | Self::NullRound { .. } => {}
         }
         self
     }
@@ -81,6 +97,7 @@ impl EthErrors {
 impl RpcErrorData for EthErrors {
     fn error_code(&self) -> Option<i32> {
         match self {
+            EthErrors::OutOfGas => Some(OUT_OF_GAS_CODE),
             EthErrors::ExecutionReverted { .. } => Some(EXECUTION_REVERTED_CODE),
             EthErrors::BlockRangeExceeded { .. } => Some(LIMIT_EXCEEDED_CODE),
             EthErrors::EventsNotYetAvailable => None,
@@ -90,6 +107,7 @@ impl RpcErrorData for EthErrors {
 
     fn error_message(&self) -> Option<String> {
         match self {
+            EthErrors::OutOfGas => Some(self.to_string()),
             EthErrors::ExecutionReverted { message, .. } => Some(message.clone()),
             EthErrors::BlockRangeExceeded { message, .. } => Some(message.clone()),
             EthErrors::EventsNotYetAvailable => Some(self.to_string()),
@@ -102,8 +120,9 @@ impl RpcErrorData for EthErrors {
             EthErrors::ExecutionReverted { data, .. } => {
                 Some(serde_json::Value::String(data.clone()))
             }
-            EthErrors::BlockRangeExceeded { .. } => None,
-            EthErrors::EventsNotYetAvailable => None,
+            EthErrors::OutOfGas
+            | EthErrors::BlockRangeExceeded { .. }
+            | EthErrors::EventsNotYetAvailable => None,
             // Lotus sends the epoch as a bare JSON number.
             EthErrors::NullRound { epoch } => Some(serde_json::Value::from(*epoch)),
         }
@@ -207,5 +226,14 @@ mod tests {
     fn test_with_message_prefix_is_a_noop_for_messageless_variants() {
         let err = EthErrors::null_round(7).with_message_prefix("ignored");
         assert_eq!(err.to_string(), "requested epoch was a null round (7)");
+    }
+
+    #[test]
+    fn test_out_of_gas_converts_to_server_error_matching_lotus() {
+        let err = EthErrors::OutOfGas;
+        let server_err: ServerError = err.into();
+
+        assert_eq!(server_err.code(), OUT_OF_GAS_CODE);
+        assert_eq!(server_err.message(), "call ran out of gas");
     }
 }

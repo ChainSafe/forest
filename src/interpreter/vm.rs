@@ -314,7 +314,7 @@ impl VM {
 
         let (ret, duration) = self.apply_implicit_message(&cron_msg)?;
         if let Some(err) = ret.failure_info() {
-            anyhow::bail!("failed to apply block cron message: {}", err);
+            anyhow::bail!("failed to apply block cron message: {err}");
         }
 
         if let Some(mut callback) = callback {

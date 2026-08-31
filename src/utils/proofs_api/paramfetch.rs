@@ -216,10 +216,7 @@ async fn download_from_cloudflare(name: &str, path: &Path) -> anyhow::Result<()>
         .context("Failed to fetch param file from Cloudflare R2")?;
 
     if !response.status().is_success() {
-        bail!(
-            "Failed to fetch param file from Cloudflare R2: {:?}",
-            response
-        );
+        bail!("Failed to fetch param file from Cloudflare R2: {response:?}");
     }
     // Create a temporary file to write the response to. This is to avoid writing
     // to the final file path in case of an error and ending up with corrupted files.

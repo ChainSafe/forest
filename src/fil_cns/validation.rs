@@ -440,7 +440,7 @@ fn verify_winning_post(
 
     // Convert sector info into public replica
     let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     // Convert PoSt proofs into proofs-api format
     let proof_bytes = proofs.iter().fold(Vec::new(), |mut proof, p| {

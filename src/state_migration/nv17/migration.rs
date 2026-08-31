@@ -137,10 +137,7 @@ where
         .ok_or_else(|| anyhow!("no bundle info for network version NV17"))?;
 
     blockstore.get(new_manifest_cid)?.ok_or_else(|| {
-        anyhow!(
-            "manifest for network version NV17 not found in blockstore: {}",
-            new_manifest_cid
-        )
+        anyhow!("manifest for network version NV17 not found in blockstore: {new_manifest_cid}")
     })?;
 
     let new_manifest = BuiltinActorManifest::load_manifest(blockstore, new_manifest_cid)?;

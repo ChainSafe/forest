@@ -59,8 +59,9 @@ forest-cli net peers
 ## Running the integration tests
 
 The wallet/mpool suites that run against calibnet, plus the `eth_estimateGas`
-parity suite, can be run against the local devnet. This brings up the devnet,
-waits for it to sync, wires up the host environment, and runs the tests:
+parity suite and the skip-sender integration tests, can be run against the local
+devnet. This brings up the devnet, waits for it to sync, wires up the host
+environment, and runs the tests:
 
 ```shell
 mise run test:devnet
@@ -69,12 +70,13 @@ mise run test:devnet
 Under the hood this sources `test_harness.sh`, which reads the admin token and
 the funded genesis key from the running `forest` container, exports
 `FULLNODE_API_INFO` (Forest RPC on port 3456) and `FOREST_TEST_PRELOADED_ADDRESS`,
-then runs `forest-dev tests mpool`, `forest-dev tests wallet` and
-`forest-dev devnet eth-gas`.
+then runs `forest-dev tests mpool`, `forest-dev tests wallet`,
+`forest-dev devnet eth-gas` and `forest-dev devnet eth-skip-sender`.
 
 The `devnet` suites (unlike `tests`) need both nodes reachable: `eth-gas`
-compares Forest against Lotus, so it runs pre-flight checks and fails early if
-the devnet or harness environment is missing.
+compares Forest against Lotus, and `eth-skip-sender` deploys contracts and
+submits transactions, so they run pre-flight checks and fail early if the
+devnet or harness environment is missing.
 
 ## Local devnet development
 
