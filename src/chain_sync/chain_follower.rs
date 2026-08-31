@@ -552,7 +552,7 @@ async fn drand_gossip_watchdog(
     let deadline =
         Duration::from_secs(u64::from(state_manager.chain_config().block_delay_secs).div_ceil(2));
 
-    let mut ticker = tokio::time::interval(deadline);
+    let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + deadline, deadline);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
     const MAX_CONSECUTIVE_MISSES: u32 = 3;
