@@ -423,7 +423,7 @@ async fn check_block_messages(
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(to_vec(msg)?.len());
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
         sum_gas_limit += msg.gas_limit;
         if sum_gas_limit > BLOCK_GAS_LIMIT {
             anyhow::bail!("block gas limit exceeded");

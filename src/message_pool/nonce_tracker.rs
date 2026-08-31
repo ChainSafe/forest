@@ -138,7 +138,7 @@ mod tests {
         }
 
         let mut nonces: Vec<u64> = tasks.join_all().await;
-        nonces.sort();
+        nonces.sort_unstable();
 
         let expected: Vec<u64> = (0..N as u64).collect();
         assert_eq!(nonces, expected, "nonces must be contiguous 0..{N}");

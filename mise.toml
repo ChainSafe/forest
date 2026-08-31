@@ -62,7 +62,7 @@ cargo fmt --all -- --check
 [tasks."lint:clippy"]
 description = "Run cargo-clippy to check Rust code for common mistakes."
 run = '''
-cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
+cargo clippy --workspace --all-targets --quiet --no-deps -- --deny=warnings
 cargo clippy --all-targets --no-default-features --features slim --quiet --no-deps -- --deny=warnings
 cargo clippy --all-targets --no-default-features --quiet --no-deps -- --deny=warnings
 cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=warnings
@@ -237,19 +237,11 @@ forest-dev tests wallet
 
 [tasks."test:devnet"]
 description = "Run the integration test suites against a local docker devnet."
-shell = "bash -c"
-run = '''
-set -euo pipefail
-pushd scripts/devnet
-./setup.sh
-./check.sh
-popd
-source ./scripts/devnet/test_harness.sh
-devnet_test_env_init
-forest-dev tests mpool
-forest-dev tests wallet
-forest-dev devnet eth-gas
-'''
+run = "scripts/devnet/run_integration_tests.sh scripts/devnet"
+
+[tasks."test:devnet:forest-miner"]
+description = "Run the integration test suites against the Forest-produced local docker devnet."
+run = "scripts/devnet/run_integration_tests.sh scripts/devnet-forest-miner"
 
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"

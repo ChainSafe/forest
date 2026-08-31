@@ -331,7 +331,7 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
             parse_eip1559_tx(data).context("Failed to parse EIP-1559 transaction")
         }
         Some(tx_type) if *tx_type > 0x7f => parse_legacy_tx(data)
-            .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {}", err)),
+            .map_err(|err| anyhow::anyhow!("failed to parse legacy transaction: {err}")),
         _ => Err(anyhow::anyhow!("unsupported transaction type")),
     }
 }
@@ -427,8 +427,7 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
         // Validate that 'v' is either 27 or 28
         ensure!(
             v == BigInt::from(LEGACY_V_VALUE_27) || v == BigInt::from(LEGACY_V_VALUE_28),
-            "legacy homestead transactions only support 27 or 28 for v, got {}",
-            v
+            "legacy homestead transactions only support 27 or 28 for v, got {v}"
         );
 
         let tx_args = EthLegacyHomesteadTxArgs {

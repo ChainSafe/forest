@@ -328,11 +328,7 @@ panic = "abort"
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
 panic = "abort"
-overflow-checks = true
 lto = "thin"
-
-[profile.release.package.quinn-proto]
-overflow-checks = false
 
 [profile.release-lto-fat]
 inherits = "release"
@@ -395,6 +391,10 @@ ref_option = "deny"
 ref_option_ref = "deny"
 cast_lossless = "deny"
 redundant_clone = "deny"
+uninlined_format_args = "warn"
+or_fun_call = "warn"
+assigning_clones = "warn"
+stable_sort_primitive = "warn"
 
 [workspace]
 members = ["interop-tests"]

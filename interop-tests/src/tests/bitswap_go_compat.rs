@@ -6,11 +6,12 @@ use cid::Cid;
 use forest::interop_tests_private::libp2p_bitswap::{
     BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
 };
+use forest::interop_tests_private::multihash::MultihashCode;
 use libp2p::{
     futures::StreamExt as _, noise, request_response, swarm::SwarmEvent, tcp, yamux, Multiaddr,
     Swarm, SwarmBuilder,
 };
-use multihash_codetable::{Code, MultihashDigest as _};
+use multihash_codetable::MultihashDigest as _;
 use std::time::Duration;
 
 const TIMEOUT: Duration = Duration::from_secs(60);
@@ -26,75 +27,75 @@ async fn bitswap_go_compat_test_impl() -> anyhow::Result<()> {
 
     let expected_inbound_request_cid_str = "bitswap_request_from_go";
     let expected_inbound_request_cid =
-        Cid::new_v0(Code::Sha2_256.digest(expected_inbound_request_cid_str.as_bytes()))?;
-    let outbound_request_cid = Cid::new_v0(Code::Sha2_256.digest(b"bitswap_request_from_rust"))?;
+        Cid::new_v0(MultihashCode::Sha2_256.digest(expected_inbound_request_cid_str.as_bytes()))?;
+    let outbound_request_cid =
+        Cid::new_v0(MultihashCode::Sha2_256.digest(b"bitswap_request_from_rust"))?;
     let (inbound_request_tx, inbound_request_rx) = flume::unbounded();
     let (inbound_response_tx, inbound_response_rx) = flume::unbounded();
     tokio::spawn(async move {
         loop {
             // Swarm event loop
-            match swarm.select_next_some().await {
-                SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message, .. }) => {
-                    let bitswap = &mut swarm.behaviour_mut();
-                    match message {
-                        request_response::Message::Request {
-                            request_id: _,
-                            request,
-                            channel,
-                        } => {
-                            // Close the stream immediately, `go-bitswap` does not read
-                            // response(s) from this stream
-                            // so they will be sent over another stream
-                            bitswap.inner_mut().send_response(channel, ()).unwrap();
-                            for message in request {
-                                match message {
-                                    BitswapMessage::Request(r) => {
-                                        if r.cancel {
-                                            continue;
-                                        }
-
-                                        // 1. Get an inbound request from go app
-                                        if r.cid == expected_inbound_request_cid {
-                                            // Send a response to the go app
-                                            bitswap.send_response(
-                                                &peer,
-                                                (
-                                                    r.cid,
-                                                    BitswapResponse::Block(
-                                                        expected_inbound_request_cid_str
-                                                            .as_bytes()
-                                                            .to_vec(),
-                                                    ),
-                                                ),
-                                            );
-
-                                            inbound_request_tx.send_async(peer).await.unwrap();
-                                            // Send a request to the go app
-                                            bitswap.send_request(
-                                                &peer,
-                                                BitswapRequest::new_have(outbound_request_cid)
-                                                    .send_dont_have(true),
-                                            );
-                                        } else {
-                                            bitswap.send_response(
-                                                &peer,
-                                                (r.cid, BitswapResponse::Have(false)),
-                                            );
-                                        }
+            if let SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message, .. }) =
+                swarm.select_next_some().await
+            {
+                let bitswap = &mut swarm.behaviour_mut();
+                match message {
+                    request_response::Message::Request {
+                        request_id: _,
+                        request,
+                        channel,
+                    } => {
+                        // Close the stream immediately, `go-bitswap` does not read
+                        // response(s) from this stream
+                        // so they will be sent over another stream
+                        bitswap.inner_mut().send_response(channel, ()).unwrap();
+                        for message in request {
+                            match message {
+                                BitswapMessage::Request(r) => {
+                                    if r.cancel {
+                                        continue;
                                     }
-                                    BitswapMessage::Response(cid, ..) => {
-                                        // 2. Check inbound response
-                                        if cid == outbound_request_cid {
-                                            inbound_response_tx.send_async(()).await.unwrap();
-                                        }
+
+                                    // 1. Get an inbound request from go app
+                                    if r.cid == expected_inbound_request_cid {
+                                        // Send a response to the go app
+                                        bitswap.send_response(
+                                            &peer,
+                                            (
+                                                r.cid,
+                                                BitswapResponse::Block(
+                                                    expected_inbound_request_cid_str
+                                                        .as_bytes()
+                                                        .to_vec(),
+                                                ),
+                                            ),
+                                        );
+
+                                        inbound_request_tx.send_async(peer).await.unwrap();
+                                        // Send a request to the go app
+                                        bitswap.send_request(
+                                            &peer,
+                                            BitswapRequest::new_have(outbound_request_cid)
+                                                .send_dont_have(true),
+                                        );
+                                    } else {
+                                        bitswap.send_response(
+                                            &peer,
+                                            (r.cid, BitswapResponse::Have(false)),
+                                        );
+                                    }
+                                }
+                                BitswapMessage::Response(cid, ..) => {
+                                    // 2. Check inbound response
+                                    if cid == outbound_request_cid {
+                                        inbound_response_tx.send_async(()).await.unwrap();
                                     }
                                 }
                             }
                         }
-                        request_response::Message::Response { .. } => {}
                     }
+                    request_response::Message::Response { .. } => {}
                 }
-                _ => {}
             }
         }
     });

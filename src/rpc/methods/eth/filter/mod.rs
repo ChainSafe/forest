@@ -247,7 +247,7 @@ impl EthEventHandler {
             && let Err(err) = filter_store.add(filter.clone())
         {
             self.remove_from_manager(filter.as_ref())?;
-            bail!("Adding filter failed: {}", err);
+            bail!("Adding filter failed: {err}");
         }
         Ok(filter.id().clone())
     }
@@ -530,7 +530,7 @@ impl EthEventHandler {
         let state_events = match StampedEvent::get_events(ctx.chain_store().db(), events_root) {
             Ok(e) => e,
             Err(e) => {
-                return Err(anyhow::anyhow!("load events amt: {}", e));
+                return Err(anyhow::anyhow!("load events amt: {e}"));
             }
         };
 
@@ -641,7 +641,7 @@ impl EthFilterSpec {
                 .iter()
                 .map(|ea| {
                     ea.to_filecoin_address()
-                        .map_err(|e| anyhow!("invalid address {}", e))
+                        .map_err(|e| anyhow!("invalid address {e}"))
                 })
                 .collect::<Result<Vec<_>, _>>()?
         } else {
@@ -713,9 +713,7 @@ fn parse_block_range(
     } else if min_height >= 0 && max_height >= 0 {
         ensure!(
             min_height <= max_height,
-            "invalid epoch range: to block ({}) must be after from block ({})",
-            max_height,
-            min_height
+            "invalid epoch range: to block ({max_height}) must be after from block ({min_height})"
         );
         ensure!(
             max_height - min_height <= max_range,
