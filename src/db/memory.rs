@@ -187,11 +187,12 @@ impl EthBlockBloomStore for MemoryDB {
 
 impl Blockstore for MemoryDB {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        Ok(self.blockchain_db.read().get(k).cloned().or(self
-            .blockchain_persistent_db
+        Ok(self
+            .blockchain_db
             .read()
             .get(k)
-            .cloned()))
+            .cloned()
+            .or_else(|| self.blockchain_persistent_db.read().get(k).cloned()))
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {

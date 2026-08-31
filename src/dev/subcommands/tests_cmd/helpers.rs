@@ -12,6 +12,12 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
+use crate::rpc::Client;
+use crate::rpc::prelude::*;
+use crate::rpc::types::ApiTipsetKey;
+use crate::shim::address::Address;
+use crate::shim::state_tree::ActorState;
+
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
     std::env::var("FOREST_TEST_PRELOADED_ADDRESS")
@@ -145,7 +151,7 @@ const RPC_RETRY_DELAY: Duration = Duration::from_secs(15);
 
 /// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
 /// [`POLL_WAIT_TIME`] between attempts.
-async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
+pub async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = anyhow::Result<Option<T>>>,
@@ -186,14 +192,58 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-/// Run a `lotus` command, retrying while it fails with the transient mpool `check has failed`
-/// (the mpool briefly lags the chain head just after the sender is funded, so a submit can be
-/// rejected until it catches up). Any other failure propagates immediately.
-pub async fn lotus_exec_retrying_mpool(args: &[&str]) -> anyhow::Result<String> {
+pub async fn get_actor(client: &Client, addr: Address) -> anyhow::Result<Option<ActorState>> {
+    match client
+        .call(StateGetActor::request((addr, ApiTipsetKey(None)))?)
+        .await
+    {
+        Ok(actor) => Ok(actor),
+        Err(e)
+            if ["actor not found", "resolution lookup failed"]
+                .iter()
+                .any(|s| format!("{e:#}").contains(s)) =>
+        {
+            Ok(None)
+        }
+        Err(e) => Err(anyhow::anyhow!("{e:#}")),
+    }
+}
+
+/// Poll until `node`'s state has an actor at `addr` (the Lotus node trails Forest by a block on the
+/// forest-produced devnet, so a Forest-funded sender must be awaited before any `lotus --from`).
+pub async fn poll_until_actor_on(
+    node: &str,
+    addr: Address,
+    make_client: fn() -> anyhow::Result<Client>,
+) -> anyhow::Result<ActorState> {
+    poll(&format!("{node} StateGetActor {addr}"), || async {
+        get_actor(&make_client()?, addr).await
+    })
+    .await
+}
+
+/// True for a `lotus` CLI failure that clears once the node catches up to the funding block (the
+/// Lotus node trails Forest by a block on the forest-produced devnet).
+fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
+    let msg = format!("{e:#}");
+    [
+        "check has failed",
+        "failed to get nonce from mempool",
+        "actor not found",
+        "resolution lookup failed",
+        "not enough funds",
+    ]
+    .iter()
+    .any(|s| msg.contains(s))
+}
+
+/// Run a `lotus` command, retrying while it fails with a transient error (see
+/// [`is_transient_lotus_error`]). Any other failure propagates immediately.
+pub async fn lotus_exec_retrying_transient(args: &[&str]) -> anyhow::Result<String> {
     poll(&format!("lotus {}", args.join(" ")), || async {
         match lotus_exec(args) {
             Ok(out) => Ok(Some(out)),
-            Err(e) if format!("{e:#}").contains("check has failed") => Ok(None),
+            Err(e) if is_transient_lotus_error(&e) => Ok(None),
             Err(e) => Err(e),
         }
     })

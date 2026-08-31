@@ -144,6 +144,9 @@ pub mod interop_tests_private {
     pub mod beacon {
         pub use crate::beacon::BeaconEntry;
     }
+    pub mod multihash {
+        pub use crate::utils::multihash::MultihashCode;
+    }
 }
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013

@@ -48,7 +48,7 @@ where
                 let hamt = Hamt::load_with_bit_width(&actors, store, HAMTV0_BIT_WIDTH)?;
                 Ok(Self { hamt })
             }
-            _ => anyhow::bail!("unsupported state tree version: {:?}", version),
+            _ => anyhow::bail!("unsupported state tree version: {version:?}"),
         }
     }
 

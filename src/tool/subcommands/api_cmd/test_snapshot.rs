@@ -398,7 +398,7 @@ mod tests {
         crate::for_each_rpc_method!(print_uncovered);
 
         if !uncovered.is_empty() {
-            uncovered.sort();
+            uncovered.sort_unstable();
             println!("Uncovered RPC methods:");
             for i in uncovered.iter() {
                 println!("{i}");

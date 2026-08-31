@@ -200,39 +200,39 @@ impl State {
             State::V10(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V11(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V12(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V13(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.0, &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V14(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V15(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V16(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V17(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
             State::V18(st) => st
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
-                .map_err(|e| anyhow::anyhow!("{}", e)),
+                .map_err(|e| anyhow::anyhow!("{e}")),
         }
     }
 

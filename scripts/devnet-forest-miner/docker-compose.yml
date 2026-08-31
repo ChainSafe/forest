@@ -1,0 +1,225 @@
+# Local devnet that MIRRORS ../devnet with Lotus and Forest roles swapped: Forest produces blocks
+# (via Lotus Miner over JSON-RPC) and Lotus only validates. See README.md for the topology, the
+# block-production RPC flow, and the per-service breakdown.
+
+# Upgrade schedule. Both implementations must agree, so each reads the same
+# heights under its own env prefix.
+x-lotus-heights: &lotus-heights
+  LOTUS_GENESIS_NETWORK_VERSION: ${GENESIS_NETWORK_VERSION}
+  LOTUS_SHARK_HEIGHT: ${SHARK_HEIGHT}
+  LOTUS_HYGGE_HEIGHT: ${HYGGE_HEIGHT}
+  LOTUS_LIGHTNING_HEIGHT: ${LIGHTNING_HEIGHT}
+  LOTUS_THUNDER_HEIGHT: ${THUNDER_HEIGHT}
+  LOTUS_WATERMELON_HEIGHT: ${WATERMELON_HEIGHT}
+  LOTUS_DRAGON_HEIGHT: ${DRAGON_HEIGHT}
+  LOTUS_WAFFLE_HEIGHT: ${WAFFLE_HEIGHT}
+  LOTUS_TUKTUK_HEIGHT: ${TUKTUK_HEIGHT}
+  LOTUS_TEEP_HEIGHT: ${TEEP_HEIGHT}
+  LOTUS_TOCK_HEIGHT: ${TOCK_HEIGHT}
+  LOTUS_GOLDENWEEK_HEIGHT: ${GOLDEN_WEEK_HEIGHT}
+  LOTUS_FIREHORSE_HEIGHT: ${FIREHORSE_HEIGHT}
+
+x-forest-heights: &forest-heights
+  FOREST_GENESIS_NETWORK_VERSION: ${GENESIS_NETWORK_VERSION}
+  FOREST_SHARK_HEIGHT: ${SHARK_HEIGHT}
+  FOREST_HYGGE_HEIGHT: ${HYGGE_HEIGHT}
+  FOREST_LIGHTNING_HEIGHT: ${LIGHTNING_HEIGHT}
+  FOREST_THUNDER_HEIGHT: ${THUNDER_HEIGHT}
+  FOREST_WATERMELON_HEIGHT: ${WATERMELON_HEIGHT}
+  FOREST_DRAGON_HEIGHT: ${DRAGON_HEIGHT}
+  FOREST_WAFFLE_HEIGHT: ${WAFFLE_HEIGHT}
+  FOREST_TUKTUK_HEIGHT: ${TUKTUK_HEIGHT}
+  FOREST_TEEP_HEIGHT: ${TEEP_HEIGHT}
+  FOREST_TOCK_HEIGHT: ${TOCK_HEIGHT}
+  FOREST_GOLDEN_WEEK_HEIGHT: ${GOLDEN_WEEK_HEIGHT}
+  FOREST_FIREHORSE_HEIGHT: ${FIREHORSE_HEIGHT}
+
+services:
+  # One-shot: pre-seal the genesis miner and build the genesis template.
+  lotus_init:
+    image: ${LOTUS_IMAGE}
+    volumes:
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - lotus-data:${LOTUS_DATA_DIR}
+    environment:
+      <<: *lotus-heights
+    env_file:
+      - lotus.env
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        if [ ! -f ${LOTUS_DATA_DIR}/NODE_INITIALISED ]; then
+          lotus --version
+          lotus fetch-params 2048
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new --network-name=${NETWORK_NAME} ${LOTUS_DATA_DIR}/localnet.json
+          lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis add-miner ${LOTUS_DATA_DIR}/localnet.json ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json
+          touch ${LOTUS_DATA_DIR}/NODE_INITIALISED
+        fi
+
+  # Lotus validating node. It mints devgen.car on first boot, then follows and
+  # validates the chain Forest produces. It runs NO miner and produces no blocks.
+  lotus_node:
+    image: ${LOTUS_IMAGE}
+    depends_on:
+      lotus_init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: |
+        export FULLNODE_API_INFO="/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        lotus chain head || exit 1
+      interval: 10s
+      retries: 10
+      start_period: 60s
+      timeout: 5s
+    container_name: lotus
+    networks:
+      - devnet
+    volumes:
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - lotus-data:${LOTUS_DATA_DIR}
+    environment:
+      <<: *lotus-heights
+    env_file:
+      - lotus.env
+    ports:
+      - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
+      - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        lotus --version
+        lotus daemon --lotus-make-genesis=${LOTUS_DATA_DIR}/devgen.car --genesis-template=${LOTUS_DATA_DIR}/localnet.json --bootstrap=false
+
+  # Dump the Lotus peer id so Forest can dial it as a bootstrap peer.
+  lotus_config:
+    image: ${LOTUS_IMAGE}
+    depends_on:
+      lotus_node:
+        condition: service_healthy
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}
+    env_file:
+      - lotus.env
+    networks:
+      - devnet
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euo pipefail
+        # net id can fail briefly right after the node first reports healthy.
+        until PEER_ID=$$(lotus net id 2>/dev/null); do echo "waiting for lotus net id ..."; sleep 1; done
+        echo "$$PEER_ID" > ${LOTUS_DATA_DIR}/PEER_ID
+
+  # Forest: the block-producer's node. Serves every RPC the miner needs and signs
+  # blocks in MinerCreateBlock with the worker key from forest_wallet_import. It
+  # dials the Lotus node so its produced blocks propagate over gossip.
+  forest:
+    depends_on:
+      lotus_config:
+        condition: service_completed_successfully
+    build:
+      context: ../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    container_name: forest
+    healthcheck:
+      test: |
+        export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http
+        forest-cli sync status || exit 1
+      interval: 10s
+      retries: 20
+      timeout: 5s
+      start_period: 15s
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - forest-data:${FOREST_DATA_DIR}
+      - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
+    environment:
+      <<: *forest-heights
+      FIL_PROOFS_PARAMETER_CACHE: ${FIL_PROOFS_PARAMETER_CACHE}
+      RUST_LOG: info,forest::rpc=debug
+    networks:
+      - devnet
+    ports:
+      - ${FOREST_RPC_PORT}:${FOREST_RPC_PORT}
+      - ${FOREST_P2P_PORT}:${FOREST_P2P_PORT}
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        LOTUS_PEER_ID=$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
+        sed s@__LOTUS_MULTIADDR__@/dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$LOTUS_PEER_ID@ /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
+        forest --chain ${NETWORK_NAME} --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --p2p-listen-address /ip4/0.0.0.0/tcp/${FOREST_P2P_PORT} --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+
+  # `forest-wallet` opens an RPC connection, so this runs after the daemon is up.
+  # The genesis miner's worker key must live in Forest's keystore for
+  # MinerCreateBlock to sign blocks.
+  forest_wallet_import:
+    depends_on:
+      forest:
+        condition: service_healthy
+    build:
+      context: ../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}:ro
+      - forest-data:${FOREST_DATA_DIR}
+    networks:
+      - devnet
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
+        export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
+        ADDR=$$(forest-wallet --remote-wallet import ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key)
+        forest-wallet --remote-wallet set-default "$$ADDR"
+
+  # Lotus Miner: the block producer. Its full-node API points at FOREST, so it
+  # drives block production through Forest's RPC (this is the swap vs ../devnet).
+  lotus_miner:
+    image: ${LOTUS_IMAGE}
+    depends_on:
+      forest_wallet_import:
+        condition: service_completed_successfully
+    container_name: lotus-miner
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - forest-data:${FOREST_DATA_DIR}:ro
+    environment:
+      <<: *lotus-heights
+      FIL_PROOFS_PARAMETER_CACHE: ${FIL_PROOFS_PARAMETER_CACHE}
+      LOTUS_MINER_API_LISTENADDRESS: /ip4/0.0.0.0/tcp/${MINER_RPC_PORT}
+    env_file:
+      - lotus-miner.env
+    networks:
+      - devnet
+    ports:
+      - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
+    restart: on-failure
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euxo pipefail
+        lotus-miner --version
+        export FULLNODE_API_INFO=$$(cat ${FOREST_DATA_DIR}/token.jwt):/dns/forest/tcp/${FOREST_RPC_PORT}/http
+        until lotus chain head >/dev/null 2>&1; do echo "waiting for Forest RPC ..."; sleep 2; done
+        if [ ! -f $$LOTUS_MINER_PATH/config.toml ]; then
+          lotus-miner init --genesis-miner --actor=${MINER_ACTOR_ADDRESS} --sector-size=2KiB --pre-sealed-sectors=${LOTUS_DATA_DIR}/genesis-sectors --pre-sealed-metadata=${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.json --nosync
+        fi
+        lotus-miner run --nosync
+
+volumes:
+  # Shared proof parameter files, re-used by Lotus and Forest.
+  filecoin-proofs:
+  # Genesis artifacts (pre-sealed sectors, devgen.car, worker key) + Lotus node data.
+  lotus-data:
+  forest-data:
+
+networks:
+  devnet:

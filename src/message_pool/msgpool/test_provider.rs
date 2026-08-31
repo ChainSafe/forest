@@ -125,13 +125,10 @@ impl TestApiInner {
     }
 
     pub fn next_block(&mut self) -> CachingBlockHeader {
-        mock_block_with_parents(
-            self.tipsets
-                .last()
-                .unwrap_or(&Tipset::from(mock_block(1, 1))),
-            1,
-            1,
-        )
+        match self.tipsets.last() {
+            Some(ts) => mock_block_with_parents(ts, 1, 1),
+            None => mock_block_with_parents(&Tipset::from(mock_block(1, 1)), 1, 1),
+        }
     }
 }
 

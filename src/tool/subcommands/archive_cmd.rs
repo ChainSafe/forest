@@ -575,14 +575,14 @@ where
     let network =
         NetworkChain::from_genesis_or_devnet_placeholder(genesis.min_ticket_block().cid());
 
-    let epoch = epoch_option.unwrap_or(ts.epoch());
+    let epoch = epoch_option.unwrap_or_else(|| ts.epoch());
 
     let finality = ChainConfig::from_chain(&network)
         .policy
         .chain_finality
         .min(epoch);
     if depth < finality {
-        bail!("For {}, depth has to be at least {}.", network, finality);
+        bail!("For {network}, depth has to be at least {finality}.");
     }
 
     info!("looking up a tipset by epoch: {}", epoch);
@@ -1001,12 +1001,11 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
         .arg("help")
         .stdout(std::process::Stdio::null())
         .status()
-        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws help': {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws help': {e}"))?;
 
     if !status.success() {
         bail!(
-            "'aws help' failed with status code: {}. Please ensure that the AWS CLI is installed and configured.",
-            status
+            "'aws help' failed with status code: {status}. Please ensure that the AWS CLI is installed and configured."
         );
     }
 
@@ -1014,13 +1013,10 @@ fn check_aws_config(endpoint: &str) -> anyhow::Result<()> {
         .args(["s3", "ls", "s3://forest-archive/", "--endpoint", endpoint])
         .stdout(std::process::Stdio::null())
         .status()
-        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 ls': {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 ls': {e}"))?;
 
     if !status.success() {
-        bail!(
-            "'aws s3 ls' failed with status code: {}. Please check your AWS credentials.",
-            status
-        );
+        bail!("'aws s3 ls' failed with status code: {status}. Please check your AWS credentials.");
     }
     Ok(())
 }
@@ -1040,13 +1036,10 @@ fn upload_to_forest_bucket(path: PathBuf, network: &str, tag: &str) -> anyhow::R
             FOREST_ARCHIVE_S3_ENDPOINT,
         ])
         .status()
-        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 cp': {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to execute 'aws s3 cp': {e}"))?;
 
     if !status.success() {
-        bail!(
-            "'aws s3 cp' failed with status code: {}. Upload failed.",
-            status
-        );
+        bail!("'aws s3 cp' failed with status code: {status}. Upload failed.");
     }
     Ok(())
 }

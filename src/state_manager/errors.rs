@@ -18,6 +18,10 @@ pub enum Error {
         "required historical state unavailable: refusing explicit call due to state fork at epoch {epoch}"
     )]
     ExpensiveFork { epoch: ChainEpoch },
+    /// The sender doesn't exist on chain, or is not a valid sender type.
+    /// Control flow only: callers use it to retry with skip-sender-validation.
+    #[error("{0}: sender validation failed")]
+    SenderValidationFailed(String),
     /// Other state manager error
     #[error("{0}")]
     Other(String),

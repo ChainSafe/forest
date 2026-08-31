@@ -15,7 +15,7 @@ mod geth;
 mod parity;
 mod state_diff;
 #[cfg(test)]
-mod test_helpers;
+pub(super) mod test_helpers;
 pub(crate) mod types;
 mod utils;
 

@@ -90,10 +90,9 @@ impl RegisteredSealProof {
             | SealProof::StackedDRG512MiBV1P2_Feat_NiPoRep => {
                 Ok(PoStProof::StackedDRGWinning512MiBV1)
             }
-            SealProof::Invalid(_) => bail!(
-                "Unsupported mapping from {:?} to PoSt-winning RegisteredProof",
-                self
-            ),
+            SealProof::Invalid(_) => {
+                bail!("Unsupported mapping from {self:?} to PoSt-winning RegisteredProof")
+            }
         }
     }
 }

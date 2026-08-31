@@ -30,6 +30,9 @@ impl FakeDrand {
                     group_hash: "00".repeat(32).into(),
                 },
                 network_type: DrandNetwork::Quicknet, // unchained
+                // The fixture builds beacons directly; registering a collector here
+                // would clash with the one the real quicknet config registers.
+                register_metrics: false,
             },
         }
     }

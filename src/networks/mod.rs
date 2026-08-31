@@ -121,7 +121,7 @@ impl NetworkChain {
     ///
     /// Else returns a [`NetworkChain::Devnet`] with a placeholder name.
     pub fn from_genesis_or_devnet_placeholder(cid: &Cid) -> Self {
-        Self::from_genesis(cid).unwrap_or(Self::Devnet(String::from("devnet")))
+        Self::from_genesis(cid).unwrap_or_else(|| Self::Devnet(String::from("devnet")))
     }
 
     pub fn is_testnet(&self) -> bool {
@@ -471,7 +471,7 @@ impl ChainConfig {
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         self.network_height(epoch)
             .map(NetworkVersion::from)
-            .unwrap_or(self.genesis_network_version())
+            .unwrap_or_else(|| self.genesis_network_version())
             .max(self.genesis_network)
     }
 
