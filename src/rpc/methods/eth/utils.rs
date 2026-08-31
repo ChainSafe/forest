@@ -452,7 +452,7 @@ mod test {
     fn test_all_valid_parse_panic_revert() {
         for (code, msg) in PANIC_ERROR_CODES.iter() {
             let data = create_panic_data(*code);
-            assert_eq!(parse_panic_revert(&data), format!("{msg}"));
+            assert_eq!(parse_panic_revert(&data), msg.to_string());
         }
     }
 

@@ -46,6 +46,12 @@
 
 - [#7414](https://github.com/ChainSafe/forest/issues/7414): Forest no longer exports duplicate `cache_verified_beacons_*` metric families.
 
+- [#7566](https://github.com/ChainSafe/forest/pull/7566): `Filecoin.MpoolPending` now merges the messages of a requested tipset that forks away from the message pool's own tipset. Previously it seeded its exclusion set from the requested tipset instead of the pool's, so the merge of that tipset was a no-op and its messages were missing from the result.
+
+- [#7566](https://github.com/ChainSafe/forest/pull/7566): `Filecoin.MpoolPending` no longer fails when a BLS signature is missing from the message pool's cache; the affected message is skipped instead.
+
+- [#7566](https://github.com/ChainSafe/forest/pull/7566): Fixed a race in `Filecoin.MpoolPending` where the reported pending set could predate the tipset it is reported against, listing messages that tipset had already applied.
+
 - [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now closes the subscription channel when a client falls too far behind instead of silently dropping head changes, matching Lotus, so clients can detect the gap and resubscribe.
 
 ## Forest v0.36.0 "bafy2bzacedpdckv7nsqfjwqnqwtgu7ipqbox4tfuuhwxhdox27uuznfyv3o2g"

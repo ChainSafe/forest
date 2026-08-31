@@ -1,11 +1,16 @@
 {
-  "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
-    // Required: the parent sets baseUrl: ".", which TS 6.0 resolves relative to the parent's
-    // location in node_modules. Re-declaring here anchors @site/* path resolution to docs/.
-    "baseUrl": ".",
-    "skipLibCheck": true,
-    // Silences TS5101 from the parent's deprecated baseUrl. Drop once @docusaurus/tsconfig removes it.
-    "ignoreDeprecations": "6.0"
+    "allowJs": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "noEmit": true,
+    "paths": {
+      "@site/*": ["./*"]
+    },
+    "skipLibCheck": true
   }
 }
