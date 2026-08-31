@@ -16,7 +16,7 @@ use crate::message_pool::{
     errors::Error,
     msgpool::{
         BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolSubscriber,
-        pending_store::PendingStore, recover_sig, republish::RepublishState,
+        pending_store::PendingStore, recovered_bls_messages, republish::RepublishState,
     },
     provider::{Provider, ProviderExt},
     utils::get_base_fee_lower_bound,
@@ -325,6 +325,11 @@ where
     /// (size, sig, base-fee, sender-actor checks). The reorg replay path
     /// uses this directly to restore reverted messages even when they no
     /// longer pass the add-time filters.
+    ///
+    /// A BLS signature cached here is later paired back by `recover_sig` without re-verification, so
+    /// callers must pass only already-verified signatures: the add path verifies via
+    /// `validate_for_pool`, and the reorg path replays only messages whose signature was already
+    /// cached (hence verified during block validation).
     pub(in crate::message_pool) async fn add_to_pool_unchecked(
         &self,
         cur_ts: &Tipset,
@@ -488,13 +493,7 @@ where
             let (umsg, mut smsgs) = self.api.messages_for_block(block)?;
 
             msg_vec.append(smsgs.as_mut());
-            for msg in umsg {
-                // An uncached BLS signature skips the message rather than failing the caller.
-                // <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/messagepool/messagepool.go#L1556>
-                if let Some(smsg) = recover_sig(&self.caches.bls_sig, msg) {
-                    msg_vec.push(smsg)
-                }
-            }
+            msg_vec.extend(recovered_bls_messages(&self.caches.bls_sig, umsg));
         }
         Ok(msg_vec)
     }

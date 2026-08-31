@@ -9,7 +9,7 @@ use crate::message_pool::msgpool::utils;
 use crate::message_pool::{
     Error,
     msg_pool::{StrictnessPolicy, TrustPolicy},
-    msgpool::{msg_pool::MessagePool, recover_sig},
+    msgpool::{msg_pool::MessagePool, recovered_bls_messages},
     provider::Provider,
 };
 use crate::shim::address::Address;
@@ -51,11 +51,7 @@ where
                     continue;
                 };
                 msgs.extend(smsgs);
-                for msg in umsg {
-                    if let Some(smsg) = recover_sig(&self.caches.bls_sig, msg) {
-                        msgs.push(smsg)
-                    }
-                }
+                msgs.extend(recovered_bls_messages(&self.caches.bls_sig, umsg));
             }
 
             for msg in msgs {

@@ -370,10 +370,12 @@ mod tests {
         )
     }
 
-    /// A persisted single-block child of `parent`. `ticket` distinguishes siblings.
-    fn tipset_on(
+    /// A persisted single-block child of `parent` at an explicit `epoch`. A gap over
+    /// `parent.epoch() + 1` models a null round. `ticket` distinguishes siblings.
+    fn tipset_at(
         db: &impl Blockstore,
         parent: &Tipset,
+        epoch: i64,
         ticket: u8,
         bls: &[Message],
         secp: &[SignedMessage],
@@ -381,7 +383,7 @@ mod tests {
         let fts = FullTipset::new([Block {
             header: CachingBlockHeader::new(RawBlockHeader {
                 parents: parent.key().clone(),
-                epoch: parent.epoch() + 1,
+                epoch,
                 messages: TipsetValidator::compute_msg_root(db, bls, secp).unwrap(),
                 ticket: dummy_ticket(ticket),
                 ..Default::default()
@@ -392,6 +394,17 @@ mod tests {
         .unwrap();
         fts.persist(db).unwrap();
         fts.into_tipset()
+    }
+
+    /// A persisted single-block child of `parent`. `ticket` distinguishes siblings.
+    fn tipset_on(
+        db: &impl Blockstore,
+        parent: &Tipset,
+        ticket: u8,
+        bls: &[Message],
+        secp: &[SignedMessage],
+    ) -> Tipset {
+        tipset_at(db, parent, parent.epoch() + 1, ticket, bls, secp)
     }
 
     /// An `RPCState` whose message pool sits on `mpool_ts`.
@@ -453,6 +466,26 @@ mod tests {
 
         let ctx = ctx_on(cs, &mpool_ts);
         assert_eq!(pending_at(ctx, &child_ts).await, vec![in_child]);
+    }
+
+    /// A null round at the pool's height on the requested branch See the null-round note in
+    /// `MpoolPending::handle`.
+    #[tokio::test]
+    async fn merges_across_a_null_round_past_the_mpool_tipset() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let only_in_ts = secp_message(1);
+
+        // A common ancestor below the pool's height that the walk can descend to and merge.
+        let base = tipset_on(cs.db(), &genesis, 5, &[], &[]);
+        // Pool sits on a fork at epoch 2.
+        let mpool_ts = tipset_on(cs.db(), &base, 1, &[], &[secp_message(0)]);
+        // Requested tipset is at epoch 3 but descends straight from `base` (epoch 1): epoch 2 is a
+        // null round on its branch, so its parent sits below the pool's height.
+        let ts = tipset_at(cs.db(), &base, 3, 3, &[], std::slice::from_ref(&only_in_ts));
+
+        let ctx = ctx_on(cs, &mpool_ts);
+        assert_eq!(pending_at(ctx, &ts).await, vec![only_in_ts]);
     }
 
     /// A tipset at or behind the pool's own needs no merge at all.
