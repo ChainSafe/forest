@@ -230,6 +230,9 @@ pub enum WalletCommands {
     Import {
         /// The path to the private key
         path: Option<String>,
+        /// Set the imported address as default
+        #[arg(long)]
+        as_default: bool,
     },
     /// List addresses of the wallet
     List {
@@ -374,7 +377,7 @@ impl WalletCommands {
                 println!("deleted {address}.");
                 Ok(())
             }
-            Self::Import { path } => {
+            Self::Import { path, as_default } => {
                 let key = match path {
                     Some(path) => std::fs::read_to_string(path)?,
                     _ => {
@@ -405,6 +408,9 @@ impl WalletCommands {
                     .context("invalid key format")?;
 
                 let key = backend.wallet_import(key_info).await?;
+                if as_default {
+                    backend.wallet_set_default(Address::from_str(&key)?).await?;
+                }
 
                 println!("{key}");
                 Ok(())
