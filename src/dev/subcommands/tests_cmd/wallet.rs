@@ -28,6 +28,14 @@ fn tests() -> Vec<Trial> {
             block_on(export_import_roundtrip(Backend::Remote));
             Ok(())
         }),
+        Trial::test("import_as_default_local", || {
+            block_on(import_as_default(Backend::Local));
+            Ok(())
+        }),
+        Trial::test("import_as_default_remote", || {
+            block_on(import_as_default(Backend::Remote));
+            Ok(())
+        }),
         Trial::test("market_add_balance_message_on_chain", || {
             block_on(market_add_balance_message_on_chain());
             Ok(())
@@ -72,6 +80,26 @@ fn tests() -> Vec<Trial> {
 }
 
 async fn export_import_roundtrip(backend: Backend) {
+    let addr = wallet(backend, &["new"]).unwrap();
+    let exported = export_to_temp_file(&addr, backend).unwrap();
+    let path = exported
+        .path()
+        .to_str()
+        .expect("temp path is not valid UTF-8");
+
+    let deleted = wallet(backend, &["delete", &addr]).unwrap();
+    eprintln!("delete output ({}): {deleted}", backend.label());
+
+    let imported = wallet(backend, &["import", path]).unwrap();
+    assert_eq!(
+        imported,
+        addr,
+        "round-trip mismatch on {} backend: {imported} != {addr}",
+        backend.label(),
+    );
+}
+
+async fn import_as_default(backend: Backend) {
     let addr = wallet(backend, &["new"]).unwrap();
     let exported = export_to_temp_file(&addr, backend).unwrap();
     let path = exported
