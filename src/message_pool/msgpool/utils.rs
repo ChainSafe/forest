@@ -3,10 +3,7 @@
 
 use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{MessageRead as _, SignedMessage};
-use crate::message_pool::{
-    Error,
-    msgpool::{RBF_DENOM, REPLACE_BY_FEE_RATIO_MIN},
-};
+use crate::message_pool::msgpool::{RBF_DENOM, REPLACE_BY_FEE_RATIO_MIN};
 use crate::shim::address::Address;
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message, percent::Percent};
 use crate::utils::cache::SizeTrackingCache;
@@ -54,16 +51,20 @@ pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit:
 }
 
 /// Attempt to get a signed message that corresponds to an unsigned message in
-/// `bls_sig_cache`.
+/// `bls_sig_cache`, logging and returning [`None`] when the signature is missing or does not verify.
+/// <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/messagepool/messagepool.go#L1564>
 pub(in crate::message_pool) fn recover_sig(
     bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
     msg: Message,
-) -> Result<SignedMessage, Error> {
-    let val = bls_sig_cache
-        .get(&msg.cid())
-        .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
-    let smsg = SignedMessage::new_from_parts(msg, val)?;
-    Ok(smsg)
+) -> Option<SignedMessage> {
+    let msg_cid = msg.cid();
+    let recovered = bls_sig_cache
+        .get(&msg_cid)
+        .and_then(|sig| SignedMessage::new_from_parts(msg, sig).ok());
+    if recovered.is_none() {
+        tracing::debug!("could not recover signature for bls message {msg_cid}");
+    }
+    recovered
 }
 
 pub(in crate::message_pool) fn add_to_selected_msgs(

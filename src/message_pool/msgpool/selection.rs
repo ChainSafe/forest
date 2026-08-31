@@ -839,11 +839,8 @@ where
             let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
             for msg in umsg {
-                let msg_cid = msg.cid();
-                if let Ok(smsg) = recover_sig(bls_sig_cache, msg) {
+                if let Some(smsg) = recover_sig(bls_sig_cache, msg) {
                     msgs.push(smsg);
-                } else {
-                    tracing::debug!("could not recover signature for bls message {msg_cid}");
                 }
             }
         }

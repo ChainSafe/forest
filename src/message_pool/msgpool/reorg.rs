@@ -52,12 +52,9 @@ where
                 };
                 msgs.extend(smsgs);
                 for msg in umsg {
-                    let msg_cid = msg.cid();
-                    let Ok(smsg) = recover_sig(&self.caches.bls_sig, msg) else {
-                        tracing::debug!("could not recover signature for bls message {}", msg_cid);
-                        continue;
-                    };
-                    msgs.push(smsg)
+                    if let Some(smsg) = recover_sig(&self.caches.bls_sig, msg) {
+                        msgs.push(smsg)
+                    }
                 }
             }
 
@@ -88,6 +85,8 @@ where
                     }
                 }
             }
+            // Must stay after the removals above: `pending` relies on this order to
+            // avoid pairing a stale pool with a newer tipset.
             *self.cur_tipset.write() = ts;
         }
         if repub {

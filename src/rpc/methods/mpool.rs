@@ -116,34 +116,29 @@ impl RpcMethod<1> for MpoolPending {
             return Ok(pending.into());
         }
 
-        let mut have_cids = HashSet::new();
-        for item in pending.iter() {
-            have_cids.insert(item.cid());
-        }
+        let mut have_cids: HashSet<_> = pending.iter().map(|m| m.cid()).collect();
 
         loop {
+            // A null round can make `ts.parents()` skip past `mpts.epoch()`, so this may never
+            // match, in which case nothing is excluded and `ts` is merged as-is.
             if mpts.epoch() == ts.epoch() {
                 if mpts == ts {
                     break;
                 }
 
-                // mpts has different blocks than ts
-                let have = ctx.mpool.messages_for_blocks(ts.block_headers().iter())?;
-
-                for sm in have {
-                    have_cids.insert(sm.cid());
-                }
+                // Exclude what the mpool tipset's blocks already include, so only `ts`-specific
+                // messages get merged below.
+                // <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/node/impl/full/mpool.go#L94>
+                let have = ctx.mpool.messages_for_blocks(mpts.block_headers().iter())?;
+                have_cids.extend(have.iter().map(|m| m.cid()));
             }
 
             let msgs = ctx.mpool.messages_for_blocks(ts.block_headers().iter())?;
 
             for m in msgs {
-                if have_cids.contains(&m.cid()) {
-                    continue;
+                if have_cids.insert(m.cid()) {
+                    pending.push(m);
                 }
-
-                have_cids.insert(m.cid());
-                pending.push(m);
             }
 
             if mpts.epoch() >= ts.epoch() {
@@ -347,5 +342,157 @@ impl RpcMethod<2> for MpoolPushMessage {
             .await?;
 
         Ok(smsg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blocks::{Block, CachingBlockHeader, FullTipset, RawBlockHeader, Tipset};
+    use crate::chain::ChainStore;
+    use crate::chain_sync::TipsetValidator;
+    use crate::rpc::RPCState;
+    use crate::rpc::test_utils::chain_store;
+    use crate::shim::crypto::{SECP_SIG_LEN, Signature};
+    use crate::test_utils::dummy_ticket;
+    use fvm_ipld_blockstore::Blockstore;
+
+    /// A secp message, unique per `sequence`.
+    fn secp_message(sequence: u64) -> SignedMessage {
+        SignedMessage::new_unchecked(
+            Message {
+                from: Address::new_id(100),
+                to: Address::new_id(101),
+                sequence,
+                ..Default::default()
+            },
+            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+        )
+    }
+
+    /// A persisted single-block child of `parent`. `ticket` distinguishes siblings.
+    fn tipset_on(
+        db: &impl Blockstore,
+        parent: &Tipset,
+        ticket: u8,
+        bls: &[Message],
+        secp: &[SignedMessage],
+    ) -> Tipset {
+        let fts = FullTipset::new([Block {
+            header: CachingBlockHeader::new(RawBlockHeader {
+                parents: parent.key().clone(),
+                epoch: parent.epoch() + 1,
+                messages: TipsetValidator::compute_msg_root(db, bls, secp).unwrap(),
+                ticket: dummy_ticket(ticket),
+                ..Default::default()
+            }),
+            bls_messages: bls.to_vec(),
+            secp_messages: secp.to_vec(),
+        }])
+        .unwrap();
+        fts.persist(db).unwrap();
+        fts.into_tipset()
+    }
+
+    /// An `RPCState` whose message pool sits on `mpool_ts`.
+    fn ctx_on(cs: ChainStore, mpool_ts: &Tipset) -> Arc<RPCState> {
+        cs.set_heaviest_tipset(mpool_ts.clone()).unwrap();
+        let (ctx, _) = RPCState::for_tests(cs).unwrap();
+        assert_eq!(
+            &ctx.mpool.pending().1,
+            mpool_ts,
+            "the pool must adopt the heaviest tipset"
+        );
+        ctx
+    }
+
+    async fn pending_at(ctx: Arc<RPCState>, ts: &Tipset) -> Vec<SignedMessage> {
+        let NotNullVec(pending) = MpoolPending::handle(
+            ctx,
+            (ApiTipsetKey(Some(ts.key().clone())),),
+            &Default::default(),
+        )
+        .await
+        .unwrap();
+        pending
+    }
+
+    /// A tipset that forks away from the pool's own tipset must contribute the messages that are
+    /// neither pending nor already in the pool's tipset.
+    /// <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/node/impl/full/mpool.go#L70>
+    #[tokio::test]
+    async fn merges_messages_of_a_same_height_fork() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let shared = secp_message(0);
+        let only_in_fork = secp_message(1);
+
+        let mpool_ts = tipset_on(cs.db(), &genesis, 1, &[], std::slice::from_ref(&shared));
+        let fork_ts = tipset_on(cs.db(), &genesis, 2, &[], &[shared, only_in_fork.clone()]);
+
+        let ctx = ctx_on(cs, &mpool_ts);
+        assert_eq!(pending_at(ctx, &fork_ts).await, vec![only_in_fork]);
+    }
+
+    /// Walking back to the pool's own tipset merges the tipsets in between and stops there.
+    #[tokio::test]
+    async fn walks_back_to_the_mpool_tipset() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let in_mpool_ts = secp_message(0);
+        let in_child = secp_message(1);
+
+        let mpool_ts = tipset_on(
+            cs.db(),
+            &genesis,
+            1,
+            &[],
+            std::slice::from_ref(&in_mpool_ts),
+        );
+        let child_ts = tipset_on(cs.db(), &mpool_ts, 2, &[], std::slice::from_ref(&in_child));
+
+        let ctx = ctx_on(cs, &mpool_ts);
+        assert_eq!(pending_at(ctx, &child_ts).await, vec![in_child]);
+    }
+
+    /// A tipset at or behind the pool's own needs no merge at all.
+    #[tokio::test]
+    async fn does_not_merge_at_or_behind_the_mpool_tipset() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let mpool_ts = tipset_on(cs.db(), &genesis, 1, &[], &[secp_message(0)]);
+
+        let ctx = ctx_on(cs, &mpool_ts);
+        // The pool's own tipset, then one behind it: both take the early return.
+        assert!(pending_at(ctx.clone(), &mpool_ts).await.is_empty());
+        assert!(pending_at(ctx, &genesis).await.is_empty());
+    }
+
+    /// A BLS message whose signature the pool never cached is skipped, rather than failing the
+    /// whole call.
+    /// <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/messagepool/messagepool.go#L1541>
+    #[tokio::test]
+    async fn skips_bls_messages_with_an_uncached_signature() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let only_in_fork = secp_message(1);
+
+        let mpool_ts = tipset_on(cs.db(), &genesis, 1, &[], &[]);
+        // The fork carries an unrecoverable BLS message alongside a recoverable secp one.
+        let fork_ts = tipset_on(
+            cs.db(),
+            &genesis,
+            2,
+            // A BLS message whose signature the pool never cached.
+            &[Message {
+                from: Address::new_id(200),
+                to: Address::new_id(201),
+                ..Default::default()
+            }],
+            std::slice::from_ref(&only_in_fork),
+        );
+
+        let ctx = ctx_on(cs, &mpool_ts);
+        assert_eq!(pending_at(ctx, &fork_ts).await, vec![only_in_fork]);
     }
 }

@@ -429,6 +429,7 @@ where
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
     pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
+        let cur_ts = self.current_tipset();
         let snapshot = self.pending.snapshot();
         let len = snapshot.values().map(|mset| mset.msgs.len()).sum();
         let mut out = Vec::with_capacity(len);
@@ -440,8 +441,6 @@ where
                     .sorted_unstable_by_key(|m| m.message().sequence),
             );
         }
-
-        let cur_ts = self.current_tipset();
 
         (out, cur_ts)
     }
@@ -490,8 +489,11 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let smsg = recover_sig(&self.caches.bls_sig, msg)?;
-                msg_vec.push(smsg)
+                // An uncached BLS signature skips the message rather than failing the caller.
+                // <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/messagepool/messagepool.go#L1556>
+                if let Some(smsg) = recover_sig(&self.caches.bls_sig, msg) {
+                    msg_vec.push(smsg)
+                }
             }
         }
         Ok(msg_vec)
