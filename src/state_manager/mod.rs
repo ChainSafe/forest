@@ -19,6 +19,7 @@ pub mod utils;
 
 use self::circulating_supply::GenesisInfo;
 pub use self::errors::*;
+pub use self::message_search::FAILED_TO_LOAD_MESSAGE;
 pub use self::state_computation::{apply_block_messages_blocking, validate_tipsets_blocking};
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKey};

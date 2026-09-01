@@ -8,15 +8,19 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 use anyhow::{Context as _, bail};
+use cid::Cid;
+use jsonrpsee::core::ClientError;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
-use crate::rpc::Client;
 use crate::rpc::prelude::*;
-use crate::rpc::types::ApiTipsetKey;
+use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::{Client, humanize_rpc_error};
 use crate::shim::address::Address;
+use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::ActorState;
+use crate::state_manager::FAILED_TO_LOAD_MESSAGE;
 
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
@@ -38,6 +42,8 @@ pub const DELEGATE_FUND_AMT: &str = "30 micro FIL";
 pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);
 /// Delay between poll attempts.
 pub const POLL_WAIT_TIME: Duration = Duration::from_secs(1);
+/// Epochs a message search looks back over before giving up.
+const MESSAGE_LOOKBACK: ChainEpoch = 800;
 
 /// Selects which `forest-wallet` keystore an operation targets.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -413,11 +419,39 @@ pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
 pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
     let label = format!("StateSearchMsg for {msg_cid}");
     poll(&label, || async {
-        let params = json!([[], { "/": msg_cid }, 800_i64, true]);
+        let params = json!([[], { "/": msg_cid }, MESSAGE_LOOKBACK, true]);
         Ok((rpc_call_opt("Filecoin.StateSearchMsg", params)
             .await?
             .is_some())
         .then_some(()))
+    })
+    .await
+}
+
+/// Forest and Lotus both refuse a wait for a message they have never seen, rather than waiting
+/// for one to arrive.
+fn is_unseen_message_error(e: &ClientError) -> bool {
+    matches!(e, ClientError::Call(obj) if obj.message().contains(FAILED_TO_LOAD_MESSAGE))
+}
+
+/// Wait until `cid` has been executed on the chain `client` follows. `lotus send` returns as soon
+/// as Lotus's own mpool accepts the message, so the node under test may not have it yet.
+pub async fn poll_until_message_executed(
+    client: &Client,
+    cid: Cid,
+) -> anyhow::Result<MessageLookup> {
+    // A blocking attempt outlives the loop's own deadline check, so hand each one what is left.
+    let deadline = tokio::time::Instant::now() + POLL_TIMEOUT;
+    poll(&format!("StateWaitMsg for {cid}"), || async {
+        let budget = deadline.saturating_duration_since(tokio::time::Instant::now());
+        match client
+            .call(StateWaitMsg::request((cid, 0, MESSAGE_LOOKBACK, true))?.with_timeout(budget))
+            .await
+        {
+            Ok(lookup) => Ok(Some(lookup)),
+            Err(e) if is_unseen_message_error(&e) => Ok(None),
+            Err(e) => Err(humanize_rpc_error(e.into())),
+        }
     })
     .await
 }
