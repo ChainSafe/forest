@@ -30,6 +30,9 @@ Make a pull request with the following changes:
 
 ## Release on GitHub
 
+> [!IMPORTANT]
+> The Github Release must be create only after the merge of release pull request!
+
 - Create a [new release][4]. Click on `Choose a tag` button and create a new
   one. The tag must start with a lowercase `v`, e.g., `v0.11.0`. Follow the
   title convention of the previous releases, and write a small summary of the
