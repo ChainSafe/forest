@@ -223,13 +223,14 @@ Options:
 ```
 Import keys from existing wallet
 
-Usage: forest-wallet import [PATH]
+Usage: forest-wallet import [OPTIONS] [PATH]
 
 Arguments:
   [PATH]  The path to the private key
 
 Options:
-  -h, --help  Print help
+      --as-default  Set the imported address as default
+  -h, --help        Print help
 ```
 
 ### `forest-wallet list`
