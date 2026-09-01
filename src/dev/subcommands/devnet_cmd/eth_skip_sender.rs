@@ -345,10 +345,7 @@ async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> 
 }
 
 async fn wait_for_cid(forest: &Client, cid: Cid) -> anyhow::Result<()> {
-    let lookup = forest
-        .call(StateWaitMsg::request((cid, 0, 800, true))?.with_timeout(POLL_TIMEOUT))
-        .await
-        .map_err(|e| anyhow::anyhow!("{e:#}"))?;
+    let lookup = poll_until_message_executed(forest, cid).await?;
     let exit = lookup.receipt.exit_code();
     ensure!(
         exit.is_success(),
