@@ -500,7 +500,7 @@ pub mod tests {
         state_root: Cid,
     ) -> Tipset {
         assert!(n > 0, "tipset must have at least one block");
-        let headers: Vec<_> = (0..n)
+        let headers = (0..n)
             .map(|i| {
                 let nonce = next_tipset_nonce();
                 CachingBlockHeader::new(RawBlockHeader {
@@ -513,7 +513,7 @@ pub mod tests {
                     ..Default::default()
                 })
             })
-            .collect();
+            .collect_vec();
         Tipset::new(headers).expect("valid multi-block tipset")
     }
 
