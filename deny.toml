@@ -8,6 +8,7 @@ ignore = [
   "RUSTSEC-2025-0141", # bincode is unmaintained
   "RUSTSEC-2026-0118", # hickory-*, waiting for libp2p to update and release
   "RUSTSEC-2026-0119", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0269", # wasmtime, pending FVM release with updated dependency
 ]
 
 [licenses]
