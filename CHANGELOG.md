@@ -29,6 +29,7 @@
 
 ### Added
 
+- [#7555](https://github.com/ChainSafe/forest/issues/7555): Added `--as-default` to `forest-wallet import`.
 - [#7414](https://github.com/ChainSafe/forest/issues/7414): New `drand_http_fetch_total` metric, counting the drand rounds that had to be fetched over HTTP rather than served from the in-memory cache.
 
 ### Changed
@@ -46,6 +47,12 @@
 - [#7537](https://github.com/ChainSafe/forest/pull/7537): Self-destructed EVM contracts no longer report stale state in the trace RPCs. `Forest.EthTraceCall` (`trace_call`) `stateDiff` and `Forest.EthDebugTraceTransaction` (`debug_traceTransaction`) `prestateTracer` now report a zero nonce and empty storage for them, matching `Filecoin.EthGetTransactionCount`, `Filecoin.EthGetCode`, `Filecoin.EthGetStorageAt` and Lotus. Previously a contract that self-destructed during the traced message showed no storage change at all.
 
 - [#7414](https://github.com/ChainSafe/forest/issues/7414): Forest no longer exports duplicate `cache_verified_beacons_*` metric families.
+
+- [#7566](https://github.com/ChainSafe/forest/pull/7566): `Filecoin.MpoolPending` now merges the messages of a requested tipset that forks away from the message pool's own tipset. Previously it seeded its exclusion set from the requested tipset instead of the pool's, so the merge of that tipset was a no-op and its messages were missing from the result.
+
+- [#7566](https://github.com/ChainSafe/forest/pull/7566): `Filecoin.MpoolPending` no longer fails when a BLS signature is missing from the message pool's cache; the affected message is skipped instead.
+
+- [#7566](https://github.com/ChainSafe/forest/pull/7566): Fixed a race in `Filecoin.MpoolPending` where the reported pending set could predate the tipset it is reported against, listing messages that tipset had already applied.
 
 - [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now closes the subscription channel when a client falls too far behind instead of silently dropping head changes, matching Lotus, so clients can detect the gap and resubscribe.
 

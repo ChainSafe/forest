@@ -16,7 +16,7 @@ pub(in crate::message_pool) mod utils;
 
 pub use events::{MpoolSubscriber, MpoolUpdate};
 
-pub(in crate::message_pool) use utils::recover_sig;
+pub(in crate::message_pool) use utils::recovered_bls_messages;
 
 use crate::shim::percent::Percent;
 

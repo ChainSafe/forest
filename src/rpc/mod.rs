@@ -17,6 +17,8 @@ mod registry;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+#[cfg(test)]
+mod test_utils;
 pub mod types;
 mod validation_layer;
 

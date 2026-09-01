@@ -1,7 +1,7 @@
 name: external-rpc-checks
 
 x-forest-service: &forest-service
-  image: ghcr.io/chainsafe/forest:edge-fat
+  image: ${FOREST_IMAGE}
   volumes:
     - node-data:/data
   environment:
