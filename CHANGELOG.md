@@ -37,7 +37,7 @@
 
 ## Forest v0.36.1 "Kaaguy"
 
-Non-mandatory release for all node operators. Mostly fixes and improvements,around RPC methods.
+Non-mandatory release for all node operators. Mostly fixes and improvements around RPC methods.
 
 ### Added
 
