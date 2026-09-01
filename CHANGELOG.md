@@ -37,7 +37,7 @@
 
 ## Forest v0.36.1 "Kaaguy"
 
-Non-mandatory release for all node operators. Mostly fixes and small improvements, with the message pool and the Ethereum RPC methods getting the most attention. It also continues the previous release's block-production work, so Forest can sit behind lotus-miner or curio.
+Non-mandatory release for all node operators. Mostly fixes and improvements,around RPC methods.
 
 ### Added
 
