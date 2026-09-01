@@ -20,6 +20,7 @@ services:
 
   forest:
     <<: *forest-service
+    entrypoint: ["forest"]
     environment:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
