@@ -24,6 +24,7 @@ services:
     environment:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
+      - FOREST_ETH_RPC_COMPUTE_STATE_ON_INDEX_MISS=1
     command:
       - --chain=calibnet
       - --encrypt-keystore=false
