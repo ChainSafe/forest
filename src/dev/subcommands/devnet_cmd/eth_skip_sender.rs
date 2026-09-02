@@ -247,7 +247,7 @@ async fn evm_deploy_and_call() -> anyhow::Result<()> {
     let from = EthAddress::from_filecoin_address(deployer().await?)?;
     let from_hex = hex::encode_prefixed(from.0.as_bytes());
     let to_hex = hex::encode_prefixed(coin.eth.0.as_bytes());
-    let data = hex::encode_prefixed(&get_balance_calldata(from));
+    let data = hex::encode_prefixed(get_balance_calldata(from));
     let out = forest_cli(&["evm", "call", &from_hex, &to_hex, &data])?;
     let result = out
         .lines()
