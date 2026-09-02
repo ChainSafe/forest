@@ -28,9 +28,7 @@ use anyhow::{Context as _, ensure};
 use cid::Cid;
 use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
-use std::io::Write as _;
 use std::str::FromStr as _;
-use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
 const SIMPLE_COIN_HEX: &str = include_str!("contracts/simple_coin/simple_coin.hex");
@@ -91,6 +89,7 @@ fn tests() -> Vec<Trial> {
     }
 
     vec![
+        trial("evm_deploy_and_call", || block_on(evm_deploy_and_call())),
         trial("round_trip_from_unfunded", || {
             block_on(round_trip_from_unfunded())
         }),
@@ -215,34 +214,21 @@ async fn deployer() -> anyhow::Result<&'static Address> {
     DEPLOYER
         .get_or_try_init(|| async {
             let addr = lotus_exec(&["wallet", "new", "delegated"])?;
-            fund_on_chain(&addr, DEPLOYER_FUND_AMT).await
+            let funded = fund_on_chain(&addr, DEPLOYER_FUND_AMT).await?;
+            import_lotus_wallet_into_forest(&addr)?;
+            Ok(funded)
         })
         .await
 }
 
-async fn deploy_hex(label: &str, bytecode: &str, container_path: &str) -> anyhow::Result<Deployed> {
+async fn deploy_hex(label: &str, bytecode: &str) -> anyhow::Result<Deployed> {
     let deployer = deployer().await?;
-    let mut hex_file =
-        NamedTempFile::new_in(std::env::temp_dir()).context("staging the contract bytecode")?;
-    hex_file.write_all(bytecode.trim().as_bytes())?;
-    hex_file.flush()?;
-    docker(&[
-        "cp",
-        &hex_file.path().to_string_lossy(),
-        &format!("lotus:{container_path}"),
-    ])?;
-
     let from = deployer.to_string();
-    let deploy =
-        lotus_exec_retrying_transient(&["evm", "deploy", "--from", &from, "--hex", container_path])
-            .await?;
-    let f4 = deploy
-        .lines()
-        .find_map(|l| l.trim().strip_prefix("f4 Address: "))
-        .with_context(|| format!("no `f4 Address:` in {label} deploy output:\n{deploy}"))?;
-    let f4 = Address::from_str(f4.trim()).context("parsing the deployed f4 address")?;
+    let deploy = forest_evm_deploy_hex(&from, bytecode)?;
+    let f4 = parse_f4_from_evm_deploy(&deploy)?;
     eprintln!("deployed {label} at {f4}");
     poll_until_actor(f4).await?;
+    poll_until_actor_on("lotus", f4, lotus_client).await?;
     Ok(Deployed {
         eth: EthAddress::from_filecoin_address(&f4)?,
         f4,
@@ -252,28 +238,52 @@ async fn deploy_hex(label: &str, bytecode: &str, container_path: &str) -> anyhow
 async fn simple_coin() -> anyhow::Result<&'static Deployed> {
     static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("SimpleCoin", SIMPLE_COIN_HEX, "/tmp/simple_coin.hex"))
+        .get_or_try_init(|| deploy_hex("SimpleCoin", SIMPLE_COIN_HEX))
         .await
+}
+
+async fn evm_deploy_and_call() -> anyhow::Result<()> {
+    let coin = simple_coin().await?;
+    let from = EthAddress::from_filecoin_address(deployer().await?)?;
+    let from_hex = hex::encode_prefixed(from.0.as_bytes());
+    let to_hex = hex::encode_prefixed(coin.eth.0.as_bytes());
+    let data = hex::encode_prefixed(&get_balance_calldata(from));
+    let out = forest_cli(&["evm", "call", &from_hex, &to_hex, &data])?;
+    let result = out
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("Result: "))
+        .with_context(|| format!("no `Result:` in evm call output:\n{out}"))?;
+    ensure!(
+        result.starts_with("0x"),
+        "expected 0x-prefixed result, got {out}"
+    );
+    let bytes = EthBytes::from_str(result.trim())?;
+    ensure!(
+        bytes.0.len() == 32,
+        "expected 32-byte word from getBalance, got {} bytes: {out}",
+        bytes.0.len()
+    );
+    Ok(())
 }
 
 async fn contract_b() -> anyhow::Result<&'static Deployed> {
     static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("ContractB", CONTRACT_B_HEX, "/tmp/contract_b.hex"))
+        .get_or_try_init(|| deploy_hex("ContractB", CONTRACT_B_HEX))
         .await
 }
 
 async fn nested_gas() -> anyhow::Result<&'static Deployed> {
     static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("NestedGas", NESTED_GAS_HEX, "/tmp/nested_gas_skip.hex"))
+        .get_or_try_init(|| deploy_hex("NestedGas", NESTED_GAS_HEX))
         .await
 }
 
 async fn errors_contract() -> anyhow::Result<&'static Deployed> {
     static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("Errors", ERRORS_HEX, "/tmp/errors.hex"))
+        .get_or_try_init(|| deploy_hex("Errors", ERRORS_HEX))
         .await
 }
 
@@ -308,7 +318,7 @@ async fn linked_contracts() -> anyhow::Result<&'static (Deployed, Deployed)> {
     LINKED
         .get_or_try_init(|| async {
             let b = contract_b().await?;
-            let a = deploy_hex("ContractA", CONTRACT_A_HEX, "/tmp/contract_a.hex").await?;
+            let a = deploy_hex("ContractA", CONTRACT_A_HEX).await?;
             invoke(&a.f4, &set_contract_b_calldata(b.eth)).await?;
             Ok((a, *b))
         })
@@ -317,12 +327,6 @@ async fn linked_contracts() -> anyhow::Result<&'static (Deployed, Deployed)> {
 
 async fn poll_until_actor(addr: Address) -> anyhow::Result<ActorState> {
     poll_until_actor_on("forest", addr, forest_client).await
-}
-
-/// The miner only talks to Lotus, so `lotus send` / `lotus evm deploy --from`
-/// fail with `actor not found` until Lotus's state has the Forest-funded sender.
-async fn poll_until_lotus_actor(addr: Address) -> anyhow::Result<ActorState> {
-    poll_until_actor_on("lotus", addr, lotus_client).await
 }
 
 /// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
@@ -340,7 +344,7 @@ async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> 
     eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
     let balance = poll_until_funded(cli_addr, Backend::Local).await?;
     eprintln!("{cli_addr} funded on forest, balance: {balance}");
-    poll_until_lotus_actor(addr).await?;
+    poll_until_actor_on("lotus", addr, lotus_client).await?;
     Ok(addr)
 }
 
