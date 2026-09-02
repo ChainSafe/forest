@@ -529,13 +529,9 @@ impl Block {
                 let block_number = EthInt64(tipset.epoch());
                 let block_hash: EthHash = block_cid.into();
 
-                let ExecutedTipset {
-                    state_root,
-                    executed_messages,
-                    ..
-                } = state_manager.load_executed_tipset_for_rpc(&tipset).await?;
-                let has_transactions = !executed_messages.is_empty();
-                let state_tree = state_manager.get_state_tree(&state_root)?;
+                let executed = state_manager.load_executed_tipset_for_rpc(&tipset).await?;
+                let has_transactions = !executed.executed_messages.is_empty();
+                let state_tree = state_manager.get_state_tree(&executed.state_root)?;
 
                 let mut full_transactions = vec![];
                 let mut gas_used = 0;
@@ -544,7 +540,7 @@ impl Block {
                     ExecutedMessage {
                         message, receipt, ..
                     },
-                ) in executed_messages.iter().enumerate()
+                ) in executed.executed_messages.iter().enumerate()
                 {
                     let ti = EthUint64(i as u64);
                     gas_used += receipt.gas_used();
@@ -572,8 +568,7 @@ impl Block {
                     full_transactions.push(tx);
                 }
 
-                let logs_bloom =
-                    block_logs_bloom(state_manager, &tipset, &state_root, &executed_messages)?;
+                let logs_bloom = block_logs_bloom(state_manager, &tipset, &executed)?;
 
                 Ok(Arc::new(Block {
                     hash: block_hash,

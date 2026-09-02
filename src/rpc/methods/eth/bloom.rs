@@ -107,14 +107,17 @@ fn compute_block_logs_bloom(
 pub(crate) fn store_block_logs_bloom(
     state_manager: &StateManager,
     tipset: &Tipset,
-    state_root: &Cid,
-    executed_messages: &[ExecutedMessage],
+    executed: &ExecutedTipset,
 ) -> anyhow::Result<()> {
     let key = tipset.key().cid()?;
     if state_manager.db().read_bloom(&key)?.is_some() {
         return Ok(());
     }
-    let bloom = compute_block_logs_bloom(state_manager, state_root, executed_messages)?;
+    let bloom = compute_block_logs_bloom(
+        state_manager,
+        &executed.state_root,
+        &executed.executed_messages,
+    )?;
     state_manager
         .db()
         .write_bloom(&key, tipset.epoch(), &bloom.0.0)
@@ -126,8 +129,7 @@ pub(crate) fn store_block_logs_bloom(
 pub(super) fn block_logs_bloom(
     state_manager: &StateManager,
     tipset: &Tipset,
-    state_root: &Cid,
-    executed_messages: &[ExecutedMessage],
+    executed: &ExecutedTipset,
 ) -> anyhow::Result<Bloom> {
     crate::def_is_env_truthy!(compute_bloom_on_miss, COMPUTE_BLOOM_ON_MISS_ENV);
 
@@ -137,7 +139,11 @@ pub(super) fn block_logs_bloom(
     }
 
     if compute_bloom_on_miss() {
-        let bloom = compute_block_logs_bloom(state_manager, state_root, executed_messages)?;
+        let bloom = compute_block_logs_bloom(
+            state_manager,
+            &executed.state_root,
+            &executed.executed_messages,
+        )?;
         state_manager
             .db()
             .write_bloom(&key, tipset.epoch(), &bloom.0.0)?;
