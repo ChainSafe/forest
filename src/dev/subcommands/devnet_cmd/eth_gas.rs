@@ -282,11 +282,7 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
         .trim();
     eprintln!("submitted at forest's estimate {estimate}: {cid}");
 
-    let lookup = forest
-        .call(
-            StateWaitMsg::request((Cid::from_str(cid)?, 0, 800, true))?.with_timeout(POLL_TIMEOUT),
-        )
-        .await?;
+    let lookup = poll_until_message_executed(&forest, Cid::from_str(cid)?).await?;
     let exit = lookup.receipt.exit_code();
     ensure!(
         exit.is_success(),
