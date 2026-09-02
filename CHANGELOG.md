@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7471](https://github.com/ChainSafe/forest/issues/7471): Implement `forest-cli evm deploy` and `forest-cli evm call`.
+
 ### Changed
 
 ### Removed
