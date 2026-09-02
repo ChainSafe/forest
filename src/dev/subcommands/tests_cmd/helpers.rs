@@ -4,6 +4,7 @@
 use std::future::Future;
 use std::io::Write as _;
 use std::process::Command;
+use std::str::FromStr as _;
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -458,6 +459,43 @@ pub async fn poll_until_message_executed(
 
 pub fn forest_cli(args: &[&str]) -> anyhow::Result<String> {
     run_str("forest-cli", args)
+}
+
+/// Import `addr` from the Lotus keystore into Forest's remote wallet.
+pub fn import_lotus_wallet_into_forest(addr: &str) -> anyhow::Result<()> {
+    let hex = lotus_exec(&["wallet", "export", addr])?;
+    let mut file = NamedTempFile::new_in(std::env::temp_dir())
+        .context("failed to create temp file for lotus wallet export")?;
+    file.write_all(hex.trim().as_bytes())?;
+    file.flush()?;
+    let path = file
+        .path()
+        .to_str()
+        .context("temp path is not valid UTF-8")?;
+    wallet(Backend::Remote, &["import", path])?;
+    Ok(())
+}
+
+/// Deploy hex bytecode with `forest-cli evm deploy --hex`.
+pub fn forest_evm_deploy_hex(from: &str, bytecode_hex: &str) -> anyhow::Result<String> {
+    let mut hex_file =
+        NamedTempFile::new_in(std::env::temp_dir()).context("staging the contract bytecode")?;
+    hex_file.write_all(bytecode_hex.trim().as_bytes())?;
+    hex_file.flush()?;
+    let path = hex_file
+        .path()
+        .to_str()
+        .context("temp path is not valid UTF-8")?;
+    forest_cli(&["evm", "deploy", "--from", from, "--hex", path])
+}
+
+/// Parse the `f4 Address:` line from `forest-cli evm deploy` output.
+pub fn parse_f4_from_evm_deploy(out: &str) -> anyhow::Result<Address> {
+    let f4 = out
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("f4 Address: "))
+        .with_context(|| format!("no `f4 Address:` in deploy output:\n{out}"))?;
+    Address::from_str(f4.trim()).context("parsing the deployed f4 address")
 }
 
 /// Next nonce for an address
