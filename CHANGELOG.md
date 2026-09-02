@@ -65,6 +65,10 @@ Non-mandatory release for all node operators. Mostly fixes and improvements arou
 
 - [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now closes the subscription channel when a client falls too far behind instead of silently dropping head changes, matching Lotus, so clients can detect the gap and resubscribe.
 
+- [#5795](https://github.com/ChainSafe/forest/issues/5795): An `xrpc.cancel` carrying a JSON-RPC id sent immediately after its subscribe request is no longer answered with `channel not found` and left uncancellable.
+
+- [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` subscriptions now count against the per-connection subscription limit, which they previously bypassed.
+
 - [#5795](https://github.com/ChainSafe/forest/issues/5795): `Filecoin.ChainNotify` now buffers 16 head-change batches per subscriber instead of 10, matching Lotus, so a briefly-slow client is less likely to have its subscription closed, and logs a warning once a subscriber falls more than 5 batches behind.
 
 ## Forest v0.36.0 "bafy2bzacedpdckv7nsqfjwqnqwtgu7ipqbox4tfuuhwxhdox27uuznfyv3o2g"
