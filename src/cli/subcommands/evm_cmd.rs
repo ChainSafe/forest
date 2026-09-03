@@ -19,8 +19,10 @@ use fil_actor_eam_state::v16::CreateExternalParams;
 use fvm_ipld_encoding::RawBytes;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::time::Duration;
 
 const WAIT_LOOKBACK: i64 = 800;
+const WAIT_TIMEOUT: Duration = Duration::from_mins(10);
 
 /// Commands related to the Filecoin EVM runtime
 #[derive(Debug, Subcommand)]
@@ -105,7 +107,8 @@ async fn deploy(
     }
 
     println!("waiting for message to execute...");
-    let lookup = StateWaitMsg::call(&client, (cid, 0, WAIT_LOOKBACK, true))
+    let lookup = client
+        .call(StateWaitMsg::request((cid, 0, WAIT_LOOKBACK, true))?.with_timeout(WAIT_TIMEOUT))
         .await
         .context("error waiting for message")?;
 
