@@ -53,7 +53,7 @@ pub struct MarketStateLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub total_client_storage_fee: TokenAmount,
 
-    // Dropped in v19 (FIP-0118); absent from the JSON of later versions.
+    // Dropped in v19; absent from the JSON of later versions.
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(
         with = "crate::lotus_json",
@@ -118,8 +118,7 @@ macro_rules! v13_to_v18_market_state_fields {
     }};
 }
 
-// A macro that implements the field handling for v19+ (FIP-0118 dropped the pending
-// deal allocation ids)
+// A macro that implements the field handling for v19+
 macro_rules! v19_plus_market_state_fields {
     ($state:expr) => {{
         MarketStateLotusJson {

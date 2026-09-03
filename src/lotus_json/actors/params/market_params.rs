@@ -1788,13 +1788,13 @@ impl_publish_storage_deals_params_snapshots_v3!(10, 11);
 impl_publish_storage_deals_params_snapshots_v4!(12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_sector_deals!(fvm_shared2::sector: no_sector_type: no_sector_number: 8);
 impl_lotus_json_for_sector_deals!(fvm_shared3::sector: no_sector_number: 9, 10, 11, 12);
-impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_sector_deals!(fvm_shared4::sector: 13, 14, 15, 16, 17, 18); // Deprecated in v19
 impl_lotus_json_for_verify_deals_for_activation_params!(v8);
 impl_lotus_json_for_verify_deals_for_activation_params!(v9_to_v12: 9, 10, 11, 12);
-impl_lotus_json_for_verify_deals_for_activation_params!(v13_plus: 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_verify_deals_for_activation_params!(v13_plus: 13, 14, 15, 16, 17, 18); // Deprecated in v19
 impl_lotus_json_for_activate_deals_params!(8, 9, 10, 11);
 impl_lotus_json_for_batch_activate_deals_params!(v12: 12);
-impl_lotus_json_for_batch_activate_deals_params!(v13_onwards: 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_batch_activate_deals_params!(v13_onwards: 13, 14, 15, 16, 17, 18); // Deprecated in v19
 impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV8: 8, 9, 10, 11, 12);
 impl_lotus_json_for_on_miner_sectors_terminate_params!(OnMinerSectorsTerminateParamsLotusJsonV13: 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_sector_data_spec!(8, 9, 10, 11);
