@@ -12,6 +12,7 @@ use fil_actor_verifreg_state::{
     v13::state::get_claim as get_claim_v13, v14::state::get_claim as get_claim_v14,
     v15::state::get_claim as get_claim_v15, v16::state::get_claim as get_claim_v16,
     v17::state::get_claim as get_claim_v17, v18::state::get_claim as get_claim_v18,
+    v19::state::get_claim as get_claim_v19,
 };
 use fil_actors_shared::v8::{HAMT_BIT_WIDTH, make_map_with_root_and_bitwidth};
 use fil_actors_shared::v9::Keyer;
@@ -45,6 +46,7 @@ pub enum State {
     V16(fil_actor_verifreg_state::v16::State),
     V17(fil_actor_verifreg_state::v17::State),
     V18(fil_actor_verifreg_state::v18::State),
+    V19(fil_actor_verifreg_state::v19::State),
 }
 
 impl State {
@@ -56,7 +58,7 @@ impl State {
         next_allocation_id: u64,
         claims: Cid,
     ) -> Self {
-        State::V18(fil_actor_verifreg_state::v18::State {
+        State::V19(fil_actor_verifreg_state::v19::State {
             root_key,
             verifiers,
             remove_data_cap_proposal_ids,
@@ -209,6 +211,10 @@ impl State {
                 )?
                 .map(Allocation::from))
             }
+            State::V19(state) => {
+                let mut map = state.load_allocs(store)?;
+                Ok(map.get(addr, allocation_id)?.map(Allocation::from))
+            }
         }
     }
 
@@ -285,6 +291,12 @@ impl State {
                         .map(Claim::from),
                 )
             }
+            State::V19(state) => {
+                Ok(
+                    get_claim_v19(&mut state.load_claims(store)?, provider_id, claim_id)?
+                        .map(Claim::from),
+                )
+            }
         }
     }
 
@@ -336,6 +348,7 @@ macro_rules! from_claim {
 }
 
 from_claim!(
+    fil_actor_verifreg_state::v19::Claim,
     fil_actor_verifreg_state::v18::Claim,
     fil_actor_verifreg_state::v17::Claim,
     fil_actor_verifreg_state::v16::Claim,
@@ -388,6 +401,7 @@ macro_rules! from_allocation {
     };
 }
 
+from_allocation!(fil_actor_verifreg_state::v19::Allocation);
 from_allocation!(fil_actor_verifreg_state::v18::Allocation);
 from_allocation!(fil_actor_verifreg_state::v17::Allocation);
 from_allocation!(fil_actor_verifreg_state::v16::Allocation);

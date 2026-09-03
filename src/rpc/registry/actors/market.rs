@@ -7,11 +7,12 @@ use crate::shim::message::MethodNum;
 use cid::Cid;
 use fil_actors_shared::actor_versions::ActorVersion;
 
-macro_rules! register_market_basic_methods {
+// Methods present in every market actor version.
+macro_rules! register_market_common_methods {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
             AddBalanceParams, Method, OnMinerSectorsTerminateParams, PublishStorageDealsParams,
-            VerifyDealsForActivationParams, WithdrawBalanceParams,
+            WithdrawBalanceParams,
         };
 
         register_actor_methods!(
@@ -21,10 +22,6 @@ macro_rules! register_market_basic_methods {
                 (Method::AddBalance, AddBalanceParams),
                 (Method::WithdrawBalance, WithdrawBalanceParams),
                 (Method::PublishStorageDeals, PublishStorageDealsParams),
-                (
-                    Method::VerifyDealsForActivation,
-                    VerifyDealsForActivationParams
-                ),
                 (
                     Method::OnMinerSectorsTerminate,
                     OnMinerSectorsTerminateParams
@@ -37,6 +34,24 @@ macro_rules! register_market_basic_methods {
             $registry,
             $code_cid,
             [(Method::Constructor, empty), (Method::CronTick, empty),]
+        );
+    }};
+}
+
+// v8-v18: the common methods plus `VerifyDealsForActivation`, removed by FIP-0118.
+macro_rules! register_market_basic_methods {
+    ($registry:expr, $code_cid:expr, $state_version:path) => {{
+        register_market_common_methods!($registry, $code_cid, $state_version);
+
+        use $state_version::{Method, VerifyDealsForActivationParams};
+
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [(
+                Method::VerifyDealsForActivation,
+                VerifyDealsForActivationParams
+            )]
         );
     }};
 }
@@ -175,6 +190,15 @@ macro_rules! register_market_versions_onwards {
     }};
 }
 
+// v19+: FIP-0118 removed `VerifyDealsForActivation` and `BatchActivateDeals`.
+macro_rules! register_market_versions_19_onwards {
+    ($registry:expr, $code_cid:expr, $market_state_version:path) => {{
+        register_market_common_methods!($registry, $code_cid, $market_state_version);
+        register_market_exported_methods_v10_onwards!($registry, $code_cid, $market_state_version);
+        register_market_exported_methods_v13_onwards!($registry, $code_cid, $market_state_version);
+    }};
+}
+
 pub(crate) fn register_actor_methods(
     registry: &mut MethodRegistry,
     cid: Cid,
@@ -213,6 +237,9 @@ pub(crate) fn register_actor_methods(
         }
         ActorVersion::V18 => {
             register_market_versions_onwards!(registry, cid, fil_actor_market_state::v18)
+        }
+        ActorVersion::V19 => {
+            register_market_versions_19_onwards!(registry, cid, fil_actor_market_state::v19)
         }
     }
 }

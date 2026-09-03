@@ -136,7 +136,7 @@ macro_rules! impl_sector_on_chain_info {
 }
 impl_sector_on_chain_info!(simple_qa: v9, v10, v11);
 impl_sector_on_chain_info!(flags_bits: v13, v14, v15);
-impl_sector_on_chain_info!(optional_rewards: v16, v17, v18);
+impl_sector_on_chain_info!(optional_rewards: v16, v17, v18, v19);
 
 macro_rules! impl_sector_pre_commit_on_chain_info {
     ($($v:ident),+ $(,)?) => { $(
@@ -151,7 +151,7 @@ macro_rules! impl_sector_pre_commit_on_chain_info {
         }
     )+ };
 }
-impl_sector_pre_commit_on_chain_info!(v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18);
+impl_sector_pre_commit_on_chain_info!(v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19);
 
 // v8 predates the unsealed-CID field; every later version carries it.
 impl From<fil_actor_miner_state::v8::SectorPreCommitInfo> for SectorPreCommitInfo {
@@ -185,7 +185,7 @@ macro_rules! impl_sector_pre_commit_info {
         }
     )+ };
 }
-impl_sector_pre_commit_info!(v9, v10, v11, v12, v13, v14, v15, v16, v17, v18);
+impl_sector_pre_commit_info!(v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19);
 
 #[cfg(test)]
 mod tests {
@@ -213,7 +213,8 @@ mod tests {
             v15,
             v16,
             v17,
-            v18
+            v18,
+            v19
         );
     }
 
@@ -244,7 +245,8 @@ mod tests {
             v15,
             v16,
             v17,
-            v18
+            v18,
+            v19
         );
     }
 }
