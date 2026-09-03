@@ -39,6 +39,36 @@ pub const ADDRESS: Address = Address::new_id(2);
 /// Reward actor method.
 pub type Method = fil_actor_reward_state::v8::Method;
 
+/// Current-period accrual of one explicit reward stream (actors v19+).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamAccrual {
+    pub id: u64,
+    pub amount: TokenAmount,
+}
+
+macro_rules! from_stream_accrual {
+    ($($type:ty),+ $(,)?) => { $(
+        impl From<$type> for StreamAccrual {
+            fn from(accrual: $type) -> Self {
+                Self {
+                    id: accrual.id,
+                    amount: accrual.amount.into(),
+                }
+            }
+        }
+
+        impl From<StreamAccrual> for $type {
+            fn from(accrual: StreamAccrual) -> Self {
+                Self {
+                    id: accrual.id,
+                    amount: accrual.amount.into(),
+                }
+            }
+        }
+    )+ };
+}
+from_stream_accrual!(fil_actor_reward_state::v19::StreamAccrual);
+
 /// Reward actor state.
 #[delegated_enum(impl_conversions)]
 #[derive(Serialize, Debug)]

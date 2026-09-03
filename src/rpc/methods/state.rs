@@ -1036,11 +1036,11 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.db(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
-            miner::State::V18(s) => (
+            miner::State::V19(s) => (
                 s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
-            miner::State::V19(s) => (
+            miner::State::V18(s) => (
                 s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
