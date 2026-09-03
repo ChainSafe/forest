@@ -34,4 +34,4 @@ macro_rules! impl_bytecode_hash_lotus_json {
     };
 }
 
-impl_bytecode_hash_lotus_json!(10, 11, 12, 13, 14, 15, 16, 17);
+impl_bytecode_hash_lotus_json!(10, 11, 12, 13, 14, 15, 16, 17, 18, 19);

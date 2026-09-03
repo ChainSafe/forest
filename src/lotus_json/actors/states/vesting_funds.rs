@@ -158,4 +158,4 @@ macro_rules! impl_vesting_funds_lotus_json {
     };
 }
 
-impl_vesting_funds_lotus_json!(16, 17);
+impl_vesting_funds_lotus_json!(16, 17, 18, 19);
