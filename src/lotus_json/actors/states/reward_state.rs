@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::shim::actors::reward::State;
+use crate::shim::actors::reward::{State, StreamAccrual};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
-use fil_actor_reward_state::v19::StreamAccrual;
 use fil_actors_shared::v16::reward::FilterEstimate;
 use num_bigint::BigInt;
 
@@ -153,7 +152,7 @@ impl HasLotusJson for StreamAccrual {
             json!({ "ID": 2, "Amount": "1" }),
             Self {
                 id: 2,
-                amount: TokenAmount::from_atto(1).into(),
+                amount: TokenAmount::from_atto(1),
             },
         )]
     }
@@ -161,14 +160,14 @@ impl HasLotusJson for StreamAccrual {
     fn into_lotus_json(self) -> Self::LotusJson {
         StreamAccrualLotusJson {
             id: self.id,
-            amount: self.amount.into(),
+            amount: self.amount,
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         Self {
             id: lotus_json.id,
-            amount: lotus_json.amount.into(),
+            amount: lotus_json.amount,
         }
     }
 }
@@ -219,7 +218,13 @@ macro_rules! v19_plus_reward_state_fields {
             total_minted_reward: Some($state.total_minted_reward.into()),
             total_burn_minted: Some($state.total_burn_minted.into()),
             total_explicit_minted: Some($state.total_explicit_minted.into()),
-            accrued: Some($state.accrued),
+            accrued: Some(
+                $state
+                    .accrued
+                    .into_iter()
+                    .map(StreamAccrual::from)
+                    .collect(),
+            ),
             swa_timelock_epochs: Some($state.swa_timelock_epochs),
             swa_actor: Some($state.swa_actor.into()),
             streams_root: Some($state.streams_root),
@@ -269,7 +274,7 @@ impl HasLotusJson for State {
                 TokenAmount::from_atto(1).into(),
                 TokenAmount::from_atto(1).into(),
                 TokenAmount::from_atto(1).into(),
-                vec![StreamAccrual {
+                vec![fil_actor_reward_state::v19::StreamAccrual {
                     id: 2,
                     amount: TokenAmount::from_atto(1).into(),
                 }],
@@ -320,7 +325,12 @@ impl HasLotusJson for State {
             lotus_json.total_minted_reward.unwrap_or_default().into(),
             lotus_json.total_burn_minted.unwrap_or_default().into(),
             lotus_json.total_explicit_minted.unwrap_or_default().into(),
-            lotus_json.accrued.unwrap_or_default(),
+            lotus_json
+                .accrued
+                .unwrap_or_default()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             lotus_json.swa_timelock_epochs.unwrap_or_default(),
             lotus_json.swa_actor.unwrap_or_default().into(),
             lotus_json.streams_root.unwrap_or_default(),

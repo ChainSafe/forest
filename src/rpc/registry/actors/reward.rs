@@ -6,7 +6,7 @@ use crate::shim::message::MethodNum;
 use cid::Cid;
 use fil_actors_shared::actor_versions::ActorVersion;
 
-macro_rules! register_reward_version_11_to_16 {
+macro_rules! register_reward_version_11_to_18 {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
         use $state_version::{
             AwardBlockRewardParams, ConstructorParams, Method, UpdateNetworkKPIParams,
@@ -29,9 +29,8 @@ macro_rules! register_reward_version_11_to_16 {
 
 macro_rules! register_reward_version_19_onwards {
     ($registry:expr, $code_cid:expr, $state_version:path) => {{
-        register_reward_version_11_to_16!($registry, $code_cid, $state_version);
+        register_reward_version_11_to_18!($registry, $code_cid, $state_version);
 
-        // FIP-0118 stream management, all FRC-42 exported.
         use $state_version::{
             CancelPendingParams, ClaimParams, Method, RegisterStreamParams, RemoveStreamParams,
             SetDistributionParams, SetSharesParams, SetWeightRecordsParams,
@@ -96,28 +95,28 @@ pub(crate) fn register_actor_methods(
             )
         }
         ActorVersion::V11 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v11)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v11)
         }
         ActorVersion::V12 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v12)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v12)
         }
         ActorVersion::V13 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v13)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v13)
         }
         ActorVersion::V14 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v14)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v14)
         }
         ActorVersion::V15 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v15)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v15)
         }
         ActorVersion::V16 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v16)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v16)
         }
         ActorVersion::V17 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v17)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v17)
         }
         ActorVersion::V18 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v18)
+            register_reward_version_11_to_18!(registry, cid, fil_actor_reward_state::v18)
         }
         ActorVersion::V19 => {
             register_reward_version_19_onwards!(registry, cid, fil_actor_reward_state::v19)
