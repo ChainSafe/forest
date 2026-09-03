@@ -117,6 +117,7 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
             eprintln!("deployed NestedGas at {f4}");
             poll_until_actor_on("forest", f4, forest_client).await?;
             poll_until_actor_on("lotus", f4, lotus_client).await?;
+            poll_until_next_epoch().await?;
             anyhow::Ok(Deployed {
                 eth: EthAddress::from_filecoin_address(&f4)?,
                 f4,
@@ -176,6 +177,17 @@ async fn common_block_number(a: &Client, b: &Client) -> anyhow::Result<i64> {
         async { anyhow::Ok(b.call(EthBlockNumber::request(())?).await?) },
     )?;
     Ok(head_a.0.min(head_b.0) as i64)
+}
+
+async fn poll_until_next_epoch() -> anyhow::Result<()> {
+    let current_epoch = common_block_number(&forest_client()?, &lotus_client()?).await?;
+    poll("both nodes one epoch past deploy", || async {
+        Ok(
+            (common_block_number(&forest_client()?, &lotus_client()?).await? > current_epoch)
+                .then_some(()),
+        )
+    })
+    .await
 }
 
 /// Deploy + fund, build both node clients, and pin a block height both have executed. Sampling the
