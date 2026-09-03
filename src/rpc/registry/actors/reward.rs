@@ -27,6 +27,34 @@ macro_rules! register_reward_version_11_to_16 {
     }};
 }
 
+macro_rules! register_reward_version_19_onwards {
+    ($registry:expr, $code_cid:expr, $state_version:path) => {{
+        register_reward_version_11_to_16!($registry, $code_cid, $state_version);
+
+        // FIP-0118 stream management, all FRC-42 exported.
+        use $state_version::{
+            CancelPendingParams, ClaimParams, Method, RegisterStreamParams, RemoveStreamParams,
+            SetDistributionParams, SetSharesParams, SetWeightRecordsParams,
+            StepWeightRecordsParams,
+        };
+
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [
+                (Method::SetWeightRecordsExported, SetWeightRecordsParams),
+                (Method::StepWeightRecordsExported, StepWeightRecordsParams),
+                (Method::RegisterStreamExported, RegisterStreamParams),
+                (Method::RemoveStreamExported, RemoveStreamParams),
+                (Method::SetDistributionExported, SetDistributionParams),
+                (Method::CancelPendingExported, CancelPendingParams),
+                (Method::SetSharesExported, SetSharesParams),
+                (Method::ClaimExported, ClaimParams),
+            ]
+        );
+    }};
+}
+
 macro_rules! register_reward_version_8_to_10 {
     ($registry:expr, $code_cid:expr, $state_version:path, $fvm_shared_version:path) => {{
         use $state_version::{AwardBlockRewardParams, Method};
@@ -92,7 +120,7 @@ pub(crate) fn register_actor_methods(
             register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v18)
         }
         ActorVersion::V19 => {
-            register_reward_version_11_to_16!(registry, cid, fil_actor_reward_state::v19)
+            register_reward_version_19_onwards!(registry, cid, fil_actor_reward_state::v19)
         }
     }
 }
