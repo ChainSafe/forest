@@ -42,9 +42,6 @@ pub struct UpdateNetworkKPIParamsLotusJson(
     Option<BigInt>,
 );
 
-// FIP-0118 (actors v19+) reward stream management. Field names follow the Go structs in
-// go-state-types `builtin/v19/reward/{streams,reward_types}.go`.
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct WeightRecordLotusJson {
@@ -332,55 +329,27 @@ macro_rules! impl_update_network_kpi_params {
     };
 }
 
-// One version-scoped module covering every FIP-0118 stream type; they were introduced
-// together and change together.
-macro_rules! impl_reward_stream_params {
+macro_rules! impl_reward_weight_record {
     ($($version:literal),+) => {
         $(
             paste! {
-                mod [<impl_reward_stream_params_ $version>] {
+                mod [<impl_reward_weight_record_ $version>] {
                     use super::*;
-                    use fil_actor_reward_state::[<v $version>] as ver;
-
+                    type T = fil_actor_reward_state::[<v $version>]::WeightRecord;
                     #[test]
                     fn snapshots() {
-                        crate::lotus_json::assert_all_snapshots::<ver::WeightRecord>();
-                        crate::lotus_json::assert_all_snapshots::<ver::WeightRecordUpdate>();
-                        crate::lotus_json::assert_all_snapshots::<ver::RecipientShare>();
-                        crate::lotus_json::assert_all_snapshots::<ver::DistributionInit>();
-                        crate::lotus_json::assert_all_snapshots::<ver::PendingWriteOp>();
-                        crate::lotus_json::assert_all_snapshots::<ver::SetWeightRecordsParams>();
-                        crate::lotus_json::assert_all_snapshots::<ver::RegisterStreamParams>();
-                        crate::lotus_json::assert_all_snapshots::<ver::RemoveStreamParams>();
-                        crate::lotus_json::assert_all_snapshots::<ver::SetDistributionParams>();
-                        crate::lotus_json::assert_all_snapshots::<ver::SetSharesParams>();
-                        crate::lotus_json::assert_all_snapshots::<ver::CancelPendingParams>();
-                        crate::lotus_json::assert_all_snapshots::<ver::ClaimParams>();
+                        crate::lotus_json::assert_all_snapshots::<T>();
                     }
 
-                    #[cfg(test)]
-                    fn weight_record() -> ver::WeightRecord {
-                        ver::WeightRecord { v_start: 95, slope: -1, t_start: 10, floor: 50, cap: 95 }
-                    }
-                    #[cfg(test)]
-                    fn weight_record_json() -> serde_json::Value {
-                        json!({ "VStart": 95, "Slope": -1, "TStart": 10, "Floor": 50, "Cap": 95 })
-                    }
-                    #[cfg(test)]
-                    fn share() -> ver::RecipientShare {
-                        ver::RecipientShare { recipient: Address::new_id(1235).into(), share: 100 }
-                    }
-                    #[cfg(test)]
-                    fn share_json() -> serde_json::Value {
-                        json!({ "Recipient": "f01235", "Share": 100 })
-                    }
-
-                    impl HasLotusJson for ver::WeightRecord {
+                    impl HasLotusJson for T {
                         type LotusJson = WeightRecordLotusJson;
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                            vec![(weight_record_json(), weight_record())]
+                            vec![(
+                                json!({ "VStart": 95, "Slope": -1, "TStart": 10, "Floor": 50, "Cap": 95 }),
+                                Self { v_start: 95, slope: -1, t_start: 10, floor: 50, cap: 95 },
+                            )]
                         }
 
                         fn into_lotus_json(self) -> Self::LotusJson {
@@ -403,15 +372,44 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::WeightRecordUpdate {
+macro_rules! impl_reward_weight_record_update {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_reward_weight_record_update_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::WeightRecordUpdate;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = WeightRecordUpdateLotusJson;
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![(
-                                json!({ "ID": 1, "Weight": weight_record_json() }),
-                                Self { id: 1, weight: weight_record() },
+                                json!({
+                                    "ID": 1,
+                                    "Weight": { "VStart": 95, "Slope": -1, "TStart": 10, "Floor": 50, "Cap": 95 }
+                                }),
+                                Self {
+                                    id: 1,
+                                    weight: fil_actor_reward_state::[<v $version>]::WeightRecord {
+                                        v_start: 95,
+                                        slope: -1,
+                                        t_start: 10,
+                                        floor: 50,
+                                        cap: 95,
+                                    },
+                                },
                             )]
                         }
 
@@ -429,13 +427,33 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::RecipientShare {
+macro_rules! impl_reward_recipient_share {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_reward_recipient_share_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::RecipientShare;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = RecipientShareLotusJson;
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                            vec![(share_json(), share())]
+                            vec![(
+                                json!({ "Recipient": "f01235", "Share": 100 }),
+                                Self { recipient: Address::new_id(1235).into(), share: 100 },
+                            )]
                         }
 
                         fn into_lotus_json(self) -> Self::LotusJson {
@@ -452,16 +470,42 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::DistributionInit {
+macro_rules! impl_reward_distribution_init {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_reward_distribution_init_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::DistributionInit;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = DistributionInitLotusJson;
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![
                                 (
-                                    json!({ "Writer": "f01234", "Shares": [share_json()] }),
-                                    Self { writer: Address::new_id(1234).into(), shares: vec![share()] },
+                                    json!({
+                                        "Writer": "f01234",
+                                        "Shares": [{ "Recipient": "f01235", "Share": 100 }]
+                                    }),
+                                    Self {
+                                        writer: Address::new_id(1234).into(),
+                                        shares: vec![fil_actor_reward_state::[<v $version>]::RecipientShare {
+                                            recipient: Address::new_id(1235).into(),
+                                            share: 100,
+                                        }],
+                                    },
                                 ),
                                 (
                                     json!({ "Writer": "f01234", "Shares": null }),
@@ -484,8 +528,25 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::PendingWriteOp {
+macro_rules! impl_reward_pending_write_op {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_reward_pending_write_op_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::PendingWriteOp;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = PendingWriteOpLotusJson;
 
                         #[cfg(test)]
@@ -519,17 +580,50 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    // Also covers `StepWeightRecordsParams`, an alias of the same type.
-                    impl HasLotusJson for ver::SetWeightRecordsParams {
+// `StepWeightRecordsParams` is an alias of this type, so it is covered too.
+macro_rules! impl_set_weight_records_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_set_weight_records_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::SetWeightRecordsParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = SetWeightRecordsParamsLotusJson;
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![
                                 (
-                                    json!({ "Updates": [{ "ID": 1, "Weight": weight_record_json() }] }),
-                                    Self { updates: vec![ver::WeightRecordUpdate { id: 1, weight: weight_record() }] },
+                                    json!({
+                                        "Updates": [{
+                                            "ID": 1,
+                                            "Weight": { "VStart": 95, "Slope": -1, "TStart": 10, "Floor": 50, "Cap": 95 }
+                                        }]
+                                    }),
+                                    Self {
+                                        updates: vec![fil_actor_reward_state::[<v $version>]::WeightRecordUpdate {
+                                            id: 1,
+                                            weight: fil_actor_reward_state::[<v $version>]::WeightRecord {
+                                                v_start: 95,
+                                                slope: -1,
+                                                t_start: 10,
+                                                floor: 50,
+                                                cap: 95,
+                                            },
+                                        }],
+                                    },
                                 ),
                                 (json!({ "Updates": null }), Self { updates: vec![] }),
                             ]
@@ -556,8 +650,25 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::RegisterStreamParams {
+macro_rules! impl_register_stream_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_register_stream_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::RegisterStreamParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = RegisterStreamParamsLotusJson;
 
                         #[cfg(test)]
@@ -566,16 +677,28 @@ macro_rules! impl_reward_stream_params {
                                 (
                                     json!({
                                         "ID": 2,
-                                        "Weight": weight_record_json(),
-                                        "Distribution": { "Writer": "f01234", "Shares": [share_json()] },
+                                        "Weight": { "VStart": 95, "Slope": -1, "TStart": 10, "Floor": 50, "Cap": 95 },
+                                        "Distribution": {
+                                            "Writer": "f01234",
+                                            "Shares": [{ "Recipient": "f01235", "Share": 100 }]
+                                        },
                                         "ActivationEpoch": 100
                                     }),
                                     Self {
                                         id: 2,
-                                        weight: weight_record(),
-                                        distribution: Some(ver::DistributionInit {
+                                        weight: fil_actor_reward_state::[<v $version>]::WeightRecord {
+                                            v_start: 95,
+                                            slope: -1,
+                                            t_start: 10,
+                                            floor: 50,
+                                            cap: 95,
+                                        },
+                                        distribution: Some(fil_actor_reward_state::[<v $version>]::DistributionInit {
                                             writer: Address::new_id(1234).into(),
-                                            shares: vec![share()],
+                                            shares: vec![fil_actor_reward_state::[<v $version>]::RecipientShare {
+                                                recipient: Address::new_id(1235).into(),
+                                                share: 100,
+                                            }],
                                         }),
                                         activation_epoch: 100,
                                     },
@@ -583,11 +706,22 @@ macro_rules! impl_reward_stream_params {
                                 (
                                     json!({
                                         "ID": 1,
-                                        "Weight": weight_record_json(),
+                                        "Weight": { "VStart": 95, "Slope": -1, "TStart": 10, "Floor": 50, "Cap": 95 },
                                         "Distribution": null,
                                         "ActivationEpoch": 100
                                     }),
-                                    Self { id: 1, weight: weight_record(), distribution: None, activation_epoch: 100 },
+                                    Self {
+                                        id: 1,
+                                        weight: fil_actor_reward_state::[<v $version>]::WeightRecord {
+                                            v_start: 95,
+                                            slope: -1,
+                                            t_start: 10,
+                                            floor: 50,
+                                            cap: 95,
+                                        },
+                                        distribution: None,
+                                        activation_epoch: 100,
+                                    },
                                 ),
                             ]
                         }
@@ -610,8 +744,25 @@ macro_rules! impl_reward_stream_params {
                             }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::RemoveStreamParams {
+macro_rules! impl_remove_stream_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_remove_stream_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::RemoveStreamParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = RemoveStreamParamsLotusJson;
 
                         #[cfg(test)]
@@ -627,8 +778,25 @@ macro_rules! impl_reward_stream_params {
                             Self { id: lotus_json.id }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::SetDistributionParams {
+macro_rules! impl_set_distribution_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_set_distribution_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::SetDistributionParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = SetDistributionParamsLotusJson;
 
                         #[cfg(test)]
@@ -640,38 +808,90 @@ macro_rules! impl_reward_stream_params {
                         }
 
                         fn into_lotus_json(self) -> Self::LotusJson {
-                            SetDistributionParamsLotusJson { id: self.id, writer: self.writer.into() }
+                            SetDistributionParamsLotusJson {
+                                id: self.id,
+                                writer: self.writer.into(),
+                            }
                         }
 
                         fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                            Self { id: lotus_json.id, writer: lotus_json.writer.into() }
+                            Self {
+                                id: lotus_json.id,
+                                writer: lotus_json.writer.into(),
+                            }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::SetSharesParams {
+macro_rules! impl_set_shares_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_set_shares_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::SetSharesParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = SetSharesParamsLotusJson;
 
                         #[cfg(test)]
                         fn snapshots() -> Vec<(serde_json::Value, Self)> {
                             vec![
                                 (
-                                    json!({ "ID": 2, "Shares": [share_json()] }),
-                                    Self { id: 2, shares: vec![share()] },
+                                    json!({ "ID": 2, "Shares": [{ "Recipient": "f01235", "Share": 100 }] }),
+                                    Self {
+                                        id: 2,
+                                        shares: vec![fil_actor_reward_state::[<v $version>]::RecipientShare {
+                                            recipient: Address::new_id(1235).into(),
+                                            share: 100,
+                                        }],
+                                    },
                                 ),
                                 (json!({ "ID": 2, "Shares": null }), Self { id: 2, shares: vec![] }),
                             ]
                         }
 
                         fn into_lotus_json(self) -> Self::LotusJson {
-                            SetSharesParamsLotusJson { id: self.id, shares: shares_into_lotus_json(self.shares) }
+                            SetSharesParamsLotusJson {
+                                id: self.id,
+                                shares: shares_into_lotus_json(self.shares),
+                            }
                         }
 
                         fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                            Self { id: lotus_json.id, shares: shares_from_lotus_json(lotus_json.shares) }
+                            Self {
+                                id: lotus_json.id,
+                                shares: shares_from_lotus_json(lotus_json.shares),
+                            }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::CancelPendingParams {
+macro_rules! impl_cancel_pending_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_cancel_pending_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::CancelPendingParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = CancelPendingParamsLotusJson;
 
                         #[cfg(test)]
@@ -679,25 +899,54 @@ macro_rules! impl_reward_stream_params {
                             vec![
                                 (
                                     json!({ "ID": 2, "Op": 3 }),
-                                    Self { id: Some(2), op: ver::PendingWriteOp::RemoveStream },
+                                    Self {
+                                        id: Some(2),
+                                        op: fil_actor_reward_state::[<v $version>]::PendingWriteOp::RemoveStream,
+                                    },
                                 ),
                                 (
                                     json!({ "ID": null, "Op": 0 }),
-                                    Self { id: None, op: ver::PendingWriteOp::SetWeightRecords },
+                                    Self {
+                                        id: None,
+                                        op: fil_actor_reward_state::[<v $version>]::PendingWriteOp::SetWeightRecords,
+                                    },
                                 ),
                             ]
                         }
 
                         fn into_lotus_json(self) -> Self::LotusJson {
-                            CancelPendingParamsLotusJson { id: self.id, op: self.op.into_lotus_json() }
+                            CancelPendingParamsLotusJson {
+                                id: self.id,
+                                op: self.op.into_lotus_json(),
+                            }
                         }
 
                         fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-                            Self { id: lotus_json.id, op: HasLotusJson::from_lotus_json(lotus_json.op) }
+                            Self {
+                                id: lotus_json.id,
+                                op: HasLotusJson::from_lotus_json(lotus_json.op),
+                            }
                         }
                     }
+                }
+            }
+        )+
+    };
+}
 
-                    impl HasLotusJson for ver::ClaimParams {
+macro_rules! impl_claim_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_claim_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::ClaimParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
                         type LotusJson = ClaimParamsLotusJson;
 
                         #[cfg(test)]
@@ -734,9 +983,20 @@ macro_rules! impl_reward_stream_params {
     };
 }
 
-impl_reward_constructor_params!(fvm_shared4::bigint: 19, 18, 17, 16, 15, 14, 13, 12);
+impl_reward_constructor_params!(fvm_shared4::bigint: 12, 13, 14, 15, 16, 17, 18, 19);
 impl_reward_constructor_params!(fvm_shared3::bigint: 11);
-impl_award_block_reward_params!(19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8);
-impl_update_network_kpi_params!(fvm_shared4::bigint: 19, 18, 17, 16, 15, 14, 13, 12);
+impl_award_block_reward_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_update_network_kpi_params!(fvm_shared4::bigint: 12, 13, 14, 15, 16, 17, 18, 19);
 impl_update_network_kpi_params!(fvm_shared3::bigint: 11);
-impl_reward_stream_params!(19);
+impl_reward_weight_record!(19);
+impl_reward_weight_record_update!(19);
+impl_reward_recipient_share!(19);
+impl_reward_distribution_init!(19);
+impl_reward_pending_write_op!(19);
+impl_set_weight_records_params!(19);
+impl_register_stream_params!(19);
+impl_remove_stream_params!(19);
+impl_set_distribution_params!(19);
+impl_set_shares_params!(19);
+impl_cancel_pending_params!(19);
+impl_claim_params!(19);
