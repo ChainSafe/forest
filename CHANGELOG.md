@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): `forest-tool index backfill` now downloads the Filecoin proof parameters before running.
+- [#7579](https://github.com/ChainSafe/forest/issues/7579): `forest-tool index backfill` now downloads the Filecoin proof parameters before running.
 
 ## Forest v0.36.1 "Kaaguy"
 
