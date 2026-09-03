@@ -11,9 +11,6 @@ use fil_actor_reward_state::v19::StreamAccrual;
 use fil_actors_shared::v16::reward::FilterEstimate;
 use num_bigint::BigInt;
 
-/// Reward state JSON. Field names follow the Go structs in go-state-types
-/// `builtin/vN/reward/reward_state.go`; the two trailing groups are version-specific and
-/// omitted when absent.
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "RewardState")]
@@ -59,6 +56,7 @@ pub struct RewardStateLotusJson {
     )]
     pub total_storage_power_reward: Option<TokenAmount>,
 
+    // v19 onwards.
     #[schemars(with = "LotusJson<Option<TokenAmount>>")]
     #[serde(
         with = "crate::lotus_json",
