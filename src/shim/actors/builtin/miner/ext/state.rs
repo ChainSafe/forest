@@ -10,6 +10,6 @@ impl MinerStateExt for State {
         store: &BS,
         sectors: Option<&BitField>,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
-        load_sectors_by_version!(self, store, sectors; 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+        load_sectors_by_version!(self, store, sectors; 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
     }
 }

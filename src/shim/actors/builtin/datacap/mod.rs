@@ -33,6 +33,7 @@ pub enum State {
     V16(fil_actor_datacap_state::v16::State),
     V17(fil_actor_datacap_state::v17::State),
     V18(fil_actor_datacap_state::v18::State),
+    V19(fil_actor_datacap_state::v19::State),
 }
 
 impl State {
@@ -40,7 +41,7 @@ impl State {
         governor: fvm_shared4::address::Address,
         token: TokenState,
     ) -> Self {
-        State::V18(fil_actor_datacap_state::v18::State { governor, token })
+        State::V19(fil_actor_datacap_state::v19::State { governor, token })
     }
 
     // NOTE: This code currently mimics that of Lotus and is only used for RPC compatibility.
