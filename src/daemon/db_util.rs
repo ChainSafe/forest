@@ -774,15 +774,12 @@ pub async fn run_backfill(
     let mut processed_since_flush = 0usize;
     let mut lowest_epoch = start_ts.epoch();
 
-    for (count, ts) in start_ts
+    for ts in start_ts
         .shallow_clone()
         .chain(&state_manager.chain_store().db())
-        .enumerate()
     {
-        match spec {
-            RangeSpec::To(to_epoch) if ts.epoch() < to_epoch => break,
-            RangeSpec::NumTipsets(n) if count >= n => break,
-            _ => {}
+        if ts.epoch() < target_epoch {
+            break;
         }
 
         if cancel.is_cancelled() {

@@ -19,6 +19,7 @@ use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::tool::offline_server::server::handle_chain_config;
+use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 
 #[derive(Debug, Subcommand)]
 pub enum IndexCommands {
@@ -55,6 +56,9 @@ impl IndexCommands {
                 let spec = RangeSpec::new(*to, *n_tipsets)?;
 
                 let (_, config) = read_config(config.as_ref(), chain.clone())?;
+
+                proofs_api::maybe_set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+                ensure_proof_params_downloaded().await?;
 
                 let chain_data_path = chain_path(&config);
                 let db_root_dir = db_root(&chain_data_path)?;

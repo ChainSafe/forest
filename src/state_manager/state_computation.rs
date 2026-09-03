@@ -221,6 +221,26 @@ impl StateManager {
                     .compute_tipset_state(msg_ts.shallow_clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 recomputed = true;
+
+                if let Some(receipt_ts) = receipt_ts {
+                    let expected_receipts = *receipt_ts.parent_message_receipts();
+                    let expected_state = *receipt_ts.parent_state();
+
+                    anyhow::ensure!(
+                        state_output.state_root == expected_state,
+                        "state root mismatch at epoch {}: computed {}, expected {}",
+                        msg_ts.epoch(),
+                        state_output.state_root,
+                        expected_state
+                    );
+                    anyhow::ensure!(
+                        state_output.receipt_root == expected_receipts,
+                        "receipt root mismatch at epoch {}: computed {}, expected {}",
+                        msg_ts.epoch(),
+                        state_output.receipt_root,
+                        expected_receipts
+                    );
+                }
                 (
                     state_output.state_root,
                     state_output.receipt_root,
