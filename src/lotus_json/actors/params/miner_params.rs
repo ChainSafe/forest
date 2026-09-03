@@ -629,6 +629,24 @@ pub struct ValidateSectorStatusParamsLotusJson {
     pub aux_data: Vec<u8>,
 }
 
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct UpgradeSectorQualityParamsLotusJson {
+    pub upgrades: Vec<UpgradeSectorQualityLotusJson>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct UpgradeSectorQualityLotusJson {
+    pub deadline: u64,
+    pub partition: u64,
+    #[schemars(with = "LotusJson<BitField>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: BitField,
+    // None: upgrade only, every sector keeps its expiration.
+    pub new_expiration: Option<ChainEpoch>,
+}
+
 macro_rules! impl_lotus_json_for_miner_change_worker_param {
     ($($version:literal),+) => {
         $(
@@ -4176,6 +4194,117 @@ macro_rules! impl_lotus_json_for_validate_sector_status_change_params {
     }
 }
 
+macro_rules! impl_lotus_json_for_miner_upgrade_sector_quality_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_miner_upgrade_sector_quality_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_miner_state::[<v $version>]::UpgradeSectorQualityParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                        crate::lotus_json::assert_all_snapshots::<fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality>();
+                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = UpgradeSectorQualityParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Upgrades": [
+                                        {
+                                            "Deadline": 1,
+                                            "Partition": 2,
+                                            "Sectors": [0],
+                                            "NewExpiration": 1000
+                                        },
+                                        {
+                                            "Deadline": 3,
+                                            "Partition": 4,
+                                            "Sectors": [0],
+                                            "NewExpiration": null
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    upgrades: vec![
+                                        fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality {
+                                            deadline: 1,
+                                            partition: 2,
+                                            sectors: BitField::new(),
+                                            new_expiration: Some(1000),
+                                        },
+                                        fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality {
+                                            deadline: 3,
+                                            partition: 4,
+                                            sectors: BitField::new(),
+                                            new_expiration: None,
+                                        },
+                                    ],
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpgradeSectorQualityParamsLotusJson {
+                                upgrades: self.upgrades.into_iter().map(|u| u.into_lotus_json()).collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                upgrades: lotus_json.upgrades.into_iter().map(HasLotusJson::from_lotus_json).collect(),
+                            }
+                        }
+                    }
+
+                    impl HasLotusJson for fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality {
+                        type LotusJson = UpgradeSectorQualityLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "Sectors": [0],
+                                    "NewExpiration": 1000
+                                }),
+                                Self {
+                                    deadline: 1,
+                                    partition: 2,
+                                    sectors: BitField::new(),
+                                    new_expiration: Some(1000),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpgradeSectorQualityLotusJson {
+                                deadline: self.deadline,
+                                partition: self.partition,
+                                sectors: self.sectors,
+                                new_expiration: self.new_expiration,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                deadline: lotus_json.deadline,
+                                partition: lotus_json.partition,
+                                sectors: lotus_json.sectors,
+                                new_expiration: lotus_json.new_expiration,
+                            }
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
 impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16, 17, 18, 19);
@@ -4248,3 +4377,4 @@ impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_generate_sector_location_params!(18, 19);
 impl_lotus_json_sector_status_code!(18, 19);
 impl_lotus_json_for_validate_sector_status_change_params!(18, 19);
+impl_lotus_json_for_miner_upgrade_sector_quality_params!(19);
