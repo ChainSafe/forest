@@ -53,8 +53,13 @@ pub struct MarketStateLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub total_client_storage_fee: TokenAmount,
 
+    // Dropped in v19 (FIP-0118); absent from the JSON of later versions.
     #[schemars(with = "LotusJson<Cid>")]
-    #[serde(with = "crate::lotus_json", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
     pub pending_deal_allocation_ids: Option<Cid>,
 
     #[schemars(with = "LotusJson<Cid>")]
@@ -102,11 +107,22 @@ macro_rules! v9_to_v12_market_state_fields {
     }};
 }
 
-// A macro that implements the field handling for v13+
-macro_rules! v13_plus_market_state_fields {
+// A macro that implements the field handling for v13 to v18
+macro_rules! v13_to_v18_market_state_fields {
     ($state:expr) => {{
         MarketStateLotusJson {
             pending_deal_allocation_ids: Some($state.pending_deal_allocation_ids),
+            provider_sectors: Some($state.provider_sectors),
+            ..common_market_state_fields!($state)
+        }
+    }};
+}
+
+// A macro that implements the field handling for v19+ (FIP-0118 dropped the pending
+// deal allocation ids)
+macro_rules! v19_plus_market_state_fields {
+    ($state:expr) => {{
+        MarketStateLotusJson {
             provider_sectors: Some($state.provider_sectors),
             ..common_market_state_fields!($state)
         }
@@ -131,11 +147,9 @@ impl HasLotusJson for State {
                 "TotalClientLockedCollateral": "0",
                 "TotalProviderLockedCollateral": "0",
                 "TotalClientStorageFee": "0",
-                "PendingDealAllocationIds": {"/":"baeaaaaa"},
                 "ProviderSectors": {"/":"baeaaaaa"}
             }),
             State::default_latest_version(
-                Default::default(),
                 Default::default(),
                 Default::default(),
                 Default::default(),
@@ -172,7 +186,8 @@ impl HasLotusJson for State {
         convert_market_state! {
             v8_market_state_fields for [V8];
             v9_to_v12_market_state_fields for [V9, V10, V11, V12];
-            v13_plus_market_state_fields for [V13, V14, V15, V16, V17, V18];
+            v13_to_v18_market_state_fields for [V13, V14, V15, V16, V17, V18];
+            v19_plus_market_state_fields for [V19];
         }
     }
 
@@ -190,7 +205,6 @@ impl HasLotusJson for State {
             lotus_json.total_client_locked_collateral.into(),
             lotus_json.total_provider_locked_collateral.into(),
             lotus_json.total_client_storage_fee.into(),
-            lotus_json.pending_deal_allocation_ids.unwrap_or_default(),
             lotus_json.provider_sectors.unwrap_or_default(),
         )
     }

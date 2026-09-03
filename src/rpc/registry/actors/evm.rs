@@ -56,5 +56,6 @@ pub(crate) fn register_evm_actor_methods(
         ActorVersion::V16 => register_evm_version!(registry, cid, fil_actor_evm_state::v16),
         ActorVersion::V17 => register_evm_version!(registry, cid, fil_actor_evm_state::v17),
         ActorVersion::V18 => register_evm_version!(registry, cid, fil_actor_evm_state::v18),
+        ActorVersion::V19 => register_evm_version!(registry, cid, fil_actor_evm_state::v19),
     }
 }

@@ -553,6 +553,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Robust address not found")?;
                     Ok(robust_addr)
                 }
+                init::State::V19(state) => {
+                    let map = fil_actor_init_state::v19::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v19::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
             }
         } else {
             Ok(Address::default())
@@ -1019,6 +1037,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
             miner::State::V18(s) => (
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
+            miner::State::V19(s) => (
                 s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
             ),
@@ -2450,6 +2472,20 @@ impl StateSectorPreCommitInfo {
                     })
                     .context("failed to iterate over precommitted sectors")
             }
+            miner::State::V19(s) => {
+                let precommitted = fil_actor_miner_state::v19::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v19::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
         }?;
 
         Ok(sectors)
@@ -2597,6 +2633,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v18::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V19(s) => {
+                let precommitted = fil_actor_miner_state::v19::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v19::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -3067,6 +3117,18 @@ impl StateGetAllocations {
                         store,
                         &s.address_map,
                         fil_actors_shared::v18::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V19(s) => {
+                    let map = fil_actor_init_state::v19::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v19::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )?;
                     map.for_each(|_k, v| {
