@@ -3,6 +3,7 @@
 
 use std::time::{Duration, UNIX_EPOCH};
 
+use crate::beacon::{BeaconEntry, PublicRandResponse};
 use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
@@ -15,6 +16,7 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
+use libp2p::gossipsub::TopicHash;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
@@ -30,11 +32,14 @@ use libp2p::{
     tcp, yamux,
 };
 use nonzero_ext::nonzero;
+use quick_protobuf::{BytesReader, MessageRead as _};
+
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
 
 use super::{
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
+    behaviour::build_gossipsub,
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
 };
@@ -78,31 +83,51 @@ crate::def_is_env_truthy!(libp2p_metrics_enabled, "FOREST_LIBP2P_METRICS_ENABLED
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 /// `Gossipsub` Filecoin messages topic identifier.
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
+/// `Gossipsub` `drand` randomness topic identifier.
+pub const PUBSUB_DRAND_STR: &str = "/drand/pubsub/v0.0.0";
 
 /// Gossipsub topics Forest uses. Subscription, the subscription-filter
 /// whitelist, and peer-score params all iterate the variants, so adding one is
 /// handled everywhere.
-#[derive(Copy, Clone, Debug, strum::EnumIter, derive_more::Display)]
+#[derive(Copy, Clone, Debug, strum::EnumIter, derive_more::Display, Eq, PartialEq)]
 pub enum PubsubTopic {
     #[display("{PUBSUB_BLOCK_STR}")]
     Blocks,
     #[display("{PUBSUB_MSG_STR}")]
     Messages,
+    #[display("{PUBSUB_DRAND_STR}")]
+    Drand,
 }
 
-impl PubsubTopic {
-    /// Full topic on `network_name`, e.g. `/fil/blocks/<net>`.
-    pub fn ident(self, network_name: impl std::fmt::Display) -> IdentTopic {
-        IdentTopic::new(format!("{self}/{network_name}"))
-    }
+#[derive(Clone, Copy)]
+pub struct PubsubTopicCfg<'a> {
+    pub network_name: &'a GenesisNetworkName,
+    pub drand_chain_hashes: &'a [String],
 }
 
 /// All gossipsub topics on `network_name`.
-pub fn pubsub_topics(
-    network_name: impl std::fmt::Display + Copy,
-) -> impl Iterator<Item = IdentTopic> {
+pub fn pubsub_topics(cfg: PubsubTopicCfg<'_>) -> Vec<(PubsubTopic, IdentTopic)> {
     use strum::IntoEnumIterator as _;
-    PubsubTopic::iter().map(move |t| t.ident(network_name))
+
+    let mut topics = Vec::new();
+    for kind in PubsubTopic::iter() {
+        match kind {
+            PubsubTopic::Blocks | PubsubTopic::Messages => {
+                topics.push((
+                    kind,
+                    IdentTopic::new(format!("{kind}/{}", cfg.network_name)),
+                ));
+            }
+            PubsubTopic::Drand => {
+                topics.extend(
+                    cfg.drand_chain_hashes
+                        .iter()
+                        .map(move |h| (kind, IdentTopic::new(format!("{kind}/{h}")))),
+                );
+            }
+        }
+    }
+    topics
 }
 
 pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
@@ -137,6 +162,8 @@ pub enum PubsubMessage {
     Block(GossipBlock),
     /// Messages that come over the message topic
     Message(SignedMessage),
+    /// Messages that come over the `drand` topic
+    DrandEntry(BeaconEntry),
 }
 
 /// Messages into the service to handle.
@@ -146,6 +173,7 @@ pub enum NetworkMessage {
         topic: IdentTopic,
         message: Vec<u8>,
     },
+    ResubscribeTopic(PubsubTopic),
     ChainExchangeRequest {
         peer_id: PeerId,
         request: ChainExchangeRequest,
@@ -191,8 +219,8 @@ pub struct Libp2pService {
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: flume::Receiver<NetworkEvent>,
     network_sender_out: Sender<NetworkEvent>,
-    network_name: String,
     genesis_cid: Cid,
+    pubsub_topic_kinds: HashMap<TopicHash, PubsubTopic>,
 }
 
 impl Libp2pService {
@@ -204,9 +232,19 @@ impl Libp2pService {
         network_name: GenesisNetworkName,
         genesis_cid: Cid,
     ) -> anyhow::Result<Self> {
-        let behaviour =
-            ForestBehaviour::new(&net_keypair, &config, &network_name, peer_manager.clone())
-                .await?;
+        let pubsub_topic_cfg = PubsubTopicCfg {
+            network_name: &network_name,
+            drand_chain_hashes: &cs.chain_config().drand_gossip_chain_hashes(),
+        };
+        let gossipsub = build_gossipsub(&net_keypair, pubsub_topic_cfg)?;
+        let behaviour = ForestBehaviour::new(
+            &net_keypair,
+            &config,
+            &network_name,
+            gossipsub,
+            peer_manager.clone(),
+        )
+        .await?;
         let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
             .with_tokio()
             .with_tcp(
@@ -227,11 +265,15 @@ impl Libp2pService {
             .build();
 
         // Subscribe to gossipsub topics with the network name suffix
-        for topic in pubsub_topics(&network_name) {
+        // and for drand uses the current drand network hash
+        let mut pubsub_topic_kinds = HashMap::default();
+        for (kind, topic) in pubsub_topics(pubsub_topic_cfg) {
             swarm
                 .behaviour_mut()
                 .subscribe(&topic)
                 .with_context(|| format!("Failed to subscribe gossipsub topic {topic}"))?;
+            info!("Subscribed to gossipsub topic {topic} ({kind:?})");
+            pubsub_topic_kinds.insert(topic.hash(), kind);
         }
 
         let (network_sender_in, network_receiver_in) = flume::unbounded();
@@ -282,8 +324,8 @@ impl Libp2pService {
             network_sender_in,
             network_receiver_out,
             network_sender_out,
-            network_name: network_name.into(),
             genesis_cid,
+            pubsub_topic_kinds,
         })
     }
 
@@ -302,8 +344,8 @@ impl Libp2pService {
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
             IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
-        let pubsub_block_str = PubsubTopic::Blocks.ident(&self.network_name).to_string();
-        let pubsub_msg_str = PubsubTopic::Messages.ident(&self.network_name).to_string();
+
+        let pubsub_topic_kinds = self.pubsub_topic_kinds;
 
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
 
@@ -345,8 +387,7 @@ impl Libp2pService {
                             &self.genesis_cid,
                             &self.network_sender_out,
                             cx_response_tx.clone(),
-                            &pubsub_block_str,
-                            &pubsub_msg_str,).await;
+                            &pubsub_topic_kinds).await;
                     },
                     None => { break; },
                     _ => { },
@@ -360,7 +401,9 @@ impl Libp2pService {
                             bitswap_request_manager.shallow_clone(),
                             message,
                             &self.network_sender_out,
-                            &self.peer_manager).await;
+                            &self.peer_manager,
+                            &pubsub_topic_kinds,
+                        ).await;
                     }
                     None => { break; }
                 },
@@ -463,6 +506,7 @@ async fn handle_network_message(
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
     peer_manager: &PeerManager,
+    pubsub_topic_kinds: &HashMap<TopicHash, PubsubTopic>,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -475,6 +519,27 @@ async fn handle_network_message(
                 }
                 Err(e) => {
                     warn!("Failed to send gossipsub message: {e:#}");
+                }
+            }
+        }
+        NetworkMessage::ResubscribeTopic(pubsub_topic) => {
+            for (topic_hash, kind) in pubsub_topic_kinds.iter() {
+                if !pubsub_topic.eq(kind) {
+                    continue;
+                }
+
+                let topic = IdentTopic::new(topic_hash.as_str());
+                let mesh_peers_before = swarm.behaviour().mesh_peers(topic_hash).count();
+
+                swarm.behaviour_mut().unsubscribe(&topic);
+
+                match swarm.behaviour_mut().subscribe(&topic) {
+                    Ok(_) => info!(
+                        %topic,
+                        mesh_peers_before,
+                        "re-subscribed to drand topic after repeated silence"
+                    ),
+                    Err(e) => warn!(%topic, "failed to re-subscribe to drand topic: {e}"),
                 }
             }
         }
@@ -654,8 +719,7 @@ async fn handle_discovery_event(
 async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
-    pubsub_block_str: &str,
-    pubsub_msg_str: &str,
+    pubsub_topic_kinds: &HashMap<TopicHash, PubsubTopic>,
 ) {
     if let gossipsub::Event::Message {
         propagation_source: source,
@@ -663,11 +727,12 @@ async fn handle_gossip_event(
         ..
     } = e
     {
-        let topic = message.topic.as_str();
+        let topic = message.topic;
         let message = message.data;
         trace!("Got a Gossip Message from {:?}", source);
-        if topic == pubsub_block_str {
-            match from_slice_with_fallback::<GossipBlock>(&message) {
+
+        match pubsub_topic_kinds.get(&topic) {
+            Some(PubsubTopic::Blocks) => match from_slice_with_fallback::<GossipBlock>(&message) {
                 Ok(b) => {
                     emit_event(
                         network_sender_out,
@@ -680,24 +745,52 @@ async fn handle_gossip_event(
                 Err(e) => {
                     warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
                 }
-            }
-        } else if topic == pubsub_msg_str {
-            match from_slice_with_fallback::<SignedMessage>(&message) {
-                Ok(m) => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Message(m),
-                        },
-                    )
-                    .await;
+            },
+            Some(PubsubTopic::Messages) => {
+                match from_slice_with_fallback::<SignedMessage>(&message) {
+                    Ok(m) => {
+                        emit_event(
+                            network_sender_out,
+                            NetworkEvent::PubsubMessage {
+                                message: PubsubMessage::Message(m),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Gossip Message from peer {source:?} could not be deserialized: {e:#}"
+                        );
+                    }
                 }
-                Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
+            }
+            Some(PubsubTopic::Drand) => {
+                let mut reader = BytesReader::from_bytes(&message);
+                match PublicRandResponse::from_reader(&mut reader, &message) {
+                    Ok(r) => {
+                        info!(
+                            "Received drand round {} from peer {source:?} on {topic}",
+                            r.round
+                        );
+                        emit_event(
+                            network_sender_out,
+                            NetworkEvent::PubsubMessage {
+                                message: PubsubMessage::DrandEntry(BeaconEntry::new(
+                                    r.round,
+                                    r.signature,
+                                )),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Gossip drand entry from peer {source:?} could not be decoded: {e:#}"
+                        );
+                    }
                 }
             }
-        } else {
-            warn!("Getting gossip messages from unknown topic: {topic}");
+            None => warn!("Getting gossip messages from unknown topic: {topic}"),
         }
     }
 }
@@ -923,8 +1016,7 @@ async fn handle_forest_behaviour_event(
         request_response::ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
-    pubsub_block_str: &str,
-    pubsub_msg_str: &str,
+    pubsub_topic_kinds: &HashMap<TopicHash, PubsubTopic>,
 ) {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
@@ -937,7 +1029,7 @@ async fn handle_forest_behaviour_event(
             .await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
-            handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
+            handle_gossip_event(e, network_sender_out, pubsub_topic_kinds).await
         }
         ForestBehaviourEvent::Hello(rr_event) => {
             let behaviour_mut = swarm.behaviour_mut();

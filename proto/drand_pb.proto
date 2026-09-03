@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package drand_pb;
+
+// https://github.com/drand/drand/blob/v2.1.7/protobuf/drand/api.proto#L42-L53
+message PublicRandResponse {
+  uint64 round = 1;
+  bytes signature = 2;
+}

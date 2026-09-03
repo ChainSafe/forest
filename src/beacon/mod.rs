@@ -3,10 +3,12 @@
 
 pub mod beacon_entries;
 mod drand;
+mod drand_pb;
 pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
 pub use drand::*;
+pub use drand_pb::PublicRandResponse;
 
 #[cfg(test)]
 pub mod mock_beacon;
@@ -15,4 +17,5 @@ pub mod tests {
     // `pub` so that helpers such as `drand::new_beacon_quicknet` can be shared with
     // tests in other modules.
     pub mod drand;
+    pub mod fake_drand;
 }
