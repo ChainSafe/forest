@@ -82,6 +82,9 @@ fn tests() -> Vec<Trial> {
         trial("eth_estimate_gas_is_sufficient_on_chain", || {
             block_on(estimate_is_sufficient_on_chain())
         }),
+        trial("forest_wallet_send_calldata_invokes_contract", || {
+            block_on(forest_wallet_send_calldata_invokes_contract())
+        }),
         trial("eth_estimate_gas_reports_a_non_gas_failure", || {
             block_on(estimate_reports_a_non_gas_failure())
         }),
@@ -173,6 +176,77 @@ async fn sender_addr() -> anyhow::Result<&'static Address> {
             Ok(sender)
         })
         .await
+}
+
+/// A delegated (`f4`) sender in Forest's *local* keystore, funded well enough to
+/// afford the nested call. Unlike [`sender_addr`] (Lotus's keystore), the key
+/// lives with Forest so `forest-wallet send` can sign locally.
+async fn forest_wallet_sender() -> anyhow::Result<&'static str> {
+    static SENDER: OnceCell<String> = OnceCell::const_new();
+    SENDER
+        .get_or_try_init(|| async {
+            let addr = wallet(Backend::Local, &["new", "delegated"])?;
+            let msg = send_from(
+                &FOREST_TEST_PRELOADED_ADDRESS,
+                &addr,
+                SENDER_FUND_AMT,
+                Backend::Local,
+            )?;
+            eprintln!("funding forest-wallet sender {addr} with {SENDER_FUND_AMT}, msg: {msg}");
+            let balance = poll_until_funded(&addr, Backend::Local).await?;
+            eprintln!("forest-wallet sender {addr} funded balance: {balance}");
+            // The miner runs on Lotus, so wait until Lotus sees the funded actor
+            // before submitting, or the call could be mined against stale state.
+            let parsed = Address::from_str(&addr).context("parsing forest-wallet sender")?;
+            poll_until_actor_on("lotus", parsed, lotus_client).await?;
+            anyhow::Ok(addr)
+        })
+        .await
+        .map(String::as_str)
+}
+
+/// `forest-wallet send --params-hex` must build a working `InvokeContract`
+/// message: it should CBOR-wrap the calldata, land on chain, and the contract
+/// call must succeed. This exercises the calldata support end to end through the
+/// CLI rather than a raw `MpoolPush`.
+async fn forest_wallet_send_calldata_invokes_contract() -> anyhow::Result<()> {
+    let target = contract().await?.f4.to_string();
+    let sender = forest_wallet_sender().await?;
+    let params = hex::encode(recurse_calldata(NESTED_DEPTH));
+
+    // The `f4` target makes `forest-wallet send` infer `InvokeContract` and
+    // CBOR-wrap the params; it estimates the gas itself, so no `--gas-limit`.
+    let out = wallet(
+        Backend::Local,
+        &[
+            "send",
+            "--from",
+            sender,
+            "--params-hex",
+            &params,
+            &target,
+            "0",
+        ],
+    )?;
+    let cid = Cid::from_str(
+        out.lines()
+            .last()
+            .context("no cid from `forest-wallet send`")?
+            .trim(),
+    )?;
+    eprintln!("forest-wallet submitted contract call: {cid}");
+
+    let forest = forest_client()?;
+    let lookup = forest
+        .call(StateWaitMsg::request((cid, 0, 800, true))?.with_timeout(POLL_TIMEOUT))
+        .await?;
+    let exit = lookup.receipt.exit_code();
+    ensure!(
+        exit.is_success(),
+        "contract call submitted via `forest-wallet send --params-hex` failed on chain \
+         with exit code {exit}"
+    );
+    Ok(())
 }
 
 async fn estimate(
