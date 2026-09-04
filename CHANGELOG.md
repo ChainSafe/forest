@@ -30,6 +30,7 @@
 ### Added
 
 - [#7471](https://github.com/ChainSafe/forest/issues/7471): Implement `forest-cli evm deploy` and `forest-cli evm call`.
+- [#7595](https://github.com/ChainSafe/forest/pull/7595): Implement `forest-cli evm invoke`.
 
 ### Changed
 
