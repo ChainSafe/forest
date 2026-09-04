@@ -16,6 +16,25 @@ enum StateRecomputePolicy {
     Disallowed,
 }
 
+fn ensure_recomputed_state_matches(
+    epoch: ChainEpoch,
+    computed: &ExecutedTipset,
+    expected_state: &Cid,
+    expected_receipts: &Cid,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        computed.state_root == *expected_state,
+        "state root mismatch at epoch {epoch}: computed {}, expected {expected_state}",
+        computed.state_root,
+    );
+    anyhow::ensure!(
+        computed.receipt_root == *expected_receipts,
+        "receipt root mismatch at epoch {epoch}: computed {}, expected {expected_receipts}",
+        computed.receipt_root,
+    );
+    Ok(())
+}
+
 impl StateManager {
     /// Load the state of a tipset, including state root, message receipts
     pub async fn load_tipset_state(&self, ts: &Tipset) -> anyhow::Result<TipsetState> {
@@ -221,6 +240,15 @@ impl StateManager {
                     .compute_tipset_state(msg_ts.shallow_clone(), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
                 recomputed = true;
+
+                if let Some(receipt_ts) = receipt_ts {
+                    ensure_recomputed_state_matches(
+                        msg_ts.epoch(),
+                        &state_output,
+                        receipt_ts.parent_state(),
+                        receipt_ts.parent_message_receipts(),
+                    )?;
+                }
                 (
                     state_output.state_root,
                     state_output.receipt_root,
@@ -246,12 +274,19 @@ impl StateManager {
                         if !allow_state_compute {
                             anyhow::bail!(state_compute_disallow_error());
                         }
-                        self.compute_tipset_state(
-                            msg_ts.shallow_clone(),
-                            NO_CALLBACK,
-                            VMTrace::NotTraced,
-                        )
-                        .await?;
+                        let state_output = self
+                            .compute_tipset_state(
+                                msg_ts.shallow_clone(),
+                                NO_CALLBACK,
+                                VMTrace::NotTraced,
+                            )
+                            .await?;
+                        ensure_recomputed_state_matches(
+                            msg_ts.epoch(),
+                            &state_output,
+                            &state_root,
+                            &receipt_root,
+                        )?;
                         recomputed = true;
                         StampedEvent::get_events(self.cs.db(), &events_root)?
                     }
