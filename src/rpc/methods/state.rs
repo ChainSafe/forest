@@ -52,6 +52,7 @@ use crate::{
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
 };
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use anyhow::Result;
 use enumflags2::{BitFlags, make_bitflags};
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
@@ -1116,7 +1117,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         let sector_weight =
             qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
-        let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
+        let initial_pledge =
+            compute_initial_pledge_for_power(&ctx.state_manager, &ts, &sector_weight)?;
 
         let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(q)
@@ -3373,7 +3375,8 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
             &verified_deal_weight,
         );
 
-        let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
+        let initial_pledge =
+            compute_initial_pledge_for_power(&ctx.state_manager, &ts, &sector_weight)?;
 
         let (value, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)
@@ -3407,23 +3410,29 @@ impl RpcMethod<1> for StateMinerCreationDeposit {
         let create_miner_deposit_power: StoragePower =
             &ctx.chain_config().policy.minimum_consensus_power / 10;
 
-        compute_initial_pledge_for_power(&ctx, &ts, &create_miner_deposit_power)
+        compute_initial_pledge_for_power(&ctx.state_manager, &ts, &create_miner_deposit_power)
     }
 }
 
 fn compute_initial_pledge_for_power(
-    ctx: &Ctx,
+    state_manager: &StateManager,
     ts: &Tipset,
     qa_power: &StoragePower,
 ) -> Result<TokenAmount, ServerError> {
-    let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
-    let power_state: power::State = state_tree.get_actor_state()?;
-    let reward_state: reward::State = state_tree.get_actor_state()?;
+    let state_tree = state_manager
+        .get_state_tree(ts.parent_state())
+        .context("loading state tree for initial pledge")?;
+    let power_state: power::State = state_tree
+        .get_actor_state()
+        .context("loading power actor state for initial pledge")?;
+    let reward_state: reward::State = state_tree
+        .get_actor_state()
+        .context("loading reward actor state for initial pledge")?;
 
-    let circ_supply = ctx
-        .state_manager
+    let circ_supply = state_manager
         .genesis_info()
-        .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)?;
+        .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)
+        .context("computing circulating supply for initial pledge")?;
 
     let (epochs_since_start, duration) = if power_state.ramp_start_epoch() > 0 {
         (
@@ -3565,3 +3574,7 @@ mod tests {
         let _ = sector_duration_from_expiration(expiration, epoch);
     }
 }
+
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod state_tests;
