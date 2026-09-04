@@ -15,7 +15,7 @@ use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::eth::types::CallSource;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
@@ -1108,8 +1108,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str =
-        "Returns the initial pledge collateral for the specified miner's sector.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the value is far too low; use StateMinerInitialPledgeForSector instead.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -3339,8 +3338,7 @@ pub struct ForkUpgradeParams {
     upgrade_tock_height: ChainEpoch,
     upgrade_golden_week_height: ChainEpoch,
     upgrade_fire_horse_height: ChainEpoch,
-    // placeholder for the next network upgrade
-    upgrade_xx_height: ChainEpoch,
+    upgrade_solstice_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3390,10 +3388,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_tock_height: get_height(Tock)?,
             upgrade_golden_week_height: get_height(GoldenWeek)?,
             upgrade_fire_horse_height: get_height(FireHorse)?,
-            upgrade_xx_height: match config.network {
-                NetworkChain::Mainnet => 9_999_999_999,
-                _ => 999_999_999_999_999,
-            },
+            upgrade_solstice_height: get_height(Solstice)?,
         })
     }
 }
@@ -3405,7 +3400,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         ["sectorDuration", "sectorSize", "verifiedSize", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset. From NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals: pass the full sector size as verifiedSize to get the pledge the network charges.";
 
     type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
     type Ok = TokenAmount;

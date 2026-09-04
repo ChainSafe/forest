@@ -46,7 +46,13 @@ pub mod mainnet;
 pub mod metrics;
 
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V27;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V29;
+
+/// Placeholder epoch for a network upgrade that has no scheduled height yet.
+///
+/// Same sentinel as Lotus `UpgradeHeightUnscheduled`, so `Filecoin.StateGetNetworkParams` matches:
+/// <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params.go#L13>
+pub const UPGRADE_HEIGHT_UNSCHEDULED: ChainEpoch = 999_999_999_999_999;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
@@ -175,6 +181,7 @@ pub enum Height {
     TockFix,
     GoldenWeek,
     FireHorse,
+    Solstice,
 }
 
 impl From<Height> for NetworkVersion {
@@ -216,6 +223,7 @@ impl From<Height> for NetworkVersion {
             Height::TockFix => NetworkVersion::V26,
             Height::GoldenWeek => NetworkVersion::V27,
             Height::FireHorse => NetworkVersion::V28,
+            Height::Solstice => NetworkVersion::V29,
         }
     }
 }
@@ -665,7 +673,7 @@ mod tests {
     fn heights_are_present(height_infos: &IndexMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
-        const REQUIRED_HEIGHTS: [Height; 31] = [
+        const REQUIRED_HEIGHTS: [Height; 32] = [
             Height::Breeze,
             Height::Smoke,
             Height::Ignition,
@@ -697,6 +705,7 @@ mod tests {
             Height::Teep,
             Height::GoldenWeek,
             Height::FireHorse,
+            Height::Solstice,
         ];
 
         for height in &REQUIRED_HEIGHTS {
