@@ -20,6 +20,7 @@ impl PowerStateExt for State {
             State::V16(st) => st.ramp_start_epoch,
             State::V17(st) => st.ramp_start_epoch,
             State::V18(st) => st.ramp_start_epoch,
+            State::V19(st) => st.ramp_start_epoch,
             _ => 0,
         }
     }
@@ -30,6 +31,7 @@ impl PowerStateExt for State {
             State::V16(st) => st.ramp_duration_epochs,
             State::V17(st) => st.ramp_duration_epochs,
             State::V18(st) => st.ramp_duration_epochs,
+            State::V19(st) => st.ramp_duration_epochs,
             _ => 0,
         }
     }

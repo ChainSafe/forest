@@ -19,6 +19,7 @@ impl DeadlineExt for Deadline {
             V16(d) => (&d.daily_fee).into(),
             V17(d) => (&d.daily_fee).into(),
             V18(d) => (&d.daily_fee).into(),
+            V19(d) => (&d.daily_fee).into(),
         }
     }
 }

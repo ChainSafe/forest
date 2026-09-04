@@ -24,6 +24,7 @@ pub enum State {
     V16(fil_actor_account_state::v16::State),
     V17(fil_actor_account_state::v17::State),
     V18(fil_actor_account_state::v18::State),
+    V19(fil_actor_account_state::v19::State),
 }
 
 impl State {
@@ -32,6 +33,6 @@ impl State {
     }
 
     pub fn default_latest_version(address: fvm_shared4::address::Address) -> Self {
-        State::V18(fil_actor_account_state::v18::State { address })
+        State::V19(fil_actor_account_state::v19::State { address })
     }
 }

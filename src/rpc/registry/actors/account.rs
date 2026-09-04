@@ -147,5 +147,13 @@ pub(crate) fn register_account_actor_methods(
                 with_types
             )
         }
+        ActorVersion::V19 => {
+            register_account_version_11_onwards!(
+                registry,
+                cid,
+                fil_actor_account_state::v19,
+                with_types
+            )
+        }
     }
 }

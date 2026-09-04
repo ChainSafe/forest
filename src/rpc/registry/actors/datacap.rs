@@ -140,5 +140,6 @@ pub(crate) fn register_datacap_actor_methods(
         ActorVersion::V16 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v16),
         ActorVersion::V17 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v17),
         ActorVersion::V18 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v18),
+        ActorVersion::V19 => register_datacap_version!(registry, cid, fil_actor_datacap_state::v19),
     }
 }

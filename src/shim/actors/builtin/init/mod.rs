@@ -28,6 +28,7 @@ pub enum State {
     V16(fil_actor_init_state::v16::State),
     V17(fil_actor_init_state::v17::State),
     V18(fil_actor_init_state::v18::State),
+    V19(fil_actor_init_state::v19::State),
 }
 
 impl State {
@@ -36,7 +37,7 @@ impl State {
         next_id: u64,
         network_name: String,
     ) -> Self {
-        State::V18(fil_actor_init_state::v18::State {
+        State::V19(fil_actor_init_state::v19::State {
             address_map,
             next_id,
             network_name,
