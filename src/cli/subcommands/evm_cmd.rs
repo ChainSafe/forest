@@ -52,7 +52,7 @@ pub enum EvmCommands {
         from: Option<Address>,
         /// Value to send with the invocation message, in attoFIL
         #[arg(long, default_value_t = 0)]
-        value: u64,
+        value: i64,
         /// Filecoin address of the contract
         address: Address,
         /// Hex-encoded ABI calldata
@@ -184,7 +184,7 @@ async fn deploy(
 async fn invoke(
     client: rpc::Client,
     from: Option<Address>,
-    value: u64,
+    value: i64,
     address: Address,
     calldata: EthBytes,
 ) -> anyhow::Result<()> {
