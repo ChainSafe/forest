@@ -1,4 +1,4 @@
-295
+298
 ABI
 Algorand/M
 API's
@@ -234,6 +234,7 @@ signable
 Skellam
 skippable
 Sqlx
+SRA
 statediff
 stateful
 stateroots
@@ -243,6 +244,7 @@ struct/SM
 subcall/S
 subcommand/S
 submodule/S
+SWA
 swappiness
 synchronizer
 syscall/S
@@ -253,6 +255,7 @@ teardown
 Terraform
 testnet
 TiB
+timelock/S
 tipset/SM
 tipsetkey/S
 TLS

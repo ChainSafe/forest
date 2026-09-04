@@ -16,7 +16,8 @@ use crate::db::SettingsStore;
 use crate::eth::EthChainId;
 use crate::prelude::*;
 use crate::shim::{
-    clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY},
+    address::Address,
+    clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY, EPOCHS_IN_HOUR},
     econ::TokenAmount,
     machine::BuiltinActorManifest,
     runtime::Policy,
@@ -254,6 +255,56 @@ struct DrandPoint<'a> {
     pub config: &'a LazyLock<DrandConfig<'a>>,
 }
 
+/// A clamped linear stream weight in `DENOM` fixed point, without its slope and start epoch.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct SolsticeRewardWeightParams {
+    pub v_start: u64,
+    pub floor: u64,
+    pub cap: u64,
+}
+
+/// Lotus `solsticeRewardWeightPercent`.
+const SOLSTICE_REWARD_WEIGHT_PERCENT: u64 = fil_actor_reward_state::v19::DENOM / 100;
+
+/// FIP-0118 bootstrap weights, the same on every network: the consensus stream starts at 95% of
+/// the block reward and ramps down to 50%; the service stream starts at 5% and ramps up to 10%.
+const SOLSTICE_CONSENSUS_WEIGHT: SolsticeRewardWeightParams = SolsticeRewardWeightParams {
+    v_start: 95 * SOLSTICE_REWARD_WEIGHT_PERCENT,
+    floor: 50 * SOLSTICE_REWARD_WEIGHT_PERCENT,
+    cap: 95 * SOLSTICE_REWARD_WEIGHT_PERCENT,
+};
+const SOLSTICE_SERVICE_WEIGHT: SolsticeRewardWeightParams = SolsticeRewardWeightParams {
+    v_start: 5 * SOLSTICE_REWARD_WEIGHT_PERCENT,
+    floor: 5 * SOLSTICE_REWARD_WEIGHT_PERCENT,
+    cap: 10 * SOLSTICE_REWARD_WEIGHT_PERCENT,
+};
+
+/// FIP-0118 reward actor bootstrap installed by the Solstice (NV29) state migration.
+///
+/// Mirrors Lotus `SolsticeRewardBootstrapParams` field for field, with the per-network values
+/// taken from the `params_<network>.go` files at the same commit:
+/// <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params.go#L23-L31>
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct SolsticeRewardBootstrapParams {
+    /// Delay before a stream weight authority (SWA) write takes effect.
+    pub swa_timelock_epochs: ChainEpoch,
+    /// Epochs over which the consensus stream weight ramps down from its start to its floor.
+    /// Zero installs the consensus stream alone at constant `DENOM` (no service stream).
+    pub consensus_weight_ramp_duration_epochs: ChainEpoch,
+    /// Weight of the stream paid to block producers.
+    pub consensus_weight: SolsticeRewardWeightParams,
+    /// Weight of the stream paid to the orchestrator.
+    pub service_weight: SolsticeRewardWeightParams,
+    /// Stream weight authority contract. `None` until it is deployed and has an `f0` address.
+    pub swa_actor: Option<Address>,
+    /// Service reward authority contract, the writer of the service stream's shares.
+    pub sra_actor: Option<Address>,
+    /// Sole initial recipient of the service stream.
+    pub initial_orchestrator: Option<Address>,
+}
+
 /// Defines all network configuration parameters.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -282,6 +333,7 @@ pub struct ChainConfig {
     pub fip0081_ramp_duration_epochs: u64,
     // See FIP-0100 and https://github.com/filecoin-project/lotus/pull/12938 for why this exists
     pub upgrade_teep_initial_fil_reserved: Option<TokenAmount>,
+    pub solstice_reward_bootstrap: SolsticeRewardBootstrapParams,
     pub f3_enabled: bool,
     // F3Consensus set whether F3 should checkpoint tipsets finalized by F3. This flag has no effect if F3 is not enabled.
     pub f3_consensus: bool,
@@ -311,6 +363,17 @@ impl ChainConfig {
             // 1 year on mainnet
             fip0081_ramp_duration_epochs: 365 * EPOCHS_IN_DAY as u64,
             upgrade_teep_initial_fil_reserved: None,
+            // Taken from here <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params_mainnet.go#L150>
+            solstice_reward_bootstrap: SolsticeRewardBootstrapParams {
+                swa_timelock_epochs: 7 * EPOCHS_IN_DAY,
+                consensus_weight_ramp_duration_epochs: 9 * 90 * EPOCHS_IN_DAY,
+                consensus_weight: SOLSTICE_CONSENSUS_WEIGHT,
+                service_weight: SOLSTICE_SERVICE_WEIGHT,
+                // Reserved but not deployed yet; the migration needs their `f0` addresses.
+                swa_actor: None,
+                sra_actor: None,
+                initial_orchestrator: None,
+            },
             f3_enabled: true,
             f3_consensus: true,
             // April 29 at 10:00 UTC
@@ -349,6 +412,16 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: 3 * EPOCHS_IN_DAY as u64,
             // FIP-0100: 300M -> 1.2B FIL
             upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_200_000_000)),
+            // Taken from here: <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params_calibnet.go#L137>
+            solstice_reward_bootstrap: SolsticeRewardBootstrapParams {
+                swa_timelock_epochs: EPOCHS_IN_HOUR,
+                consensus_weight_ramp_duration_epochs: 7 * EPOCHS_IN_DAY,
+                consensus_weight: SOLSTICE_CONSENSUS_WEIGHT,
+                service_weight: SOLSTICE_SERVICE_WEIGHT,
+                swa_actor: None,
+                sra_actor: None,
+                initial_orchestrator: None,
+            },
             // Enable after `f3_initial_power_table` is determined and set to avoid GC hell
             // (state tree of epoch 3_451_774 - 900 has to be present in the database if `f3_initial_power_table` is not set)
             f3_enabled: true,
@@ -386,6 +459,18 @@ impl ChainConfig {
             fip0081_ramp_duration_epochs: env_or_default(ENV_PLEDGE_RULE_RAMP, 200),
             // FIP-0100: 300M -> 1.4B FIL
             upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_400_000_000)),
+            // Same as the Lotus 2k network: <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params_2k.go#L108>.
+            // The reward actor rejects the burnt-funds orchestrator as stored state while
+            // go-state-types accepts it; see the reward migration tests.
+            solstice_reward_bootstrap: SolsticeRewardBootstrapParams {
+                swa_timelock_epochs: 50,
+                consensus_weight_ramp_duration_epochs: 900,
+                consensus_weight: SOLSTICE_CONSENSUS_WEIGHT,
+                service_weight: SOLSTICE_SERVICE_WEIGHT,
+                swa_actor: Some(Address::SYSTEM_ACTOR),
+                sra_actor: Some(Address::SYSTEM_ACTOR),
+                initial_orchestrator: Some(Address::BURNT_FUNDS_ACTOR),
+            },
             f3_enabled: false,
             f3_consensus: false,
             f3_bootstrap_epoch: -1,
@@ -422,6 +507,16 @@ impl ChainConfig {
             ),
             // FIP-0100: 300M -> 1.6B FIL
             upgrade_teep_initial_fil_reserved: Some(TokenAmount::from_whole(1_600_000_000)),
+            // Take from here <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params_butterfly.go#L93?>
+            solstice_reward_bootstrap: SolsticeRewardBootstrapParams {
+                swa_timelock_epochs: 7 * EPOCHS_IN_DAY,
+                consensus_weight_ramp_duration_epochs: 9 * 90 * EPOCHS_IN_DAY,
+                consensus_weight: SOLSTICE_CONSENSUS_WEIGHT,
+                service_weight: SOLSTICE_SERVICE_WEIGHT,
+                swa_actor: None,
+                sra_actor: None,
+                initial_orchestrator: None,
+            },
             f3_enabled: true,
             f3_consensus: true,
             f3_bootstrap_epoch: 1000,
