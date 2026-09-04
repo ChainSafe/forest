@@ -132,10 +132,13 @@ async fn wait_for_backfill(client: &rpc::Client) -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_millis(500)).await;
     };
     match last.state {
-        ChainExportState::Succeeded => pb.finish_with_message(format!(
-            "Backfill completed (indexed {}, skipped {})",
-            last.indexed, last.skipped
-        )),
+        ChainExportState::Succeeded => {
+            pb.finish_with_message(format!(
+                "Backfill completed (indexed {}, skipped {})",
+                last.indexed, last.skipped
+            ));
+            anyhow::ensure!(last.skipped == 0);
+        }
         ChainExportState::Cancelled => pb.abandon_with_message(format!(
             "Backfill cancelled (indexed {}, skipped {})",
             last.indexed, last.skipped
