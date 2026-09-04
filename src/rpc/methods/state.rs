@@ -52,6 +52,7 @@ use crate::{
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError, types::*},
 };
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use anyhow::Result;
 use enumflags2::{BitFlags, make_bitflags};
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
@@ -3418,13 +3419,20 @@ fn compute_initial_pledge_for_power(
     ts: &Tipset,
     qa_power: &StoragePower,
 ) -> Result<TokenAmount, ServerError> {
-    let state_tree = state_manager.get_state_tree(ts.parent_state())?;
-    let power_state: power::State = state_tree.get_actor_state()?;
-    let reward_state: reward::State = state_tree.get_actor_state()?;
+    let state_tree = state_manager
+        .get_state_tree(ts.parent_state())
+        .context("loading state tree for initial pledge")?;
+    let power_state: power::State = state_tree
+        .get_actor_state()
+        .context("loading power actor state for initial pledge")?;
+    let reward_state: reward::State = state_tree
+        .get_actor_state()
+        .context("loading reward actor state for initial pledge")?;
 
     let circ_supply = state_manager
         .genesis_info()
-        .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)?;
+        .get_vm_circulating_supply_detailed_with_state_tree(ts.epoch(), &state_tree)
+        .context("computing circulating supply for initial pledge")?;
 
     let (epochs_since_start, duration) = if power_state.ramp_start_epoch() > 0 {
         (
@@ -3568,258 +3576,5 @@ mod tests {
 }
 
 #[cfg(test)]
-mod creation_deposit_tests {
-    use super::{StateMinerCreationDeposit, StoragePower, compute_initial_pledge_for_power};
-    use crate::blocks::{CachingBlockHeader, RawBlockHeader, Tipset};
-    use crate::chain::ChainStore;
-    use crate::db::{DbImpl, MemoryDB};
-    use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
-    use crate::networks::{ACTOR_BUNDLES_METADATA, ChainConfig};
-    use crate::rpc::RPCState;
-    use crate::rpc::eth::filter::EthEventHandler;
-    use crate::rpc::reflect::RpcMethod as _;
-    use crate::rpc::types::ApiTipsetKey;
-    use crate::shim::actors::{power, reward};
-    use crate::shim::address::Address;
-    use crate::shim::econ::TokenAmount;
-    use crate::shim::machine::BuiltinActor;
-    use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
-    use crate::shim::version::NetworkVersion;
-    use crate::state_manager::StateManager;
-    use crate::utils::ShallowClone;
-    use crate::utils::db::CborStoreExt as _;
-    use cid::Cid;
-    use fvm_ipld_blockstore::Blockstore;
-    use std::sync::Arc;
-
-    // 1 FIL in atto.
-    const FIL: i128 = 1_000_000_000_000_000_000;
-
-    fn filter_estimate(
-        position: i128,
-    ) -> fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate {
-        fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate {
-            position: fvm_shared4::bigint::BigInt::from(position),
-            velocity: fvm_shared4::bigint::BigInt::from(0),
-        }
-    }
-
-    // Builds a state tree with the power, reward, burnt-funds and reserve actors
-    // that `compute_initial_pledge_for_power` and the circulating-supply
-    // calculation read, and returns its root. `ramp_start_epoch` selects the
-    // pledge-ramp branch under test.
-    fn build_state_root<S: Blockstore + ShallowClone>(
-        store: &S,
-        ramp_start_epoch: i64,
-        ramp_duration_epochs: u64,
-    ) -> Cid {
-        let smoothed = 1i128 << 50;
-        let power_state = power::State::default_latest_version(
-            StoragePower::from(1u64 << 50),
-            StoragePower::from(0),
-            StoragePower::from(1u64 << 50),
-            StoragePower::from(0),
-            fvm_shared4::econ::TokenAmount::from_atto(0), // total_pledge_collateral -> total_locked
-            StoragePower::from(0),
-            StoragePower::from(0),
-            fvm_shared4::econ::TokenAmount::from_atto(0),
-            filter_estimate(smoothed), // this_epoch_qa_power_smoothed -> total_power_smoothed
-            1,
-            1,
-            Cid::default(),
-            0,
-            Cid::default(),
-            None,
-            ramp_start_epoch,
-            ramp_duration_epochs,
-        );
-        let reward_state = reward::State::default_latest_version(
-            StoragePower::from(0),
-            StoragePower::from(0),
-            0,
-            StoragePower::from(1u64 << 50),
-            fvm_shared4::econ::TokenAmount::from_atto(0),
-            filter_estimate(smoothed),      // this_epoch_reward_smoothed
-            StoragePower::from(1u64 << 50), // this_epoch_baseline_power (> 0, avoids div-by-zero)
-            0,
-            fvm_shared4::econ::TokenAmount::from_atto(1_000_000 * FIL), // total_storage_power_reward -> fil_mined
-            fvm_shared4::econ::TokenAmount::from_atto(0),
-            fvm_shared4::econ::TokenAmount::from_atto(0),
-        );
-
-        let meta = ACTOR_BUNDLES_METADATA
-            .values()
-            .find(|m| m.actor_major_version().ok() == Some(18))
-            .expect("v18 actor bundle metadata is embedded");
-        let power_code = meta.manifest.get(BuiltinActor::Power).unwrap();
-        let reward_code = meta.manifest.get(BuiltinActor::Reward).unwrap();
-
-        let power_cid = store.put_cbor_default(&power_state).unwrap();
-        let reward_cid = store.put_cbor_default(&reward_state).unwrap();
-
-        let zero = TokenAmount::from_atto(0);
-        let mut tree = StateTree::new(store, StateTreeVersion::V5).unwrap();
-        tree.set_actor(
-            &Address::POWER_ACTOR,
-            ActorState::new(power_code, power_cid, zero.clone(), 0, None),
-        )
-        .unwrap();
-        tree.set_actor(
-            &Address::REWARD_ACTOR,
-            ActorState::new(reward_code, reward_cid, zero.clone(), 0, None),
-        )
-        .unwrap();
-        // Only the balance of these two is read by the circulating-supply calc,
-        // so dummy code/state CIDs are fine.
-        tree.set_actor(
-            &Address::BURNT_FUNDS_ACTOR,
-            ActorState::new(Cid::default(), Cid::default(), zero.clone(), 0, None),
-        )
-        .unwrap();
-        tree.set_actor(
-            &Address::RESERVE_ACTOR,
-            ActorState::new(Cid::default(), Cid::default(), zero, 0, None),
-        )
-        .unwrap();
-        tree.flush().unwrap()
-    }
-
-    fn state_manager(genesis_network: NetworkVersion) -> StateManager {
-        let mut chain_config = ChainConfig::devnet();
-        chain_config.genesis_network = genesis_network;
-        let genesis = CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            timestamp: 7777,
-            ..Default::default()
-        });
-        let db = Arc::new(MemoryDB::default());
-        let cs = ChainStore::new(db, Arc::new(chain_config), genesis).unwrap();
-        StateManager::new(cs).unwrap()
-    }
-
-    // A standalone tipset at an arbitrary epoch whose parent-state points at
-    // `state_root`; lets the compute path run at a post-genesis epoch without
-    // building a full chain.
-    fn tipset_at(epoch: i64, state_root: Cid) -> Tipset {
-        Tipset::from(CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            state_root,
-            epoch,
-            ..Default::default()
-        }))
-    }
-
-    #[test]
-    fn compute_initial_pledge_with_active_ramp() {
-        let sm = state_manager(NetworkVersion::V27);
-        let root = build_state_root(&sm.db_owned(), 100, 200);
-        let ts = tipset_at(300, root);
-        let qa_power = StoragePower::from(10u64 << 40);
-        let pledge = compute_initial_pledge_for_power(&sm, &ts, &qa_power).unwrap();
-        assert!(
-            pledge > TokenAmount::from_atto(0),
-            "expected a positive pledge, got {pledge:?}"
-        );
-    }
-
-    #[test]
-    fn compute_initial_pledge_without_ramp() {
-        let sm = state_manager(NetworkVersion::V27);
-        let root = build_state_root(&sm.db_owned(), 0, 0);
-        let ts = tipset_at(300, root);
-        let qa_power = StoragePower::from(10u64 << 40);
-        let pledge = compute_initial_pledge_for_power(&sm, &ts, &qa_power).unwrap();
-        assert!(
-            pledge > TokenAmount::from_atto(0),
-            "expected a positive pledge, got {pledge:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn creation_deposit_is_zero_before_v27() {
-        // Mainnet at genesis is well below network version 27, so the handler
-        // short-circuits to zero without reading the state tree.
-        let ctx = build_ctx(ChainConfig::default(), Cid::default(), empty_db());
-        let deposit =
-            StateMinerCreationDeposit::handle(ctx, (ApiTipsetKey(None),), &Default::default())
-                .await
-                .unwrap();
-        assert_eq!(deposit, TokenAmount::from_atto(0));
-    }
-
-    #[tokio::test]
-    async fn creation_deposit_positive_at_v27() {
-        // Populate a store, then hand the same store to the chain store so the
-        // genesis tipset's state root resolves to the built actors.
-        let db: DbImpl = Arc::new(MemoryDB::default()).into();
-        let root = build_state_root(&db, 0, 0);
-        let mut chain_config = ChainConfig::calibnet();
-        chain_config.genesis_network = NetworkVersion::V27;
-        let ctx = build_ctx(chain_config, root, db);
-        let deposit =
-            StateMinerCreationDeposit::handle(ctx, (ApiTipsetKey(None),), &Default::default())
-                .await
-                .unwrap();
-        assert!(
-            deposit > TokenAmount::from_atto(0),
-            "expected a positive deposit, got {deposit:?}"
-        );
-    }
-
-    fn empty_db() -> DbImpl {
-        Arc::new(MemoryDB::default()).into()
-    }
-
-    // Minimal RPCState over an in-memory chain whose genesis tipset uses
-    // `genesis_state_root`, at the given network configuration; mirrors the test
-    // context in `sync.rs`.
-    fn build_ctx(chain_config: ChainConfig, genesis_state_root: Cid, db: DbImpl) -> Arc<RPCState> {
-        use crate::chain_sync::network_context::SyncNetworkContext;
-        use crate::key_management::{KeyStore, KeyStoreConfig};
-        use crate::libp2p::{NetworkMessage, PeerManager};
-        use parking_lot::RwLock;
-        use tokio::sync::mpsc;
-        use tokio::task::JoinSet;
-
-        let (network_send, _network_rx) = flume::bounded::<NetworkMessage>(5);
-        let (tipset_send, _tipset_rx) = flume::bounded(5);
-        let mut services = JoinSet::new();
-        let genesis = CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            state_root: genesis_state_root,
-            timestamp: 7777,
-            ..Default::default()
-        });
-        let cs = ChainStore::new(db, Arc::new(chain_config), genesis).unwrap();
-        let state_manager = StateManager::new(cs.shallow_clone()).unwrap();
-        let mpool = MessagePool::new(
-            cs,
-            network_send.clone(),
-            Default::default(),
-            state_manager.chain_config().clone(),
-            &mut services,
-        )
-        .unwrap();
-        let peer_manager = Arc::new(PeerManager::default());
-        let sync_network_context =
-            SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
-        Arc::new(RPCState {
-            state_manager,
-            keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
-            mpool,
-            bad_blocks: Some(Default::default()),
-            sync_status: Default::default(),
-            eth_event_handler: Arc::new(EthEventHandler::new()),
-            eth_logs_feed: Default::default(),
-            sync_network_context,
-            start_time: chrono::Utc::now(),
-            shutdown: mpsc::channel(1).0,
-            tipset_send,
-            block_validation_subscriber: Default::default(),
-            snapshot_progress_tracker: Default::default(),
-            mpool_locker: MpoolLocker::new(),
-            nonce_tracker: NonceTracker::new(),
-            temp_dir: Arc::new(std::env::temp_dir()),
-        })
-    }
-}
+#[path = "state_tests.rs"]
+mod state_tests;
