@@ -410,8 +410,14 @@ pub mod hexify_vec_bytes {
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        let s = Cow::from(s.strip_prefix("0x").unwrap_or(&s));
+        let raw = String::deserialize(deserializer)?;
+        let trimmed = raw.trim();
+        let s = Cow::from(
+            trimmed
+                .strip_prefix("0x")
+                .or_else(|| trimmed.strip_prefix("0X"))
+                .unwrap_or(trimmed),
+        );
 
         // Pad with 0 if odd length. This is necessary because decoding requires an even
         // number of characters, whereas a valid input is also `0x0`.
@@ -724,6 +730,10 @@ mod tests {
             ("0xF", vec![15]),
             ("0x2a42", vec![42, 66]),
             ("0x2A42", vec![42, 66]),
+            ("0X2a42", vec![42, 66]),
+            ("  0x2a42\n", vec![42, 66]),
+            ("\t0X2A42  ", vec![42, 66]),
+            ("2a42", vec![42, 66]),
         ];
 
         for (input, expected) in cases.into_iter() {
@@ -733,7 +743,7 @@ mod tests {
             self::assert_eq!(deserialized, expected);
         }
 
-        let fail_cases = ["cthulhu", "x", "0xazathoth"];
+        let fail_cases = ["cthulhu", "x", "0xazathoth", "0x2a 42", "0x2a\n42"];
         for input in fail_cases.into_iter() {
             let deserializer: StringDeserializer<SerdeError> =
                 String::from_str(input).unwrap().into_deserializer();

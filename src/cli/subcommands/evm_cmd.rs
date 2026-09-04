@@ -1,21 +1,25 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::eth::EAMMethod;
+use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::eth::{
     BlockNumberOrHash, Predefined,
     types::{EthAddress, EthBytes, EthCallMessage},
 };
+use crate::rpc::types::MessageLookup;
 use crate::rpc::{self, prelude::*};
 use crate::shim::actors::eam;
 use crate::shim::address::Address;
+use crate::shim::econ::TokenAmount;
 use crate::shim::message::Message;
 use crate::utils::encoding::{from_slice_with_fallback, hex};
 use anyhow::Context as _;
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use cid::Cid;
 use clap::Subcommand;
 use fil_actor_eam_state::v16::CreateExternalParams;
+use fil_actor_evm_state::v16::{InvokeContractParams, InvokeContractReturn};
 use fvm_ipld_encoding::RawBytes;
 use std::path::PathBuf;
 use std::str::FromStr as _;
@@ -41,6 +45,19 @@ pub enum EvmCommands {
         /// Contract init code
         contract: PathBuf,
     },
+    /// Invoke an EVM smart contract using the specified calldata
+    Invoke {
+        /// Optionally specify the account to use for sending the exec message
+        #[arg(long)]
+        from: Option<Address>,
+        /// Value to send with the invocation message, in attoFIL
+        #[arg(long, default_value_t = 0)]
+        value: u64,
+        /// Filecoin address of the contract
+        address: Address,
+        /// Hex-encoded ABI calldata
+        calldata: EthBytes,
+    },
     /// Simulate an eth contract call
     Call {
         /// Ethereum sender address
@@ -61,9 +78,32 @@ impl EvmCommands {
                 wait,
                 contract,
             } => deploy(client, from, hex, wait.unwrap_or(true), contract).await,
+            Self::Invoke {
+                from,
+                value,
+                address,
+                calldata,
+            } => invoke(client, from, value, address, calldata).await,
             Self::Call { from, to, params } => call(client, from, to, params).await,
         }
     }
+}
+
+async fn resolve_from(client: &rpc::Client, from: Option<Address>) -> anyhow::Result<Address> {
+    match from {
+        Some(addr) => Ok(addr),
+        None => WalletDefaultAddress::call(client, ())
+            .await?
+            .context("no default wallet address"),
+    }
+}
+
+async fn wait_for_message(client: &rpc::Client, cid: Cid) -> anyhow::Result<MessageLookup> {
+    println!("waiting for message to execute...");
+    client
+        .call(StateWaitMsg::request((cid, 0, WAIT_LOOKBACK, true))?.with_timeout(WAIT_TIMEOUT))
+        .await
+        .context("error waiting for message")
 }
 
 async fn deploy(
@@ -75,15 +115,12 @@ async fn deploy(
 ) -> anyhow::Result<()> {
     let mut initcode = std::fs::read(&contract).context("failed to read contract")?;
     if is_hex {
-        initcode = decode_hex_contract(&initcode).context("failed to decode contract")?;
+        initcode = EthBytes::from_str(std::str::from_utf8(&initcode)?)
+            .context("failed to decode contract")?
+            .0;
     }
 
-    let from = match from {
-        Some(addr) => addr,
-        None => WalletDefaultAddress::call(&client, ())
-            .await?
-            .context("no default wallet address")?,
-    };
+    let from = resolve_from(&client, from).await?;
 
     let params = RawBytes::serialize(CreateExternalParams(initcode))
         .context("failed to serialize Create params")?;
@@ -106,11 +143,7 @@ async fn deploy(
         return Ok(());
     }
 
-    println!("waiting for message to execute...");
-    let lookup = client
-        .call(StateWaitMsg::request((cid, 0, WAIT_LOOKBACK, true))?.with_timeout(WAIT_TIMEOUT))
-        .await
-        .context("error waiting for message")?;
+    let lookup = wait_for_message(&client, cid).await?;
 
     println!("Exit Code: {}", lookup.receipt.exit_code().value());
     println!("Gas Used: {}", lookup.receipt.gas_used());
@@ -148,6 +181,73 @@ async fn deploy(
     Ok(())
 }
 
+async fn invoke(
+    client: rpc::Client,
+    from: Option<Address>,
+    value: u64,
+    address: Address,
+    calldata: EthBytes,
+) -> anyhow::Result<()> {
+    let from = resolve_from(&client, from).await?;
+    let params = RawBytes::serialize(InvokeContractParams {
+        input_data: calldata.0,
+    })
+    .context("failed to encode evm params as cbor")?;
+
+    let msg = Message {
+        to: address,
+        from,
+        value: TokenAmount::from_atto(value),
+        method_num: EVMMethod::InvokeContract as u64,
+        params,
+        ..Default::default()
+    };
+
+    println!("sending message...");
+    let smsg = MpoolPushMessage::call(&client, (msg, None))
+        .await
+        .context("failed to push message")?;
+    let cid = smsg.cid();
+    println!("Message CID: {cid}");
+
+    let lookup = wait_for_message(&client, cid).await?;
+
+    anyhow::ensure!(
+        lookup.receipt.exit_code().is_success(),
+        "actor execution failed"
+    );
+
+    println!("Gas used: {}", lookup.receipt.gas_used());
+
+    let ret: InvokeContractReturn = from_slice_with_fallback(lookup.receipt.return_data().bytes())
+        .context("evm result not correctly encoded")?;
+    if ret.output_data.is_empty() {
+        println!("OK");
+    } else {
+        println!("{}", hex::encode(&ret.output_data));
+    }
+
+    if let Some(root) = lookup.receipt.events_root() {
+        let events = ChainGetEvents::call(&client, (root,))
+            .await
+            .context("failed to load events")?;
+        println!("Events emitted:");
+        for event in events {
+            println!("\tEmitter ID: {}", event.emitter);
+            for entry in event.entries {
+                println!(
+                    "\t\tKey: {}, Value: 0x{}, Flags: b{:b}",
+                    entry.key,
+                    hex::encode(&entry.value.0),
+                    entry.flags
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
 async fn call(
     client: rpc::Client,
     from: EthAddress,
@@ -178,10 +278,4 @@ async fn call(
             Err(e.into())
         }
     }
-}
-
-fn decode_hex_contract(raw: &[u8]) -> anyhow::Result<Vec<u8>> {
-    let s = std::str::from_utf8(raw)?.trim();
-    let s = s.strip_prefix("0X").unwrap_or(s);
-    Ok(EthBytes::from_str(s)?.0)
 }
