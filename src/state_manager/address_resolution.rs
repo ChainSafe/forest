@@ -230,6 +230,7 @@ mod tests {
         db.put_cbor_default(head.block_headers().first()).unwrap();
 
         let cs = ChainStore::new(db, cfg, genesis.block_headers().first().clone()).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
         let sm = StateManager::new(cs).unwrap();
         (sm, head, bls_a, bls_b)
     }
@@ -287,11 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn does_not_cache_at_exact_finality_boundary() {
-        // Head epoch == chain_finality: the guard is strictly `>`, so this is
-        // not finality-deep and the lookback degrades to resolving at the
-        // head's own parent state (which does contain f0300, since `root_b`
-        // was built on top of `root_a`). The resolution succeeds but, being
-        // `Unstable`, must not be cached.
+        // Head is exactly `ec_depth` epochs deep, so lookback does not apply.
         let (sm, head, bls_a, _bls_b) = setup_with_finality(2);
         let resolved = sm
             .resolve_to_deterministic_address(Address::new_id(OLD_ACTOR), &head)
@@ -301,7 +298,7 @@ mod tests {
         assert_eq!(
             sm.id_to_deterministic_address_cache().unwrap().len(),
             0,
-            "epoch == chain_finality is not finality-deep and must not be cached"
+            "epoch == ec_depth cannot look back and must not be cached"
         );
     }
 
@@ -331,5 +328,77 @@ mod tests {
             .unwrap();
         assert_eq!(resolved, bls_a);
         assert_eq!(sm.id_to_deterministic_address_cache().unwrap().len(), 0);
+    }
+
+    /// Healthy 40-epoch chain at 5 blocks/epoch: EC finality is shallower than
+    /// default `chain_finality` (900), so only the calculator can make a
+    /// resolution cacheable.
+    fn setup_healthy_ec_chain() -> (StateManager, Tipset, Address) {
+        use crate::chain::ec_finality::calculator::DEFAULT_BLOCKS_PER_EPOCH;
+        use crate::chain::store::index::tests::{persist_tipset, tipset_child_with_blocks};
+
+        const EPOCHS: ChainEpoch = 40;
+        let blocks_per_epoch = DEFAULT_BLOCKS_PER_EPOCH as usize;
+
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
+        let cfg = Arc::new(ChainConfig::default());
+
+        let bls = Address::new_bls(&[8u8; 48]).unwrap();
+        let mut st = StateTree::new(&db, StateTreeVersion::V5).unwrap();
+        st.set_actor(
+            &Address::new_id(OLD_ACTOR),
+            ActorState::new_empty(Cid::default(), Some(bls)),
+        )
+        .unwrap();
+        let root = st.flush().unwrap();
+
+        let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            state_root: root,
+            timestamp: 1,
+            ..Default::default()
+        }));
+        persist_tipset(&genesis, &db);
+
+        let mut head = genesis.shallow_clone();
+        for epoch in 1..=EPOCHS {
+            head = tipset_child_with_blocks(&head, epoch, blocks_per_epoch, root);
+            persist_tipset(&head, &db);
+        }
+
+        let cs = ChainStore::new(db, cfg, genesis.block_headers().first().clone()).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
+
+        let finalized = cs.ec_calculator_finalized_epoch();
+        assert!(
+            finalized > 0,
+            "healthy chain must meet the EC guarantee (got finalized_epoch={finalized})"
+        );
+        assert!(
+            head.epoch() < cs.chain_config().policy.chain_finality,
+            "head must be younger than chain_finality so only EC can make this cacheable (head={} chain_finality={})",
+            head.epoch(),
+            cs.chain_config().policy.chain_finality,
+        );
+
+        let sm = StateManager::new(cs).unwrap();
+        (sm, head, bls)
+    }
+
+    #[tokio::test]
+    async fn caches_when_ec_finality_is_shallower_than_chain_finality() {
+        let (sm, head, bls) = setup_healthy_ec_chain();
+        let resolved = sm
+            .resolve_to_deterministic_address(Address::new_id(OLD_ACTOR), &head)
+            .await
+            .unwrap();
+        assert_eq!(resolved, bls);
+        assert_eq!(
+            sm.id_to_deterministic_address_cache()
+                .unwrap()
+                .get(&OLD_ACTOR),
+            Some(bls),
+            "resolution at the EC lookback must be cacheable under default chain_finality"
+        );
     }
 }

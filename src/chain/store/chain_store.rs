@@ -51,7 +51,7 @@ pub type ChainEpochDelta = ChainEpoch;
 
 /// Outcome of [`ChainStore::resolve_to_deterministic_address_at_finality`].
 pub enum AtFinalityResolution {
-    /// Resolved against a tipset at least `chain_finality` epochs behind the
+    /// Resolved against a tipset at least `ec_depth` epochs behind the
     /// requested one. The mapping is identical on every possible future
     /// chain, so it is safe to memoize by actor ID alone.
     ReorgStable(Address),
@@ -374,12 +374,12 @@ impl ChainStore {
         &self.chain_config
     }
 
-    /// Resolves `addr` to its deterministic (public-key or delegated) form
-    /// using the state at `chain_finality` epochs behind `ts`. Falls back to
-    /// `ts` itself when the chain is younger than finality; the returned
-    /// [`AtFinalityResolution`] says which of the two happened.
+    /// Resolve `addr` to a public-key/delegated address.
     ///
-    /// Matches the logic at <https://github.com/filecoin-project/lotus/blob/v1.35.1/chain/stmgr/stmgr.go#L361>
+    /// Looks back `ec_depth` epochs from `ts`, where `ec_depth` is how far the
+    /// EC calculator has finalized behind head. Uses `ts` itself if it is not
+    /// deeper than `ec_depth`. [`AtFinalityResolution::ReorgStable`] (cacheable)
+    /// only when that lookback ran.
     pub fn resolve_to_deterministic_address_at_finality(
         &self,
         addr: &Address,
@@ -389,23 +389,44 @@ impl ChainStore {
         match addr.protocol() {
             BLS | Secp256k1 | Delegated => Ok(AtFinalityResolution::ReorgStable(*addr)),
             ID => {
-                let finality_deep = ts.epoch() > self.chain_config().policy.chain_finality;
-                let lookback_ts = if finality_deep {
-                    self.chain_index().load_required_tipset_by_height_blocking(
-                        ts.epoch() - self.chain_config().policy.chain_finality,
-                        ts.shallow_clone(),
-                        ResolveNullTipset::TakeOlder,
-                    )?
+                let ec_depth =
+                    (self.heaviest_tipset().epoch() - self.ec_calculator_finalized_epoch()).max(0);
+                if ec_depth > 0 && ts.epoch() > ec_depth {
+                    let lookback_ts = self
+                        .chain_index()
+                        .load_required_tipset_by_height_blocking(
+                            ts.epoch() - ec_depth,
+                            ts.shallow_clone(),
+                            ResolveNullTipset::TakeOlder,
+                        )
+                        .with_context(|| {
+                            format!(
+                                "failed to load EC-finality lookback at epoch {} from {}",
+                                ts.epoch() - ec_depth,
+                                ts.key()
+                            )
+                        })?;
+                    let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())
+                        .with_context(|| {
+                            format!(
+                                "failed to load state for EC-finality lookback {}",
+                                lookback_ts.key()
+                            )
+                        })?;
+                    let resolved = state
+                        .resolve_to_deterministic_address(self.db(), *addr)
+                        .with_context(|| {
+                            format!(
+                                "failed to resolve ID address {addr} at {}",
+                                lookback_ts.key()
+                            )
+                        })?;
+                    Ok(AtFinalityResolution::ReorgStable(resolved))
                 } else {
-                    ts.shallow_clone()
-                };
-                let state = StateTree::new_from_root(self.db(), lookback_ts.parent_state())?;
-                let resolved = state.resolve_to_deterministic_address(self.db(), *addr)?;
-                Ok(if finality_deep {
-                    AtFinalityResolution::ReorgStable(resolved)
-                } else {
-                    AtFinalityResolution::Unstable(resolved)
-                })
+                    let state = StateTree::new_from_root(self.db(), ts.parent_state())?;
+                    let resolved = state.resolve_to_deterministic_address(self.db(), *addr)?;
+                    Ok(AtFinalityResolution::Unstable(resolved))
+                }
             }
             Actor => anyhow::bail!("Cannot resolve actor address to key address"),
         }
@@ -873,6 +894,32 @@ mod tests {
 
         assert_eq!(cs.genesis_tipset(), gen_ts);
         assert_eq!(cs.genesis_block_header(), &gen_block);
+    }
+
+    #[test]
+    fn ec_finalized_epoch_falls_back_to_chain_finality_on_degraded_chain() {
+        use crate::chain::store::index::tests::{genesis_tipset, persist_tipset, tipset_child};
+
+        const CHAIN_FINALITY: ChainEpoch = 10;
+
+        let db = Arc::new(crate::db::MemoryDB::default());
+        let mut chain_config = ChainConfig::default();
+        chain_config.policy.chain_finality = CHAIN_FINALITY;
+
+        let genesis = genesis_tipset();
+        persist_tipset(&genesis, &db);
+        let mut head = genesis.shallow_clone();
+        for epoch in 1..=30 {
+            head = tipset_child(&head, epoch);
+            persist_tipset(&head, &db);
+        }
+
+        let cs = ChainStore::new(db, Arc::new(chain_config), genesis).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
+        assert_eq!(
+            cs.ec_calculator_finalized_epoch(),
+            head.epoch() - CHAIN_FINALITY,
+        );
     }
 
     #[test]

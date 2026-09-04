@@ -1046,6 +1046,7 @@ mod tests {
         db.put_cbor_default(head.block_headers().first()).unwrap();
 
         let cs = ChainStore::new(db, cfg, genesis.block_headers().first().clone()).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
 
         // f0300 exists in lookback state (root_a) → resolves successfully.
         let result = Provider::resolve_to_deterministic_address_at_finality(

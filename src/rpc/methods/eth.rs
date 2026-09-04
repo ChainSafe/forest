@@ -2981,8 +2981,17 @@ struct CachedReceipt {
     finalized: bool,
 }
 
-fn is_finalized(ctx: &Ctx, head_epoch: ChainEpoch, receipt_epoch: ChainEpoch) -> bool {
-    receipt_epoch <= head_epoch - ctx.chain_config().policy.chain_finality
+// Finality-gated caches we relaxed: ETH receipts, ID→address.
+// Everything else is CID-keyed or not gated on 900.
+
+/// True once the EC calculator has finalized this epoch. Not F3: F3 can
+/// sit ahead of the local head during catchup.
+fn is_finalized(ctx: &Ctx, receipt_epoch: ChainEpoch) -> bool {
+    receipt_is_ec_finalized(ctx.chain_store(), receipt_epoch)
+}
+
+fn receipt_is_ec_finalized(cs: &ChainStore, receipt_epoch: ChainEpoch) -> bool {
+    receipt_epoch <= cs.ec_calculator_finalized_epoch()
 }
 
 async fn get_eth_transaction_receipt_with_cache(
@@ -3031,7 +3040,7 @@ async fn get_eth_transaction_receipt_with_cache(
                 }
                 let finalized = receipt
                     .as_ref()
-                    .is_some_and(|r| is_finalized(&ctx, head.epoch(), r.block_number.0));
+                    .is_some_and(|r| is_finalized(&ctx, r.block_number.0));
                 Ok::<_, Uncacheable>(CachedReceipt {
                     receipt,
                     head_key,
@@ -4238,6 +4247,46 @@ mod test {
             let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
             Self(ethereum_types::H256(arr))
         }
+    }
+
+    #[test]
+    fn receipt_is_finalized_at_ec_boundary_not_chain_finality() {
+        use crate::chain::ec_finality::calculator::DEFAULT_BLOCKS_PER_EPOCH;
+        use crate::chain::index::tests::{
+            genesis_tipset, persist_tipset, tipset_child_with_blocks,
+        };
+        use crate::networks::ChainConfig;
+
+        const EPOCHS: ChainEpoch = 40;
+        let blocks_per_epoch = DEFAULT_BLOCKS_PER_EPOCH as usize;
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
+        let cfg = Arc::new(ChainConfig::default());
+
+        let genesis = genesis_tipset();
+        persist_tipset(&genesis, &db);
+        let state_root = *genesis.parent_state();
+
+        let mut head = genesis.shallow_clone();
+        for epoch in 1..=EPOCHS {
+            head = tipset_child_with_blocks(&head, epoch, blocks_per_epoch, state_root);
+            persist_tipset(&head, &db);
+        }
+
+        let cs = ChainStore::new(db, cfg, genesis).unwrap();
+        cs.set_heaviest_tipset(head.shallow_clone()).unwrap();
+
+        let finalized = cs.ec_calculator_finalized_epoch();
+        assert!(
+            head.epoch() < cs.chain_config().policy.chain_finality,
+            "old head-900 rule would treat no receipt on this chain as final"
+        );
+        assert!(
+            finalized > 0,
+            "healthy chain must meet the EC guarantee (got finalized_epoch={finalized})"
+        );
+        assert!(receipt_is_ec_finalized(&cs, finalized));
+        assert!(!receipt_is_ec_finalized(&cs, finalized + 1));
+        assert!(!receipt_is_ec_finalized(&cs, head.epoch()));
     }
 
     #[test]
