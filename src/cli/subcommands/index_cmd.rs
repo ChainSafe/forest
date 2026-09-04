@@ -32,7 +32,7 @@ pub enum IndexCommands {
         n_tipsets: Option<u64>,
         /// Recompute missing tipset state (expensive) instead of skipping it; tipsets that still
         /// can't be computed are skipped and reported rather than aborting the run.
-        #[arg(long)]
+        #[arg(long, num_args = 0..=1, default_value_t = true, default_missing_value = "true", action = clap::ArgAction::Set)]
         recompute: bool,
         /// Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By
         /// default the walk is clamped to the EC-finalized epoch.
@@ -134,7 +134,7 @@ async fn wait_for_backfill(client: &rpc::Client) -> anyhow::Result<()> {
     match last.state {
         ChainExportState::Succeeded => {
             pb.finish_with_message(format!(
-                "Backfill completed (indexed {}, skipped {})",
+                "Backfill finished (indexed {}, skipped {})",
                 last.indexed, last.skipped
             ));
             anyhow::ensure!(last.skipped == 0);
