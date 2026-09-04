@@ -1108,8 +1108,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str =
-        "Returns the initial pledge collateral for the specified miner's sector.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the value is far too low; use StateMinerInitialPledgeForSector instead.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -3401,7 +3400,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         ["sectorDuration", "sectorSize", "verifiedSize", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset. From NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals: pass the full sector size as verifiedSize to get the pledge the network charges.";
 
     type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
     type Ok = TokenAmount;
