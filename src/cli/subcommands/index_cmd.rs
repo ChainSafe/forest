@@ -137,7 +137,9 @@ async fn wait_for_backfill(client: &rpc::Client) -> anyhow::Result<()> {
                 "Backfill finished (indexed {}, skipped {})",
                 last.indexed, last.skipped
             ));
-            anyhow::ensure!(last.skipped == 0);
+            if last.skipped != 0 {
+                std::process::exit(1);
+            }
         }
         ChainExportState::Cancelled => pb.abandon_with_message(format!(
             "Backfill cancelled (indexed {}, skipped {})",
