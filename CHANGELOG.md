@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7471](https://github.com/ChainSafe/forest/issues/7471): Implement `forest-cli evm deploy` and `forest-cli evm call`.
+
 ### Changed
 
 - [#7594](https://github.com/ChainSafe/forest/pull/7594): `forest-cli index backfill` now defaults `--recompute` to true and exits with an error if any tipsets were skipped.
