@@ -18,7 +18,7 @@
 
 use super::network_context::SyncNetworkContext;
 use crate::{
-    beacon::{Beacon, BeaconEntry},
+    beacon::{Beacon, BeaconEntry, BeaconSchedule},
     blocks::{Block, FullTipset, Tipset, TipsetKey},
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{
@@ -317,50 +317,12 @@ async fn chain_follower(
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
                         }
-                        PubsubMessage::DrandEntry(entry) => {
-                            if entry.round() == 0 || entry.signature().is_empty() {
-                                continue;
-                            }
-                            let Ok(permit) =
-                                drand_verify_limiter.shallow_clone().try_acquire_owned()
-                            else {
-                                debug!(
-                                    round = entry.round(),
-                                    "dropping drand entry: too many verifications in flight"
-                                );
-                                continue;
-                            };
-                            let beacon_schedule = state_manager.beacon_schedule().clone();
-                            let last_drand_entry = last_drand_entry.clone();
-                            tokio::task::spawn_blocking(move || {
-                                let _permit = permit;
-                                let Some(beacon) = beacon_schedule.unchained_beacon() else {
-                                    return;
-                                };
-
-                                if matches!(
-                                    beacon.verify_entries(
-                                        std::slice::from_ref(&entry),
-                                        &BeaconEntry::default()
-                                    ),
-                                    Ok(true)
-                                ) {
-                                    info!(
-                                        round = entry.round(),
-                                        "verified drand entry from gossipsub"
-                                    );
-                                    last_drand_entry.store(
-                                        Utc::now().timestamp().max(0) as u64,
-                                        Ordering::Relaxed,
-                                    );
-                                } else {
-                                    debug!(
-                                        round = entry.round(),
-                                        "received invalid drand entry over gossipsub"
-                                    );
-                                }
-                            });
-                        }
+                        PubsubMessage::DrandEntry(entry) => handle_drand_entry(
+                            entry,
+                            &drand_verify_limiter,
+                            state_manager.beacon_schedule(),
+                            &last_drand_entry,
+                        ),
                     },
                     _ => {}
                 }
@@ -536,6 +498,81 @@ async fn chain_follower(
     Ok(())
 }
 
+/// Validate and verify a `drand` beacon entry received over `gossipsub`, recording
+/// the arrival time of verified entries for [`drand_gossip_watchdog`].
+fn handle_drand_entry(
+    entry: BeaconEntry,
+    drand_verify_limiter: &Arc<Semaphore>,
+    beacon_schedule: &Arc<BeaconSchedule>,
+    last_drand_entry: &Arc<AtomicU64>,
+) {
+    if entry.round() == 0 || entry.signature().is_empty() {
+        return;
+    }
+    let Ok(permit) = drand_verify_limiter.shallow_clone().try_acquire_owned() else {
+        debug!(
+            round = entry.round(),
+            "dropping drand entry: too many verifications in flight"
+        );
+        return;
+    };
+    let beacon_schedule = beacon_schedule.clone();
+    let last_drand_entry = last_drand_entry.clone();
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let Some(beacon) = beacon_schedule.unchained_beacon() else {
+            return;
+        };
+
+        if matches!(
+            beacon.verify_entries(std::slice::from_ref(&entry), &BeaconEntry::default()),
+            Ok(true)
+        ) {
+            info!(round = entry.round(), "verified drand entry from gossipsub");
+            last_drand_entry.store(Utc::now().timestamp().max(0) as u64, Ordering::Relaxed);
+        } else {
+            debug!(
+                round = entry.round(),
+                "received invalid drand entry over gossipsub"
+            );
+        }
+    });
+}
+
+#[derive(Debug)]
+enum DrandWatchdogTick {
+    Fresh,
+
+    // no verified entry within the deadline. `resub` fires when `MAX_CONSECUTIVES_MISSES` reaches
+    Stale { resubscribe: bool },
+}
+
+#[derive(Debug, Default)]
+struct DrandWatchdogState {
+    stale: bool,
+    consecutive_misses: u32,
+}
+
+impl DrandWatchdogState {
+    const MAX_CONSECUTIVE_MISSES: u32 = 3;
+
+    fn on_tick(&mut self, last_seen: u64, now: u64, deadline_secs: u64) -> DrandWatchdogTick {
+        if last_seen != 0 && now.saturating_sub(last_seen) < deadline_secs {
+            self.consecutive_misses = 0;
+            return DrandWatchdogTick::Fresh;
+        }
+
+        self.stale = false;
+        self.consecutive_misses += 1;
+        let resubscribe = self.consecutive_misses >= Self::MAX_CONSECUTIVE_MISSES;
+        if resubscribe {
+            self.consecutive_misses = 0;
+        }
+
+        DrandWatchdogTick::Stale { resubscribe }
+    }
+}
+
 /// Watch the `drand` `gossipsub` topic for staleness: if a `drand` beacon entry
 /// is not received in half a chain epoch then we consider it stale for
 /// that epoch and fall back to fetching the beacon over HTTP.
@@ -555,38 +592,25 @@ async fn drand_gossip_watchdog(
     let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + deadline, deadline);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-    const MAX_CONSECUTIVE_MISSES: u32 = 3;
-
-    let mut stale = false;
-    let mut consecutive_misses = 0_u32;
+    let mut state = DrandWatchdogState::default();
 
     while cancellation_token
         .run_until_cancelled(ticker.tick())
         .await
         .is_some()
     {
-        let last_seen = last_drand_entry.load(Ordering::Relaxed);
-        let now = Utc::now().timestamp().max(0) as u64;
-        if last_seen != 0 && now.saturating_sub(last_seen) < deadline.as_secs() {
-            consecutive_misses = 0;
-            if stale {
-                stale = false;
-                info!("drand gossipsub entries are flowing again");
-            }
-            continue;
-        }
-
-        if !stale {
-            stale = true;
-            warn!(
-                deadline_secs = deadline.as_secs(),
-                "no verified drand entry over gossipsub within the deadline, falling back to HTTP"
-            );
-        }
-
         let Some(beacon) = state_manager.beacon_schedule().unchained_beacon() else {
             continue;
         };
+
+        let last_seen = last_drand_entry.load(Ordering::Relaxed);
+        let now = Utc::now().timestamp().max(0) as u64;
+
+        let resub = match state.on_tick(last_seen, now, deadline.as_secs()) {
+            DrandWatchdogTick::Fresh => continue,
+            DrandWatchdogTick::Stale { resubscribe } => resubscribe,
+        };
+
         let epoch = state_manager.heaviest_tipset().epoch() + 1;
         let network_version = state_manager.get_network_version(epoch);
         let round = match beacon.max_beacon_round_for_epoch(network_version, epoch) {
@@ -596,6 +620,7 @@ async fn drand_gossip_watchdog(
                 continue;
             }
         };
+
         // Inside the cancellation scope: `entry` retries with a 15s timeout across every
         // configured server, so an in-flight fetch would otherwise hold up `join_all`.
         match cancellation_token
@@ -607,11 +632,9 @@ async fn drand_gossip_watchdog(
             Some(Ok(_)) => {}
         }
 
-        consecutive_misses += 1;
-        if consecutive_misses >= MAX_CONSECUTIVE_MISSES {
-            consecutive_misses = 0;
+        if resub {
             warn!(
-                misses = MAX_CONSECUTIVE_MISSES,
+                misses = DrandWatchdogState::MAX_CONSECUTIVE_MISSES,
                 "forcing a drand topic re-subscription",
             );
             network
@@ -1491,6 +1514,7 @@ mod tests {
     use crate::utils::db::CborStoreExt as _;
     use num_bigint::BigInt;
     use num_traits::ToPrimitive;
+    use std::assert_matches;
     use std::sync::Arc;
     use tracing::level_filters::LevelFilter;
     use tracing_subscriber::EnvFilter;
@@ -1701,5 +1725,32 @@ mod tests {
             rx.try_recv().unwrap(),
             (block_cid, BlockValidationOutcome::Applied)
         );
+    }
+
+    #[test]
+    fn drand_watchdog_state_transition() {
+        use DrandWatchdogTick::*;
+        let deadline_secs = 15;
+        let mut s = DrandWatchdogState::default();
+
+        // simulating a failure on receiving an beacon entry, since it is the first
+        // failure it will not trigger the resub
+        assert_matches!(
+            s.on_tick(0, 100, deadline_secs),
+            Stale { resubscribe: false }
+        );
+
+        // simulate the other 2 failures to reach the MAX_CONSECUTIVE_MISSES (3) and trigger the resub
+        assert_matches!(
+            s.on_tick(0, 115, deadline_secs),
+            Stale { resubscribe: false }
+        );
+        assert_matches!(
+            s.on_tick(0, 130, deadline_secs),
+            Stale { resubscribe: true }
+        );
+
+        // A recent entry recovers exactly once and clears the miss counter.
+        assert_matches!(s.on_tick(135, 140, deadline_secs), Fresh);
     }
 }
