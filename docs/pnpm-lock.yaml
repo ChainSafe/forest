@@ -66,8 +66,8 @@ importers:
         specifier: ^19.2.18
         version: 19.2.18
       '@types/react-dom':
-        specifier: ^19.2.4
-        version: 19.2.4(@types/react@19.2.18)
+        specifier: ^19.2.5
+        version: 19.2.5(@types/react@19.2.18)
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
@@ -2103,8 +2103,8 @@ packages:
   '@types/range-parser@1.2.7':
     resolution: {integrity: sha512-hKormJbkJqzQGhziax5PItDUTMAM9uE2XXQmM37dyd4hVM+5aVl7oVxMVUiVQn2oCQFN/LKCZdvSM0pFRqbSmQ==}
 
-  '@types/react-dom@19.2.4':
-    resolution: {integrity: sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==}
+  '@types/react-dom@19.2.5':
+    resolution: {integrity: sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==}
     peerDependencies:
       '@types/react': ^19.2.0
 
@@ -9573,7 +9573,7 @@ snapshots:
 
   '@types/range-parser@1.2.7': {}
 
-  '@types/react-dom@19.2.4(@types/react@19.2.18)':
+  '@types/react-dom@19.2.5(@types/react@19.2.18)':
     dependencies:
       '@types/react': 19.2.18
 
@@ -14981,7 +14981,7 @@ time:
   '@docusaurus/types@3.10.2': '2026-07-10T18:20:25.857Z'
   '@easyops-cn/docusaurus-search-local@0.55.3': '2026-07-29T10:33:10.247Z'
   '@types/node@26.1.2': '2026-07-27T17:32:14.992Z'
-  '@types/react-dom@19.2.4': '2026-07-30T21:53:05.684Z'
+  '@types/react-dom@19.2.5': '2026-08-23T21:05:23.671Z'
   '@types/react@19.2.18': '2026-07-30T21:54:03.456Z'
   mdx-mermaid@2.0.4: '2026-06-13T09:30:38.762Z'
   mermaid@11.16.1: '2026-08-04T15:09:06.734Z'

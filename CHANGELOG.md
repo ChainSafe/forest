@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7579](https://github.com/ChainSafe/forest/issues/7579): `forest-tool index backfill` now downloads the Filecoin proof parameters before running.
+
 ## Forest v0.36.1 "Kaaguy"
 
 Non-mandatory release for all node operators. Mostly fixes and improvements around RPC methods.
