@@ -835,8 +835,8 @@ Options:
       --n-tipsets <N_TIPSETS>
           Number of tipsets to back-fill
 
-      --recompute
-          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run
+      --recompute [<RECOMPUTE>]
+          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run [default: true]
 
       --allow-near-head
           Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By default the walk is clamped to the EC-finalized epoch

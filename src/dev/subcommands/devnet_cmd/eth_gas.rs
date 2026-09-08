@@ -23,9 +23,7 @@ use anyhow::{Context as _, ensure};
 use cid::Cid;
 use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
-use std::io::Write as _;
 use std::str::FromStr as _;
-use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
 /// `NestedGas`, whose `recurse(uint256)` calls itself that many times.
@@ -40,7 +38,6 @@ const REVERT_REASON: &str = "gas limit too low";
 /// Both implementations prefix this branch's error with it. Asserting on it pins *which* rejection
 /// happened: a message that failed earlier, during plain gas estimation, would never carry it.
 const GAS_SEARCH_FAILURE: &str = "gas search failed";
-const HEX_IN_CONTAINER: &str = "/tmp/nested_gas.hex";
 
 /// Shallow enough that the 63/64 penalty stays inside any estimator's safety margin, so both
 /// nodes must agree. Guards against a failure that is really "the two disagree about gas".
@@ -114,32 +111,13 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
     static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| async {
-            let mut hex_file = NamedTempFile::new_in(std::env::temp_dir())
-                .context("staging the contract bytecode")?;
-            hex_file.write_all(NESTED_GAS_HEX.trim().as_bytes())?;
-            hex_file.flush()?;
-            docker(&[
-                "cp",
-                &hex_file.path().to_string_lossy(),
-                &format!("lotus:{HEX_IN_CONTAINER}"),
-            ])?;
-
             let from = sender_addr().await?.to_string();
-            let deploy = lotus_exec_retrying_transient(&[
-                "evm",
-                "deploy",
-                "--from",
-                &from,
-                "--hex",
-                HEX_IN_CONTAINER,
-            ])
-            .await?;
-            let f4 = deploy
-                .lines()
-                .find_map(|l| l.trim().strip_prefix("f4 Address: "))
-                .with_context(|| format!("no `f4 Address:` in deploy output:\n{deploy}"))?;
-            let f4 = Address::from_str(f4.trim()).context("parsing the deployed f4 address")?;
+            let deploy = forest_evm_deploy_hex(&from, NESTED_GAS_HEX)?;
+            let f4 = parse_f4_from_evm_deploy(&deploy)?;
             eprintln!("deployed NestedGas at {f4}");
+            poll_until_actor_on("forest", f4, forest_client).await?;
+            poll_until_actor_on("lotus", f4, lotus_client).await?;
+            poll_until_next_epoch().await?;
             anyhow::Ok(Deployed {
                 eth: EthAddress::from_filecoin_address(&f4)?,
                 f4,
@@ -150,10 +128,6 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
 
 /// An `f4` sender funded well enough to afford the gas limits under test. Lotus rejects
 /// estimation from an unfunded or non-`f4` sender, so both properties are required.
-///
-/// Created in Lotus's keystore rather than Forest's: estimation only needs the address to
-/// exist on chain, while submitting messages and deploying the contract (both run on Lotus)
-/// need whoever signs to hold the key.
 async fn sender_addr() -> anyhow::Result<&'static Address> {
     static SENDER: OnceCell<Address> = OnceCell::const_new();
     SENDER
@@ -170,6 +144,7 @@ async fn sender_addr() -> anyhow::Result<&'static Address> {
             eprintln!("sender {addr} funded balance: {balance}");
             let sender = Address::from_str(&addr).context("parsing the sender address")?;
             poll_until_actor_on("lotus", sender, lotus_client).await?;
+            import_lotus_wallet_into_forest(&addr)?;
             Ok(sender)
         })
         .await
@@ -202,6 +177,17 @@ async fn common_block_number(a: &Client, b: &Client) -> anyhow::Result<i64> {
         async { anyhow::Ok(b.call(EthBlockNumber::request(())?).await?) },
     )?;
     Ok(head_a.0.min(head_b.0) as i64)
+}
+
+async fn poll_until_next_epoch() -> anyhow::Result<()> {
+    let current_epoch = common_block_number(&forest_client()?, &lotus_client()?).await?;
+    poll("both nodes one epoch past deploy", || async {
+        Ok(
+            (common_block_number(&forest_client()?, &lotus_client()?).await? > current_epoch)
+                .then_some(()),
+        )
+    })
+    .await
 }
 
 /// Deploy + fund, build both node clients, and pin a block height both have executed. Sampling the

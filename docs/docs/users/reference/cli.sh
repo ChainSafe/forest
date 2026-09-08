@@ -96,6 +96,10 @@ generate_markdown_section "forest-cli" "f3 powertable get"
 generate_markdown_section "forest-cli" "f3 powertable get-proportion"
 generate_markdown_section "forest-cli" "f3 ready"
 
+generate_markdown_section "forest-cli" "evm"
+generate_markdown_section "forest-cli" "evm deploy"
+generate_markdown_section "forest-cli" "evm call"
+
 generate_markdown_section "forest-tool" ""
 
 generate_markdown_section "forest-tool" "backup"
