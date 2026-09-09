@@ -26,10 +26,11 @@ jobs:
   build:
     name: Build Forest
     if: |-
-      ${{ github.event_name == 'workflow_dispatch'
+      ${{ inputs.forest_image == ''
+      && (github.event_name == 'workflow_dispatch'
       || (github.event_name == 'pull_request'
       && (contains(github.event.pull_request.labels.*.name, 'RPC')
-      || contains(github.event.pull_request.labels.*.name, 'Release'))) }}
+      || contains(github.event.pull_request.labels.*.name, 'Release')))) }}
     runs-on: ubuntu-24.04-arm
     env:
       RUSTC_WRAPPER: sccache
@@ -113,7 +114,7 @@ jobs:
         with:
           name: "forest-${{ runner.os }}"
       - name: Build an image from those binaries
-        if: ${{ needs.build.result == 'success' && inputs.forest_image == '' }}
+        if: ${{ needs.build.result == 'success' }}
         working-directory: .
         run: |
           docker build --platform linux/arm64 --file scripts/devnet/forest_ci.dockerfile --tag forest-under-test:ci .
