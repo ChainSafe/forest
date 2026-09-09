@@ -42,7 +42,7 @@ impl ActorRegistry {
             .map
             .get(code_cid)
             .copied()
-            .ok_or_else(|| anyhow!("Unknown actor code CID: {}", code_cid))
+            .ok_or_else(|| anyhow!("Unknown actor code CID: {code_cid}"))
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&Cid, &(BuiltinActor, ActorVersion))> {

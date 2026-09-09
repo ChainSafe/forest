@@ -292,8 +292,7 @@ services:
         set -euxo pipefail
         export TOKEN=$$(cat ${FOREST_DATA_DIR}/token.jwt)
         export FULLNODE_API_INFO=$$TOKEN:/dns/forest/tcp/${FOREST_RPC_PORT}/http
-        ADDR=$$(forest-wallet --remote-wallet import ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key)
-        forest-wallet --remote-wallet set-default "$$ADDR"
+        forest-wallet --remote-wallet import --as-default ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-${MINER_ACTOR_ADDRESS}.key
 
 volumes:
   # Shared proof parameter files. It is re-used by both Lotus and Forest.

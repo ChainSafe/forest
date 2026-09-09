@@ -1,7 +1,7 @@
 name: external-rpc-checks
 
 x-forest-service: &forest-service
-  image: ghcr.io/chainsafe/forest:edge-fat
+  image: ${FOREST_IMAGE}
   volumes:
     - node-data:/data
   environment:
@@ -20,6 +20,7 @@ services:
 
   forest:
     <<: *forest-service
+    entrypoint: ["forest"]
     environment:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1

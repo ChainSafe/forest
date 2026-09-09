@@ -151,11 +151,7 @@ impl ForestExterns {
 
         // are blocks the same?
         if h1 == h2 {
-            bail!(
-                "no consensus fault: submitted blocks are the same: {:?}, {:?}",
-                h1,
-                h2
-            );
+            bail!("no consensus fault: submitted blocks are the same: {h1:?}, {h2:?}");
         };
         let bh_1 = from_slice_with_fallback::<CachingBlockHeader>(h1)?;
         let bh_2 = from_slice_with_fallback::<CachingBlockHeader>(h2)?;

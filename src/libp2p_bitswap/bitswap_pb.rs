@@ -9,6 +9,7 @@
 #![allow(unused_imports)]
 #![allow(unknown_lints)]
 #![allow(clippy::all)]
+#![allow(clippy::assigning_clones)]
 #![cfg_attr(rustfmt, rustfmt_skip)]
 
 

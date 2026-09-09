@@ -324,7 +324,7 @@ impl TryFrom<u8> for SignatureType {
             1 => Ok(SignatureType::Secp256k1),
             2 => Ok(SignatureType::Bls),
             3 => Ok(SignatureType::Delegated),
-            invalid => anyhow::bail!("Invalid signature type byte: {}", invalid),
+            invalid => anyhow::bail!("Invalid signature type byte: {invalid}"),
         }
     }
 }

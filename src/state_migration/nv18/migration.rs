@@ -79,10 +79,7 @@ where
         .ok_or_else(|| anyhow!("no bundle info for network version NV18"))?;
 
     blockstore.get(new_manifest_cid)?.ok_or_else(|| {
-        anyhow!(
-            "manifest for network version NV18 not found in blockstore: {}",
-            new_manifest_cid
-        )
+        anyhow!("manifest for network version NV18 not found in blockstore: {new_manifest_cid}")
     })?;
 
     // Add migration specification verification

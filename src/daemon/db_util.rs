@@ -678,8 +678,8 @@ impl RangeSpec {
 impl std::fmt::Display for RangeSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RangeSpec::To(epoch) => write!(f, "To epoch:      {}", epoch),
-            RangeSpec::NumTipsets(n) => write!(f, "Tipsets:       {}", n),
+            RangeSpec::To(epoch) => write!(f, "To epoch:      {epoch}"),
+            RangeSpec::NumTipsets(n) => write!(f, "Tipsets:       {n}"),
         }
     }
 }

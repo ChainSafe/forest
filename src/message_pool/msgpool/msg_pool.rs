@@ -16,7 +16,7 @@ use crate::message_pool::{
     errors::Error,
     msgpool::{
         BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, events::MpoolSubscriber,
-        pending_store::PendingStore, recover_sig, republish::RepublishState,
+        pending_store::PendingStore, recovered_bls_messages, republish::RepublishState,
     },
     provider::{Provider, ProviderExt},
     utils::get_base_fee_lower_bound,
@@ -325,6 +325,11 @@ where
     /// (size, sig, base-fee, sender-actor checks). The reorg replay path
     /// uses this directly to restore reverted messages even when they no
     /// longer pass the add-time filters.
+    ///
+    /// A BLS signature cached here is later paired back by `recover_sig` without re-verification, so
+    /// callers must pass only already-verified signatures: the add path verifies via
+    /// `validate_for_pool`, and the reorg path replays only messages whose signature was already
+    /// cached (hence verified during block validation).
     pub(in crate::message_pool) async fn add_to_pool_unchecked(
         &self,
         cur_ts: &Tipset,
@@ -429,6 +434,7 @@ where
     /// Return a tuple that contains a vector of all signed messages and the
     /// current tipset for self.
     pub fn pending(&self) -> (Vec<SignedMessage>, Tipset) {
+        let cur_ts = self.current_tipset();
         let snapshot = self.pending.snapshot();
         let len = snapshot.values().map(|mset| mset.msgs.len()).sum();
         let mut out = Vec::with_capacity(len);
@@ -440,8 +446,6 @@ where
                     .sorted_unstable_by_key(|m| m.message().sequence),
             );
         }
-
-        let cur_ts = self.current_tipset();
 
         (out, cur_ts)
     }
@@ -489,10 +493,7 @@ where
             let (umsg, mut smsgs) = self.api.messages_for_block(block)?;
 
             msg_vec.append(smsgs.as_mut());
-            for msg in umsg {
-                let smsg = recover_sig(&self.caches.bls_sig, msg)?;
-                msg_vec.push(smsg)
-            }
+            msg_vec.extend(recovered_bls_messages(&self.caches.bls_sig, umsg));
         }
         Ok(msg_vec)
     }

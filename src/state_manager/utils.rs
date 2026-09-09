@@ -82,10 +82,7 @@ impl StateManager {
         let mut selected_sectors = BitField::new();
         for n in ids {
             let sno = iter.nth(n as usize).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Error iterating over proving sectors, id {} does not exist",
-                    n
-                )
+                anyhow::anyhow!("Error iterating over proving sectors, id {n} does not exist")
             })?;
             selected_sectors.set(sno);
         }
@@ -741,7 +738,7 @@ pub mod structured {
     fn to_return_trace(ret: CallTreeReturn) -> ReturnTrace {
         match ret {
             CallTreeReturn::Return(return_code) => {
-                let exit_code = return_code.exit_code.unwrap_or(0.into());
+                let exit_code = return_code.exit_code.unwrap_or_else(|| 0.into());
                 let (bytes, codec) = to_bytes_codec(return_code.data);
                 ReturnTrace {
                     exit_code,

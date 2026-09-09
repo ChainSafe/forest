@@ -214,8 +214,7 @@ mod tests {
             let result = msg.effective_gas_premium(&base_fee);
             assert_eq!(
                 result, expected,
-                "base_fee={} gas_fee_cap={} gas_premium={} expected={} got={}",
-                base_fee, gas_fee_cap, gas_premium, expected, result
+                "base_fee={base_fee} gas_fee_cap={gas_fee_cap} gas_premium={gas_premium} expected={expected} got={result}"
             );
         }
     }

@@ -8,7 +8,7 @@
 
 use std::cmp::Ordering;
 
-use super::{msg_pool::MessagePool, provider::Provider, utils, utils::recover_sig};
+use super::{msg_pool::MessagePool, provider::Provider, utils, utils::recovered_bls_messages};
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::msg_chain::MsgChainNode;
@@ -838,14 +838,7 @@ where
         for block in ts.block_headers() {
             let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
-            for msg in umsg {
-                let msg_cid = msg.cid();
-                if let Ok(smsg) = recover_sig(bls_sig_cache, msg) {
-                    msgs.push(smsg);
-                } else {
-                    tracing::debug!("could not recover signature for bls message {msg_cid}");
-                }
-            }
+            msgs.extend(recovered_bls_messages(bls_sig_cache, umsg));
         }
         for msg in msgs {
             utils::add_to_selected_msgs(msg, rmsgs);

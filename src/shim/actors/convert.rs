@@ -78,7 +78,7 @@ pub fn from_token_v4_to_v2(token: &TokenAmountV4) -> TokenAmountV2 {
 }
 
 pub fn from_opt_token_v4_to_v2(token: Option<&TokenAmountV4>) -> TokenAmountV2 {
-    token.map_or(TokenAmountV2::default(), |t| {
+    token.map_or_else(TokenAmountV2::default, |t| {
         TokenAmountV2::from_atto(t.atto().clone())
     })
 }

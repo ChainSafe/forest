@@ -128,13 +128,13 @@ impl NodeStatusInfo {
                 .default_wallet_address
                 .as_ref()
                 .map(|it| it.to_string())
-                .unwrap_or("address not set".to_string());
+                .unwrap_or_else(|| "address not set".to_string());
 
             let wallet_balance = self
                 .default_wallet_address_balance
                 .as_ref()
                 .map(|balance| format!("{:.4}", balance.pretty()))
-                .unwrap_or("could not find balance".to_string());
+                .unwrap_or_else(|| "could not find balance".to_string());
 
             format!("Default wallet address: {wallet_address} [{wallet_balance}]")
         };

@@ -4,13 +4,24 @@
 use std::future::Future;
 use std::io::Write as _;
 use std::process::Command;
+use std::str::FromStr as _;
 use std::sync::LazyLock;
 use std::time::Duration;
 
 use anyhow::{Context as _, bail};
+use cid::Cid;
+use jsonrpsee::core::ClientError;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
+
+use crate::rpc::prelude::*;
+use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::{Client, humanize_rpc_error};
+use crate::shim::address::Address;
+use crate::shim::clock::ChainEpoch;
+use crate::shim::state_tree::ActorState;
+use crate::state_manager::FAILED_TO_LOAD_MESSAGE;
 
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
@@ -32,6 +43,8 @@ pub const DELEGATE_FUND_AMT: &str = "30 micro FIL";
 pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);
 /// Delay between poll attempts.
 pub const POLL_WAIT_TIME: Duration = Duration::from_secs(1);
+/// Epochs a message search looks back over before giving up.
+const MESSAGE_LOOKBACK: ChainEpoch = 800;
 
 /// Selects which `forest-wallet` keystore an operation targets.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -186,10 +199,37 @@ pub async fn poll_until_funded(address: &str, backend: Backend) -> anyhow::Resul
     poll_until_changed(address, FIL_ZERO, backend).await
 }
 
-/// True for a `lotus` CLI failure that clears once the node catches up to the chain head: the
-/// mpool briefly rejecting a submit just after the sender is funded (`check has failed`,
-/// `failed to get nonce from mempool`), or a node that trails the funding block being unable to
-/// resolve the freshly-created sender actor (`actor not found`, `resolution lookup failed`; the
+pub async fn get_actor(client: &Client, addr: Address) -> anyhow::Result<Option<ActorState>> {
+    match client
+        .call(StateGetActor::request((addr, ApiTipsetKey(None)))?)
+        .await
+    {
+        Ok(actor) => Ok(actor),
+        Err(e)
+            if ["actor not found", "resolution lookup failed"]
+                .iter()
+                .any(|s| format!("{e:#}").contains(s)) =>
+        {
+            Ok(None)
+        }
+        Err(e) => Err(anyhow::anyhow!("{e:#}")),
+    }
+}
+
+/// Poll until `node`'s state has an actor at `addr` (the Lotus node trails Forest by a block on the
+/// forest-produced devnet, so a Forest-funded sender must be awaited before any `lotus --from`).
+pub async fn poll_until_actor_on(
+    node: &str,
+    addr: Address,
+    make_client: fn() -> anyhow::Result<Client>,
+) -> anyhow::Result<ActorState> {
+    poll(&format!("{node} StateGetActor {addr}"), || async {
+        get_actor(&make_client()?, addr).await
+    })
+    .await
+}
+
+/// True for a `lotus` CLI failure that clears once the node catches up to the funding block (the
 /// Lotus node trails Forest by a block on the forest-produced devnet).
 fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
     let msg = format!("{e:#}");
@@ -198,6 +238,7 @@ fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
         "failed to get nonce from mempool",
         "actor not found",
         "resolution lookup failed",
+        "not enough funds",
     ]
     .iter()
     .any(|s| msg.contains(s))
@@ -379,7 +420,7 @@ pub fn cid_from_lotus_json_result(result: &Value) -> anyhow::Result<String> {
 pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
     let label = format!("StateSearchMsg for {msg_cid}");
     poll(&label, || async {
-        let params = json!([[], { "/": msg_cid }, 800_i64, true]);
+        let params = json!([[], { "/": msg_cid }, MESSAGE_LOOKBACK, true]);
         Ok((rpc_call_opt("Filecoin.StateSearchMsg", params)
             .await?
             .is_some())
@@ -388,8 +429,73 @@ pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
     .await
 }
 
+/// Forest and Lotus both refuse a wait for a message they have never seen, rather than waiting
+/// for one to arrive.
+fn is_unseen_message_error(e: &ClientError) -> bool {
+    matches!(e, ClientError::Call(obj) if obj.message().contains(FAILED_TO_LOAD_MESSAGE))
+}
+
+/// Wait until `cid` has been executed on the chain `client` follows. `lotus send` returns as soon
+/// as Lotus's own mpool accepts the message, so the node under test may not have it yet.
+pub async fn poll_until_message_executed(
+    client: &Client,
+    cid: Cid,
+) -> anyhow::Result<MessageLookup> {
+    // A blocking attempt outlives the loop's own deadline check, so hand each one what is left.
+    let deadline = tokio::time::Instant::now() + POLL_TIMEOUT;
+    poll(&format!("StateWaitMsg for {cid}"), || async {
+        let budget = deadline.saturating_duration_since(tokio::time::Instant::now());
+        match client
+            .call(StateWaitMsg::request((cid, 0, MESSAGE_LOOKBACK, true))?.with_timeout(budget))
+            .await
+        {
+            Ok(lookup) => Ok(Some(lookup)),
+            Err(e) if is_unseen_message_error(&e) => Ok(None),
+            Err(e) => Err(humanize_rpc_error(e.into())),
+        }
+    })
+    .await
+}
+
 pub fn forest_cli(args: &[&str]) -> anyhow::Result<String> {
     run_str("forest-cli", args)
+}
+
+/// Import `addr` from the Lotus keystore into Forest's remote wallet.
+pub fn import_lotus_wallet_into_forest(addr: &str) -> anyhow::Result<()> {
+    let hex = lotus_exec(&["wallet", "export", addr])?;
+    let mut file = NamedTempFile::new_in(std::env::temp_dir())
+        .context("failed to create temp file for lotus wallet export")?;
+    file.write_all(hex.trim().as_bytes())?;
+    file.flush()?;
+    let path = file
+        .path()
+        .to_str()
+        .context("temp path is not valid UTF-8")?;
+    wallet(Backend::Remote, &["import", path])?;
+    Ok(())
+}
+
+/// Deploy hex bytecode with `forest-cli evm deploy --hex`.
+pub fn forest_evm_deploy_hex(from: &str, bytecode_hex: &str) -> anyhow::Result<String> {
+    let mut hex_file =
+        NamedTempFile::new_in(std::env::temp_dir()).context("staging the contract bytecode")?;
+    hex_file.write_all(bytecode_hex.trim().as_bytes())?;
+    hex_file.flush()?;
+    let path = hex_file
+        .path()
+        .to_str()
+        .context("temp path is not valid UTF-8")?;
+    forest_cli(&["evm", "deploy", "--from", from, "--hex", path])
+}
+
+/// Parse the `f4 Address:` line from `forest-cli evm deploy` output.
+pub fn parse_f4_from_evm_deploy(out: &str) -> anyhow::Result<Address> {
+    let f4 = out
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("f4 Address: "))
+        .with_context(|| format!("no `f4 Address:` in deploy output:\n{out}"))?;
+    Address::from_str(f4.trim()).context("parsing the deployed f4 address")
 }
 
 /// Next nonce for an address

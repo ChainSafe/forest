@@ -3,6 +3,7 @@
 
 pub mod beacon_entries;
 mod drand;
+pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
 pub use drand::*;

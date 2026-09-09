@@ -139,11 +139,7 @@ impl ChainRand {
             rand_ts = self.chain_index.load_required_tipset(rand_ts.parents())?;
         }
 
-        bail!(
-            "didn't find beacon for round {:?} (epoch {:?})",
-            round,
-            epoch
-        )
+        bail!("didn't find beacon for round {round:?} (epoch {epoch:?})")
     }
 
     pub fn get_beacon_randomness_tipset_blocking(

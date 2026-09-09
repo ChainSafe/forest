@@ -125,8 +125,7 @@ impl BuiltinActorManifest {
         let (manifest_version, actor_list_cid) = b.get_cbor_required::<(u32, Cid)>(manifest_cid)?;
         ensure!(
             manifest_version == 1,
-            "unsupported manifest version {}",
-            manifest_version
+            "unsupported manifest version {manifest_version}"
         );
         Self::load_v1_actor_list(b, &actor_list_cid)
     }

@@ -118,7 +118,7 @@ async fn update_chain_checkpoints(
         .context("Failed to get chain head")?;
 
     let current_epoch = head.epoch();
-    println!("Current epoch: {}", current_epoch);
+    println!("Current epoch: {current_epoch}");
 
     let latest_checkpoint_epoch = (current_epoch / CHECKPOINT_INTERVAL) * CHECKPOINT_INTERVAL;
 
@@ -160,7 +160,7 @@ async fn update_chain_checkpoints(
                         "  ✓ Epoch {actual_epoch} (requested {requested_epoch}, no blocks at exact height): {cid}"
                     );
                 } else {
-                    println!("  ✓ Epoch {}: {}", actual_epoch, cid);
+                    println!("  ✓ Epoch {actual_epoch}: {cid}");
                 }
 
                 // Map chain name for Beryx URL (calibnet -> calibration)

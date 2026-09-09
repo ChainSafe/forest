@@ -19,6 +19,7 @@ pub mod utils;
 
 use self::circulating_supply::GenesisInfo;
 pub use self::errors::*;
+pub use self::message_search::FAILED_TO_LOAD_MESSAGE;
 pub use self::state_computation::{apply_block_messages_blocking, validate_tipsets_blocking};
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKey};
@@ -282,7 +283,7 @@ impl StateManager {
             let default = std::thread::available_parallelism()
                 .ok()
                 .and_then(|n| NonZeroUsize::new(n.get() / 2))
-                .unwrap_or(nonzero!(1usize));
+                .unwrap_or_else(|| nonzero!(1usize));
             crate::utils::misc::env::env_or_default("FOREST_RPC_REPLAY_CONCURRENCY", default)
         });
         VALUE.get()

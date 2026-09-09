@@ -166,7 +166,7 @@ impl CliOpts {
         }
         if self.rpc.unwrap_or(cfg.client.enable_rpc) {
             cfg.client.enable_rpc = true;
-            cfg.client.rpc_filter_list = self.rpc_filter_list.clone();
+            cfg.client.rpc_filter_list.clone_from(&self.rpc_filter_list);
             if let Some(rpc_address) = self.rpc_address {
                 cfg.client.rpc_address = rpc_address;
             }

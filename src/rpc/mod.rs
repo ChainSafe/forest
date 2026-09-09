@@ -17,6 +17,8 @@ mod registry;
 mod request;
 mod segregation_layer;
 mod set_extension_layer;
+#[cfg(test)]
+mod test_utils;
 pub mod types;
 mod validation_layer;
 
@@ -693,7 +695,7 @@ pub async fn start_rpc(
                             // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
                             // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
                             // as workaround.
-                            svc.call(req).await.map_err(|e| anyhow::anyhow!("{:?}", e))
+                            svc.call(req).await.map_err(|e| anyhow::anyhow!("{e:?}"))
                         }
                         Either::Right(result) => result,
                     }

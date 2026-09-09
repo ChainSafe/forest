@@ -162,10 +162,7 @@ impl SyncStatusReport {
 
         let epochs_behind = network_head_epoch.saturating_sub(current_head_epoch);
         log::trace!(
-            "Sync status report: current head epoch: {}, network head epoch: {}, epochs behind: {}",
-            current_head_epoch,
-            network_head_epoch,
-            epochs_behind
+            "Sync status report: current head epoch: {current_head_epoch}, network head epoch: {network_head_epoch}, epochs behind: {epochs_behind}"
         );
 
         let time_diff = last_updated_ts.saturating_sub(heaviest.min_timestamp());

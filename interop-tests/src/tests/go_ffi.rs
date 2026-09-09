@@ -1,6 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// `&String` signatures are dictated by the `rust2go` FFI codegen and its Go counterpart.
+#![allow(clippy::ptr_arg)]
+
 pub mod binding {
     #![allow(warnings)]
     #![allow(clippy::indexing_slicing)]

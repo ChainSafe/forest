@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.36.0"
+version = "0.36.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -391,6 +391,10 @@ ref_option = "deny"
 ref_option_ref = "deny"
 cast_lossless = "deny"
 redundant_clone = "deny"
+uninlined_format_args = "warn"
+or_fun_call = "warn"
+assigning_clones = "warn"
+stable_sort_primitive = "warn"
 
 [workspace]
 members = ["interop-tests"]

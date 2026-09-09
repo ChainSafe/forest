@@ -28,13 +28,16 @@ fn get_range(value: &http::HeaderValue) -> Range<usize> {
     let parse_ranges = parse_range_header(s).unwrap();
     parse_ranges
         .validate(RANDOM_BYTES.len() as u64)
-        .map_or(Range::default(), |range| {
-            let start = *range[0].start() as usize;
-            // The increment here is to convert into a `std::ops::Range`
-            // which has an exclusive upper bound.
-            let end = *range[0].end() as usize + 1;
-            start..end
-        })
+        .map_or_else(
+            |_| Range::default(),
+            |range| {
+                let start = *range[0].start() as usize;
+                // The increment here is to convert into a `std::ops::Range`
+                // which has an exclusive upper bound.
+                let end = *range[0].end() as usize + 1;
+                start..end
+            },
+        )
 }
 
 /// Sends a subset of `RANDOM_BYTES` data on each request. This function will introduce an error

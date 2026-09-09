@@ -199,93 +199,16 @@ impl RpcMethod<1> for SyncSubmitBlock {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::encoding::hex;
     use std::sync::Arc;
 
     use super::*;
-    use crate::blocks::RawBlockHeader;
-    use crate::blocks::{CachingBlockHeader, Tipset};
-    use crate::chain::ChainStore;
     use crate::chain_sync::NodeSyncStatus;
-    use crate::chain_sync::network_context::SyncNetworkContext;
-    use crate::db::{Blockstore as _, MemoryDB};
-    use crate::key_management::{KeyStore, KeyStoreConfig};
-    use crate::libp2p::{NetworkMessage, PeerManager};
-    use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
-    use crate::networks::ChainConfig;
+    use crate::libp2p::NetworkMessage;
     use crate::rpc::RPCState;
-    use crate::rpc::eth::filter::EthEventHandler;
-    use crate::shim::address::Address;
-    use crate::state_manager::StateManager;
-    use crate::utils::encoding::from_slice_with_fallback;
-    use parking_lot::RwLock;
-    use tokio::sync::mpsc;
-    use tokio::task::JoinSet;
+    use crate::rpc::test_utils::chain_store;
 
     fn ctx() -> (Arc<RPCState>, flume::Receiver<NetworkMessage>) {
-        let (network_send, network_rx) = flume::bounded(5);
-        let (tipset_send, _) = flume::bounded(5);
-        let mut services = JoinSet::new();
-        let db = Arc::new(MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-
-        let genesis_header = CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            timestamp: 7777,
-            ..Default::default()
-        });
-
-        let cs = ChainStore::new(db, chain_config, genesis_header).unwrap();
-        let state_manager = StateManager::new(cs.shallow_clone()).unwrap();
-        let cs_for_test = &cs;
-        let mpool_network_send = network_send.clone();
-        let mpool = {
-            let bz = hex::decode("904300e80781586082cb7477a801f55c1f2ea5e5d1167661feea60a39f697e1099af132682b81cc5047beacf5b6e80d5f52b9fd90323fb8510a5396416dd076c13c85619e176558582744053a3faef6764829aa02132a1571a76aabdc498a638ea0054d3bb57f41d82015860812d2396cc4592cdf7f829374b01ffd03c5469a4b0a9acc5ccc642797aa0a5498b97b28d90820fedc6f79ff0a6005f5c15dbaca3b8a45720af7ed53000555667207a0ccb50073cd24510995abd4c4e45c1e9e114905018b2da9454190499941e818201582012dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a608182004b76616c69642070726f6f6681d82a5827000171a0e4022030f89a8b0373ad69079dbcbc5addfe9b34dce932189786e50d3eb432ede3ba9c43000f0001d82a5827000171a0e4022052238c7d15c100c1b9ebf849541810c9e3c2d86e826512c6c416d2318fcd496dd82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e4022018d351341c302a21786b585708c9873565a0d07c42521d4aaf52da3ff6f2e461586102c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a5f2c5439586102b5cd48724dce0fec8799d77fd6c5113276e7f470c8391faa0b5a6033a3eaf357d635705c36abe10309d73592727289680515afd9d424793ba4796b052682d21b03c5c8a37d94827fecc59cdc5750e198fdf20dee012f4d627c6665132298ab95004500053724e0").unwrap();
-            let header = from_slice_with_fallback::<CachingBlockHeader>(&bz).unwrap();
-            let ts = Tipset::from(header);
-            let db = cs_for_test.db();
-            let tsk = ts.key();
-            cs_for_test.set_heaviest_tipset(ts.clone()).unwrap();
-
-            for i in tsk.to_cids() {
-                let bz2 = bz.clone();
-                db.put_keyed(&i, &bz2).unwrap();
-            }
-
-            MessagePool::new(
-                cs,
-                mpool_network_send,
-                Default::default(),
-                state_manager.chain_config().clone(),
-                &mut services,
-            )
-            .unwrap()
-        };
-        let start_time = chrono::Utc::now();
-
-        let peer_manager = Arc::new(PeerManager::default());
-        let sync_network_context =
-            SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
-        let nonce_tracker = NonceTracker::new();
-        let state = Arc::new(RPCState {
-            state_manager,
-            keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
-            mpool,
-            bad_blocks: Some(Default::default()),
-            sync_status: Default::default(),
-            eth_event_handler: Arc::new(EthEventHandler::new()),
-            eth_logs_feed: Default::default(),
-            sync_network_context,
-            start_time,
-            shutdown: mpsc::channel(1).0, // dummy for tests
-            tipset_send,
-            block_validation_subscriber: Default::default(),
-            snapshot_progress_tracker: Default::default(),
-            mpool_locker: MpoolLocker::new(),
-            nonce_tracker,
-            temp_dir: Arc::new(std::env::temp_dir()),
-        });
-        (state, network_rx)
+        RPCState::for_tests(chain_store()).unwrap()
     }
 
     #[tokio::test]

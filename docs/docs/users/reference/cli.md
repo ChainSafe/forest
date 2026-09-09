@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.36.0
+forest-filecoin 0.36.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -105,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.36.0
+forest-filecoin 0.36.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -223,13 +223,14 @@ Options:
 ```
 Import keys from existing wallet
 
-Usage: forest-wallet import [PATH]
+Usage: forest-wallet import [OPTIONS] [PATH]
 
 Arguments:
   [PATH]  The path to the private key
 
 Options:
-  -h, --help  Print help
+      --as-default  Set the imported address as default
+  -h, --help        Print help
 ```
 
 ### `forest-wallet list`
@@ -347,7 +348,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.36.0
+forest-filecoin 0.36.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -834,8 +835,8 @@ Options:
       --n-tipsets <N_TIPSETS>
           Number of tipsets to back-fill
 
-      --recompute
-          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run
+      --recompute [<RECOMPUTE>]
+          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run [default: true]
 
       --allow-near-head
           Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By default the walk is clamped to the EC-finalized epoch
@@ -1129,7 +1130,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.36.0
+forest-filecoin 0.36.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2254,7 +2255,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.36.0
+forest-filecoin 0.36.1
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 

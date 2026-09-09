@@ -496,7 +496,6 @@ mod print {
     mod tests {
         use std::str::FromStr as _;
 
-        use num::One as _;
         use pretty_assertions::assert_eq;
 
         use super::*;

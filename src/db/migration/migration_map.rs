@@ -217,11 +217,7 @@ fn create_migration_chain_from_migrations(
     .collect_vec();
 
     if result.is_empty() {
-        bail!(
-            "No migration path found from version {start} to {goal}",
-            start = start,
-            goal = goal
-        );
+        bail!("No migration path found from version {start} to {goal}");
     }
 
     Ok(result)

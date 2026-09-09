@@ -51,7 +51,7 @@ static MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: LazyLock<NonZeroUsize> = LazyLock
             i.parse().ok().inspect(|i| {
                 tracing::info!("max concurrent chain exchange requests set to {i} from `FOREST_MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS`");
             })
-        }).unwrap_or(nonzero!(3_usize))
+        }).unwrap_or_else(|| nonzero!(3_usize))
 });
 
 /// Context used in chain sync to handle network requests.

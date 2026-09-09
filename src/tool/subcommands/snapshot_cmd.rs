@@ -455,7 +455,7 @@ where
         let pb = validation_spinner("Verifying network identity:");
         if expected_network != &actual_network {
             pb.finish_with_message("❌ wrong!");
-            bail!("Expected {} but found {}", expected_network, actual_network);
+            bail!("Expected {expected_network} but found {actual_network}");
         } else {
             pb.finish_with_message("✅ verified!");
         }

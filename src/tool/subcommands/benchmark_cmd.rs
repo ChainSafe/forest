@@ -225,7 +225,7 @@ async fn benchmark_exporting(
     );
     let ts = idx
         .load_required_tipset_by_height(
-            epoch.unwrap_or(heaviest.epoch()),
+            epoch.unwrap_or_else(|| heaviest.epoch()),
             heaviest,
             ResolveNullTipset::TakeOlder,
         )

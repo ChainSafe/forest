@@ -192,7 +192,7 @@ where
     let codec = trace.params_codec;
     match codec {
         DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(&trace.params)
-            .map_err(|e| anyhow::anyhow!("failed to decode params: {}", e)),
+            .map_err(|e| anyhow::anyhow!("failed to decode params: {e}")),
         _ => bail!("Method called an unexpected codec {codec}"),
     }
 }
@@ -205,7 +205,7 @@ where
     let codec = trace.return_codec;
     match codec {
         DAG_CBOR | CBOR => fvm_ipld_encoding::from_slice(trace.r#return.bytes())
-            .map_err(|e| anyhow::anyhow!("failed to decode return value: {}", e)),
+            .map_err(|e| anyhow::anyhow!("failed to decode return value: {e}")),
         _ => bail!("Method returned an unexpected codec {codec}"),
     }
 }
@@ -452,7 +452,7 @@ mod test {
     fn test_all_valid_parse_panic_revert() {
         for (code, msg) in PANIC_ERROR_CODES.iter() {
             let data = create_panic_data(*code);
-            assert_eq!(parse_panic_revert(&data), format!("{msg}"));
+            assert_eq!(parse_panic_revert(&data), msg.to_string());
         }
     }
 

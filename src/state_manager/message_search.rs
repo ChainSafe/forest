@@ -13,6 +13,10 @@ use tokio_util::sync::CancellationToken;
 /// Maximum allowed message confidence.
 const MAX_MESSAGE_CONFIDENCE: ChainEpoch = crate::shim::policy::policy_constants::CHAIN_FINALITY;
 
+/// Lotus's `ErrFailedToLoadMessage` sentinel, which callers match on over the wire because
+/// neither implementation gives it a distinct JSON-RPC code. Keep the wording stable.
+pub const FAILED_TO_LOAD_MESSAGE: &str = "failed to load message";
+
 /// Checks whether `current` is at least `confidence` epochs past `candidate`.
 fn confidence_reached(current: ChainEpoch, candidate: ChainEpoch, confidence: i64) -> bool {
     candidate >= 0 && current >= candidate && (current - candidate) >= confidence
@@ -248,7 +252,7 @@ impl StateManager {
         }
         let message = Arc::new(
             crate::chain::get_chain_message(self.db(), &msg_cid)
-                .map_err(|err| Error::Other(format!("failed to load message {err:}")))?,
+                .map_err(|err| Error::Other(format!("{FAILED_TO_LOAD_MESSAGE} {err}")))?,
         );
         // Subscribe to head changes before sampling the head so that a reorg
         // between sampling and subscribing cannot be missed. Otherwise a revert
@@ -400,7 +404,7 @@ impl StateManager {
     ) -> Result<Option<(Tipset, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.heaviest_tipset());
         let message = crate::chain::get_chain_message(self.db(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
+            .map_err(|err| Error::Other(format!("{FAILED_TO_LOAD_MESSAGE} {err}")))?;
         let maybe_message_receipt =
             self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
         if let Some(r) = maybe_message_receipt {
@@ -438,6 +442,7 @@ mod tests {
     use crate::shim::message::Message;
     use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
     use crate::utils::db::CborStoreExt as _;
+    use crate::utils::rand::random_cid;
     use fil_actors_shared::fvm_ipld_amt::Amtv0;
     use fvm_ipld_blockstore::Blockstore;
     use quickcheck_macros::quickcheck;
@@ -636,6 +641,37 @@ mod tests {
             .await
             .unwrap();
         assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn search_reports_a_message_missing_from_the_blockstore() {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> head @ [_e1 = HeaderBuilder::new()]
+        };
+        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+        let unknown = random_cid();
+
+        let searched = state_manager
+            .search_for_message(None, unknown, None, Some(true), &CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert!(
+            searched.to_string().contains(FAILED_TO_LOAD_MESSAGE),
+            "{searched}"
+        );
+
+        let waited = state_manager
+            .wait_for_message(unknown, 0, None, Some(true), &CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert!(
+            waited.to_string().contains(FAILED_TO_LOAD_MESSAGE),
+            "{waited}"
+        );
     }
 
     #[tokio::test]

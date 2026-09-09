@@ -3,10 +3,7 @@
 
 use crate::chain::MINIMUM_BASE_FEE;
 use crate::message::{MessageRead as _, SignedMessage};
-use crate::message_pool::{
-    Error,
-    msgpool::{RBF_DENOM, REPLACE_BY_FEE_RATIO_MIN},
-};
+use crate::message_pool::msgpool::{RBF_DENOM, REPLACE_BY_FEE_RATIO_MIN};
 use crate::shim::address::Address;
 use crate::shim::{crypto::Signature, econ::TokenAmount, message::Message, percent::Percent};
 use crate::utils::cache::SizeTrackingCache;
@@ -54,16 +51,31 @@ pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit:
 }
 
 /// Attempt to get a signed message that corresponds to an unsigned message in
-/// `bls_sig_cache`.
+/// `bls_sig_cache`, logging and returning [`None`] when the signature is not cached.
+/// <https://github.com/filecoin-project/lotus/blob/27abf0f16a7f2a83305910f3c2a1844764d20b75/chain/messagepool/messagepool.go#L1564>
 pub(in crate::message_pool) fn recover_sig(
     bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
     msg: Message,
-) -> Result<SignedMessage, Error> {
-    let val = bls_sig_cache
-        .get(&msg.cid())
-        .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
-    let smsg = SignedMessage::new_from_parts(msg, val)?;
-    Ok(smsg)
+) -> Option<SignedMessage> {
+    let msg_cid = msg.cid();
+    match bls_sig_cache.get(&msg_cid) {
+        // Every cached signature was verified before insertion
+        Some(sig) => Some(SignedMessage::new_unchecked(msg, sig)),
+        None => {
+            tracing::debug!("could not recover signature for bls message {msg_cid}");
+            None
+        }
+    }
+}
+
+/// Recover the signed forms of a block's unsigned BLS messages,
+/// dropping any whose signature is not cached. See [`recover_sig`].
+pub(in crate::message_pool) fn recovered_bls_messages(
+    bls_sig_cache: &SizeTrackingCache<CidWrapper, Signature>,
+    umsg: Vec<Message>,
+) -> impl Iterator<Item = SignedMessage> + '_ {
+    umsg.into_iter()
+        .filter_map(|msg| recover_sig(bls_sig_cache, msg))
 }
 
 pub(in crate::message_pool) fn add_to_selected_msgs(

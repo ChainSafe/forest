@@ -241,7 +241,7 @@ fn compute_stats(
     for msg in messages {
         buckets
             .entry(msg.from)
-            .or_insert(StatBucket::default())
+            .or_insert_with(StatBucket::default)
             .insert(msg.sequence, msg.to_owned());
     }
 

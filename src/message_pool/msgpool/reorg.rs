@@ -9,7 +9,7 @@ use crate::message_pool::msgpool::utils;
 use crate::message_pool::{
     Error,
     msg_pool::{StrictnessPolicy, TrustPolicy},
-    msgpool::{msg_pool::MessagePool, recover_sig},
+    msgpool::{msg_pool::MessagePool, recovered_bls_messages},
     provider::Provider,
 };
 use crate::shim::address::Address;
@@ -51,14 +51,7 @@ where
                     continue;
                 };
                 msgs.extend(smsgs);
-                for msg in umsg {
-                    let msg_cid = msg.cid();
-                    let Ok(smsg) = recover_sig(&self.caches.bls_sig, msg) else {
-                        tracing::debug!("could not recover signature for bls message {}", msg_cid);
-                        continue;
-                    };
-                    msgs.push(smsg)
-                }
+                msgs.extend(recovered_bls_messages(&self.caches.bls_sig, umsg));
             }
 
             for msg in msgs {
@@ -88,6 +81,8 @@ where
                     }
                 }
             }
+            // Must stay after the removals above: `pending` relies on this order to
+            // avoid pairing a stale pool with a newer tipset.
             *self.cur_tipset.write() = ts;
         }
         if repub {
