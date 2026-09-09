@@ -1,4 +1,4 @@
-name: external-rpc-checks
+name: external-rpc-checks-${FOREST_CHAIN}
 
 x-forest-service: &forest-service
   image: ${FOREST_IMAGE}
@@ -16,6 +16,10 @@ services:
     volumes:
       - node-data:/data
       - ./init.sh:/init.sh:ro
+    environment:
+      - FOREST_PATH=/data
+      - FOREST_CHAIN=${FOREST_CHAIN}
+      - EPOCHS=${EPOCHS}
     entrypoint: ["/bin/bash", "/init.sh"]
 
   forest:
@@ -25,7 +29,7 @@ services:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
     command:
-      - --chain=calibnet
+      - --chain=${FOREST_CHAIN}
       - --encrypt-keystore=false
       - --no-gc
       - --rpc-address=0.0.0.0:${FOREST_RPC_PORT}

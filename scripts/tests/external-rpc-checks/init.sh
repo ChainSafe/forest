@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+chain=${FOREST_CHAIN:?FOREST_CHAIN is not set}
+epochs=${EPOCHS:?EPOCHS is not set}
+
 # The Forest image ships neither curl nor jq.
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends curl jq
@@ -11,10 +14,10 @@ apt-get install -y -qq --no-install-recommends curl jq
 # The dataset lags the chain, so yesterday's snapshot is the one to test against.
 day=$(date -u -d '1 day ago' +%F)
 url=$(curl --silent --show-error --fail --retry 3 --connect-timeout 10 --max-time 60 \
-  "https://forest-archive.chainsafe.dev/list/calibnet/latest-v2?format=json" |
+  "https://forest-archive.chainsafe.dev/list/${chain}/latest-v2?format=json" |
   jq --raw-output --arg day "${day}" '[.items[].url | select(contains("_" + $day + "_"))] | first')
 [[ ${url} == https* ]] || {
-  echo "no calibnet snapshot published for ${day}"
+  echo "no ${chain} snapshot published for ${day}"
   exit 1
 }
 
@@ -22,9 +25,9 @@ url=$(curl --silent --show-error --fail --retry 3 --connect-timeout 10 --max-tim
 # to pick the range to check.
 epoch=${url##*_height_}
 epoch=${epoch%%.*}
-printf '%s\n' "${epoch}" > /data/snapshot-epoch
+printf '%s %s\n' "$((epoch - epochs))" "$((epoch - 1))" > /data/check-range
 
-forest --chain=calibnet --encrypt-keystore=false --import-snapshot="${url}" --halt-after-import
+forest --chain="${chain}" --encrypt-keystore=false --import-snapshot="${url}" --halt-after-import
 
-# Indexes the 1000 epochs below the snapshot head, inclusive on both ends
-forest-tool index backfill --chain=calibnet --from="${epoch}" --to="$((epoch - 1000))"
+# Indexes the ${epochs} epochs below the snapshot head, inclusive on both ends
+forest-tool index backfill --chain="${chain}" --from="${epoch}" --to="$((epoch - epochs))"

@@ -75,7 +75,7 @@ jobs:
           if-no-files-found: error
 
   rpc-checks:
-    name: RPC checks against the data.riba.plus dataset
+    name: RPC checks against the data.riba.plus dataset (${{ matrix.chain }})
     runs-on: warp-ubuntu-2404-arm64-8x
     needs: build
     # `build` only runs for dispatches and labelled pull requests; scheduled runs skip
@@ -86,6 +86,21 @@ jobs:
       && (github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'RPC')
       || contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    strategy:
+      # One chain failing says nothing about the other, so let both report.
+      fail-fast: false
+      matrix:
+        include:
+          - chain: calibnet
+            timeout: 90
+          - chain: mainnet
+            # The mainnet snapshot is roughly ten times calibnet's and its tipsets are
+            # far heavier to back-fill.
+            timeout: 330
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      # Picked up by docker compose, overriding the default in `.env`.
+      FOREST_CHAIN: ${{ matrix.chain }}
     defaults:
       run:
         working-directory: scripts/tests/external-rpc-checks
