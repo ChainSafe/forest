@@ -4,13 +4,10 @@
 //! Reward actor migration for FIP-0118: keeps the reward accounting, drops the stored reward
 //! totals and installs the bootstrap streams and the stream weight authority (SWA).
 //!
-//! Ports the go-state-types migrator and the Lotus stream derivation; the built streams are
-//! vetted by the actor crate's own `validate_streams_state`, the check the actor repeats on
-//! every block reward:
-//! <https://github.com/filecoin-project/go-state-types/blob/6cb27cf2e8be76d9b20f0d58d6d580cd99e31ce6/builtin/v19/migration/reward.go>
-//! <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/chain/consensus/filcns/upgrades.go#L3363-L3433>
+//! Reference: <https://github.com/filecoin-project/go-state-types/blob/5cad18c25e6683523e17b6d83cedffdd43c0764b/builtin/v19/migration/reward.go>
+//! and <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/chain/consensus/filcns/upgrades.go#L3363-L3433>.
 
-use crate::networks::{SolsticeRewardBootstrapParams, SolsticeRewardWeightParams};
+use super::reward_bootstrap::{SolsticeRewardBootstrapParams, SolsticeRewardWeightParams};
 use crate::shim::address::{Address, Protocol};
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 use crate::utils::db::CborStoreExt as _;
@@ -18,8 +15,9 @@ use anyhow::{Context as _, ensure};
 use cid::Cid;
 use fil_actor_reward_state::v18::State as RewardStateOld;
 use fil_actor_reward_state::v19::{
-    DENOM, ExplicitDistribution, RecipientShare, State as RewardStateNew, Stream, StreamAccrual,
-    StreamId, StreamsState, WeightRecord, validate_streams_state,
+    DENOM, DistributionInit, ExplicitDistribution, RecipientShare, RecipientTable,
+    RegisterStreamParams, State as RewardStateNew, Stream, StreamAccrual, StreamId, StreamsState,
+    WeightRecord, validate_streams_state,
 };
 use fil_actors_shared::v19::builtin::reward::smooth::FilterEstimate;
 use fvm_ipld_blockstore::Blockstore;
@@ -31,7 +29,7 @@ use num_traits::Zero as _;
 const CONSENSUS_STREAM_ID: StreamId = 1;
 const SERVICE_STREAM_ID: StreamId = 2;
 
-/// Consensus-only bootstrap: the whole block reward keeps flowing to block producers.
+/// Consensus-only bootstrap for a network without service contracts.
 const NEUTRAL_CONSENSUS_WEIGHT: SolsticeRewardWeightParams = SolsticeRewardWeightParams {
     v_start: DENOM,
     floor: DENOM,
@@ -52,21 +50,21 @@ pub struct RewardMigrator {
 }
 
 impl RewardMigrator {
-    /// Derives the bootstrap streams starting at `activation_epoch`, the first epoch executed on
-    /// the migrated state, and vets them with the actor's own state validation.
+    /// Derives and validates the bootstrap streams starting at `activation_epoch`, the first
+    /// epoch executed on the migrated state.
     ///
     /// # Errors
-    /// Fails on the inputs Lotus and go-state-types reject: a missing or non-ID bootstrap
-    /// address, a negative SWA timelock, a negative ramp, a zero ramp with anything but the
-    /// neutral weights, or weights that do not start at `DENOM` together, leave their bounds or
-    /// exceed `DENOM` later.
+    /// The params do not describe a valid bootstrap: a missing or non-ID address, a negative
+    /// timelock or ramp, or weights out of bounds.
     pub fn new(
         params: &SolsticeRewardBootstrapParams,
         activation_epoch: ChainEpoch,
         new_code_cid: Cid,
     ) -> anyhow::Result<Self> {
-        let (streams, accrued) = bootstrap_streams(params, activation_epoch)?;
-        validate_streams_state(&streams, &accrued, activation_epoch)?;
+        let (streams, accrued) = validate_migration_streams(
+            &bootstrap_streams(params, activation_epoch)?,
+            activation_epoch,
+        )?;
         ensure!(params.swa_timelock_epochs >= 0, "SWA timelock is negative");
         let swa_actor = required_address(params.swa_actor, "SWA actor")?;
         ensure!(
@@ -84,14 +82,12 @@ impl RewardMigrator {
     }
 }
 
-/// Bootstrap streams and their accruals as Lotus derives them: the consensus stream alone at
-/// constant `DENOM` for a zero ramp, otherwise consensus and service streams trading weight at
-/// the same rate until the consensus stream reaches its floor, with one zero accrual for the
-/// service stream.
+/// The streams to register: consensus alone at constant `DENOM` for a zero ramp, otherwise
+/// consensus and service trading weight at the same rate.
 fn bootstrap_streams(
     params: &SolsticeRewardBootstrapParams,
     activation_epoch: ChainEpoch,
-) -> anyhow::Result<(StreamsState, Vec<StreamAccrual>)> {
+) -> anyhow::Result<Vec<RegisterStreamParams>> {
     let record = |weight: SolsticeRewardWeightParams, slope: i64| WeightRecord {
         v_start: weight.v_start,
         slope,
@@ -100,66 +96,139 @@ fn bootstrap_streams(
         cap: weight.cap,
     };
 
-    let streams = if params.consensus_weight_ramp_duration_epochs == 0 {
+    if params.consensus_weight_ramp_duration_epochs == 0 {
         ensure!(
             params.consensus_weight == NEUTRAL_CONSENSUS_WEIGHT
                 && params.service_weight == NO_SERVICE_WEIGHT,
             "zero-duration Solstice bootstrap must have constant DENOM consensus weight and zero service weight"
         );
-        vec![Stream {
+        return Ok(vec![RegisterStreamParams {
             id: CONSENSUS_STREAM_ID,
             weight: record(params.consensus_weight, 0),
             distribution: None,
-        }]
-    } else {
-        let slope = consensus_weight_slope(
-            params.consensus_weight,
-            params.consensus_weight_ramp_duration_epochs,
-        )?;
-        // The actor accepts weights that start below `DENOM` (the rest burns); go-state-types
-        // does not, so Lotus would refuse such a bootstrap.
+            activation_epoch,
+        }]);
+    }
+
+    let slope = consensus_weight_slope(
+        params.consensus_weight,
+        params.consensus_weight_ramp_duration_epochs,
+    )?;
+    let sra_actor = required_address(params.sra_actor, "SRA actor")?;
+    let initial_orchestrator =
+        required_address(params.initial_orchestrator, "initial orchestrator")?;
+    Ok(vec![
+        RegisterStreamParams {
+            id: CONSENSUS_STREAM_ID,
+            weight: record(params.consensus_weight, -slope),
+            distribution: None,
+            activation_epoch,
+        },
+        RegisterStreamParams {
+            id: SERVICE_STREAM_ID,
+            weight: record(params.service_weight, slope),
+            distribution: Some(DistributionInit {
+                writer: sra_actor,
+                shares: vec![RecipientShare {
+                    recipient: initial_orchestrator,
+                    share: DENOM,
+                }],
+            }),
+            activation_epoch,
+        },
+    ])
+}
+
+/// Builds the streams a network upgrade installs and validates them with the actor crate:
+/// stream 1 alone at constant `DENOM`, or streams 1 and 2 with equal and opposite slopes,
+/// starting weights summing to `DENOM` and one full-share recipient.
+/// <https://github.com/filecoin-project/go-state-types/blob/5cad18c25e6683523e17b6d83cedffdd43c0764b/builtin/v19/reward/stream_invariants.go#L601>
+fn validate_migration_streams(
+    params: &[RegisterStreamParams],
+    activation_epoch: ChainEpoch,
+) -> anyhow::Result<(StreamsState, Vec<StreamAccrual>)> {
+    ensure!(
+        params.len() == 1 || params.len() == 2,
+        "bootstrap requires one or two streams"
+    );
+    for param in params {
         ensure!(
-            params.consensus_weight.v_start <= DENOM
-                && params.service_weight.v_start == DENOM - params.consensus_weight.v_start,
+            param.activation_epoch == activation_epoch,
+            "stream {} activation epoch {} does not match upgrade epoch {activation_epoch}",
+            param.id,
+            param.activation_epoch
+        );
+        ensure!(
+            param.weight.t_start == activation_epoch,
+            "stream {} weight start {} does not match upgrade epoch {activation_epoch}",
+            param.id,
+            param.weight.t_start
+        );
+    }
+
+    if let [consensus] = params {
+        let neutral = WeightRecord {
+            v_start: DENOM,
+            slope: 0,
+            t_start: activation_epoch,
+            floor: DENOM,
+            cap: DENOM,
+        };
+        ensure!(
+            consensus.id == 1 && consensus.distribution.is_none() && consensus.weight == neutral,
+            "single-stream bootstrap must be implicit stream 1 at constant DENOM"
+        );
+    } else if let [consensus, explicit] = params {
+        ensure!(
+            consensus.id == 1 && explicit.id == 2,
+            "split bootstrap stream IDs must be 1 and 2"
+        );
+        let distribution = match (&consensus.distribution, &explicit.distribution) {
+            (None, Some(distribution)) => distribution,
+            _ => anyhow::bail!("split bootstrap distribution forms are invalid"),
+        };
+        ensure!(
+            consensus.weight.v_start <= DENOM
+                && explicit.weight.v_start == DENOM - consensus.weight.v_start,
             "bootstrap starting weights must sum to denominator"
         );
-        let sra_actor = required_address(params.sra_actor, "SRA actor")?;
-        let initial_orchestrator =
-            required_address(params.initial_orchestrator, "initial orchestrator")?;
-        vec![
-            Stream {
-                id: CONSENSUS_STREAM_ID,
-                weight: record(params.consensus_weight, -slope),
-                distribution: None,
-            },
-            Stream {
-                id: SERVICE_STREAM_ID,
-                weight: record(params.service_weight, slope),
-                distribution: Some(ExplicitDistribution {
-                    writer: sra_actor,
-                    shares: vec![RecipientShare {
-                        recipient: initial_orchestrator,
-                        share: DENOM,
-                    }],
-                    payable: Vec::new(),
-                    claimed_period: Vec::new(),
-                }),
-            },
-        ]
-    };
-    let accrued = streams
-        .iter()
-        .filter(|stream| stream.distribution.is_some())
-        .map(|stream| StreamAccrual {
-            id: stream.id,
-            amount: TokenAmount::zero(),
-        })
-        .collect();
-    let streams = StreamsState {
-        streams,
-        tombstones: Vec::new(),
-        pending_writes: Vec::new(),
-    };
+        ensure!(
+            consensus.weight.slope < 0
+                && explicit.weight.slope > 0
+                && consensus.weight.slope == -explicit.weight.slope,
+            "bootstrap weight slopes are invalid"
+        );
+        ensure!(
+            matches!(distribution.shares.as_slice(), [share] if share.share == DENOM),
+            "explicit bootstrap requires one full-share recipient"
+        );
+    }
+
+    let mut streams = StreamsState::default();
+    let mut accrued = Vec::new();
+    for param in params {
+        let distribution = param
+            .distribution
+            .as_ref()
+            .map(|init| ExplicitDistribution {
+                writer: init.writer,
+                shares: init.shares.clone(),
+                payable: RecipientTable::default(),
+                claimed_period: RecipientTable::default(),
+            });
+        if distribution.is_some() {
+            accrued.push(StreamAccrual {
+                id: param.id,
+                amount: TokenAmount::zero(),
+            });
+        }
+        streams.streams.push(Stream {
+            id: param.id,
+            weight: param.weight.clone(),
+            distribution,
+        });
+    }
+    validate_streams_state(&streams, &accrued, activation_epoch)?;
     Ok((streams, accrued))
 }
 
@@ -184,8 +253,6 @@ fn consensus_weight_slope(
         .with_context(|| format!("Solstice consensus weight ramp produces invalid slope {slope}"))
 }
 
-/// Lotus passes an unset address through as `address.Undef` and lets the ID check reject it;
-/// Forest models unset as `None` and names the missing input.
 fn required_address(address: Option<Address>, name: &str) -> anyhow::Result<Address_v4> {
     let address = address.with_context(|| {
         format!("{name} is not set: the Solstice migration needs its f0 address")
@@ -234,11 +301,11 @@ impl<BS: Blockstore> ActorMigration<BS> for RewardMigrator {
 mod tests {
     use super::*;
     use crate::db::MemoryDB;
-    use crate::networks::{ChainConfig, Height, UPGRADE_HEIGHT_UNSCHEDULED};
+    use crate::networks::{ChainConfig, Height, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED};
     use crate::utils::cid::CidCborExt as _;
     use fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate as FilterEstimateOld;
 
-    const PERCENT: u64 = DENOM / 100;
+    use super::super::reward_bootstrap::PERCENT;
 
     fn weight(v_start: u64, floor: u64, cap: u64) -> SolsticeRewardWeightParams {
         SolsticeRewardWeightParams {
@@ -321,13 +388,13 @@ mod tests {
                             recipient: Address_v4::new_id(102),
                             share: DENOM,
                         }],
-                        payable: vec![],
-                        claimed_period: vec![],
+                        payable: RecipientTable::default(),
+                        claimed_period: RecipientTable::default(),
                     }),
                 },
             ],
             tombstones: vec![],
-            pending_writes: vec![],
+            pending_writes_queue: vec![],
         };
         let out_state: RewardStateNew = store.get_cbor_required(&output.new_head).unwrap();
         assert_eq!(
@@ -392,7 +459,7 @@ mod tests {
                     distribution: None,
                 }],
                 tombstones: vec![],
-                pending_writes: vec![],
+                pending_writes_queue: vec![],
             }
         );
         assert!(migrator.accrued.is_empty());
@@ -534,8 +601,97 @@ mod tests {
         }
     }
 
-    // The bootstrap names contracts that must exist before the upgrade runs, so a scheduled
-    // height and complete addresses go together.
+    #[test]
+    fn rejects_malformed_bootstrap_streams() {
+        type Damage = fn(&mut Vec<RegisterStreamParams>);
+        let cases: [(&str, Damage, &str); 11] = [
+            (
+                "three streams",
+                |p| p.push(p.last().cloned().unwrap()),
+                "bootstrap requires one or two streams",
+            ),
+            (
+                "activation epoch mismatch",
+                |p| p.first_mut().unwrap().activation_epoch += 1,
+                "activation epoch 101 does not match upgrade epoch 100",
+            ),
+            (
+                "weight start mismatch",
+                |p| p.first_mut().unwrap().weight.t_start += 1,
+                "weight start 101 does not match upgrade epoch 100",
+            ),
+            (
+                "single stream that is not neutral",
+                |p| p.truncate(1),
+                "single-stream bootstrap must be implicit stream 1 at constant DENOM",
+            ),
+            (
+                "service stream ID 3",
+                |p| p.last_mut().unwrap().id = 3,
+                "split bootstrap stream IDs must be 1 and 2",
+            ),
+            (
+                "two implicit streams",
+                |p| p.last_mut().unwrap().distribution = None,
+                "split bootstrap distribution forms are invalid",
+            ),
+            (
+                "starting weights under-sum",
+                |p| p.last_mut().unwrap().weight.v_start -= 1,
+                "bootstrap starting weights must sum to denominator",
+            ),
+            (
+                "unequal slopes",
+                |p| p.last_mut().unwrap().weight.slope += 1,
+                "bootstrap weight slopes are invalid",
+            ),
+            (
+                "partial share",
+                |p| {
+                    let distribution = p.last_mut().unwrap().distribution.as_mut().unwrap();
+                    distribution.shares.first_mut().unwrap().share -= 1;
+                },
+                "explicit bootstrap requires one full-share recipient",
+            ),
+            (
+                "delegated writer",
+                |p| {
+                    let distribution = p.last_mut().unwrap().distribution.as_mut().unwrap();
+                    distribution.writer = Address_v4::new_delegated(10, &[1]).unwrap();
+                },
+                "distribution writer f410",
+            ),
+            (
+                "service cap above what the consensus floor leaves",
+                |p| p.last_mut().unwrap().weight.cap = 60 * PERCENT,
+                "stream weights exceed DENOM",
+            ),
+        ];
+
+        for (case, damage, expected_error) in cases {
+            let mut params = bootstrap_streams(&bootstrap_params(), 100).unwrap();
+            damage(&mut params);
+            let error = validate_migration_streams(&params, 100)
+                .err()
+                .unwrap_or_else(|| panic!("{case}: accepted"));
+            assert!(
+                format!("{error:#}").contains(expected_error),
+                "{case}: {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_alternative_bootstrap_weights() {
+        let params = SolsticeRewardBootstrapParams {
+            consensus_weight: weight(80, 60, 80),
+            service_weight: weight(20, 10, 20),
+            ..bootstrap_params()
+        };
+
+        RewardMigrator::new(&params, 100, Cid::default()).unwrap();
+    }
+
     #[test]
     fn scheduled_networks_have_complete_bootstrap_addresses() {
         for config in [
@@ -544,28 +700,29 @@ mod tests {
             ChainConfig::butterflynet(),
         ] {
             let solstice_epoch = config.epoch(Height::Solstice);
-            let scheduled = solstice_epoch != UPGRADE_HEIGHT_UNSCHEDULED;
-            let bootstrap = RewardMigrator::new(
-                &config.solstice_reward_bootstrap,
+            if solstice_epoch == UPGRADE_HEIGHT_UNSCHEDULED {
+                continue;
+            }
+            RewardMigrator::new(
+                &SolsticeRewardBootstrapParams::for_chain(&config.network),
                 solstice_epoch + 1,
                 Cid::default(),
-            );
-            assert_eq!(
-                bootstrap.is_ok(),
-                scheduled,
-                "{}: schedule Solstice only once SWA, SRA and orchestrator have f0 addresses",
-                config.network
-            );
+            )
+            .unwrap_or_else(|e| {
+                panic!(
+                    "{}: scheduled without a valid bootstrap: {e:#}",
+                    config.network
+                )
+            });
         }
     }
 
-    // Lotus 2k names the burnt-funds actor as orchestrator. The reward actor rejects that as
-    // stored state and pays no block reward on it, while go-state-types accepts it; Forest
-    // follows the actor. Re-sync the devnet params once upstream agrees.
+    // The devnet copies the Lotus 2k orchestrator, the burnt-funds actor, which the reward actor
+    // rejects as a stored recipient; re-sync once upstream settles it.
     #[test]
     fn devnet_bootstrap_is_rejected_until_upstream_agrees_on_the_orchestrator() {
         let error = RewardMigrator::new(
-            &ChainConfig::devnet().solstice_reward_bootstrap,
+            &SolsticeRewardBootstrapParams::for_chain(&NetworkChain::Devnet("devnet".into())),
             1,
             Cid::default(),
         )
@@ -577,23 +734,21 @@ mod tests {
         );
     }
 
-    // Only the addresses are missing on the public networks; their timelocks, ramps and weights
-    // already pass the checks.
     #[test]
     fn public_network_params_are_valid_once_addresses_are_set() {
-        for config in [
-            ChainConfig::mainnet(),
-            ChainConfig::calibnet(),
-            ChainConfig::butterflynet(),
+        for chain in [
+            NetworkChain::Mainnet,
+            NetworkChain::Calibnet,
+            NetworkChain::Butterflynet,
         ] {
             let params = SolsticeRewardBootstrapParams {
                 swa_actor: Some(Address::new_id(100)),
                 sra_actor: Some(Address::new_id(101)),
                 initial_orchestrator: Some(Address::new_id(102)),
-                ..config.solstice_reward_bootstrap
+                ..SolsticeRewardBootstrapParams::for_chain(&chain)
             };
             RewardMigrator::new(&params, 1, Cid::default())
-                .unwrap_or_else(|e| panic!("{}: {e:#}", config.network));
+                .unwrap_or_else(|e| panic!("{chain}: {e:#}"));
         }
     }
 }

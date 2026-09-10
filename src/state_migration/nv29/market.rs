@@ -88,6 +88,7 @@ mod tests {
         };
         // `State` has no `PartialEq`.
         assert_eq!(format!("{out_state:?}"), format!("{expected:?}"));
+        assert_eq!(store.put_cbor_default(&out_state).unwrap(), output.new_head);
         // The v19 tuple is one field shorter, so it no longer decodes as v18.
         assert!(store.get_cbor::<MarketStateOld>(&output.new_head).is_err());
     }

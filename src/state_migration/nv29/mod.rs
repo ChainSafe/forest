@@ -5,6 +5,7 @@
 mod market;
 mod migration;
 mod reward;
+mod reward_bootstrap;
 
 /// Run migration for `NV29`. This should be the only exported method in this
 /// module.
