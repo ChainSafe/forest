@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::cli::humantoken;
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::rpc::eth::{
     BlockNumberOrHash, Predefined,
@@ -21,7 +22,6 @@ use clap::Subcommand;
 use fil_actor_eam_state::v16::CreateExternalParams;
 use fil_actor_evm_state::v16::{InvokeContractParams, InvokeContractReturn};
 use fvm_ipld_encoding::RawBytes;
-use num::{BigInt, Signed as _};
 use std::path::PathBuf;
 use std::str::FromStr as _;
 use std::time::Duration;
@@ -51,8 +51,8 @@ pub enum EvmCommands {
         /// Optionally specify the account to use for sending the exec message
         #[arg(long)]
         from: Option<Address>,
-        /// Value to send with the invocation message
-        #[arg(long, value_parser = parse_invoke_value, default_value = "0")]
+        /// Value to send with the invocation message (human FIL amount, e.g. `1FIL`, `1attoFIL`)
+        #[arg(long, value_parser = humantoken::parse, default_value = "0")]
         value: TokenAmount,
         /// Filecoin address of the contract
         address: Address,
@@ -213,12 +213,13 @@ async fn invoke(
 
     let lookup = wait_for_message(&client, cid).await?;
 
+    println!("Exit Code: {}", lookup.receipt.exit_code().value());
+    println!("Gas Used: {}", lookup.receipt.gas_used());
+
     anyhow::ensure!(
         lookup.receipt.exit_code().is_success(),
         "actor execution failed"
     );
-
-    println!("Gas used: {}", lookup.receipt.gas_used());
 
     let ret: InvokeContractReturn = from_slice_with_fallback(lookup.receipt.return_data().bytes())
         .context("evm result not correctly encoded")?;
@@ -277,35 +278,6 @@ async fn call(
         Err(e) => {
             println!("Eth call fails, return val: 0x");
             Err(e.into())
-        }
-    }
-}
-
-/// Bare digits are `attoFIL`; otherwise parse a human amount (e.g. `1FIL`) and reject negatives.
-fn parse_invoke_value(s: &str) -> anyhow::Result<TokenAmount> {
-    if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) {
-        return Ok(TokenAmount::from_atto(BigInt::from_str(s)?));
-    }
-    let amount = crate::cli::humantoken::parse(s)?;
-    anyhow::ensure!(!amount.is_negative(), "value cannot be negative");
-    Ok(amount)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rstest::rstest;
-
-    #[rstest]
-    #[case("1000", Ok(TokenAmount::from_atto(1000)))]
-    #[case("1FIL", Ok(TokenAmount::from_whole(1)))]
-    #[case("1attoFIL", Ok(TokenAmount::from_atto(1)))]
-    #[case("-1", Err("value cannot be negative"))]
-    fn parse_invoke_value_cases(#[case] input: &str, #[case] expected: Result<TokenAmount, &str>) {
-        let result = parse_invoke_value(input).map_err(|e| e.to_string());
-        match expected {
-            Ok(amount) => assert_eq!(result.unwrap(), amount),
-            Err(msg) => assert!(result.unwrap_err().contains(msg)),
         }
     }
 }

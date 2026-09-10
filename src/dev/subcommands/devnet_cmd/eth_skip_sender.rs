@@ -363,7 +363,7 @@ async fn lotus_send(
     to: &Address,
     calldata: &[u8],
     gas_limit: u64,
-) -> anyhow::Result<Cid> {
+) -> anyhow::Result<()> {
     let forest = forest_client()?;
     let from_s = from.to_string();
     let to_s = to.to_string();
@@ -391,22 +391,12 @@ async fn lotus_send(
     wait_for_cid(&forest, cid)
         .await
         .with_context(|| format!("transaction submitted at eth_estimateGas {gas_limit} failed"))?;
-    Ok(cid)
+    Ok(())
 }
 
 async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<()> {
     let from = deployer().await?.to_string();
     forest_evm_invoke(&from, &to.to_string(), &hex::encode(calldata))?;
-    Ok(())
-}
-
-async fn submit_at_gas_limit(
-    from: &Address,
-    to: &Address,
-    calldata: &[u8],
-    gas_limit: u64,
-) -> anyhow::Result<()> {
-    lotus_send(from, to, calldata, gas_limit).await?;
     Ok(())
 }
 
@@ -912,7 +902,7 @@ async fn round_trip_from_unfunded() -> anyhow::Result<()> {
         actor.sequence
     );
 
-    submit_at_gas_limit(&from.f4, &coin.f4, &calldata, gas).await?;
+    lotus_send(&from.f4, &coin.f4, &calldata, gas).await?;
     let after = get_actor(&forest, from.f4)
         .await?
         .with_context(|| format!("actor {} missing after successful submit", from.f4))?;
@@ -965,7 +955,7 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
     );
 
     fund_on_chain(&from.cli, RECURSIVE_FUND_AMT).await?;
-    submit_at_gas_limit(&from.f4, &nested.f4, &calldata, gas).await
+    lotus_send(&from.f4, &nested.f4, &calldata, gas).await
 }
 
 async fn call_sender_identity() -> anyhow::Result<()> {
