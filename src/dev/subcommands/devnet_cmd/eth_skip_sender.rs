@@ -362,53 +362,41 @@ async fn lotus_send(
     from: &Address,
     to: &Address,
     calldata: &[u8],
-    gas_limit: Option<u64>,
-) -> anyhow::Result<Cid> {
+    gas_limit: u64,
+) -> anyhow::Result<()> {
     let forest = forest_client()?;
     let from_s = from.to_string();
     let to_s = to.to_string();
     let params = hex::encode(calldata);
-    let gas = gas_limit.map(|g| g.to_string());
-    let mut args = vec![
+    let gas = gas_limit.to_string();
+    let out = lotus_exec_retrying_transient(&[
         "send",
         "--from",
         from_s.as_str(),
         "--params-hex",
         params.as_str(),
-    ];
-    if let Some(gas) = gas.as_deref() {
-        args.extend(["--gas-limit", gas]);
-    }
-    args.extend([to_s.as_str(), "0"]);
-    let out = lotus_exec_retrying_transient(&args).await?;
+        "--gas-limit",
+        gas.as_str(),
+        to_s.as_str(),
+        "0",
+    ])
+    .await?;
     let cid = Cid::from_str(
         out.lines()
             .last()
             .context("no cid from `lotus send`")?
             .trim(),
     )?;
-    if let Some(limit) = gas_limit {
-        eprintln!("submitted at estimate {limit}: {cid}");
-        wait_for_cid(&forest, cid)
-            .await
-            .with_context(|| format!("transaction submitted at eth_estimateGas {limit} failed"))?;
-    } else {
-        wait_for_cid(&forest, cid).await?;
-    }
-    Ok(cid)
+    eprintln!("submitted at estimate {gas_limit}: {cid}");
+    wait_for_cid(&forest, cid)
+        .await
+        .with_context(|| format!("transaction submitted at eth_estimateGas {gas_limit} failed"))?;
+    Ok(())
 }
 
-async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<Cid> {
-    lotus_send(deployer().await?, to, calldata, None).await
-}
-
-async fn submit_at_gas_limit(
-    from: &Address,
-    to: &Address,
-    calldata: &[u8],
-    gas_limit: u64,
-) -> anyhow::Result<()> {
-    lotus_send(from, to, calldata, Some(gas_limit)).await?;
+async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<()> {
+    let from = deployer().await?.to_string();
+    forest_evm_invoke(&from, &to.to_string(), &hex::encode(calldata))?;
     Ok(())
 }
 
@@ -914,7 +902,7 @@ async fn round_trip_from_unfunded() -> anyhow::Result<()> {
         actor.sequence
     );
 
-    submit_at_gas_limit(&from.f4, &coin.f4, &calldata, gas).await?;
+    lotus_send(&from.f4, &coin.f4, &calldata, gas).await?;
     let after = get_actor(&forest, from.f4)
         .await?
         .with_context(|| format!("actor {} missing after successful submit", from.f4))?;
@@ -967,7 +955,7 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
     );
 
     fund_on_chain(&from.cli, RECURSIVE_FUND_AMT).await?;
-    submit_at_gas_limit(&from.f4, &nested.f4, &calldata, gas).await
+    lotus_send(&from.f4, &nested.f4, &calldata, gas).await
 }
 
 async fn call_sender_identity() -> anyhow::Result<()> {

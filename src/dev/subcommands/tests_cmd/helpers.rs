@@ -489,6 +489,11 @@ pub fn forest_evm_deploy_hex(from: &str, bytecode_hex: &str) -> anyhow::Result<S
     forest_cli(&["evm", "deploy", "--from", from, "--hex", path])
 }
 
+/// Invoke a contract with `forest-cli evm invoke`.
+pub fn forest_evm_invoke(from: &str, to: &str, calldata_hex: &str) -> anyhow::Result<String> {
+    forest_cli(&["evm", "invoke", "--from", from, to, calldata_hex])
+}
+
 /// Parse the `f4 Address:` line from `forest-cli evm deploy` output.
 pub fn parse_f4_from_evm_deploy(out: &str) -> anyhow::Result<Address> {
     let f4 = out
