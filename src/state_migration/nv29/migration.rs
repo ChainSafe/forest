@@ -5,8 +5,9 @@
 
 use super::market::MarketMigrator;
 use super::reward::RewardMigrator;
+use super::reward_bootstrap::SolsticeRewardBootstrapParams;
 use super::{SystemStateOld, system, verifier::Verifier};
-use crate::networks::{ChainConfig, Height, SolsticeRewardBootstrapParams};
+use crate::networks::{ChainConfig, Height};
 use crate::prelude::*;
 use crate::shim::{
     address::Address,
@@ -23,8 +24,7 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
         store: &BS,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
-        reward_bootstrap: &SolsticeRewardBootstrapParams,
-        activation_epoch: ChainEpoch,
+        chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store, state)?;
         let system_actor = state_tree.get_required_actor(&Address::SYSTEM_ACTOR)?;
@@ -44,10 +44,12 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
             current_manifest.get_system(),
             system::system_migrator(new_manifest),
         );
+        // Streams start at the first epoch executed on the migrated state.
+        let activation_epoch = chain_config.epoch(Height::Solstice) + 1;
         self.add_migrator(
             current_manifest.get(BuiltinActor::Reward)?,
             Arc::new(RewardMigrator::new(
-                reward_bootstrap,
+                &SolsticeRewardBootstrapParams::for_chain(&chain_config.network),
                 activation_epoch,
                 new_manifest.get(BuiltinActor::Reward)?,
             )?),
@@ -90,15 +92,7 @@ where
 
     let new_manifest = BuiltinActorManifest::load_manifest(blockstore, new_manifest_cid)?;
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    // The bootstrap streams start at the first epoch executed on the migrated state, like
-    // go-state-types' `activationEpoch := priorEpoch + 1`.
-    migration.add_nv29_migrations(
-        blockstore,
-        state,
-        &new_manifest,
-        &chain_config.solstice_reward_bootstrap,
-        epoch + 1,
-    )?;
+    migration.add_nv29_migrations(blockstore, state, &new_manifest, chain_config)?;
 
     let actors_in = StateTree::new_from_root(blockstore, state)?;
     let actors_out = StateTree::new(blockstore, StateTreeVersion::V5)?;
