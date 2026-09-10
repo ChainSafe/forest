@@ -2761,7 +2761,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "frc42_dispatch",
  "fvm_ipld_encoding",
@@ -2776,7 +2776,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.12.2",
@@ -2790,7 +2790,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2809,7 +2809,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_eam_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
@@ -2823,7 +2823,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_ethaccount_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 3.14.2",
@@ -2836,7 +2836,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2855,7 +2855,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2874,7 +2874,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2900,7 +2900,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "bitflags 2.13.2",
@@ -2930,7 +2930,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2952,7 +2952,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_paych_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2969,7 +2969,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2991,7 +2991,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
@@ -3013,7 +3013,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -3030,7 +3030,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
@@ -3050,7 +3050,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=23fbee71fd2fe9bc51fc826bba88fee4304f01ea#23fbee71fd2fe9bc51fc826bba88fee4304f01ea"
+source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
 dependencies = [
  "anyhow",
  "cid",
