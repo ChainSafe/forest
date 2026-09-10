@@ -116,7 +116,7 @@ async fn deploy(
 ) -> anyhow::Result<()> {
     let mut initcode = std::fs::read(&contract).context("failed to read contract")?;
     if is_hex {
-        initcode = EthBytes::from_str(std::str::from_utf8(&initcode)?)
+        initcode = EthBytes::from_str(std::str::from_utf8(&initcode)?.trim())
             .context("failed to decode contract")?
             .0;
     }
