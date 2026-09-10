@@ -125,6 +125,19 @@ pub struct SetDistributionParamsLotusJson {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "PascalCase")]
+pub struct ReplaceAddressParamsLotusJson {
+    #[serde(rename = "ID")]
+    pub id: u64,
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    pub old_address: Address,
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    pub new_address: Address,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
 pub struct SetSharesParamsLotusJson {
     #[serde(rename = "ID")]
     pub id: u64,
@@ -827,6 +840,55 @@ macro_rules! impl_set_distribution_params {
     };
 }
 
+macro_rules! impl_replace_address_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_replace_address_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_reward_state::[<v $version>]::ReplaceAddressParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                    }
+
+                    impl HasLotusJson for T {
+                        type LotusJson = ReplaceAddressParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({ "ID": 2, "OldAddress": "f01234", "NewAddress": "f01235" }),
+                                Self {
+                                    id: 2,
+                                    old_address: Address::new_id(1234).into(),
+                                    new_address: Address::new_id(1235).into(),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            ReplaceAddressParamsLotusJson {
+                                id: self.id,
+                                old_address: self.old_address.into(),
+                                new_address: self.new_address.into(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                id: lotus_json.id,
+                                old_address: lotus_json.old_address.into(),
+                                new_address: lotus_json.new_address.into(),
+                            }
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
 macro_rules! impl_set_shares_params {
     ($($version:literal),+) => {
         $(
@@ -997,6 +1059,7 @@ impl_set_weight_records_params!(19);
 impl_register_stream_params!(19);
 impl_remove_stream_params!(19);
 impl_set_distribution_params!(19);
+impl_replace_address_params!(19);
 impl_set_shares_params!(19);
 impl_cancel_pending_params!(19);
 impl_claim_params!(19);

@@ -33,7 +33,7 @@ macro_rules! register_reward_version_19_onwards {
 
         use $state_version::{
             CancelPendingParams, ClaimParams, Method, RegisterStreamParams, RemoveStreamParams,
-            SetDistributionParams, SetSharesParams, SetWeightRecordsParams,
+            ReplaceAddressParams, SetDistributionParams, SetSharesParams, SetWeightRecordsParams,
             StepWeightRecordsParams,
         };
 
@@ -49,6 +49,7 @@ macro_rules! register_reward_version_19_onwards {
                 (Method::CancelPendingExported, CancelPendingParams),
                 (Method::SetSharesExported, SetSharesParams),
                 (Method::ClaimExported, ClaimParams),
+                (Method::ReplaceAddressExported, ReplaceAddressParams),
             ]
         );
     }};
