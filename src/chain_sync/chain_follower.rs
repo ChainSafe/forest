@@ -28,13 +28,13 @@ use crate::{
         tipset_syncer::{TipsetSyncerError, validate_tipset},
         validation::GossipBlockValidator,
     },
-    libp2p::{NetworkEvent, NetworkMessage, PubsubMessage, PubsubTopic, hello::HelloRequest},
+    libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
     message_pool::MessagePool,
     networks::calculate_expected_epoch,
     prelude::*,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
-    utils::{flume::FlumeSenderExt as _, misc::env::env_or_default_logged},
+    utils::misc::env::env_or_default_logged,
 };
 use arc_swap::ArcSwap;
 use chrono::Utc;
@@ -332,12 +332,10 @@ async fn chain_follower(
 
     set.spawn({
         let state_manager = state_manager.shallow_clone();
-        let network = network.shallow_clone();
         let last_drand_entry = last_drand_entry.clone();
         let cancellation_token = cancellation_token.clone();
         async move {
-            drand_gossip_watchdog(state_manager, network, last_drand_entry, cancellation_token)
-                .await;
+            drand_gossip_watchdog(state_manager, last_drand_entry, cancellation_token).await;
         }
     });
 
@@ -539,38 +537,10 @@ fn handle_drand_entry(
     });
 }
 
-#[derive(Debug)]
-enum DrandWatchdogTick {
-    Fresh,
-
-    // no verified entry within the deadline. `resub` fires when `MAX_CONSECUTIVES_MISSES` reaches
-    Stale { resubscribe: bool },
-}
-
-#[derive(Debug, Default)]
-struct DrandWatchdogState {
-    stale: bool,
-    consecutive_misses: u32,
-}
-
-impl DrandWatchdogState {
-    const MAX_CONSECUTIVE_MISSES: u32 = 3;
-
-    fn on_tick(&mut self, last_seen: u64, now: u64, deadline_secs: u64) -> DrandWatchdogTick {
-        if last_seen != 0 && now.saturating_sub(last_seen) < deadline_secs {
-            self.consecutive_misses = 0;
-            return DrandWatchdogTick::Fresh;
-        }
-
-        self.stale = false;
-        self.consecutive_misses += 1;
-        let resubscribe = self.consecutive_misses >= Self::MAX_CONSECUTIVE_MISSES;
-        if resubscribe {
-            self.consecutive_misses = 0;
-        }
-
-        DrandWatchdogTick::Stale { resubscribe }
-    }
+/// drand gossipsub is stale when no entry has ever been
+/// verified (`last_seen == 0`), or the last one is at least a deadline old.
+fn drand_gossip_is_stale(last_seen: u64, now: u64, deadline_secs: u64) -> bool {
+    last_seen == 0 || now.saturating_sub(last_seen) >= deadline_secs
 }
 
 /// Watch the `drand` `gossipsub` topic for staleness: if a `drand` beacon entry
@@ -578,7 +548,6 @@ impl DrandWatchdogState {
 /// that epoch and fall back to fetching the beacon over HTTP.
 async fn drand_gossip_watchdog(
     state_manager: StateManager,
-    network: SyncNetworkContext,
     last_drand_entry: Arc<AtomicU64>,
     cancellation_token: CancellationToken,
 ) {
@@ -592,8 +561,6 @@ async fn drand_gossip_watchdog(
     let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + deadline, deadline);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-    let mut state = DrandWatchdogState::default();
-
     while cancellation_token
         .run_until_cancelled(ticker.tick())
         .await
@@ -605,11 +572,9 @@ async fn drand_gossip_watchdog(
 
         let last_seen = last_drand_entry.load(Ordering::Relaxed);
         let now = Utc::now().timestamp().max(0) as u64;
-
-        let resub = match state.on_tick(last_seen, now, deadline.as_secs()) {
-            DrandWatchdogTick::Fresh => continue,
-            DrandWatchdogTick::Stale { resubscribe } => resubscribe,
-        };
+        if !drand_gossip_is_stale(last_seen, now, deadline.as_secs()) {
+            continue;
+        }
 
         let epoch = state_manager.heaviest_tipset().epoch() + 1;
         let network_version = state_manager.get_network_version(epoch);
@@ -630,16 +595,6 @@ async fn drand_gossip_watchdog(
             None => return,
             Some(Err(e)) => debug!("drand HTTP fallback for round {round} failed: {e:#}"),
             Some(Ok(_)) => {}
-        }
-
-        if resub {
-            warn!(
-                misses = DrandWatchdogState::MAX_CONSECUTIVE_MISSES,
-                "forcing a drand topic re-subscription",
-            );
-            network
-                .network_send()
-                .send_or_warn(NetworkMessage::ResubscribeTopic(PubsubTopic::Drand));
         }
     }
 }
@@ -1728,30 +1683,21 @@ mod tests {
     }
 
     #[test]
-    fn drand_watchdog_state_transition() {
-        use DrandWatchdogTick::*;
+    fn drand_gossip_staleness() {
         let deadline_secs = 15;
-        let mut s = DrandWatchdogState::default();
 
-        // simulating a failure on receiving an beacon entry, since it is the first
-        // failure it will not trigger the resub
-        assert_matches!(
-            s.on_tick(0, 100, deadline_secs),
-            Stale { resubscribe: false }
-        );
+        // No entry ever verified: stale from the very first tick.
+        assert!(drand_gossip_is_stale(0, 100, deadline_secs));
 
-        // simulate the other 2 failures to reach the MAX_CONSECUTIVE_MISSES (3) and trigger the resub
-        assert_matches!(
-            s.on_tick(0, 115, deadline_secs),
-            Stale { resubscribe: false }
-        );
-        assert_matches!(
-            s.on_tick(0, 130, deadline_secs),
-            Stale { resubscribe: true }
-        );
+        // A recent entry is fresh.
+        assert!(!drand_gossip_is_stale(135, 140, deadline_secs));
 
-        // A recent entry recovers exactly once and clears the miss counter.
-        assert_matches!(s.on_tick(135, 140, deadline_secs), Fresh);
+        // An entry exactly `deadline` old counts as stale (inclusive bound).
+        assert!(drand_gossip_is_stale(135, 150, deadline_secs));
+        assert!(!drand_gossip_is_stale(136, 150, deadline_secs));
+
+        // A clock that went backwards must not underflow into stale.
+        assert!(!drand_gossip_is_stale(150, 140, deadline_secs));
     }
 
     use crate::beacon::{
