@@ -716,7 +716,7 @@ async fn handle_discovery_event(
     }
 }
 
-async fn handle_gossip_event(
+pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_topic_kinds: &HashMap<TopicHash, PubsubTopic>,

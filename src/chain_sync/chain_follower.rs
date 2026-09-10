@@ -1753,4 +1753,102 @@ mod tests {
         // A recent entry recovers exactly once and clears the miss counter.
         assert_matches!(s.on_tick(135, 140, deadline_secs), Fresh);
     }
+
+    use crate::beacon::{
+        BeaconPoint, BeaconSchedule,
+        tests::fake_drand::{
+            FAKE_DRAND_GENESIS_TIME, FAKE_DRAND_PERIOD, FakeDrand, TEST_FIL_BLOCK_DELAY,
+            TEST_FIL_GENESIS_TIME,
+        },
+    };
+
+    fn fake_drand_schedule() -> (FakeDrand, Arc<BeaconSchedule>) {
+        let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
+        let beacon = drand.beacon(TEST_FIL_GENESIS_TIME, TEST_FIL_BLOCK_DELAY);
+        (
+            drand,
+            Arc::new(BeaconSchedule(vec![BeaconPoint::new(0, beacon)])),
+        )
+    }
+
+    async fn wait_until(mut cond: impl FnMut() -> bool) {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !cond() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("condition not reached in time");
+    }
+
+    #[tokio::test]
+    async fn drand_entry_verified_and_recorded() {
+        let (drand, schedule) = fake_drand_schedule();
+        let limiter = Arc::new(Semaphore::new(1));
+        let last = Arc::new(AtomicU64::new(0));
+
+        handle_drand_entry(drand.entry(7), &limiter, &schedule, &last);
+
+        wait_until(|| last.load(Ordering::Relaxed) != 0).await;
+        wait_until(|| limiter.available_permits() == 1).await;
+    }
+
+    #[tokio::test]
+    async fn drand_entry_with_invalid_signature_is_dropped() {
+        let (drand, schedule) = fake_drand_schedule();
+        let limiter = Arc::new(Semaphore::new(1));
+        let last = Arc::new(AtomicU64::new(0));
+
+        // Round 7 carrying round 8's signature: well-formed but fails verification.
+        let forged = BeaconEntry::new(7, drand.entry(8).signature().to_vec());
+        handle_drand_entry(forged, &limiter, &schedule, &last);
+
+        // The returned permit proves the verification task ran to completion.
+        wait_until(|| limiter.available_permits() == 1).await;
+        assert_eq!(last.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn drand_entry_rejected_before_verification() {
+        let (drand, schedule) = fake_drand_schedule();
+        let limiter = Arc::new(Semaphore::new(1));
+        let last = Arc::new(AtomicU64::new(0));
+
+        // Round zero and an empty signature are rejected synchronously: no
+        // permit is ever taken, so nothing can be in flight afterwards.
+        let round_zero = BeaconEntry::new(0, drand.entry(1).signature().to_vec());
+        handle_drand_entry(round_zero, &limiter, &schedule, &last);
+        handle_drand_entry(BeaconEntry::new(1, vec![]), &limiter, &schedule, &last);
+
+        assert_eq!(limiter.available_permits(), 1);
+        assert_eq!(last.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn drand_entry_dropped_when_verifications_saturated() {
+        let (drand, schedule) = fake_drand_schedule();
+        let limiter = Arc::new(Semaphore::new(1));
+        let last = Arc::new(AtomicU64::new(0));
+
+        let _held = limiter.clone().try_acquire_owned().unwrap();
+        handle_drand_entry(drand.entry(7), &limiter, &schedule, &last);
+
+        // Dropped synchronously: the held permit was not stolen and no
+        // verification was spawned.
+        assert_eq!(limiter.available_permits(), 0);
+        assert_eq!(last.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn drand_entry_dropped_without_unchained_beacon() {
+        let (drand, _) = fake_drand_schedule();
+        let schedule = Arc::new(BeaconSchedule(vec![]));
+        let limiter = Arc::new(Semaphore::new(1));
+        let last = Arc::new(AtomicU64::new(0));
+
+        handle_drand_entry(drand.entry(7), &limiter, &schedule, &last);
+
+        wait_until(|| limiter.available_permits() == 1).await;
+        assert_eq!(last.load(Ordering::Relaxed), 0);
+    }
 }

@@ -9,7 +9,10 @@ use libp2p::{
 use libp2p_swarm_test::SwarmExt as _;
 use quick_protobuf::{BytesReader, MessageRead};
 
-use crate::libp2p::{PUBSUB_DRAND_STR, build_gossipsub};
+use crate::libp2p::{
+    NetworkEvent, PUBSUB_DRAND_STR, PubsubMessage, PubsubTopic, build_gossipsub,
+    service::handle_gossip_event,
+};
 use crate::networks::GenesisNetworkName;
 use crate::{
     beacon::{
@@ -171,4 +174,93 @@ async fn silence_past_deadline_fallback_to_http() {
         1,
         "second call must not reach HTTP"
     );
+}
+
+fn gossip_message_event(data: Vec<u8>, topic: gossipsub::TopicHash) -> gossipsub::Event {
+    gossipsub::Event::Message {
+        propagation_source: libp2p::PeerId::random(),
+        message_id: gossipsub::MessageId::new(b"test"),
+        message: gossipsub::Message {
+            source: None,
+            data,
+            sequence_number: None,
+            topic,
+        },
+    }
+}
+
+fn drand_topic_kinds(
+    drand: &FakeDrand,
+) -> (
+    IdentTopic,
+    ahash::HashMap<gossipsub::TopicHash, PubsubTopic>,
+) {
+    let topic = IdentTopic::new(format!("{PUBSUB_DRAND_STR}/{}", drand.chain_info_hash()));
+    let mut kinds = ahash::HashMap::default();
+    kinds.insert(topic.hash(), PubsubTopic::Drand);
+    (topic, kinds)
+}
+
+#[tokio::test]
+async fn gossip_drand_message_is_decoded_and_emitted() {
+    let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
+    let (topic, kinds) = drand_topic_kinds(&drand);
+    let (tx, rx) = flume::unbounded();
+
+    // The payload is a bare `PublicRandResponse`, no length prefix (regression:
+    // decoding used to assume a prefix and reject every live relay message).
+    handle_gossip_event(
+        gossip_message_event(drand.to_protobuf(42), topic.hash()),
+        &tx,
+        &kinds,
+    )
+    .await;
+
+    match rx.try_recv().expect("no event emitted") {
+        NetworkEvent::PubsubMessage {
+            message: PubsubMessage::DrandEntry(entry),
+        } => {
+            assert_eq!(entry.round(), 42);
+            assert_eq!(entry.signature(), drand.entry(42).signature());
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn gossip_drand_malformed_payload_is_dropped() {
+    let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
+    let (topic, kinds) = drand_topic_kinds(&drand);
+    let (tx, rx) = flume::unbounded();
+
+    handle_gossip_event(
+        gossip_message_event(vec![0xff, 0xff, 0xff], topic.hash()),
+        &tx,
+        &kinds,
+    )
+    .await;
+
+    assert!(
+        rx.try_recv().is_err(),
+        "malformed payload must emit nothing"
+    );
+}
+
+#[tokio::test]
+async fn gossip_message_on_unknown_topic_is_dropped() {
+    let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
+    let (_, kinds) = drand_topic_kinds(&drand);
+    let (tx, rx) = flume::unbounded();
+
+    handle_gossip_event(
+        gossip_message_event(
+            drand.to_protobuf(1),
+            gossipsub::TopicHash::from_raw("/unknown/topic"),
+        ),
+        &tx,
+        &kinds,
+    )
+    .await;
+
+    assert!(rx.try_recv().is_err(), "unknown topic must emit nothing");
 }
