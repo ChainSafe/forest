@@ -301,14 +301,14 @@ impl StateManager {
             });
         }
 
+        let executed = ExecutedTipset {
+            state_root,
+            receipt_root,
+            executed_messages: Arc::new(executed_messages),
+        };
         // Store the block logs bloom whenever this tipset was executed here.
         if recomputed
-            && let Err(e) = crate::rpc::eth::store_block_logs_bloom(
-                self,
-                msg_ts,
-                &state_root,
-                &executed_messages,
-            )
+            && let Err(e) = crate::rpc::eth::store_block_logs_bloom(self, msg_ts, &executed)
         {
             warn!(
                 "failed to store block logs bloom for tipset {}: {e:#}",
@@ -316,11 +316,7 @@ impl StateManager {
             );
         }
 
-        Ok(ExecutedTipset {
-            state_root,
-            receipt_root,
-            executed_messages: Arc::new(executed_messages),
-        })
+        Ok(executed)
     }
 
     /// Conceptually, a [`Tipset`] consists of _blocks_ which share an _epoch_.

@@ -4,6 +4,7 @@
 mod bloom;
 pub(crate) mod errors;
 mod eth_tx;
+pub mod events;
 pub mod filter;
 pub mod pubsub;
 pub(crate) mod pubsub_trait;
@@ -16,6 +17,7 @@ use crate::utils::encoding::hex;
 pub use bloom::Bloom;
 pub(crate) use bloom::store_block_logs_bloom;
 use bloom::{EMPTY_BLOOM, FULL_BLOOM, accrue_eth_log, block_logs_bloom};
+use events::eth_log_from_event;
 pub use tipset_resolver::TipsetResolver;
 use tokio_util::sync::CancellationToken;
 
@@ -77,7 +79,7 @@ use ahash::{HashMap, HashSet};
 use anyhow::{Error, Result, anyhow, bail, ensure};
 use enumflags2::{BitFlags, make_bitflags};
 use filter::{ParsedFilter, ParsedFilterTipsets};
-use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
+use fvm_ipld_encoding::{CBOR, DAG_CBOR, RawBytes};
 use get_size2::GetSize;
 use ipld_core::ipld::Ipld;
 use nonzero_ext::nonzero;
@@ -527,13 +529,9 @@ impl Block {
                 let block_number = EthInt64(tipset.epoch());
                 let block_hash: EthHash = block_cid.into();
 
-                let ExecutedTipset {
-                    state_root,
-                    executed_messages,
-                    ..
-                } = state_manager.load_executed_tipset_for_rpc(&tipset).await?;
-                let has_transactions = !executed_messages.is_empty();
-                let state_tree = state_manager.get_state_tree(&state_root)?;
+                let executed = state_manager.load_executed_tipset_for_rpc(&tipset).await?;
+                let has_transactions = !executed.executed_messages.is_empty();
+                let state_tree = state_manager.get_state_tree(&executed.state_root)?;
 
                 let mut full_transactions = vec![];
                 let mut gas_used = 0;
@@ -542,7 +540,7 @@ impl Block {
                     ExecutedMessage {
                         message, receipt, ..
                     },
-                ) in executed_messages.iter().enumerate()
+                ) in executed.executed_messages.iter().enumerate()
                 {
                     let ti = EthUint64(i as u64);
                     gas_used += receipt.gas_used();
@@ -570,8 +568,7 @@ impl Block {
                     full_transactions.push(tx);
                 }
 
-                let logs_bloom =
-                    block_logs_bloom(state_manager, &tipset, &state_root, &executed_messages)?;
+                let logs_bloom = block_logs_bloom(state_manager, &tipset, &executed)?;
 
                 Ok(Arc::new(Block {
                     hash: block_hash,
@@ -3232,80 +3229,6 @@ pub struct CollectedEvent {
 /// membership checks borrow the tipset key and stores each distinct key only once.
 pub type SeenEventPositions = HashMap<TipsetKey, HashSet<(u64, u64)>>;
 
-fn match_key(key: &str) -> Option<usize> {
-    match key.get(0..2) {
-        Some("t1") => Some(0),
-        Some("t2") => Some(1),
-        Some("t3") => Some(2),
-        Some("t4") => Some(3),
-        _ => None,
-    }
-}
-
-fn eth_log_from_event(entries: &[EventEntry]) -> Option<(EthBytes, Vec<EthHash>)> {
-    let mut topics_found = [false; 4];
-    let mut topics_found_count = 0;
-    let mut data_found = false;
-    let mut data: EthBytes = EthBytes::default();
-    let mut topics: Vec<EthHash> = Vec::default();
-    for entry in entries {
-        // Drop events with non-raw topics. Built-in actors emit CBOR, and anything else would be
-        // invalid anyway.
-        if entry.codec != IPLD_RAW {
-            return None;
-        }
-        // Check if the key is t1..t4
-        if let Some(idx) = match_key(&entry.key) {
-            // Drop events with mis-sized topics.
-            let result: Result<[u8; EVM_WORD_LENGTH], _> = entry.value.0.as_slice().try_into();
-            let bytes = if let Ok(value) = result {
-                value
-            } else {
-                tracing::warn!(
-                    "got an EVM event topic with an invalid size (key: {}, size: {})",
-                    entry.key,
-                    entry.value.0.len()
-                );
-                return None;
-            };
-            // Drop events with duplicate topics.
-            if *topics_found.get(idx).expect("Infallible") {
-                tracing::warn!("got a duplicate EVM event topic (key: {})", entry.key);
-                return None;
-            }
-            *topics_found.get_mut(idx).expect("Infallible") = true;
-            topics_found_count += 1;
-            // Extend the topics array
-            if topics.len() <= idx {
-                topics.resize(idx + 1, EthHash::default());
-            }
-            *topics.get_mut(idx).expect("Infallible") = bytes.into();
-        } else if entry.key == "d" {
-            // Drop events with duplicate data fields.
-            if data_found {
-                tracing::warn!("got duplicate EVM event data");
-                return None;
-            }
-            data_found = true;
-            data = EthBytes(entry.value.0.clone());
-        } else {
-            // Skip entries we don't understand (makes it easier to extend things).
-            // But we warn for now because we don't expect them.
-            tracing::warn!("unexpected event entry (key: {})", entry.key);
-        }
-    }
-    // Drop events with skipped topics.
-    if topics.len() != topics_found_count {
-        tracing::warn!(
-            "EVM event topic length mismatch (expected: {}, actual: {})",
-            topics.len(),
-            topics_found_count
-        );
-        return None;
-    }
-    Some((data, topics))
-}
-
 pub(crate) fn eth_tx_hash_from_signed_message(
     message: &SignedMessage,
     eth_chain_id: EthChainIdType,
@@ -4221,14 +4144,12 @@ async fn trace_filter(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::rpc::eth::EventEntry;
     use crate::rpc::state::{ExecutionTrace, MessageTrace, ReturnTrace};
     use crate::shim::{econ::TokenAmount, error::ExitCode};
     use crate::{
         db::MemoryDB,
         test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
     };
-    use fvm_shared4::event::Flags;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use rstest::rstest;
@@ -4596,262 +4517,6 @@ mod test {
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
         assert!(tx_hash.is_none());
-    }
-
-    #[test]
-    fn test_eth_log_from_event() {
-        // The value member of these event entries correspond to existing topics on Calibnet,
-        // but they could just as easily be vectors filled with random bytes.
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t2".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-        ];
-        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
-        assert!(bytes.0.is_empty());
-        assert_eq!(hashes.len(), 2);
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t2".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t3".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t4".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-        ];
-        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
-        assert!(bytes.0.is_empty());
-        assert_eq!(hashes.len(), 4);
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-        ];
-        assert!(eth_log_from_event(&entries).is_none());
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t3".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t4".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t2".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-        ];
-        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
-        assert!(bytes.0.is_empty());
-        assert_eq!(hashes.len(), 4);
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t3".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    116, 4, 227, 209, 4, 234, 120, 65, 195, 217, 230, 253, 32, 173, 254, 153, 180,
-                    173, 88, 107, 192, 141, 143, 59, 211, 175, 239, 137, 76, 241, 132, 222,
-                ]
-                .into(),
-            },
-        ];
-        assert!(eth_log_from_event(&entries).is_none());
-
-        let entries = vec![EventEntry {
-            flags: (Flags::FLAG_INDEXED_ALL).bits(),
-            key: "t1".into(),
-            codec: DAG_CBOR,
-            value: vec![
-                226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11, 81,
-                29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-            ]
-            .into(),
-        }];
-        assert!(eth_log_from_event(&entries).is_none());
-
-        let entries = vec![EventEntry {
-            flags: (Flags::FLAG_INDEXED_ALL).bits(),
-            key: "t1".into(),
-            codec: IPLD_RAW,
-            value: vec![
-                226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11, 81,
-                29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149, 0,
-            ]
-            .into(),
-        }];
-        assert!(eth_log_from_event(&entries).is_none());
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "d".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
-                    25, 34, 116, 232, 27, 26, 248,
-                ]
-                .into(),
-            },
-        ];
-        let (bytes, hashes) = eth_log_from_event(&entries).unwrap();
-        assert_eq!(bytes.0.len(), 32);
-        assert_eq!(hashes.len(), 1);
-
-        let entries = vec![
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "t1".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    226, 71, 32, 244, 92, 183, 79, 45, 85, 241, 222, 235, 182, 9, 143, 80, 241, 11,
-                    81, 29, 171, 138, 125, 71, 196, 129, 154, 8, 220, 208, 184, 149, 0,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "d".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
-                    25, 34, 116, 232, 27, 26, 248,
-                ]
-                .into(),
-            },
-            EventEntry {
-                flags: (Flags::FLAG_INDEXED_ALL).bits(),
-                key: "d".into(),
-                codec: IPLD_RAW,
-                value: vec![
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 49, 190,
-                    25, 34, 116, 232, 27, 26, 248,
-                ]
-                .into(),
-            },
-        ];
-        assert!(eth_log_from_event(&entries).is_none());
     }
 
     #[test]
