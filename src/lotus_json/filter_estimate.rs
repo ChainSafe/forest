@@ -63,4 +63,4 @@ macro_rules! impl_filter_estimate_lotus_json {
 }
 
 // Implement HasLotusJson for FilterEstimate for all actor versions
-impl_filter_estimate_lotus_json!(14, 15, 16, 17);
+impl_filter_estimate_lotus_json!(14, 15, 16, 17, 18, 19);

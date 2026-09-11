@@ -14,6 +14,7 @@ use fil_actor_market_state::v15::policy::deal_provider_collateral_bounds as deal
 use fil_actor_market_state::v16::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v16;
 use fil_actor_market_state::v17::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v17;
 use fil_actor_market_state::v18::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v18;
+use fil_actor_market_state::v19::policy::deal_provider_collateral_bounds as deal_provider_collateral_bounds_v19;
 use fil_actor_miner_state::v11::initial_pledge_for_power as initial_pledge_for_power_v11;
 use fil_actor_miner_state::v12::initial_pledge_for_power as initial_pledge_for_power_v12;
 use fil_actor_miner_state::v13::initial_pledge_for_power as initial_pledge_for_power_v13;
@@ -22,6 +23,7 @@ use fil_actor_miner_state::v15::initial_pledge_for_power as initial_pledge_for_p
 use fil_actor_miner_state::v16::initial_pledge_for_power as initial_pledge_for_power_v16;
 use fil_actor_miner_state::v17::initial_pledge_for_power as initial_pledge_for_power_v17;
 use fil_actor_miner_state::v18::initial_pledge_for_power as initial_pledge_for_power_v18;
+use fil_actor_miner_state::v19::initial_pledge_for_power as initial_pledge_for_power_v19;
 use fvm_shared2::TOTAL_FILECOIN;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::smooth::FilterEstimate;
@@ -36,6 +38,36 @@ pub const ADDRESS: Address = Address::new_id(2);
 
 /// Reward actor method.
 pub type Method = fil_actor_reward_state::v8::Method;
+
+/// Current-period accrual of one explicit reward stream (actors v19+).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamAccrual {
+    pub id: u64,
+    pub amount: TokenAmount,
+}
+
+macro_rules! from_stream_accrual {
+    ($($type:ty),+ $(,)?) => { $(
+        impl From<$type> for StreamAccrual {
+            fn from(accrual: $type) -> Self {
+                Self {
+                    id: accrual.id,
+                    amount: accrual.amount.into(),
+                }
+            }
+        }
+
+        impl From<StreamAccrual> for $type {
+            fn from(accrual: StreamAccrual) -> Self {
+                Self {
+                    id: accrual.id,
+                    amount: accrual.amount.into(),
+                }
+            }
+        }
+    )+ };
+}
+from_stream_accrual!(fil_actor_reward_state::v19::StreamAccrual);
 
 /// Reward actor state.
 #[delegated_enum(impl_conversions)]
@@ -53,6 +85,7 @@ pub enum State {
     V16(fil_actor_reward_state::v16::State),
     V17(fil_actor_reward_state::v17::State),
     V18(fil_actor_reward_state::v18::State),
+    V19(fil_actor_reward_state::v19::State),
 }
 
 impl State {
@@ -63,14 +96,18 @@ impl State {
         effective_network_time: i64,
         effective_baseline_power: StoragePower,
         this_epoch_reward: fvm_shared4::econ::TokenAmount,
-        this_epoch_reward_smoothed: fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate,
+        this_epoch_reward_smoothed: fil_actors_shared::v19::builtin::reward::smooth::FilterEstimate,
         this_epoch_baseline_power: StoragePower,
         epoch: ChainEpoch,
-        total_storage_power_reward: fvm_shared4::econ::TokenAmount,
-        simple_total: fvm_shared4::econ::TokenAmount,
-        baseline_total: fvm_shared4::econ::TokenAmount,
+        total_minted_reward: fvm_shared4::econ::TokenAmount,
+        total_burn_minted: fvm_shared4::econ::TokenAmount,
+        total_explicit_minted: fvm_shared4::econ::TokenAmount,
+        accrued: Vec<fil_actor_reward_state::v19::StreamAccrual>,
+        swa_timelock_epochs: ChainEpoch,
+        swa_actor: fvm_shared4::address::Address,
+        streams_root: Cid,
     ) -> Self {
-        State::V18(fil_actor_reward_state::v18::State {
+        State::V19(fil_actor_reward_state::v19::State {
             cumsum_baseline,
             cumsum_realized,
             effective_network_time,
@@ -79,15 +116,33 @@ impl State {
             this_epoch_reward_smoothed,
             this_epoch_baseline_power,
             epoch,
-            total_storage_power_reward,
-            simple_total,
-            baseline_total,
+            total_minted_reward,
+            total_burn_minted,
+            total_explicit_minted,
+            accrued,
+            swa_timelock_epochs,
+            swa_actor,
+            streams_root,
         })
     }
 
-    /// Consume state to return just storage power reward
+    /// Consumes the state and returns the total FIL minted as block rewards.
+    /// Actors v19 renamed the field from `total_storage_power_reward` to `total_minted_reward`.
     pub fn into_total_storage_power_reward(self) -> TokenAmount {
-        delegate_state!(self.into_total_storage_power_reward().into())
+        match self {
+            State::V8(st) => st.into_total_storage_power_reward().into(),
+            State::V9(st) => st.into_total_storage_power_reward().into(),
+            State::V10(st) => st.into_total_storage_power_reward().into(),
+            State::V11(st) => st.into_total_storage_power_reward().into(),
+            State::V12(st) => st.into_total_storage_power_reward().into(),
+            State::V13(st) => st.into_total_storage_power_reward().into(),
+            State::V14(st) => st.into_total_storage_power_reward().into(),
+            State::V15(st) => st.into_total_storage_power_reward().into(),
+            State::V16(st) => st.into_total_storage_power_reward().into(),
+            State::V17(st) => st.into_total_storage_power_reward().into(),
+            State::V18(st) => st.into_total_storage_power_reward().into(),
+            State::V19(st) => st.total_minted_reward.into(),
+        }
     }
 
     /// The baseline power the network is targeting at this state's epoch.
@@ -170,6 +225,15 @@ impl State {
             State::V18(st) => Ok(fil_actor_miner_state::v18::pre_commit_deposit_for_power(
                 &st.this_epoch_reward_smoothed,
                 &fil_actors_shared::v18::reward::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                &sector_weight,
+            )
+            .into()),
+            State::V19(st) => Ok(fil_actor_miner_state::v19::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &fil_actors_shared::v19::reward::FilterEstimate {
                     position: network_qa_power.position,
                     velocity: network_qa_power.velocity,
                 },
@@ -318,6 +382,16 @@ impl State {
                 );
                 (min.into(), max.into())
             }
+            State::V19(_) => {
+                let (min, max) = deal_provider_collateral_bounds_v19(
+                    &policy.into(),
+                    size.into(),
+                    raw_byte_power,
+                    baseline_power,
+                    &network_circulating_supply.into(),
+                );
+                (min.into(), max.into())
+            }
         }
     }
 
@@ -452,6 +526,24 @@ impl State {
                         velocity: st.this_epoch_reward_smoothed.velocity.clone(),
                     },
                     &fil_actors_shared::v18::reward::FilterEstimate {
+                        position: network_qa_power.position,
+                        velocity: network_qa_power.velocity,
+                    },
+                    &circ_supply.into(),
+                    epochs_since_ramp_start,
+                    ramp_duration_epochs,
+                );
+                Ok(pledge.into())
+            }
+            State::V19(st) => {
+                let pledge = initial_pledge_for_power_v19(
+                    qa_power,
+                    &st.this_epoch_baseline_power,
+                    &fil_actors_shared::v19::reward::FilterEstimate {
+                        position: st.this_epoch_reward_smoothed.position.clone(),
+                        velocity: st.this_epoch_reward_smoothed.velocity.clone(),
+                    },
+                    &fil_actors_shared::v19::reward::FilterEstimate {
                         position: network_qa_power.position,
                         velocity: network_qa_power.velocity,
                     },
