@@ -871,9 +871,7 @@ mod tests {
         assert_eq!(invocation.method_num, EVMMethod::InvokeContract as u64);
         assert_eq!(
             invocation.params.to_vec(),
-            crate::eth::get_filecoin_method_info(Some(&eth), &calldata)
-                .unwrap()
-                .params
+            crate::eth::encode_evm_params(&calldata).unwrap()
         );
     }
 

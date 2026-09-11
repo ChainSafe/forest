@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
 
+use crate::rpc::eth::types::EthAddress;
 use crate::rpc::prelude::*;
 use crate::rpc::types::{ApiTipsetKey, MessageLookup};
 use crate::rpc::{Client, humanize_rpc_error};
@@ -177,19 +178,20 @@ pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
 /// Imports `from` from the Lotus keystore into Forest's remote wallet when needed.
 pub async fn wallet_send_calldata(
     from: &str,
-    to: &str,
+    to: &EthAddress,
     calldata: &[u8],
     gas_limit: u64,
 ) -> anyhow::Result<Cid> {
     if wallet(Backend::Remote, &["has", from])? != "true" {
         import_lotus_wallet_into_forest(from)?;
     }
+    let to_hex = hex::encode_prefixed(to.0.as_bytes());
     let params = hex::encode(calldata);
     let gas = gas_limit.to_string();
     let out = wallet_send(
         Backend::Remote,
         from,
-        to,
+        &to_hex,
         "0",
         &["--params-hex", params.as_str(), "--gas-limit", gas.as_str()],
         true,

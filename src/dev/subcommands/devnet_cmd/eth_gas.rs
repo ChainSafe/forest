@@ -18,7 +18,7 @@ use crate::rpc::eth::{
 };
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
-use crate::utils::encoding::{hex, keccak_256};
+use crate::utils::encoding::keccak_256;
 use anyhow::{Context as _, ensure};
 use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
@@ -99,14 +99,9 @@ fn recurse_calldata(depth: u64) -> Vec<u8> {
     out
 }
 
-/// Deployed `NestedGas` ETH address for JSON-RPC and `forest-wallet send`.
-struct Deployed {
-    eth: EthAddress,
-}
-
 /// Deploys `NestedGas` once per process.
-async fn contract() -> anyhow::Result<&'static Deployed> {
-    static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
+async fn contract() -> anyhow::Result<&'static EthAddress> {
+    static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| async {
             let from = sender().await?;
@@ -116,9 +111,7 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
             poll_until_actor_on("forest", f4, forest_client).await?;
             poll_until_actor_on("lotus", f4, lotus_client).await?;
             poll_until_next_epoch().await?;
-            anyhow::Ok(Deployed {
-                eth: EthAddress::from_filecoin_address(&f4)?,
-            })
+            EthAddress::from_filecoin_address(&f4)
         })
         .await
 }
@@ -141,7 +134,7 @@ async fn sender() -> anyhow::Result<&'static str> {
             let parsed = Address::from_str(&addr).context("parsing the sender address")?;
             poll_until_actor_on("lotus", parsed, lotus_client).await?;
             import_lotus_wallet_into_forest(&addr)?;
-            Ok(addr)
+            anyhow::Ok(addr)
         })
         .await?
         .as_str())
@@ -152,11 +145,11 @@ async fn estimate(
     calldata: Vec<u8>,
     block: BlockNumberOrHash,
 ) -> anyhow::Result<u64> {
-    let (from, deployed) = tokio::try_join!(sender(), contract())?;
+    let (from, to) = tokio::try_join!(sender(), contract())?;
     let from = Address::from_str(from).context("parsing the sender address")?;
     let msg = EthCallMessage {
         from: Some(EthAddress::from_filecoin_address(&from)?),
-        to: Some(deployed.eth),
+        to: Some(*to),
         data: Some(EthBytes(calldata)),
         ..Default::default()
     };
@@ -192,7 +185,7 @@ async fn poll_until_next_epoch() -> anyhow::Result<()> {
 /// height only after the deploy/fund guarantees the pinned tipset already contains the contract and
 /// sender on both nodes (the funding poll also lets both catch up to the deploy).
 async fn pinned_common_block() -> anyhow::Result<(Client, Client, i64)> {
-    tokio::try_join!(contract(), sender())?;
+    contract().await?;
     let (forest_c, lotus_c) = (forest_client()?, lotus_client()?);
     let block = common_block_number(&forest_c, &lotus_c).await?;
     Ok((forest_c, lotus_c, block))
@@ -241,17 +234,21 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
     )
     .await?;
     let from = sender().await?;
-    let target = hex::encode_prefixed(contract().await?.eth.0.as_bytes());
     // `forest-wallet send` infers `InvokeContract` and CBOR-wraps the params when the sender is an
     // eth account, and rejects an explicit `--method`, so pass the bare calldata.
-    let cid = wallet_send_calldata(from, &target, &recurse_calldata(NESTED_DEPTH), estimate)
-        .await
-        .with_context(|| {
-            format!(
-                "a transaction submitted at forest's own eth_estimateGas value ({estimate}) failed \
+    let cid = wallet_send_calldata(
+        from,
+        contract().await?,
+        &recurse_calldata(NESTED_DEPTH),
+        estimate,
+    )
+    .await
+    .with_context(|| {
+        format!(
+            "a transaction submitted at forest's own eth_estimateGas value ({estimate}) failed \
              on chain; the estimate is not a usable gas limit"
-            )
-        })?;
+        )
+    })?;
     eprintln!("submitted at forest's estimate {estimate}: {cid}");
     Ok(())
 }
