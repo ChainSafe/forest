@@ -90,7 +90,6 @@ jobs:
       matrix:
         # run mainnet only when scheduled, `Release`-labelled pull requests and manual dispatches
         chain: ${{ fromJSON((github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'Release')) && '["calibnet", "mainnet"]' || '["calibnet"]') }}
-    timeout-minutes: ${{ matrix.chain == 'mainnet' && 330 || 90 }}
     env:
       FOREST_CHAIN: ${{ matrix.chain }}
     defaults:
@@ -119,6 +118,7 @@ jobs:
         run: |
           echo "FOREST_IMAGE=${FOREST_IMAGE_INPUT}" >> "$GITHUB_ENV"
       - name: Run the RPC checks
+        timeout-minutes: ${{ matrix.chain == 'mainnet' && 180 || 60 }}
         run: ./setup.sh
       - name: Dump docker logs
         if: always()
