@@ -1144,6 +1144,7 @@ Usage: forest-cli evm <COMMAND>
 
 Commands:
   deploy  Deploy an EVM smart contract and return its address
+  invoke  Invoke an EVM smart contract using the specified calldata
   call    Simulate an eth contract call
   help    Print this message or the help of the given subcommand(s)
 
@@ -1166,6 +1167,23 @@ Options:
       --hex          Use when input contract is in hex
       --wait <WAIT>  Wait for message execution before returning (default: true) [possible values: true, false]
   -h, --help         Print help
+```
+
+### `forest-cli evm invoke`
+
+```
+Invoke an EVM smart contract using the specified calldata
+
+Usage: forest-cli evm invoke [OPTIONS] <ADDRESS> <CALLDATA>
+
+Arguments:
+  <ADDRESS>   Filecoin address of the contract
+  <CALLDATA>  Hex-encoded ABI calldata
+
+Options:
+      --from <FROM>    Optionally specify the account to use for sending the exec message
+      --value <VALUE>  Value to send with the invocation message (human FIL amount, e.g. `1FIL`, `1attoFIL`) [default: 0]
+  -h, --help           Print help
 ```
 
 ### `forest-cli evm call`
