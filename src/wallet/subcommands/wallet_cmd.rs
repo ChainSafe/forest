@@ -322,7 +322,7 @@ pub enum WalletCommands {
         /// Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs.
         #[arg(long, requires = "wait_confidence", value_parser = humantime::parse_duration)]
         wait_timeout: Option<Duration>,
-        /// Specify method to invoke (default: 0)
+        /// Specify method to invoke (default 0; selected automatically for ETH)
         #[arg(long)]
         method: Option<u64>,
         /// Specify invocation parameters in hex

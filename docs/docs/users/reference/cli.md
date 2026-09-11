@@ -342,7 +342,7 @@ Options:
       --wait-timeout <WAIT_TIMEOUT>
           Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs
       --method <METHOD>
-          Specify method to invoke (default: 0)
+          Specify method to invoke (default 0; selected automatically for ETH)
       --params-hex <PARAMS_HEX>
           Specify invocation parameters in hex
   -h, --help
