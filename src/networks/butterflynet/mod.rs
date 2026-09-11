@@ -14,8 +14,8 @@ use crate::{
 };
 
 use super::{
-    DrandPoint, Height, HeightInfo, NetworkChain, actors_bundle::ACTOR_BUNDLES_METADATA,
-    drand::DRAND_QUICKNET, parse_bootstrap_peers,
+    DrandPoint, Height, HeightInfo, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED,
+    actors_bundle::ACTOR_BUNDLES_METADATA, drand::DRAND_QUICKNET, parse_bootstrap_peers,
 };
 
 /// Well-known network names.
@@ -108,6 +108,7 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         make_height!(Tock, -29),
         make_height!(GoldenWeek, -30),
         make_height!(FireHorse, 1440, get_bundle_cid("v18.0.0")),
+        make_height!(Solstice, UPGRADE_HEIGHT_UNSCHEDULED),
     ])
 });
 

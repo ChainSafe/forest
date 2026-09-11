@@ -37,6 +37,8 @@
 
 - [#7594](https://github.com/ChainSafe/forest/pull/7594): `forest-cli index backfill` now defaults `--recompute` to true and exits with an error if any tipsets were skipped.
 
+- [#7552](https://github.com/ChainSafe/forest/issues/7552): `Filecoin.StateGetNetworkParams` now reports `UpgradeSolsticeHeight` (NV29) in place of the `UpgradeXxHeight` placeholder, matching Lotus. The upgrade is not scheduled on any network yet.
+
 ### Removed
 
 ### Fixed

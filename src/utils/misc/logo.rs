@@ -33,6 +33,7 @@ pub fn reveal_upgrade_logo(network_version: NetworkVersion) {
         NetworkVersion::V25 => reveal_teep_upgrade(),
         NetworkVersion::V27 => reveal_golden_week_upgrade(),
         NetworkVersion::V28 => reveal_fire_horse_upgrade(),
+        NetworkVersion::V29 => reveal_solstice_upgrade(),
         _ => reveal_three_trees(),
     }
 }
@@ -250,6 +251,21 @@ fn reveal_fire_horse_upgrade() {
 //  //   '--; 
 '   \     | ^
      ^    ^
+        "###
+    );
+}
+
+/// Reveals the sun standing still on the horizon.
+fn reveal_solstice_upgrade() {
+    info!(
+        r###"
+                \   |   /
+          `.     \  |  /     .'
+            `-.   \ | /   .-'
+     - - - - -  .-'''''-.  - - - - -
+               (         )
+    ~~~~~~~~~~~~`-._____.-'~~~~~~~~~~~~
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         "###
     );
 }

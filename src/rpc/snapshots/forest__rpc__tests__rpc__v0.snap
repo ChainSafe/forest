@@ -3373,7 +3373,7 @@ methods:
         $ref: "#/components/schemas/MinerInfo"
     paramStructure: by-position
   - name: Filecoin.StateMinerInitialPledgeCollateral
-    description: "Returns the initial pledge collateral for the specified miner's sector."
+    description: "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the value is far too low; use StateMinerInitialPledgeForSector instead."
     params:
       - name: minerAddress
         required: true
@@ -3963,7 +3963,7 @@ methods:
         $ref: "#/components/schemas/MessageLookup"
     paramStructure: by-position
   - name: Filecoin.StateMinerInitialPledgeForSector
-    description: "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset."
+    description: "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset. From NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals: pass the full sector size as verifiedSize to get the pledge the network charges."
     params:
       - name: sectorDuration
         required: true
@@ -6703,6 +6703,9 @@ components:
         UpgradeSmokeHeight:
           type: integer
           format: int64
+        UpgradeSolsticeHeight:
+          type: integer
+          format: int64
         UpgradeTapeHeight:
           type: integer
           format: int64
@@ -6728,9 +6731,6 @@ components:
           type: integer
           format: int64
         UpgradeWatermelonHeight:
-          type: integer
-          format: int64
-        UpgradeXxHeight:
           type: integer
           format: int64
       required:
@@ -6767,7 +6767,7 @@ components:
         - UpgradeTockHeight
         - UpgradeGoldenWeekHeight
         - UpgradeFireHorseHeight
-        - UpgradeXxHeight
+        - UpgradeSolsticeHeight
     GasTrace:
       type: object
       properties:

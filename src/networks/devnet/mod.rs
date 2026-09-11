@@ -169,6 +169,10 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
             get_upgrade_height_from_env("FOREST_FIREHORSE_HEIGHT").unwrap_or(9999999999),
             get_bundle_cid("v18.0.0")
         ),
+        make_height!(
+            Solstice,
+            get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(9999999999)
+        ),
     ])
 });
 
