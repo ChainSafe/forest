@@ -469,20 +469,25 @@ pub struct MethodInfo {
     pub params: Vec<u8>,
 }
 
+/// CBOR-encode ABI calldata as an FVM byte array (`InvokeContract` / `CreateExternal` params).
+/// Empty input stays empty (no CBOR wrapper).
+pub fn encode_evm_params(input: &[u8]) -> anyhow::Result<Vec<u8>> {
+    if input.is_empty() {
+        return Ok(Vec::new());
+    }
+    cbor4ii::serde::to_vec(
+        Vec::with_capacity(input.len()),
+        &Value::Bytes(input.to_vec()),
+    )
+    .context("failed to encode params")
+}
+
 /// Retrieves method info
 pub fn get_filecoin_method_info(
     recipient: Option<&EthAddress>,
     input: &[u8],
 ) -> anyhow::Result<MethodInfo> {
-    let params = if !input.is_empty() {
-        cbor4ii::serde::to_vec(
-            Vec::with_capacity(input.len()),
-            &Value::Bytes(input.to_vec()),
-        )
-        .context("failed to encode params")?
-    } else {
-        Vec::new()
-    };
+    let params = encode_evm_params(input)?;
 
     let (to, method) = match recipient {
         None => {

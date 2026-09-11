@@ -341,6 +341,10 @@ Options:
           Wait for the message to be on chain with the given confidence by calling `StateWaitMsg`. The command waits until the message has been on chain for at least `confidence` epochs
       --wait-timeout <WAIT_TIMEOUT>
           Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs
+      --method <METHOD>
+          Specify method to invoke (default 0; selected automatically for ETH)
+      --params-hex <PARAMS_HEX>
+          Specify invocation parameters in hex
   -h, --help
           Print help
 ```
