@@ -25,6 +25,7 @@ mod nv25;
 mod nv26fix;
 mod nv27;
 mod nv28;
+mod nv29;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &DB, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
