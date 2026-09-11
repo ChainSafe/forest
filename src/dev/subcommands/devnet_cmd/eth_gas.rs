@@ -20,7 +20,6 @@ use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::utils::encoding::{hex, keccak_256};
 use anyhow::{Context as _, ensure};
-use cid::Cid;
 use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::str::FromStr as _;
@@ -100,10 +99,9 @@ fn recurse_calldata(depth: u64) -> Vec<u8> {
     out
 }
 
-/// Deployed `NestedGas` addresses: `eth` for the JSON-RPC calls, `f4` as the `lotus send` target.
+/// Deployed `NestedGas` ETH address for JSON-RPC and `forest-wallet send`.
 struct Deployed {
     eth: EthAddress,
-    f4: Address,
 }
 
 /// Deploys `NestedGas` once per process.
@@ -111,8 +109,8 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
     static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| async {
-            let from = sender_addr().await?.to_string();
-            let deploy = forest_evm_deploy_hex(&from, NESTED_GAS_HEX)?;
+            let from = sender().await?;
+            let deploy = forest_evm_deploy_hex(from, NESTED_GAS_HEX)?;
             let f4 = parse_f4_from_evm_deploy(&deploy)?;
             eprintln!("deployed NestedGas at {f4}");
             poll_until_actor_on("forest", f4, forest_client).await?;
@@ -120,17 +118,15 @@ async fn contract() -> anyhow::Result<&'static Deployed> {
             poll_until_next_epoch().await?;
             anyhow::Ok(Deployed {
                 eth: EthAddress::from_filecoin_address(&f4)?,
-                f4,
             })
         })
         .await
 }
 
-/// An `f4` sender funded well enough to afford the gas limits under test. Lotus rejects
-/// estimation from an unfunded or non-`f4` sender, so both properties are required.
-async fn sender_addr() -> anyhow::Result<&'static Address> {
-    static SENDER: OnceCell<Address> = OnceCell::const_new();
-    SENDER
+/// Funded delegated sender. Lotus rejects estimates from an unfunded or non-`f4` address.
+async fn sender() -> anyhow::Result<&'static str> {
+    static SENDER: OnceCell<String> = OnceCell::const_new();
+    Ok(SENDER
         .get_or_try_init(|| async {
             let addr = lotus_exec(&["wallet", "new", "delegated"])?;
             let msg = send_from(
@@ -142,12 +138,13 @@ async fn sender_addr() -> anyhow::Result<&'static Address> {
             eprintln!("funding sender {addr} with {SENDER_FUND_AMT}, msg: {msg}");
             let balance = poll_until_funded(&addr, Backend::Local).await?;
             eprintln!("sender {addr} funded balance: {balance}");
-            let sender = Address::from_str(&addr).context("parsing the sender address")?;
-            poll_until_actor_on("lotus", sender, lotus_client).await?;
+            let parsed = Address::from_str(&addr).context("parsing the sender address")?;
+            poll_until_actor_on("lotus", parsed, lotus_client).await?;
             import_lotus_wallet_into_forest(&addr)?;
-            Ok(sender)
+            Ok(addr)
         })
-        .await
+        .await?
+        .as_str())
 }
 
 async fn estimate(
@@ -155,9 +152,10 @@ async fn estimate(
     calldata: Vec<u8>,
     block: BlockNumberOrHash,
 ) -> anyhow::Result<u64> {
-    let (sender, deployed) = tokio::try_join!(sender_addr(), contract())?;
+    let (from, deployed) = tokio::try_join!(sender(), contract())?;
+    let from = Address::from_str(from).context("parsing the sender address")?;
     let msg = EthCallMessage {
-        from: Some(EthAddress::from_filecoin_address(sender)?),
+        from: Some(EthAddress::from_filecoin_address(&from)?),
         to: Some(deployed.eth),
         data: Some(EthBytes(calldata)),
         ..Default::default()
@@ -194,7 +192,7 @@ async fn poll_until_next_epoch() -> anyhow::Result<()> {
 /// height only after the deploy/fund guarantees the pinned tipset already contains the contract and
 /// sender on both nodes (the funding poll also lets both catch up to the deploy).
 async fn pinned_common_block() -> anyhow::Result<(Client, Client, i64)> {
-    tokio::try_join!(contract(), sender_addr())?;
+    tokio::try_join!(contract(), sender())?;
     let (forest_c, lotus_c) = (forest_client()?, lotus_client()?);
     let block = common_block_number(&forest_c, &lotus_c).await?;
     Ok((forest_c, lotus_c, block))
@@ -235,46 +233,26 @@ async fn estimate_agrees(depth: u64) -> anyhow::Result<()> {
 async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
     let forest = forest_client()?;
     // No cross-node comparison here, so `Latest` is fine: the estimate must reflect the same
-    // fresh state the following `lotus send` executes against.
+    // fresh state the following `forest-wallet send` executes against.
     let estimate = estimate(
         &forest,
         recurse_calldata(NESTED_DEPTH),
         BlockNumberOrHash::PredefinedBlock(Predefined::Latest),
     )
     .await?;
-    let sender = sender_addr().await?.to_string();
-    let target = contract().await?.f4.to_string();
-    let params = hex::encode(recurse_calldata(NESTED_DEPTH));
-    let gas_limit = estimate.to_string();
-    // `lotus send` infers `InvokeContract` and CBOR-wraps the params when the sender is an
-    // eth account, and rejects an explicit `--method`, so pass the bare calldata. Retry the
-    // submit while Lotus's mpool briefly lags the freshly funded sender.
-    let out = lotus_exec_retrying_transient(&[
-        "send",
-        "--from",
-        &sender,
-        "--params-hex",
-        &params,
-        "--gas-limit",
-        &gas_limit,
-        &target,
-        "0",
-    ])
-    .await?;
-    let cid = out
-        .lines()
-        .last()
-        .context("no cid from `lotus send`")?
-        .trim();
+    let from = sender().await?;
+    let target = hex::encode_prefixed(contract().await?.eth.0.as_bytes());
+    // `forest-wallet send` infers `InvokeContract` and CBOR-wraps the params when the sender is an
+    // eth account, and rejects an explicit `--method`, so pass the bare calldata.
+    let cid = wallet_send_calldata(from, &target, &recurse_calldata(NESTED_DEPTH), estimate)
+        .await
+        .with_context(|| {
+            format!(
+                "a transaction submitted at forest's own eth_estimateGas value ({estimate}) failed \
+             on chain; the estimate is not a usable gas limit"
+            )
+        })?;
     eprintln!("submitted at forest's estimate {estimate}: {cid}");
-
-    let lookup = poll_until_message_executed(&forest, Cid::from_str(cid)?).await?;
-    let exit = lookup.receipt.exit_code();
-    ensure!(
-        exit.is_success(),
-        "a transaction submitted at forest's own eth_estimateGas value ({estimate}) failed \
-         on chain with exit code {exit}; the estimate is not a usable gas limit"
-    );
     Ok(())
 }
 

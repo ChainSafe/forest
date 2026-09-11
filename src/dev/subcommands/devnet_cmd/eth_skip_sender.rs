@@ -25,7 +25,6 @@ use crate::shim::econ::TokenAmount;
 use crate::shim::state_tree::ActorState;
 use crate::utils::encoding::{hex, keccak_256};
 use anyhow::{Context as _, ensure};
-use cid::Cid;
 use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::str::FromStr as _;
@@ -193,7 +192,7 @@ fn latest() -> BlockNumberOrHash {
     BlockNumberOrHash::PredefinedBlock(Predefined::Latest)
 }
 
-/// Deployed EVM actor: `eth` for JSON-RPC, `f4` for `lotus send` / `StateGetActor`.
+/// Deployed EVM actor: `eth` for JSON-RPC and `forest-wallet send`, `f4` for `StateGetActor`.
 #[derive(Clone, Copy)]
 struct Deployed {
     eth: EthAddress,
@@ -346,52 +345,6 @@ async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> 
     eprintln!("{cli_addr} funded on forest, balance: {balance}");
     poll_until_actor_on("lotus", addr, lotus_client).await?;
     Ok(addr)
-}
-
-async fn wait_for_cid(forest: &Client, cid: Cid) -> anyhow::Result<()> {
-    let lookup = poll_until_message_executed(forest, cid).await?;
-    let exit = lookup.receipt.exit_code();
-    ensure!(
-        exit.is_success(),
-        "message {cid} failed on chain with exit code {exit}"
-    );
-    Ok(())
-}
-
-async fn lotus_send(
-    from: &Address,
-    to: &Address,
-    calldata: &[u8],
-    gas_limit: u64,
-) -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let from_s = from.to_string();
-    let to_s = to.to_string();
-    let params = hex::encode(calldata);
-    let gas = gas_limit.to_string();
-    let out = lotus_exec_retrying_transient(&[
-        "send",
-        "--from",
-        from_s.as_str(),
-        "--params-hex",
-        params.as_str(),
-        "--gas-limit",
-        gas.as_str(),
-        to_s.as_str(),
-        "0",
-    ])
-    .await?;
-    let cid = Cid::from_str(
-        out.lines()
-            .last()
-            .context("no cid from `lotus send`")?
-            .trim(),
-    )?;
-    eprintln!("submitted at estimate {gas_limit}: {cid}");
-    wait_for_cid(&forest, cid)
-        .await
-        .with_context(|| format!("transaction submitted at eth_estimateGas {gas_limit} failed"))?;
-    Ok(())
 }
 
 async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<()> {
@@ -902,7 +855,15 @@ async fn round_trip_from_unfunded() -> anyhow::Result<()> {
         actor.sequence
     );
 
-    lotus_send(&from.f4, &coin.f4, &calldata, gas).await?;
+    let cid = wallet_send_calldata(
+        &from.cli,
+        &hex::encode_prefixed(coin.eth.0.as_bytes()),
+        &calldata,
+        gas,
+    )
+    .await
+    .with_context(|| format!("transaction submitted at eth_estimateGas {gas} failed"))?;
+    eprintln!("submitted at estimate {gas}: {cid}");
     let after = get_actor(&forest, from.f4)
         .await?
         .with_context(|| format!("actor {} missing after successful submit", from.f4))?;
@@ -955,7 +916,15 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
     );
 
     fund_on_chain(&from.cli, RECURSIVE_FUND_AMT).await?;
-    lotus_send(&from.f4, &nested.f4, &calldata, gas).await
+    wallet_send_calldata(
+        &from.cli,
+        &hex::encode_prefixed(nested.eth.0.as_bytes()),
+        &calldata,
+        gas,
+    )
+    .await
+    .with_context(|| format!("transaction submitted at eth_estimateGas {gas} failed"))?;
+    Ok(())
 }
 
 async fn call_sender_identity() -> anyhow::Result<()> {

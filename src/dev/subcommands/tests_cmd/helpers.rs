@@ -8,7 +8,7 @@ use std::str::FromStr as _;
 use std::sync::LazyLock;
 use std::time::Duration;
 
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
 use cid::Cid;
 use jsonrpsee::core::ClientError;
 use serde_json::{Value, json};
@@ -22,6 +22,7 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::ActorState;
 use crate::state_manager::FAILED_TO_LOAD_MESSAGE;
+use crate::utils::encoding::hex;
 
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
@@ -124,7 +125,7 @@ pub fn balance(address: &str, backend: Backend) -> anyhow::Result<String> {
 /// Send with `--from`. `backend` chooses the signing keystore
 /// (local file vs `--remote-wallet`).
 pub fn send_from(from: &str, to: &str, amount: &str, backend: Backend) -> anyhow::Result<String> {
-    send_from_and_maybe_wait(from, to, amount, backend, true)
+    wallet_send(backend, from, to, amount, &[], true)
 }
 
 pub fn send_from_no_wait(
@@ -133,21 +134,67 @@ pub fn send_from_no_wait(
     amount: &str,
     backend: Backend,
 ) -> anyhow::Result<String> {
-    send_from_and_maybe_wait(from, to, amount, backend, false)
+    wallet_send(backend, from, to, amount, &[], false)
 }
 
-fn send_from_and_maybe_wait(
+/// `forest-wallet send` with optional extra flags. When `wait` is set, uses
+/// `--wait-confidence 0 --wait-timeout 10m`.
+pub fn wallet_send(
+    backend: Backend,
     from: &str,
     to: &str,
     amount: &str,
-    backend: Backend,
+    extra: &[&str],
     wait: bool,
 ) -> anyhow::Result<String> {
     let mut args = vec!["send", to, amount, "--from", from];
+    args.extend_from_slice(extra);
     if wait {
         args.extend(["--wait-confidence", "0", "--wait-timeout", "10m"]);
     }
     wallet(backend, &args)
+}
+
+/// Parse the CID from `forest-wallet send` and require a successful on-chain receipt.
+/// `send` with `--wait-confidence` already waited for inclusion; this checks the exit code.
+pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
+    let cid = Cid::from_str(
+        out.lines()
+            .last()
+            .context("no cid from `forest-wallet send`")?
+            .trim(),
+    )?;
+    let lookup = poll_until_message_executed(&forest_client()?, cid).await?;
+    let exit = lookup.receipt.exit_code();
+    ensure!(
+        exit.is_success(),
+        "message {cid} failed on chain with exit code {exit}"
+    );
+    Ok(cid)
+}
+
+/// Submit an EVM contract call via `forest-wallet send --params-hex`.
+/// Imports `from` from the Lotus keystore into Forest's remote wallet when needed.
+pub async fn wallet_send_calldata(
+    from: &str,
+    to: &str,
+    calldata: &[u8],
+    gas_limit: u64,
+) -> anyhow::Result<Cid> {
+    if wallet(Backend::Remote, &["has", from])? != "true" {
+        import_lotus_wallet_into_forest(from)?;
+    }
+    let params = hex::encode(calldata);
+    let gas = gas_limit.to_string();
+    let out = wallet_send(
+        Backend::Remote,
+        from,
+        to,
+        "0",
+        &["--params-hex", params.as_str(), "--gas-limit", gas.as_str()],
+        true,
+    )?;
+    assert_send_ok(&out).await
 }
 
 /// Max attempts for [`rpc_call_with_retry`].
@@ -225,34 +272,6 @@ pub async fn poll_until_actor_on(
 ) -> anyhow::Result<ActorState> {
     poll(&format!("{node} StateGetActor {addr}"), || async {
         get_actor(&make_client()?, addr).await
-    })
-    .await
-}
-
-/// True for a `lotus` CLI failure that clears once the node catches up to the funding block (the
-/// Lotus node trails Forest by a block on the forest-produced devnet).
-fn is_transient_lotus_error(e: &anyhow::Error) -> bool {
-    let msg = format!("{e:#}");
-    [
-        "check has failed",
-        "failed to get nonce from mempool",
-        "actor not found",
-        "resolution lookup failed",
-        "not enough funds",
-    ]
-    .iter()
-    .any(|s| msg.contains(s))
-}
-
-/// Run a `lotus` command, retrying while it fails with a transient error (see
-/// [`is_transient_lotus_error`]). Any other failure propagates immediately.
-pub async fn lotus_exec_retrying_transient(args: &[&str]) -> anyhow::Result<String> {
-    poll(&format!("lotus {}", args.join(" ")), || async {
-        match lotus_exec(args) {
-            Ok(out) => Ok(Some(out)),
-            Err(e) if is_transient_lotus_error(&e) => Ok(None),
-            Err(e) => Err(e),
-        }
     })
     .await
 }
