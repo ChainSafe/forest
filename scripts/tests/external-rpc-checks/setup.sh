@@ -10,11 +10,14 @@ pushd "${PARENT_PATH}"
 # This should not be needed in GH. It is useful for running locally.
 docker compose down --remove-orphans --volumes
 
-# Imports the snapshot and back-fills the index, recording the head epoch.
+# Imports the snapshot and back-fills the index, recording the range it covered.
 docker compose run --rm init
-SNAPSHOT_EPOCH="$(docker compose run --rm --no-TTY --entrypoint cat init /data/snapshot-epoch)"
-START=$((SNAPSHOT_EPOCH - 1000))
-END=$((SNAPSHOT_EPOCH - 1))
+CHECK_RANGE="$(docker compose run --rm --no-TTY --entrypoint cat init /data/check-range)"
+read -r START END <<< "${CHECK_RANGE}"
+[[ ${START} =~ ^[0-9]+$ && ${END} =~ ^[0-9]+$ ]] || {
+  echo "init did not report a usable epoch range: ${CHECK_RANGE}"
+  exit 1
+}
 
 docker compose up --detach --wait forest
 
