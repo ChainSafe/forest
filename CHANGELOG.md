@@ -29,11 +29,19 @@
 
 ### Added
 
+- [#7471](https://github.com/ChainSafe/forest/issues/7471): Implement `forest-cli evm deploy` and `forest-cli evm call`.
+
+- [#7595](https://github.com/ChainSafe/forest/pull/7595): Implement `forest-cli evm invoke`.
+
 ### Changed
+
+- [#7594](https://github.com/ChainSafe/forest/pull/7594): `forest-cli index backfill` now defaults `--recompute` to true and exits with an error if any tipsets were skipped.
 
 ### Removed
 
 ### Fixed
+
+- [#7579](https://github.com/ChainSafe/forest/issues/7579): `forest-tool index backfill` now downloads the Filecoin proof parameters before running.
 
 ## Forest v0.36.1 "Kaaguy"
 

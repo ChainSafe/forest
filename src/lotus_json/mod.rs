@@ -411,7 +411,11 @@ pub mod hexify_vec_bytes {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let s = Cow::from(s.strip_prefix("0x").unwrap_or(&s));
+        let s = Cow::from(
+            s.strip_prefix("0x")
+                .or_else(|| s.strip_prefix("0X"))
+                .unwrap_or(&s),
+        );
 
         // Pad with 0 if odd length. This is necessary because decoding requires an even
         // number of characters, whereas a valid input is also `0x0`.
@@ -724,6 +728,7 @@ mod tests {
             ("0xF", vec![15]),
             ("0x2a42", vec![42, 66]),
             ("0x2A42", vec![42, 66]),
+            ("0X2a42", vec![42, 66]),
         ];
 
         for (input, expected) in cases.into_iter() {
