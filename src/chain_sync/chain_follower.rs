@@ -537,7 +537,7 @@ fn handle_drand_entry(
     });
 }
 
-/// drand gossipsub is stale when no entry has ever been
+/// `drand` `gossipsub` is stale when no entry has ever been
 /// verified (`last_seen == 0`), or the last one is at least a deadline old.
 fn drand_gossip_is_stale(last_seen: u64, now: u64, deadline_secs: u64) -> bool {
     last_seen == 0 || now.saturating_sub(last_seen) >= deadline_secs
@@ -1469,7 +1469,6 @@ mod tests {
     use crate::utils::db::CborStoreExt as _;
     use num_bigint::BigInt;
     use num_traits::ToPrimitive;
-    use std::assert_matches;
     use std::sync::Arc;
     use tracing::level_filters::LevelFilter;
     use tracing_subscriber::EnvFilter;
