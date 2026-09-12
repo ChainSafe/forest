@@ -65,7 +65,7 @@ use jsonrpsee::{
     ConnectionId, MethodResponse, MethodSink,
     server::{
         IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
-        ResponsePayload,
+        ResponsePayload, SubscriptionPermit,
     },
     types::{ErrorObjectOwned, Id, Params, error::ErrorCode},
 };
@@ -83,34 +83,61 @@ pub const CANCEL_METHOD_NAME: &str = "xrpc.cancel";
 
 pub type ChannelId = u64;
 
-/// Type-alias for subscribers.
+/// Type-alias for subscribers: request id -> (connection sink, unsubscribe
+/// receiver, channel id).
+///
+/// Dropping the receiver is what closes the channel — it fires the matching
+/// [`IsUnsubscribed`] sender, which wakes the channel's pump.
 pub type Subscribers =
     Arc<Mutex<HashMap<(ConnectionId, Id<'static>), (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
 
-/// Represents a single subscription that is waiting to be accepted or rejected.
-///
-/// If this is dropped without calling `PendingSubscription::reject` or `PendingSubscriptionSink::accept`
-/// a default error is sent out as response to the subscription call.
-///
-/// Thus, if you want a customized error message then `PendingSubscription::reject` must be called.
+/// Owns one channel's entry in the subscriber registry and removes it on drop,
+/// unless a newer channel has since reused the same request id.
 #[derive(Debug)]
-#[must_use = "PendingSubscriptionSink does nothing unless `accept` or `reject` is called"]
+pub(crate) struct ChannelRegistration {
+    subscribers: Subscribers,
+    connection_id: ConnectionId,
+    request_id: Id<'static>,
+    channel_id: ChannelId,
+}
+
+impl Drop for ChannelRegistration {
+    fn drop(&mut self) {
+        let key = (self.connection_id, self.request_id.clone());
+        let mut subscribers = self.subscribers.lock();
+        if subscribers
+            .get(&key)
+            .is_some_and(|(_, _, channel_id)| *channel_id == self.channel_id)
+        {
+            subscribers.remove(&key);
+        }
+    }
+}
+
+/// Represents a single subscription that is waiting to be accepted.
+///
+/// Dropping this without calling [`PendingSubscriptionSink::accept`] answers the
+/// subscribe call with an internal error and removes the channel's registry
+/// entry.
+#[derive(Debug)]
+#[must_use = "PendingSubscriptionSink does nothing unless `accept` is called"]
 pub struct PendingSubscriptionSink {
     /// Sink.
     pub(crate) inner: MethodSink,
     /// `MethodCallback`.
     pub(crate) method: &'static str,
-    /// Shared Mutex of subscriptions for this method.
-    pub(crate) subscribers: Subscribers,
+    /// Owns this channel's registry entry until the pump exits.
+    pub(crate) registration: ChannelRegistration,
     /// ID of the `subscription call` (i.e. not the same as subscription id) which is used
     /// to reply to subscription method call and must only be used once.
     pub(crate) id: Id<'static>,
     /// Sender to answer the subscribe call.
     pub(crate) subscribe: oneshot::Sender<MethodResponse>,
-    /// Channel identifier.
-    pub(crate) channel_id: ChannelId,
-    /// Connection identifier.
-    pub(crate) connection_id: ConnectionId,
+    /// Fires once this channel's registry entry is dropped.
+    pub(crate) unsubscribe: IsUnsubscribed,
+    /// Held until the pump exits; dropping it early would hand the slot back
+    /// and make `max_subscriptions_per_connection` a no-op for channels.
+    pub(crate) _permit: SubscriptionPermit,
 }
 
 impl PendingSubscriptionSink {
@@ -121,13 +148,16 @@ impl PendingSubscriptionSink {
     /// Panics if the subscription response exceeded the `max_response_size`.
     pub async fn accept(self) -> Result<SubscriptionSink, String> {
         let channel_id = self.channel_id();
-        let id = self.id.clone();
         let response = MethodResponse::subscription_response(
             self.id,
             ResponsePayload::success_borrowed(&channel_id),
             self.inner.max_response_size() as usize,
         );
-        let success = response.is_success();
+        if !response.is_success() {
+            panic!(
+                "The subscription response was too big; adjust the `max_response_size` or change Subscription ID generation"
+            );
+        }
 
         // Ideally the message should be sent only once.
         //
@@ -141,38 +171,28 @@ impl PendingSubscriptionSink {
             .send(response)
             .map_err(|e| format!("accept error: {}", e.as_json()))?;
 
-        if success {
-            let (tx, rx) = mpsc::channel(1);
-            self.subscribers.lock().insert(
-                (self.connection_id, id),
-                (self.inner.clone(), rx, self.channel_id),
-            );
-            tracing::debug!(
-                "Accepting subscription (conn_id={}, chann_id={})",
-                self.connection_id.0,
-                self.channel_id
-            );
-            Ok(SubscriptionSink {
-                inner: self.inner,
-                method: self.method,
-                unsubscribe: IsUnsubscribed(tx),
-                channel_id: self.channel_id,
-            })
-        } else {
-            panic!(
-                "The subscription response was too big; adjust the `max_response_size` or change Subscription ID generation"
-            );
-        }
+        tracing::debug!(
+            "Accepting subscription (conn_id={}, chann_id={})",
+            self.registration.connection_id.0,
+            channel_id
+        );
+        Ok(SubscriptionSink {
+            inner: self.inner,
+            method: self.method,
+            unsubscribe: self.unsubscribe,
+            _permit: self._permit,
+            registration: self.registration,
+        })
     }
 
     /// Returns the channel identifier
     pub fn channel_id(&self) -> ChannelId {
-        self.channel_id
+        self.registration.channel_id
     }
 }
 
 /// Represents a subscription until it is unsubscribed.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct IsUnsubscribed(mpsc::Sender<()>);
 
 impl IsUnsubscribed {
@@ -183,7 +203,7 @@ impl IsUnsubscribed {
 }
 
 /// Represents a single subscription that hasn't been processed yet.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SubscriptionSink {
     /// Sink.
     inner: MethodSink,
@@ -191,8 +211,11 @@ pub struct SubscriptionSink {
     method: &'static str,
     /// A future that fires once the unsubscribe method has been called.
     unsubscribe: IsUnsubscribed,
-    /// Channel identifier.
-    channel_id: ChannelId,
+    /// Held until the pump exits; dropping it early would hand the slot back
+    /// and make `max_subscriptions_per_connection` a no-op for channels.
+    _permit: SubscriptionPermit,
+    /// Owns this channel's registry entry, and its identity.
+    registration: ChannelRegistration,
 }
 
 impl SubscriptionSink {
@@ -203,7 +226,7 @@ impl SubscriptionSink {
 
     /// Get the channel ID.
     pub fn channel_id(&self) -> ChannelId {
-        self.channel_id
+        self.registration.channel_id
     }
 
     /// Send out a response on the subscription and wait until there is capacity.
@@ -371,7 +394,7 @@ impl RpcModule {
                         tracing::error!("Failed to accept subscription");
                         return;
                     };
-                    tracing::debug!("Channel created: chann_id={}", sink.channel_id);
+                    tracing::debug!("Channel created: chann_id={}", sink.channel_id());
 
                     loop {
                         tokio::select! {
@@ -414,7 +437,7 @@ impl RpcModule {
                         }
                     }
 
-                    tracing::debug!("Send notification task ended (chann_id={})", sink.channel_id);
+                    tracing::debug!("Send notification task ended (chann_id={})", sink.channel_id());
                 });
             }
         })
@@ -443,14 +466,31 @@ impl RpcModule {
                     // response to the subscription call.
                     let (tx, rx) = oneshot::channel();
 
+                    // Register before answering the subscribe call: jsonrpsee runs
+                    // every websocket frame in its own task, so an `xrpc.cancel`
+                    // sent right after the subscribe can be handled first and would
+                    // otherwise find no channel. Lotus registers its cancel handle
+                    // the same way, before the handler goroutine starts:
+                    // <https://github.com/filecoin-project/go-jsonrpc/blob/v0.10.2/websocket.go#L565-L583>
+                    let (unsubscribe_tx, unsubscribe_rx) = mpsc::channel(1);
+                    let registration = ChannelRegistration {
+                        subscribers: subscribers.clone(),
+                        connection_id: conn.conn_id,
+                        request_id: id.clone().into_owned(),
+                        channel_id,
+                    };
+                    let key = (registration.connection_id, registration.request_id.clone());
+                    let entry = (method_sink.clone(), unsubscribe_rx, channel_id);
+                    subscribers.lock().insert(key, entry);
+
                     let sink = PendingSubscriptionSink {
                         inner: method_sink,
                         method: NOTIF_METHOD_NAME,
-                        subscribers: subscribers.clone(),
+                        registration,
                         id: id.clone().into_owned(),
                         subscribe: tx,
-                        channel_id,
-                        connection_id: conn.conn_id,
+                        unsubscribe: IsUnsubscribed(unsubscribe_tx),
+                        _permit: conn.subscription_permit,
                     };
 
                     callback(params, sink);
@@ -663,6 +703,45 @@ mod tests {
         }
     }
 
+    /// jsonrpsee runs every `websocket` frame in its own task, so a cancel sent
+    /// straight after a subscribe can be handled first. The channel must already
+    /// be registered by then, or the cancel errors and the channel it was meant
+    /// to close keeps running.
+    #[tokio::test]
+    async fn cancel_before_accept_finds_the_channel() {
+        // A channel method that parks its pending sink instead of accepting it,
+        // leaving the subscribe call unanswered until the test accepts by hand.
+        let (parked_tx, parked_rx) = oneshot::channel();
+        let parked_tx = Mutex::new(Some(parked_tx));
+        let mut module = RpcModule::default();
+        module
+            .register_channel_raw(TEST_METHOD, move |_params, sink| {
+                let _ = parked_tx.lock().take().expect("one subscribe").send(sink);
+            })
+            .unwrap();
+        let methods: Methods = module.into();
+
+        let subscribing = tokio::spawn({
+            let methods = methods.clone();
+            let request =
+                format!(r#"{{"jsonrpc":"2.0","id":1,"method":"{TEST_METHOD}","params":[]}}"#);
+            async move { methods.raw_json_request(&request, STREAM_BUF_SIZE).await }
+        });
+        let sink = parked_rx
+            .await
+            .expect("the subscribe callback parks the sink");
+
+        // The cancel overtakes `accept` and still finds the channel.
+        assert_eq!(cancel(&methods, 1).await, close_response(sink.channel_id()));
+
+        // Accepting afterwards hands back an already-cancelled subscription.
+        let sink = sink.accept().await.unwrap();
+        tokio::time::timeout(RECV_TIMEOUT, sink.closed())
+            .await
+            .expect("a cancelled channel must report itself closed");
+        subscribing.await.unwrap().unwrap();
+    }
+
     #[tokio::test]
     async fn cancel_unknown_id_errors() {
         let (events, _) = broadcast::channel(SOURCE_CAPACITY);
@@ -687,7 +766,9 @@ mod tests {
     }
 
     /// When the event source closes, the client gets a bare `xrpc.ch.close`
-    /// notification.
+    /// notification, the stream ends, and the registry entry is gone — a
+    /// later cancel finds nothing instead of "closing" the dead channel a
+    /// second time.
     #[tokio::test]
     async fn source_closed_sends_bare_close() {
         let (events, _) = broadcast::channel::<String>(SOURCE_CAPACITY);
@@ -697,6 +778,13 @@ mod tests {
         drop(events);
 
         assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
+        assert_stream_closed(&mut frames).await;
+
+        let response = cancel(&methods, 1).await;
+        assert!(
+            response.get("error").is_some(),
+            "cancel after the channel closed must fail: {response}"
+        );
     }
 
     /// Regression test: a subscriber that falls behind the broadcast source
@@ -723,15 +811,9 @@ mod tests {
         // no value frames arrive, the client is told the channel is gone
         assert_eq!(next_frame(&mut frames).await, close_frame(channel_id));
 
-        // the pump exited and dropped its receiver — the source has no
-        // subscribers left, and no stray frames follow the close (the frame
-        // stream stays open because the pump's registry entry is not yet
-        // cleaned up on exit)
+        // the pump exited: it dropped its receiver (the source has no
+        // subscribers left) and its registry entry, so the stream ends
         assert!(events.send("after-close".into()).is_err());
-        tokio::task::yield_now().await;
-        assert!(matches!(
-            frames.try_recv(),
-            Err(mpsc::error::TryRecvError::Empty)
-        ));
+        assert_stream_closed(&mut frames).await;
     }
 }
