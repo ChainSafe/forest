@@ -10,6 +10,8 @@ use std::{
 };
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use anyhow::Context as _;
+use hickory_resolver::proto::rr::RData;
 use libp2p::{
     StreamProtocol, autonat,
     core::Multiaddr,
@@ -455,11 +457,17 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         }
                         DerivedDiscoveryBehaviourEvent::Autonat(_) => {}
                         DerivedDiscoveryBehaviourEvent::Upnp(ev) => match ev {
-                            upnp::Event::NewExternalAddr(addr) => {
-                                info!("UPnP NewExternalAddr: {addr}");
+                            upnp::Event::NewExternalAddr {
+                                local_addr,
+                                external_addr,
+                            } => {
+                                info!("UPnP NewExternalAddr: {local_addr} -> {external_addr}");
                             }
-                            upnp::Event::ExpiredExternalAddr(addr) => {
-                                info!("UPnP ExpiredExternalAddr: {addr}");
+                            upnp::Event::ExpiredExternalAddr {
+                                local_addr,
+                                external_addr,
+                            } => {
+                                info!("UPnP ExpiredExternalAddr: {local_addr} -> {external_addr}");
                             }
                             upnp::Event::GatewayNotFound => {
                                 info!("UPnP GatewayNotFound");
@@ -550,25 +558,35 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 // Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of
 // the async API and does not work inside another tokio runtime
 async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
-    let resolver = hickory_resolver::TokioResolver::builder_tokio()?.build();
+    let resolver = hickory_resolver::TokioResolver::builder_tokio()
+        .context("failed to read the system DNS configuration")?
+        .build()
+        .context("failed to build the DNS resolver")?;
 
     let name = ["_dnsaddr.", name].concat();
-    let txts = resolver.txt_lookup(name).await?;
+    let lookup = resolver
+        .txt_lookup(name.as_str())
+        .await
+        .with_context(|| format!("TXT lookup failed for {name}"))?;
 
     let mut pairs = vec![];
-    for txt in txts {
-        if let Some(chars) = txt.txt_data().first() {
-            match parse_dnsaddr_txt(chars) {
-                Err(e) => {
-                    // Skip over seemingly invalid entries.
-                    tracing::debug!("Invalid TXT record: {:?}", e);
-                }
-                Ok(mut addr) => {
-                    if let Some(Protocol::P2p(peer_id)) = addr.pop() {
-                        pairs.push((peer_id, addr))
-                    } else {
-                        tracing::debug!("Failed to parse peer id from {addr}")
-                    }
+    for record in lookup.answers() {
+        let RData::TXT(txt) = &record.data else {
+            continue;
+        };
+        // A TXT RDATA may be published as several character-strings. go-libp2p joins them, so
+        // Forest must too or the same zone yields a different bootstrap set on each node.
+        let chars = txt.txt_data.concat();
+        match parse_dnsaddr_txt(&chars) {
+            Err(e) => {
+                // Skip over seemingly invalid entries.
+                tracing::warn!("Invalid TXT record: {e:?}");
+            }
+            Ok(mut addr) => {
+                if let Some(Protocol::P2p(peer_id)) = addr.pop() {
+                    pairs.push((peer_id, addr))
+                } else {
+                    tracing::warn!("Failed to parse peer id from {addr}")
                 }
             }
         }
@@ -576,7 +594,7 @@ async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multi
     Ok(pairs)
 }
 
-/// Parses a `<character-string>` of a `dnsaddr` `TXT` record.
+/// Parses the value of a `dnsaddr` `TXT` record.
 fn parse_dnsaddr_txt(txt: &[u8]) -> io::Result<Multiaddr> {
     let s = str::from_utf8(txt).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     match s.strip_prefix("dnsaddr=") {
@@ -600,6 +618,36 @@ mod tests {
     };
     use libp2p_swarm_test::SwarmExt as _;
     use std::str::FromStr as _;
+
+    const DNSADDR_TXT: &str = "dnsaddr=/dns/bootstrap.filecoin.chain.love/tcp/1235/p2p/12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt";
+
+    #[test]
+    fn parse_dnsaddr_txt_accepts_a_bootstrap_record() {
+        let addr = parse_dnsaddr_txt(DNSADDR_TXT.as_bytes()).unwrap();
+        assert!(matches!(addr.iter().last(), Some(Protocol::P2p(_))));
+    }
+
+    #[test]
+    fn parse_dnsaddr_txt_rejects_non_dnsaddr_records() {
+        parse_dnsaddr_txt(b"v=spf1 -all").unwrap_err();
+        parse_dnsaddr_txt(b"dnsaddr=not-a-multiaddr").unwrap_err();
+        parse_dnsaddr_txt(&[0xff]).unwrap_err();
+    }
+
+    /// A zone may publish one value as several character-strings; they must be joined without a
+    /// separator before parsing, matching go-libp2p.
+    #[test]
+    fn multi_segment_txt_record_is_joined() {
+        let (head, tail) = DNSADDR_TXT.split_at(60);
+        let split =
+            hickory_resolver::proto::rr::rdata::TXT::new(vec![head.to_string(), tail.to_string()]);
+
+        assert_eq!(split.txt_data.len(), 2);
+        assert_eq!(
+            parse_dnsaddr_txt(&split.txt_data.concat()).unwrap(),
+            parse_dnsaddr_txt(DNSADDR_TXT.as_bytes()).unwrap()
+        );
+    }
 
     #[tokio::test]
     async fn resolve_libp2p_dnsaddr_test() {
