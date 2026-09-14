@@ -45,6 +45,8 @@
 
 - [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli info show` no longer crashes when the client's clock is behind the node's start time.
 
+- [#7617](https://github.com/ChainSafe/forest/pull/7617): Fixed bootstrap peer discovery for `dnsaddr` records split into several strings.
+
 ## Forest v0.40.0 "Copperhead"
 
 Non-mandatory release for all node operators. Highlights: importing enriched snapshots (receipts, events and the tipset lookup) from a URL, verification of downloaded actor bundles, peer pruning so well-connected nodes keep accepting new peers, and stricter, Lotus-aligned validation of Ethereum and Filecoin JSON-RPC inputs. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.

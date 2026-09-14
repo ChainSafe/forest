@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use prometheus_client::{
-    encoding::{EncodeLabelKey, EncodeLabelSet, EncodeLabelValue, LabelSetEncoder},
+    encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, histogram::Histogram},
 };
 use std::sync::LazyLock;
@@ -55,23 +55,14 @@ pub static GOSSIP_BLOCK_REJECTED_TOTAL: LazyLock<Family<GossipRejectReasonLabel,
         metric
     });
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, derive_more::Constructor)]
-pub struct Libp2pMessageKindLabel(&'static str);
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
+pub struct Libp2pMessageKindLabel {
+    libp2p_message_kind: &'static str,
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet, derive_more::Constructor)]
 pub struct GossipRejectReasonLabel {
     pub reason: &'static str,
-}
-
-impl EncodeLabelSet for Libp2pMessageKindLabel {
-    fn encode(&self, mut encoder: LabelSetEncoder) -> Result<(), std::fmt::Error> {
-        let mut label_encoder = encoder.encode_label();
-        let mut label_key_encoder = label_encoder.encode_label_key()?;
-        EncodeLabelKey::encode(&"libp2p_message_kind", &mut label_key_encoder)?;
-        let mut label_value_encoder = label_key_encoder.encode_label_value()?;
-        EncodeLabelValue::encode(&self.0, &mut label_value_encoder)?;
-        label_value_encoder.finish()
-    }
 }
 
 pub mod values {
