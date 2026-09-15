@@ -9,7 +9,8 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends curl jq
 
 # The dataset lags the chain, so yesterday's snapshot is the one to test against.
-day=$(date -u -d '1 day ago' +%F)
+days_ago=$(( $(date -u +%-H) < 13 ? 2 : 1 ))
+day=$(date -u -d "${days_ago} days ago" +%F)
 url=$(curl --silent --show-error --fail --retry 3 --connect-timeout 10 --max-time 60 \
   "https://forest-archive.chainsafe.dev/list/calibnet/latest-v2?format=json" |
   jq --raw-output --arg day "${day}" '[.items[].url | select(contains("_" + $day + "_"))] | first')
