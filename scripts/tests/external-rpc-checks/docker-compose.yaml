@@ -10,7 +10,8 @@ x-forest-service: &forest-service
   user: 0:0
 
 services:
-  # Resolves yesterday's snapshot, imports it and back-fills the chain index.
+  # Resolves the snapshot to test against, then imports it and back-fills the
+  # chain index (see init.sh).
   init:
     <<: *forest-service
     volumes:
@@ -59,7 +60,7 @@ services:
     environment:
       FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
 
-  # The image entrypoints into `bundle exec ruby check_rpc.rb`, so only the epochs are appended.
+  # The image entrypoints into `bundle exec ruby check_rpc.rb`
   rpc-checks:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest
     environment:
