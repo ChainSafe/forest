@@ -3185,9 +3185,18 @@ impl RpcMethod<1> for EthSendRawTransaction {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
+        // Eth tx hash != Filecoin message CID (see EthHash::to_cid's note).
+        let tx_hash: EthHash = tx_args.eth_hash()?.into();
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.push(smsg).await?;
-        Ok(cid.into())
+        // Index immediately; process_signed_messages also indexes it once mined.
+        if let Err(e) =
+            ctx.chain_store()
+                .put_mapping(tx_hash, cid, chrono::Utc::now().timestamp() as u64)
+        {
+            tracing::error!("error inserting eth tx mapping: {e}");
+        }
+        Ok(tx_hash)
     }
 }
 
@@ -3209,9 +3218,18 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tx_args = parse_eth_transaction(&raw_tx.0)?;
+        // Eth tx hash != Filecoin message CID (see EthHash::to_cid's note).
+        let tx_hash: EthHash = tx_args.eth_hash()?.into();
         let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.push_untrusted(smsg).await?;
-        Ok(cid.into())
+        // Index immediately; process_signed_messages also indexes it once mined.
+        if let Err(e) =
+            ctx.chain_store()
+                .put_mapping(tx_hash, cid, chrono::Utc::now().timestamp() as u64)
+        {
+            tracing::error!("error inserting eth tx mapping: {e}");
+        }
+        Ok(tx_hash)
     }
 }
 
@@ -4575,6 +4593,57 @@ mod test {
             eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
                 .unwrap();
         assert_eq!(tx_hash.to_cid(), signed.message().cid());
+    }
+
+    // Regression test for the historical "EthSendRawTransaction returns the
+    // hash of the Filecoin message CID, not of the raw tx" bug: a delegated
+    // (eth account) transaction's own hash must never coincide with
+    // `EthHash::from(message_cid)` - the two are unrelated hashing schemes.
+    #[test]
+    fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
+        use crate::eth::{EthEip1559TxArgsBuilder, EthTx};
+        use std::str::FromStr as _;
+
+        let mut tx_args = EthEip1559TxArgsBuilder::default()
+            .chain_id(314159_u64)
+            .nonce(486_u64)
+            .to(Some(
+                ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
+                    .unwrap()
+                    .into(),
+            ))
+            .value(num::BigInt::from(0))
+            .max_fee_per_gas(num::BigInt::from(1500000120))
+            .max_priority_fee_per_gas(num::BigInt::from(1500000000))
+            .gas_limit(37442471_u64)
+            .input(hex::decode("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap())
+            .build()
+            .unwrap();
+        tx_args.v = num::BigInt::from_str("1").unwrap();
+        tx_args.r = num::BigInt::from_str(
+            "84103132941276310528712440865285269631208564772362393569572880532520338257200",
+        )
+        .unwrap();
+        tx_args.s = num::BigInt::from_str(
+            "7820796778417228639067439047870612492553874254089570360061550763595363987236",
+        )
+        .unwrap();
+        let tx = EthTx::from(tx_args);
+
+        // What EthSendRawTransaction must return.
+        let tx_hash: EthHash = tx.eth_hash().unwrap().into();
+        assert_eq!(
+            &format!("{tx_hash}"),
+            "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f"
+        );
+
+        // What it returned before the fix.
+        let smsg = tx
+            .get_signed_message(crate::networks::calibnet::ETH_CHAIN_ID)
+            .unwrap();
+        let wrong_hash: EthHash = smsg.cid().into();
+
+        assert_ne!(tx_hash, wrong_hash);
     }
 
     #[test]
