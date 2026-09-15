@@ -4,11 +4,12 @@
 //! Reward actor migration for FIP-0118: keeps the reward accounting, drops the stored reward
 //! totals and installs the bootstrap streams and the stream weight authority (SWA).
 //!
-//! Reference: <https://github.com/filecoin-project/go-state-types/blob/5cad18c25e6683523e17b6d83cedffdd43c0764b/builtin/v19/migration/reward.go>
+//! Reference: <https://github.com/filecoin-project/go-state-types/blob/6c7f7c311d954165144a3529a0c56a13b26c86bc/builtin/v19/migration/reward.go>
 //! and <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/chain/consensus/filcns/upgrades.go#L3363-L3433>.
 
 use super::reward_bootstrap::{SolsticeRewardBootstrapParams, SolsticeRewardWeightParams};
 use crate::shim::address::{Address, Protocol};
+use crate::shim::state_tree::StateTree;
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 use crate::utils::db::CborStoreExt as _;
 use anyhow::{Context as _, ensure};
@@ -80,6 +81,38 @@ impl RewardMigrator {
             swa_actor,
         })
     }
+
+    /// Checks that every share recipient exists in `actors` and is not a payment channel, which
+    /// `Collect` deletes and would strand its unpaid rewards.
+    ///
+    /// # Errors
+    /// A recipient is missing or is a payment channel, or `paych_code` is `None` while a stream
+    /// has recipients.
+    pub fn validate_recipients<BS: Blockstore>(
+        &self,
+        actors: &StateTree<BS>,
+        paych_code: Option<Cid>,
+    ) -> anyhow::Result<()> {
+        for stream in &self.streams.streams {
+            let Some(distribution) = &stream.distribution else {
+                continue;
+            };
+            let paych_code = paych_code
+                .context("code cid for payment channel actor not found in old manifest")?;
+            for share in &distribution.shares {
+                let recipient = Address::from(share.recipient);
+                let actor = actors
+                    .get_actor(&recipient)
+                    .with_context(|| format!("failed to load reward recipient {recipient}"))?
+                    .with_context(|| format!("reward recipient {recipient} does not exist"))?;
+                ensure!(
+                    actor.code != paych_code,
+                    "reward recipient {recipient} is a payment channel"
+                );
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The streams to register: consensus alone at constant `DENOM` for a zero ramp, otherwise
@@ -142,7 +175,6 @@ fn bootstrap_streams(
 /// Builds the streams a network upgrade installs and validates them with the actor crate:
 /// stream 1 alone at constant `DENOM`, or streams 1 and 2 with equal and opposite slopes,
 /// starting weights summing to `DENOM` and one full-share recipient.
-/// <https://github.com/filecoin-project/go-state-types/blob/5cad18c25e6683523e17b6d83cedffdd43c0764b/builtin/v19/reward/stream_invariants.go#L601>
 fn validate_migration_streams(
     params: &[RegisterStreamParams],
     activation_epoch: ChainEpoch,
@@ -302,8 +334,10 @@ mod tests {
     use super::*;
     use crate::db::MemoryDB;
     use crate::networks::{ChainConfig, Height, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED};
+    use crate::shim::state_tree::{ActorState, StateTreeVersion};
     use crate::utils::cid::CidCborExt as _;
     use fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate as FilterEstimateOld;
+    use std::sync::Arc;
 
     use super::super::reward_bootstrap::PERCENT;
 
@@ -749,6 +783,64 @@ mod tests {
             };
             RewardMigrator::new(&params, 1, Cid::default())
                 .unwrap_or_else(|e| panic!("{chain}: {e:#}"));
+        }
+    }
+
+    #[test]
+    fn rejects_recipients_that_are_missing_or_payment_channels() {
+        let account_code = Cid::from_cbor_blake2b256(&"account code").unwrap();
+        let paych_code = Cid::from_cbor_blake2b256(&"paych code").unwrap();
+        let orchestrator = Address::new_id(102);
+        let state_tree_with = |code: Option<Cid>| {
+            let mut actors =
+                StateTree::new(&Arc::new(MemoryDB::default()), StateTreeVersion::V5).unwrap();
+            if let Some(code) = code {
+                let actor =
+                    ActorState::new(code, Cid::default(), TokenAmount::zero().into(), 0, None);
+                actors.set_actor(&orchestrator, actor).unwrap();
+            }
+            actors
+        };
+        let split = RewardMigrator::new(&bootstrap_params(), 100, Cid::default()).unwrap();
+        let neutral = SolsticeRewardBootstrapParams {
+            consensus_weight_ramp_duration_epochs: 0,
+            consensus_weight: NEUTRAL_CONSENSUS_WEIGHT,
+            service_weight: NO_SERVICE_WEIGHT,
+            ..bootstrap_params()
+        };
+        let neutral = RewardMigrator::new(&neutral, 100, Cid::default()).unwrap();
+
+        let cases = [
+            (&split, Some(account_code), Some(paych_code), Ok(())),
+            (&neutral, None, None, Ok(())),
+            (
+                &split,
+                None,
+                Some(paych_code),
+                Err("reward recipient f0102 does not exist"),
+            ),
+            (
+                &split,
+                Some(paych_code),
+                Some(paych_code),
+                Err("reward recipient f0102 is a payment channel"),
+            ),
+            (
+                &split,
+                Some(account_code),
+                None,
+                Err("code cid for payment channel actor not found in old manifest"),
+            ),
+        ];
+        for (migrator, recipient_code, paych_code, expected) in cases {
+            let result = migrator.validate_recipients(&state_tree_with(recipient_code), paych_code);
+            match expected {
+                Ok(()) => result.unwrap(),
+                Err(message) => {
+                    let error = format!("{:#}", result.unwrap_err());
+                    assert!(error.contains(message), "{error}");
+                }
+            }
         }
     }
 }

@@ -46,13 +46,21 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
         );
         // Streams start at the first epoch executed on the migrated state.
         let activation_epoch = chain_config.epoch(Height::Solstice) + 1;
+        let reward_migrator = RewardMigrator::new(
+            &SolsticeRewardBootstrapParams::for_chain(&chain_config.network),
+            activation_epoch,
+            new_manifest.get(BuiltinActor::Reward)?,
+        )?;
+        reward_migrator
+            .validate_recipients(
+                &state_tree,
+                current_manifest.get(BuiltinActor::PaymentChannel).ok(),
+            )
+            .context("invalid reward migration recipients")?;
+        // The output depends on priorEpoch as well as the actor head.
         self.add_migrator(
             current_manifest.get(BuiltinActor::Reward)?,
-            Arc::new(RewardMigrator::new(
-                &SolsticeRewardBootstrapParams::for_chain(&chain_config.network),
-                activation_epoch,
-                new_manifest.get(BuiltinActor::Reward)?,
-            )?),
+            Arc::new(reward_migrator),
         );
         self.add_migrator(
             current_manifest.get(BuiltinActor::Market)?,
