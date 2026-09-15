@@ -369,6 +369,7 @@ SUBCOMMANDS:
   shutdown     Shutdown Forest
   healthcheck  Print healthcheck info
   f3           Manages Filecoin Fast Finality (F3) interactions
+  evm          Commands related to the Filecoin EVM runtime
   wait-api     Wait for lotus API to come online
   help         Print this message or the help of the given subcommand(s)
 
@@ -836,7 +837,10 @@ Options:
           Number of tipsets to back-fill
 
       --recompute [<RECOMPUTE>]
-          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run [default: true]
+          Recompute missing tipset state (expensive) instead of skipping it; tipsets that still can't be computed are skipped and reported rather than aborting the run
+
+          [default: true]
+          [possible values: true, false]
 
       --allow-near-head
           Also index revert-prone tipsets newer than the EC-finalized epoch (up to the head). By default the walk is clamped to the EC-finalized epoch
@@ -1125,6 +1129,73 @@ Options:
           Exit after F3 making no progress for this duration [default: 10m]
   -h, --help
           Print help
+```
+
+### `forest-cli evm`
+
+```
+Commands related to the Filecoin EVM runtime
+
+Usage: forest-cli evm <COMMAND>
+
+Commands:
+  deploy  Deploy an EVM smart contract and return its address
+  invoke  Invoke an EVM smart contract using the specified calldata
+  call    Simulate an eth contract call
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli evm deploy`
+
+```
+Deploy an EVM smart contract and return its address
+
+Usage: forest-cli evm deploy [OPTIONS] <CONTRACT>
+
+Arguments:
+  <CONTRACT>  Contract init code
+
+Options:
+      --from <FROM>  Optionally specify the account to use for sending the creation message
+      --hex          Use when input contract is in hex
+      --wait <WAIT>  Wait for message execution before returning (default: true) [possible values: true, false]
+  -h, --help         Print help
+```
+
+### `forest-cli evm invoke`
+
+```
+Invoke an EVM smart contract using the specified calldata
+
+Usage: forest-cli evm invoke [OPTIONS] <ADDRESS> <CALLDATA>
+
+Arguments:
+  <ADDRESS>   Filecoin address of the contract
+  <CALLDATA>  Hex-encoded ABI calldata
+
+Options:
+      --from <FROM>    Optionally specify the account to use for sending the exec message
+      --value <VALUE>  Value to send with the invocation message (human FIL amount, e.g. `1FIL`, `1attoFIL`) [default: 0]
+  -h, --help           Print help
+```
+
+### `forest-cli evm call`
+
+```
+Simulate an eth contract call
+
+Usage: forest-cli evm call <FROM> <TO> <PARAMS>
+
+Arguments:
+  <FROM>    Ethereum sender address
+  <TO>      Ethereum contract address
+  <PARAMS>  Hex-encoded call params
+
+Options:
+  -h, --help  Print help
 ```
 
 ## `forest-tool`
