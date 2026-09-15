@@ -2761,14 +2761,15 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0277dc7027f6950a761a78121f270fe6edafd7f15a9a7ef08651d1caeb72ace3"
 dependencies = [
  "frc42_dispatch",
  "fvm_ipld_encoding",
  "fvm_shared 2.12.2",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2776,13 +2777,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "096355fd25211d888d4e13e39e7e68e033a6fee4fd6cc0746db87c66714f519c"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.12.2",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2790,7 +2792,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "260a68df4394d0e8ec61c2c2ffe9ba5abc6da1471e5cb1607e168e7ccf7a87b9"
 dependencies = [
  "fil_actors_shared",
  "frc42_dispatch",
@@ -2801,7 +2804,7 @@ dependencies = [
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
  "lazy_static",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2809,13 +2812,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_eam_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bffa0063b1e1534743cb5bae681dd4f1d527371a36fc285c3a76b5bb45946108"
 dependencies = [
  "fil_actor_evm_state",
  "fvm_ipld_encoding",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2823,12 +2827,13 @@ dependencies = [
 [[package]]
 name = "fil_actor_ethaccount_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "493ca6a189fe1aff832024ba144d2650b74986655a79e218df6d59b7e651722d"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2836,7 +2841,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bf47ab593fba7ac4d2be5953d0f7d584ba92ad2b291f02e86cc3eaced6d8b70"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2846,7 +2852,7 @@ dependencies = [
  "fvm_shared 4.8.3",
  "hex",
  "hex-literal",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
  "uint",
@@ -2855,7 +2861,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c19a3da1e4310f7af8bdb6674a652babdfbdfc0600599ec9a7825e27c927f5d"
 dependencies = [
  "anyhow",
  "cid",
@@ -2866,7 +2873,7 @@ dependencies = [
  "fvm_shared 2.12.2",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2874,7 +2881,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af902704d1f344b7fec713ddfce12278148fff867edd0c38505158e81d9d5795"
 dependencies = [
  "anyhow",
  "cid",
@@ -2892,7 +2900,7 @@ dependencies = [
  "lazy_static",
  "multihash-codetable",
  "num-bigint",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2900,7 +2908,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "836d133864e27b2d14a0c4acd7ee81a47ac429f550c1356ace63c2ba2fd1993d"
 dependencies = [
  "anyhow",
  "bitflags 2.13.2",
@@ -2916,11 +2925,11 @@ dependencies = [
  "fvm_shared 2.12.2",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "lazy_static",
  "multihash-codetable",
  "num-bigint",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
  "serde_repr",
@@ -2930,7 +2939,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dac7c18d7400dee2497b816c076588c5f30b2edca994e8ca310b0f873b23daca"
 dependencies = [
  "anyhow",
  "cid",
@@ -2944,7 +2954,7 @@ dependencies = [
  "fvm_shared 4.8.3",
  "indexmap 2.14.2",
  "integer-encoding",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2952,7 +2962,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_paych_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c34fa410c0e2e8df7727b7be2aef36d98593fadb89776e37c7cee5f3bd95f92"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2961,7 +2972,7 @@ dependencies = [
  "fvm_shared 2.12.2",
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2969,7 +2980,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbd868372858a7564e2a13ec79b01b3da48ba30637fdb1ec2c61e52b5df43708"
 dependencies = [
  "anyhow",
  "cid",
@@ -2983,7 +2995,7 @@ dependencies = [
  "fvm_shared 4.8.3",
  "integer-encoding",
  "lazy_static",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -2991,7 +3003,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5f9bc442afd81e2fe9a22a407d9cf9c45237b397030179d9623612e7252cf03"
 dependencies = [
  "anyhow",
  "cid",
@@ -3005,7 +3018,7 @@ dependencies = [
  "lazy_static",
  "log",
  "multihash-codetable",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -3013,7 +3026,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74eecf5bb37e34939ad6bc5210c560a34a9d5949706857b18f85f1ea8c99fecf"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -3022,7 +3036,7 @@ dependencies = [
  "fvm_shared 2.12.2",
  "fvm_shared 4.8.3",
  "multihash-codetable",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -3030,7 +3044,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1abf2527ab1305ebbc392080654d8a6dc8db00043d5d40b09a1c961bb01fa8a7"
 dependencies = [
  "anyhow",
  "cid",
@@ -3042,7 +3057,7 @@ dependencies = [
  "fvm_shared 3.14.2",
  "fvm_shared 4.8.3",
  "log",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "serde",
 ]
@@ -3050,7 +3065,8 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "27.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e#e2b1dfb0fef4aa2179707fe19ec7b6a9b0b13e9e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e32346b329e36a0b670b3facec61a979073550bea6a7c8f5d7f4349d8db6b19"
 dependencies = [
  "anyhow",
  "cid",
@@ -3070,7 +3086,7 @@ dependencies = [
  "multihash-codetable",
  "num",
  "num-bigint",
- "num-derive",
+ "num-derive 0.5.1",
  "num-traits",
  "pastey",
  "regex",
@@ -3373,7 +3389,7 @@ dependencies = [
  "nonzero_ext",
  "num",
  "num-bigint",
- "num-derive",
+ "num-derive 0.4.2",
  "num-rational",
  "num-traits",
  "num_cpus",
@@ -3760,7 +3776,7 @@ dependencies = [
  "log",
  "multihash-codetable",
  "multihash-derive",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "num_cpus",
  "rand 0.8.8",
@@ -4016,7 +4032,7 @@ dependencies = [
  "log",
  "multihash",
  "num-bigint",
- "num-derive",
+ "num-derive 0.4.2",
  "num-integer",
  "num-traits",
  "serde",
@@ -4046,7 +4062,7 @@ dependencies = [
  "lazy_static",
  "multihash",
  "num-bigint",
- "num-derive",
+ "num-derive 0.4.2",
  "num-integer",
  "num-traits",
  "quickcheck",
@@ -4074,7 +4090,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "k256",
  "num-bigint",
- "num-derive",
+ "num-derive 0.4.2",
  "num-integer",
  "num-traits",
  "quickcheck",
@@ -6725,7 +6741,7 @@ checksum = "e4e98dc3b890f6c23a0f9d3d491a2823d0dea0fa656302a13dd225fa924112a8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.5",
 ]
 
 [[package]]
