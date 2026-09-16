@@ -10,12 +10,13 @@ pushd "${PARENT_PATH}"
 # This should not be needed in GH. It is useful for running locally.
 docker compose down --remove-orphans --volumes
 
-# The dataset publishes a UTC day's archives the morning after, at no fixed
-# time, so test the newest day it has published: yesterday, else the day
-# before. The checks cover the 1000 epochs below the snapshot's head epoch.
+# The dataset publishes each UTC day's archives some time the next morning, so
+# yesterday's may not exist yet. Try yesterday's snapshot first, and the day
+# before if the dataset has no data for it. The checks cover the 1000 epochs
+# below the chosen snapshot's head epoch.
 for days_ago in 1 2; do
-  docker compose run --rm --env DAYS_AGO="${days_ago}" init resolve
-  SNAPSHOT_EPOCH="$(docker compose run --rm --no-TTY --entrypoint cat init /data/snapshot-epoch)"
+  docker compose run --rm --env DAYS_AGO="${days_ago}" resolve
+  SNAPSHOT_EPOCH="$(docker compose run --rm --no-TTY --entrypoint cat resolve /data/snapshot-epoch)"
   START=$((SNAPSHOT_EPOCH - 1000))
   END=$((SNAPSHOT_EPOCH - 1))
 
@@ -33,7 +34,7 @@ done
 }
 
 # Imports the snapshot and back-fills the index.
-docker compose run --rm init import
+docker compose run --rm init
 
 docker compose up --detach --wait forest
 
