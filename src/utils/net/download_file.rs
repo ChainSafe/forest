@@ -5,12 +5,13 @@
 //!
 //! This module provides high-performance file downloads similar to `aria2c -x5`,
 //! using multiple parallel HTTP connections to download different parts of a file
-//! simultaneously.
+//! simultaneously. A download is only split when the server honours range requests and every
+//! connection would get at least [`MIN_PARALLEL_CHUNK_SIZE`]; anything smaller is fetched over a
+//! single connection.
 //!
 //! # Configuration
 //!
-//! The number of parallel connections can be configured via the
-//! `FOREST_DOWNLOAD_CONNECTIONS` environment variable:
+//! `FOREST_DOWNLOAD_CONNECTIONS` caps the number of parallel connections.
 //!
 //! # Example
 //!
@@ -23,7 +24,7 @@
 //! let url = Url::parse("https://example.com/large-file.zst")?;
 //! let destination = Path::new("./large-file.zst");
 //!
-//! // Download with parallel connections (automatic for Resumable option)
+//! // Resumable downloads are split across connections when the file is large enough
 //! download_to(&url, destination, DownloadFileOption::Resumable, None).await?;
 //! # Ok(())
 //! # }
@@ -58,6 +59,24 @@ fn get_num_download_connections() -> usize {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(5) // Default to 5 like aria2c -x5
+        .max(1)
+}
+
+/// A chunk response that is not `206 Partial Content` means the server ignored our `Range`, which
+/// retrying the identical request will not change.
+#[derive(Debug, thiserror::Error)]
+#[error("Chunk {chunk} was answered with {status} instead of 206 Partial Content")]
+struct RangeIgnored {
+    chunk: u64,
+    status: http::StatusCode,
+}
+
+/// Chunks below this size cost more round trips than the extra connection saves, so a download is
+/// split only once it is at least twice this size.
+const MIN_PARALLEL_CHUNK_SIZE: u64 = 8 * 1024 * 1024;
+
+fn num_chunks(total_size: u64, max_chunks: usize, min_chunk_size: u64) -> u64 {
+    (max_chunks as u64).min(total_size / min_chunk_size.max(1))
 }
 
 /// Generate a temporary download path with `.frdownload` extension
@@ -211,17 +230,18 @@ async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8
 ///
 /// This function splits the file into chunks and downloads them in parallel,
 /// which can significantly improve download speeds for large files.
+///
+/// Returns `Ok(None)` without downloading anything when the file cannot be split: the server does
+/// not honour range requests, or it is too small for `min_chunk_size`. The caller is then
+/// responsible for downloading it over a single connection.
 async fn download_http_parallel(
     url: &Url,
     directory: &Path,
     filename: &str,
     num_connections: usize,
+    min_chunk_size: u64,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
-) -> anyhow::Result<PathBuf> {
-    ensure!(
-        num_connections > 0,
-        "Number of connections must be greater than 0"
-    );
+) -> anyhow::Result<Option<PathBuf>> {
     if !directory.is_dir() {
         std::fs::create_dir_all(directory)?;
     }
@@ -243,38 +263,30 @@ async fn download_http_parallel(
         .send()
         .await?;
 
-    // Server supports ranges if it returns 206 Partial Content
-    let supports_ranges = test_response.status() == http::StatusCode::PARTIAL_CONTENT;
-
-    // Get the actual file size from Content-Range or Content-Length
-    let total_size = if supports_ranges {
-        // Parse Content-Range header: "bytes 0-0/12345" -> 12345
-        test_response
-            .headers()
-            .get(http::header::CONTENT_RANGE)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.split('/').nth(1))
-            .and_then(|s| s.parse::<u64>().ok())
-            .context("Failed to parse Content-Range header")?
-    } else {
-        // Fallback to Content-Length if range not supported
-        test_response.content_length().unwrap_or(0)
-    };
-
-    if !supports_ranges || total_size == 0 {
+    if test_response.status() != http::StatusCode::PARTIAL_CONTENT {
         tracing::info!(
             %url,
             status = %test_response.status(),
-            "Server doesn't support range requests, falling back to single connection"
+            "Server doesn't support range requests"
         );
-        return download_http_single(
-            url,
-            directory,
-            filename,
-            DownloadFileOption::Resumable,
-            callback,
-        )
-        .await;
+        return Ok(None);
+    }
+
+    // Parse Content-Range header: "bytes 0-0/12345" -> 12345
+    let total_size = test_response
+        .headers()
+        .get(http::header::CONTENT_RANGE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split('/').nth(1))
+        .and_then(|s| s.parse::<u64>().ok())
+        .context("Failed to parse Content-Range header")?;
+
+    drop(test_response);
+
+    let chunks = num_chunks(total_size, num_connections, min_chunk_size);
+    if chunks < 2 {
+        tracing::debug!(%url, size = %total_size, "File too small to split across connections");
+        return Ok(None);
     }
 
     // Create the file and allocate space
@@ -285,16 +297,13 @@ async fn download_http_parallel(
         .await
         .context("couldn't allocate file space")?;
 
-    // Prevent underflow when file is smaller than connection count
-    // Use at most as many connections as there are bytes
-    let effective_connections = (num_connections as u64).min(total_size.max(1));
-    let chunk_size = total_size / effective_connections;
+    let chunk_size = total_size / chunks;
 
     tracing::debug!(
         %url,
         path = %dst_path.display(),
         size = %total_size,
-        connections = %effective_connections,
+        connections = %chunks,
         "downloading with parallel connections"
     );
 
@@ -308,7 +317,7 @@ async fn download_http_parallel(
     const UPDATE_FREQUENCY_MS: u64 = UPDATE_FREQUENCY.as_millis() as u64;
 
     // Download chunks in parallel
-    let download_tasks = (0..effective_connections).map(|i| {
+    let download_tasks = (0..chunks).map(|i| {
         let client = client.clone();
         let url = url.clone();
         let tmp_path = tmp_dst_path.clone();
@@ -318,7 +327,7 @@ async fn download_http_parallel(
         let callback = callback.clone();
 
         let start = i * chunk_size;
-        let end = if i == effective_connections - 1 {
+        let end = if i == chunks - 1 {
             total_size - 1
         } else {
             ((i + 1) * chunk_size - 1).min(total_size - 1)
@@ -336,10 +345,9 @@ async fn download_http_parallel(
                     .send()
                     .await?;
 
-                if !response.status().is_success()
-                    && response.status() != http::StatusCode::PARTIAL_CONTENT
-                {
-                    anyhow::bail!("Failed to download chunk {}: {}", i, response.status());
+                let status = response.status();
+                if status != http::StatusCode::PARTIAL_CONTENT {
+                    return Err(RangeIgnored { chunk: i, status }.into());
                 }
 
                 // Open file for writing this chunk
@@ -355,6 +363,10 @@ async fn download_http_parallel(
 
                 let result: anyhow::Result<()> = async {
                     while let Some(chunk_result) = stream.try_next().await? {
+                        ensure!(
+                            chunk_bytes_written + chunk_result.len() as u64 <= expected_size as u64,
+                            "Chunk {i} overran its range of {expected_size} bytes"
+                        );
                         file.write_all(&chunk_result).await?;
                         chunk_bytes_written += chunk_result.len() as u64;
 
@@ -425,6 +437,7 @@ async fn download_http_parallel(
 
             download_chunk
                 .retry(ExponentialBuilder::default().with_max_times(5))
+                .when(|e: &anyhow::Error| !e.is::<RangeIgnored>())
                 .await
                 .with_context(|| format!("Failed to download chunk {i} after retries"))
         }
@@ -432,7 +445,7 @@ async fn download_http_parallel(
 
     // Execute all downloads in parallel and collect results
     let results: Vec<_> = stream::iter(download_tasks)
-        .buffer_unordered(effective_connections as usize)
+        .buffer_unordered(chunks as usize)
         .collect()
         .await;
 
@@ -447,7 +460,7 @@ async fn download_http_parallel(
         .context("couldn't rename file")?;
 
     tracing::debug!("successfully downloaded file to {}", dst_path.display());
-    Ok(dst_path)
+    Ok(Some(dst_path))
 }
 
 /// Download the file at `url` with a single HTTP connection, returning the path to the downloaded file
@@ -492,42 +505,26 @@ pub async fn download_http(
     option: DownloadFileOption,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
-    // Use parallel downloads for Resumable option, single connection otherwise
-    match option {
-        DownloadFileOption::Resumable => {
-            let num_connections = get_num_download_connections();
-
-            // Try parallel download, fall back to single connection on error
-            match download_http_parallel(
-                url,
-                directory,
-                filename,
-                num_connections,
-                callback.clone(),
-            )
-            .await
-            {
-                Ok(path) => Ok(path),
-                Err(e) => {
-                    tracing::warn!(
-                        "Parallel download failed ({}), falling back to single connection",
-                        e
-                    );
-                    download_http_single(
-                        url,
-                        directory,
-                        filename,
-                        DownloadFileOption::Resumable,
-                        callback,
-                    )
-                    .await
-                }
+    if let DownloadFileOption::Resumable = option {
+        match download_http_parallel(
+            url,
+            directory,
+            filename,
+            get_num_download_connections(),
+            MIN_PARALLEL_CHUNK_SIZE,
+            callback.clone(),
+        )
+        .await
+        {
+            Ok(Some(path)) => return Ok(path),
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!("Parallel download failed ({e}), falling back to single connection")
             }
         }
-        DownloadFileOption::NonResumable => {
-            download_http_single(url, directory, filename, option, callback).await
-        }
     }
+
+    download_http_single(url, directory, filename, option, callback).await
 }
 
 pub async fn download_file_with_retry(
@@ -585,6 +582,7 @@ mod test {
         routing::get,
     };
     use std::net::SocketAddr;
+    use std::sync::LazyLock;
     use tokio::net::TcpListener;
 
     /// Test file data with known MD5 hash
@@ -595,10 +593,15 @@ mod test {
         Md5::digest(TEST_FILE_CONTENT).to_vec()
     }
 
+    /// Small enough to keep the test content chunkable, see [`num_chunks`].
+    const TEST_MIN_CHUNK_SIZE: u64 = 16;
+
     /// Test server that supports range requests
     struct TestServer {
         addr: SocketAddr,
         shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
+        /// `Range` header of every request served, `None` for an unranged one.
+        requests: Arc<parking_lot::Mutex<Vec<Option<String>>>>,
     }
 
     impl TestServer {
@@ -609,10 +612,71 @@ mod test {
 
         /// Start a new test server with custom content
         async fn start_with_content(content: &'static [u8]) -> Self {
+            let requests: Arc<parking_lot::Mutex<Vec<Option<String>>>> = Arc::default();
+            let log = Arc::clone(&requests);
+            let short_chunk_served = Arc::new(std::sync::atomic::AtomicBool::new(false));
             let app = Router::new()
                 .route(
                     "/test-file",
-                    get(move |req: Request| async move { handle_file_request(req, content).await }),
+                    get(move |req: Request| {
+                        let log = Arc::clone(&log);
+                        async move {
+                            log.lock().push(
+                                req.headers()
+                                    .get(header::RANGE)
+                                    .and_then(|v| v.to_str().ok())
+                                    .map(ToOwned::to_owned),
+                            );
+                            handle_file_request(req, content).await
+                        }
+                    }),
+                )
+                .route(
+                    // Truncates the body of the first chunk request, then behaves.
+                    "/test-file-short-first-chunk",
+                    get(move |req: Request| {
+                        let served = Arc::clone(&short_chunk_served);
+                        async move {
+                            let probe = req
+                                .headers()
+                                .get(header::RANGE)
+                                .and_then(|v| v.to_str().ok())
+                                == Some("bytes=0-0");
+                            let mut response = handle_file_request(req, content).await;
+                            if !probe && !served.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                                let body = std::mem::replace(response.body_mut(), Body::empty());
+                                let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+                                let short = bytes.slice(..bytes.len().saturating_sub(1));
+                                response.headers_mut().insert(
+                                    header::CONTENT_LENGTH,
+                                    short.len().to_string().parse().unwrap(),
+                                );
+                                *response.body_mut() = Body::from(short);
+                            }
+                            response
+                        }
+                    }),
+                )
+                .route(
+                    // Honours the probe but ignores the range of every chunk request.
+                    "/test-file-ignores-chunk-ranges",
+                    get(move |req: Request| async move {
+                        if req
+                            .headers()
+                            .get(header::RANGE)
+                            .and_then(|v| v.to_str().ok())
+                            == Some("bytes=0-0")
+                        {
+                            handle_file_request(req, content).await
+                        } else {
+                            Response::builder()
+                                .status(StatusCode::OK)
+                                .header(header::CONTENT_TYPE, "application/octet-stream")
+                                .header(header::CONTENT_LENGTH, content.len())
+                                .body(Body::from(content))
+                                .unwrap()
+                        }
+                    }),
                 )
                 .route(
                     "/test-file-no-ranges",
@@ -624,6 +688,23 @@ mod test {
                             .header(header::CONTENT_LENGTH, content.len())
                             .body(Body::from(content))
                             .unwrap()
+                    }),
+                )
+                .route(
+                    "/test-file-bad-content-range",
+                    get(move |req: Request| async move {
+                        if req.headers().contains_key(header::RANGE) {
+                            let head = content.get(..1).unwrap_or_default();
+                            Response::builder()
+                                .status(StatusCode::PARTIAL_CONTENT)
+                                .header(header::CONTENT_TYPE, "application/octet-stream")
+                                .header(header::CONTENT_LENGTH, head.len())
+                                .header(header::CONTENT_RANGE, "bytes totally-bogus")
+                                .body(Body::from(head))
+                                .unwrap()
+                        } else {
+                            handle_file_request(req, content).await
+                        }
                     }),
                 )
                 .route(
@@ -669,11 +750,16 @@ mod test {
             Self {
                 addr,
                 shutdown_tx: Some(shutdown_tx),
+                requests,
             }
         }
 
         fn url(&self, path: &str) -> Url {
             format!("http://{}{}", self.addr, path).parse().unwrap()
+        }
+
+        fn requests(&self) -> Vec<Option<String>> {
+            self.requests.lock().clone()
         }
     }
 
@@ -801,35 +887,12 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_parallel_download() {
+    async fn test_download_http_small_file_uses_single_connection() {
         let server = TestServer::start().await;
         let temp_dir = tempfile::tempdir().unwrap();
         let url = server.url("/test-file");
 
-        let result = download_http_parallel(
-            &url,
-            temp_dir.path(),
-            "test-parallel.dat",
-            3, // Use 3 connections for testing
-            None,
-        )
-        .await
-        .unwrap();
-
-        assert!(result.exists());
-
-        // Verify the file is not corrupted by checking its MD5
-        let downloaded_md5 = get_file_md5_hash(&result).unwrap();
-        assert_eq!(downloaded_md5, test_file_md5());
-    }
-
-    #[tokio::test]
-    async fn test_download_http_uses_parallel() {
-        let server = TestServer::start().await;
-        let temp_dir = tempfile::tempdir().unwrap();
-        let url = server.url("/test-file");
-
-        // Test with Resumable option (should use parallel)
+        // Too small to be chunked, so this exercises the single-connection fallback of the dispatcher
         let result = download_http(
             &url,
             temp_dir.path(),
@@ -866,38 +929,24 @@ mod test {
             temp_dir.path(),
             "test-progress.dat",
             3,
+            TEST_MIN_CHUNK_SIZE,
             Some(callback),
         )
         .await
+        .unwrap()
         .unwrap();
 
         assert!(result.exists());
 
-        // Verify we got progress updates
+        // Progress is reported per body chunk and can move backwards when a chunk is retried,
+        // so only the bound and the final value are guaranteed.
         let updates = progress_updates.lock();
         assert!(!updates.is_empty(), "Should have received progress updates");
-
-        // Verify progress increases monotonically
-        let mut last_progress = 0;
         for update in updates.iter() {
-            if let Some(progress_str) = update.strip_suffix('%')
-                && let Ok(progress) = progress_str.parse::<u8>()
-            {
-                assert!(
-                    progress >= last_progress,
-                    "Progress should increase: {progress} < {last_progress}"
-                );
-                last_progress = progress;
-            }
+            let percent: u8 = update.trim_end_matches('%').parse().unwrap();
+            assert!(percent <= 100, "progress exceeded 100%: {update}");
         }
-
-        // Should reach 100% for small test files
-        assert!(
-            last_progress >= 90,
-            "Should reach at least 90% progress, got {last_progress}"
-        );
-
-        println!("Progress updates: {updates:?}");
+        assert_eq!(updates.last().map(String::as_str), Some("100%"));
     }
 
     #[tokio::test]
@@ -906,6 +955,13 @@ mod test {
         let temp_dir = tempfile::tempdir().unwrap();
         // Use the endpoint that doesn't support range requests
         let url = server.url("/test-file-no-ranges");
+
+        assert!(
+            download_http_parallel(&url, temp_dir.path(), "p.dat", 5, TEST_MIN_CHUNK_SIZE, None)
+                .await
+                .unwrap()
+                .is_none()
+        );
 
         // Try to download with parallel (should fallback to single connection)
         let result = download_http(
@@ -925,24 +981,215 @@ mod test {
         assert_eq!(content, TEST_FILE_CONTENT);
     }
 
-    #[tokio::test]
-    async fn test_small_file_with_many_connections() {
-        // Test edge case: file smaller than connection count
-        // This tests the underflow prevention when chunk_size would be 0
-        let small_content: &[u8] = b"Hi!"; // 3 bytes
-        let server = TestServer::start_with_content(small_content).await;
-        let temp_dir = tempfile::tempdir().unwrap();
-        let url = server.url("/test-file");
+    #[test]
+    fn test_num_chunks() {
+        assert_eq!(num_chunks(0, 5, 8), 0);
+        assert_eq!(num_chunks(7, 5, 8), 0);
+        assert_eq!(num_chunks(8, 5, 8), 1);
+        assert_eq!(num_chunks(16, 5, 8), 2);
+        assert_eq!(num_chunks(u64::MAX, 5, 8), 5);
+        assert_eq!(num_chunks(16, 0, 8), 0);
+        assert_eq!(num_chunks(16, 5, 0), 5);
+    }
 
-        // Try to download with more connections than bytes
-        let result = download_http_parallel(&url, temp_dir.path(), "tiny.dat", 5, None)
+    #[tokio::test]
+    async fn test_download_http_falls_back_on_parallel_error() {
+        let server = TestServer::start().await;
+        let temp_dir = tempfile::tempdir().unwrap();
+        let url = server.url("/test-file-bad-content-range");
+
+        let err =
+            download_http_parallel(&url, temp_dir.path(), "x.dat", 5, TEST_MIN_CHUNK_SIZE, None)
+                .await
+                .unwrap_err();
+        assert!(format!("{err:#}").contains("Content-Range"), "{err:#}");
+
+        let path = download_http(
+            &url,
+            temp_dir.path(),
+            "fallback.dat",
+            DownloadFileOption::Resumable,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), TEST_FILE_CONTENT);
+    }
+
+    fn generated_content(len: usize) -> &'static [u8] {
+        static CONTENT: LazyLock<Vec<u8>> = LazyLock::new(|| {
+            (0..2 * MIN_PARALLEL_CHUNK_SIZE as usize + 12345)
+                .map(|i| (i % 251) as u8)
+                .collect()
+        });
+        &CONTENT[..len]
+    }
+
+    async fn assert_download_http_yields(url: &Url, dir: &Path, name: &str, expected: &[u8]) {
+        let path = download_http(url, dir, name, DownloadFileOption::Resumable, None)
             .await
             .unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), expected);
+    }
 
-        assert!(result.exists());
+    fn ranges_tile(requests: &[Option<String>], total: u64) -> bool {
+        let mut spans: Vec<(u64, u64)> = requests
+            .iter()
+            .filter_map(|r| r.as_deref())
+            .filter(|r| *r != "bytes=0-0")
+            .map(|r| {
+                let (start, end) = r.trim_start_matches("bytes=").split_once('-').unwrap();
+                (start.parse().unwrap(), end.parse().unwrap())
+            })
+            .collect();
+        spans.sort_unstable();
+        spans.first().is_some_and(|(start, _)| *start == 0)
+            && spans.last().is_some_and(|(_, end)| *end == total - 1)
+            && spans
+                .windows(2)
+                .all(|w| w.first().map(|prev| prev.1 + 1) == w.get(1).map(|next| next.0))
+    }
 
-        // Verify content is correct
-        let downloaded = std::fs::read(&result).unwrap();
-        assert_eq!(downloaded, small_content);
+    #[tokio::test]
+    async fn test_download_http_splits_only_above_threshold() {
+        // Just over twice the minimum chunk size, so it must be split.
+        let big = generated_content(2 * MIN_PARALLEL_CHUNK_SIZE as usize + 1);
+        let server = TestServer::start_with_content(big).await;
+        let dir = tempfile::tempdir().unwrap();
+        assert_download_http_yields(&server.url("/test-file"), dir.path(), "big.dat", big).await;
+
+        let requests = server.requests();
+        assert_eq!(requests.first(), Some(&Some("bytes=0-0".to_owned())));
+        assert!(
+            requests.len() >= 3,
+            "expected a probe and at least two chunks, got {requests:?}"
+        );
+        assert!(
+            requests.iter().all(Option::is_some),
+            "the whole file was fetched again over a single connection: {requests:?}"
+        );
+        assert!(
+            ranges_tile(&requests, big.len() as u64),
+            "chunk ranges must tile the file exactly: {requests:?}"
+        );
+
+        // Just over the minimum chunk size, which is still too small to split.
+        let small = generated_content(MIN_PARALLEL_CHUNK_SIZE as usize + 1);
+        let server = TestServer::start_with_content(small).await;
+        assert_download_http_yields(&server.url("/test-file"), dir.path(), "small.dat", small)
+            .await;
+
+        assert_eq!(
+            server.requests(),
+            [Some("bytes=0-0".to_owned()), None],
+            "expected a probe followed by one unranged GET"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_short_chunk_body_is_retried_not_accepted() {
+        let data = generated_content(2 * MIN_PARALLEL_CHUNK_SIZE as usize + 1);
+        let server = TestServer::start_with_content(data).await;
+        let dir = tempfile::tempdir().unwrap();
+        let url = server.url("/test-file-short-first-chunk");
+
+        let path = download_http_parallel(
+            &url,
+            dir.path(),
+            "short.dat",
+            5,
+            MIN_PARALLEL_CHUNK_SIZE,
+            None,
+        )
+        .await
+        .unwrap()
+        .expect("must use the parallel path");
+        assert_eq!(std::fs::read(&path).unwrap(), data);
+    }
+
+    #[tokio::test]
+    async fn test_chunk_answered_with_200_is_rejected_without_retrying() {
+        let data = generated_content(2 * MIN_PARALLEL_CHUNK_SIZE as usize + 1);
+        let server = TestServer::start_with_content(data).await;
+        let dir = tempfile::tempdir().unwrap();
+        let url = server.url("/test-file-ignores-chunk-ranges");
+
+        let start = std::time::Instant::now();
+        let err = download_http_parallel(
+            &url,
+            dir.path(),
+            "ignored.dat",
+            5,
+            MIN_PARALLEL_CHUNK_SIZE,
+            None,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(format!("{err:#}").contains("instead of 206"), "{err:#}");
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "a server that ignores ranges must not be retried with backoff"
+        );
+        assert!(!dir.path().join("ignored.dat").exists());
+
+        // The caller still gets the file over a single connection.
+        assert_download_http_yields(&url, dir.path(), "ignored.dat", data).await;
+    }
+
+    #[tokio::test]
+    async fn test_parallel_download_is_byte_exact_across_sizes() {
+        for len in [0usize, 1, 15, 16, 17, 31, 32, 33, 65, 1023, 65537] {
+            let data = generated_content(len);
+            let server = TestServer::start_with_content(data).await;
+            let dir = tempfile::tempdir().unwrap();
+            let url = server.url("/test-file");
+
+            for connections in [1usize, 3, 5] {
+                let parallel = download_http_parallel(
+                    &url,
+                    dir.path(),
+                    "m.dat",
+                    connections,
+                    TEST_MIN_CHUNK_SIZE,
+                    None,
+                )
+                .await
+                .unwrap();
+
+                if num_chunks(len as u64, connections, TEST_MIN_CHUNK_SIZE) < 2 {
+                    assert!(parallel.is_none(), "len={len} conns={connections}");
+                } else {
+                    let got = std::fs::read(parallel.unwrap()).unwrap();
+                    assert_eq!(got, data, "content mismatch len={len} conns={connections}");
+                }
+            }
+
+            assert_download_http_yields(&url, dir.path(), "h.dat", data).await;
+        }
+    }
+
+    // Only this test pins `download_http` to the production threshold, so it pays for real bytes.
+    #[tokio::test]
+    async fn test_download_http_splits_at_production_threshold() {
+        let data = generated_content(2 * MIN_PARALLEL_CHUNK_SIZE as usize + 12345);
+        let server = TestServer::start_with_content(data).await;
+        let dir = tempfile::tempdir().unwrap();
+        let url = server.url("/test-file");
+
+        assert!(
+            download_http_parallel(
+                &url,
+                dir.path(),
+                "big.dat",
+                5,
+                MIN_PARALLEL_CHUNK_SIZE,
+                None
+            )
+            .await
+            .unwrap()
+            .is_some()
+        );
+        assert_download_http_yields(&url, dir.path(), "big2.dat", data).await;
     }
 }
