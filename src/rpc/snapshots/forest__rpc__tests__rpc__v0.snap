@@ -3373,7 +3373,7 @@ methods:
         $ref: "#/components/schemas/MinerInfo"
     paramStructure: by-position
   - name: Filecoin.StateMinerInitialPledgeCollateral
-    description: "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the value is far too low; use StateMinerInitialPledgeForSector instead."
+    description: "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the deal IDs are ignored; use StateMinerInitialPledgeForSector instead."
     params:
       - name: minerAddress
         required: true
