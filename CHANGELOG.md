@@ -43,6 +43,8 @@
 
 - [#7579](https://github.com/ChainSafe/forest/issues/7579): `forest-tool index backfill` now downloads the Filecoin proof parameters before running.
 
+- [#7625](https://github.com/ChainSafe/forest/pull/7625): `Filecoin.EthSendRawTransaction` and `Filecoin.EthSendRawTransactionUntrusted` now return the Ethereum transaction hash instead of the Filecoin message CID.
+
 ## Forest v0.36.1 "Kaaguy"
 
 Non-mandatory release for all node operators. Mostly fixes and improvements around RPC methods.
