@@ -25,7 +25,6 @@ use crate::shim::econ::TokenAmount;
 use crate::shim::state_tree::ActorState;
 use crate::utils::encoding::{hex, keccak_256};
 use anyhow::{Context as _, ensure};
-use cid::Cid;
 use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::str::FromStr as _;
@@ -193,13 +192,6 @@ fn latest() -> BlockNumberOrHash {
     BlockNumberOrHash::PredefinedBlock(Predefined::Latest)
 }
 
-/// Deployed EVM actor: `eth` for JSON-RPC, `f4` for `lotus send` / `StateGetActor`.
-#[derive(Clone, Copy)]
-struct Deployed {
-    eth: EthAddress,
-    f4: Address,
-}
-
 /// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
 struct Wallet {
     cli: String,
@@ -221,7 +213,7 @@ async fn deployer() -> anyhow::Result<&'static Address> {
         .await
 }
 
-async fn deploy_hex(label: &str, bytecode: &str) -> anyhow::Result<Deployed> {
+async fn deploy_hex(label: &str, bytecode: &str) -> anyhow::Result<EthAddress> {
     let deployer = deployer().await?;
     let from = deployer.to_string();
     let deploy = forest_evm_deploy_hex(&from, bytecode)?;
@@ -229,14 +221,11 @@ async fn deploy_hex(label: &str, bytecode: &str) -> anyhow::Result<Deployed> {
     eprintln!("deployed {label} at {f4}");
     poll_until_actor(f4).await?;
     poll_until_actor_on("lotus", f4, lotus_client).await?;
-    Ok(Deployed {
-        eth: EthAddress::from_filecoin_address(&f4)?,
-        f4,
-    })
+    EthAddress::from_filecoin_address(&f4)
 }
 
-async fn simple_coin() -> anyhow::Result<&'static Deployed> {
-    static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
+async fn simple_coin() -> anyhow::Result<&'static EthAddress> {
+    static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| deploy_hex("SimpleCoin", SIMPLE_COIN_HEX))
         .await
@@ -246,7 +235,7 @@ async fn evm_deploy_and_call() -> anyhow::Result<()> {
     let coin = simple_coin().await?;
     let from = EthAddress::from_filecoin_address(deployer().await?)?;
     let from_hex = hex::encode_prefixed(from.0.as_bytes());
-    let to_hex = hex::encode_prefixed(coin.eth.0.as_bytes());
+    let to_hex = hex::encode_prefixed(coin.0.as_bytes());
     let data = hex::encode_prefixed(get_balance_calldata(from));
     let out = forest_cli(&["evm", "call", &from_hex, &to_hex, &data])?;
     let result = out
@@ -266,22 +255,22 @@ async fn evm_deploy_and_call() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn contract_b() -> anyhow::Result<&'static Deployed> {
-    static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
+async fn contract_b() -> anyhow::Result<&'static EthAddress> {
+    static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| deploy_hex("ContractB", CONTRACT_B_HEX))
         .await
 }
 
-async fn nested_gas() -> anyhow::Result<&'static Deployed> {
-    static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
+async fn nested_gas() -> anyhow::Result<&'static EthAddress> {
+    static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| deploy_hex("NestedGas", NESTED_GAS_HEX))
         .await
 }
 
-async fn errors_contract() -> anyhow::Result<&'static Deployed> {
-    static CONTRACT: OnceCell<Deployed> = OnceCell::const_new();
+async fn errors_contract() -> anyhow::Result<&'static EthAddress> {
+    static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| deploy_hex("Errors", ERRORS_HEX))
         .await
@@ -303,8 +292,8 @@ async fn table_env() -> anyhow::Result<&'static TableEnv> {
         let eoa = new_funded(EOA_FUND_AMT).await?;
         let eoa2 = new_unfunded().await?;
         Ok(TableEnv {
-            coin: coin.eth,
-            errors: errors.eth,
+            coin: *coin,
+            errors: *errors,
             eoa: eoa.eth,
             eoa2: eoa2.eth,
         })
@@ -313,13 +302,13 @@ async fn table_env() -> anyhow::Result<&'static TableEnv> {
 }
 
 /// `ContractA` with `setContractB` already mined, so callbacks see `storedValue`.
-async fn linked_contracts() -> anyhow::Result<&'static (Deployed, Deployed)> {
-    static LINKED: OnceCell<(Deployed, Deployed)> = OnceCell::const_new();
+async fn linked_contracts() -> anyhow::Result<&'static (EthAddress, EthAddress)> {
+    static LINKED: OnceCell<(EthAddress, EthAddress)> = OnceCell::const_new();
     LINKED
         .get_or_try_init(|| async {
             let b = contract_b().await?;
             let a = deploy_hex("ContractA", CONTRACT_A_HEX).await?;
-            invoke(&a.f4, &set_contract_b_calldata(b.eth)).await?;
+            invoke(a, &set_contract_b_calldata(*b)).await?;
             Ok((a, *b))
         })
         .await
@@ -348,55 +337,10 @@ async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> 
     Ok(addr)
 }
 
-async fn wait_for_cid(forest: &Client, cid: Cid) -> anyhow::Result<()> {
-    let lookup = poll_until_message_executed(forest, cid).await?;
-    let exit = lookup.receipt.exit_code();
-    ensure!(
-        exit.is_success(),
-        "message {cid} failed on chain with exit code {exit}"
-    );
-    Ok(())
-}
-
-async fn lotus_send(
-    from: &Address,
-    to: &Address,
-    calldata: &[u8],
-    gas_limit: u64,
-) -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let from_s = from.to_string();
-    let to_s = to.to_string();
-    let params = hex::encode(calldata);
-    let gas = gas_limit.to_string();
-    let out = lotus_exec_retrying_transient(&[
-        "send",
-        "--from",
-        from_s.as_str(),
-        "--params-hex",
-        params.as_str(),
-        "--gas-limit",
-        gas.as_str(),
-        to_s.as_str(),
-        "0",
-    ])
-    .await?;
-    let cid = Cid::from_str(
-        out.lines()
-            .last()
-            .context("no cid from `lotus send`")?
-            .trim(),
-    )?;
-    eprintln!("submitted at estimate {gas_limit}: {cid}");
-    wait_for_cid(&forest, cid)
-        .await
-        .with_context(|| format!("transaction submitted at eth_estimateGas {gas_limit} failed"))?;
-    Ok(())
-}
-
-async fn invoke(to: &Address, calldata: &[u8]) -> anyhow::Result<()> {
+async fn invoke(to: EthAddress, calldata: &[u8]) -> anyhow::Result<()> {
     let from = deployer().await?.to_string();
-    forest_evm_invoke(&from, &to.to_string(), &hex::encode(calldata))?;
+    let to_fil = to.to_filecoin_address()?.to_string();
+    forest_evm_invoke(&from, &to_fil, &hex::encode(calldata))?;
     Ok(())
 }
 
@@ -882,7 +826,7 @@ async fn round_trip_from_unfunded() -> anyhow::Result<()> {
     let calldata = send_coin_calldata(recipient, 0);
 
     let from = new_unfunded().await?;
-    let gas = estimate_gas(&forest, from.eth, coin.eth, calldata.clone())
+    let gas = estimate_gas(&forest, from.eth, *coin, calldata.clone())
         .await
         .context("eth_estimateGas from unfunded sender")?;
     eprintln!("skip-sender estimate {gas} from {}", from.cli);
@@ -902,7 +846,10 @@ async fn round_trip_from_unfunded() -> anyhow::Result<()> {
         actor.sequence
     );
 
-    lotus_send(&from.f4, &coin.f4, &calldata, gas).await?;
+    let cid = wallet_send_calldata(&from.cli, coin, &calldata, gas)
+        .await
+        .with_context(|| format!("transaction submitted at eth_estimateGas {gas} failed"))?;
+    eprintln!("submitted at estimate {gas}: {cid}");
     let after = get_actor(&forest, from.f4)
         .await?
         .with_context(|| format!("actor {} missing after successful submit", from.f4))?;
@@ -919,11 +866,11 @@ async fn parity_with_existing_sender() -> anyhow::Result<()> {
     let coin = simple_coin().await?;
     let calldata = send_coin_calldata(non_existent(0x01)?, 0);
 
-    let skip = estimate_gas(&forest, non_existent(0x42)?, coin.eth, calldata.clone())
+    let skip = estimate_gas(&forest, non_existent(0x42)?, *coin, calldata.clone())
         .await
         .context("eth_estimateGas from missing from")?;
     let placeholder = new_funded(ROUND_TRIP_FUND_AMT).await?;
-    let funded = estimate_gas(&forest, placeholder.eth, coin.eth, calldata)
+    let funded = estimate_gas(&forest, placeholder.eth, *coin, calldata)
         .await
         .context("eth_estimateGas from funded placeholder")?;
     eprintln!("parity skip={skip} funded={funded}");
@@ -940,12 +887,12 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
     let calldata = recurse_calldata(NESTED_DEPTH);
 
     let from = new_unfunded().await?;
-    let gas = estimate_gas(&forest, from.eth, nested.eth, calldata.clone())
+    let gas = estimate_gas(&forest, from.eth, *nested, calldata.clone())
         .await
         .context("skip-sender eth_estimateGas recurse(100)")?;
 
     let placeholder = new_funded(RECURSIVE_FUND_AMT).await?;
-    let funded = estimate_gas(&forest, placeholder.eth, nested.eth, calldata.clone())
+    let funded = estimate_gas(&forest, placeholder.eth, *nested, calldata.clone())
         .await
         .context("funded-placeholder eth_estimateGas recurse(100)")?;
     eprintln!("recursive skip={gas} funded={funded}");
@@ -955,7 +902,10 @@ async fn round_trip_recursive() -> anyhow::Result<()> {
     );
 
     fund_on_chain(&from.cli, RECURSIVE_FUND_AMT).await?;
-    lotus_send(&from.f4, &nested.f4, &calldata, gas).await
+    wallet_send_calldata(&from.cli, nested, &calldata, gas)
+        .await
+        .with_context(|| format!("transaction submitted at eth_estimateGas {gas} failed"))?;
+    Ok(())
 }
 
 async fn call_sender_identity() -> anyhow::Result<()> {
@@ -966,17 +916,17 @@ async fn call_sender_identity() -> anyhow::Result<()> {
     let without_coins = non_existent(0x22)?;
     let recipient = non_existent(0x01)?;
 
-    for to in [sender_contract.eth, with_coins] {
-        invoke(&coin.f4, &send_coin_calldata(to, 100)).await?;
+    for to in [*sender_contract, with_coins] {
+        invoke(*coin, &send_coin_calldata(to, 100)).await?;
     }
 
     let spend = send_coin_calldata(recipient, 10);
     for (label, from, want) in [
-        ("contract from", sender_contract.eth, 1u8),
+        ("contract from", *sender_contract, 1u8),
         ("credited missing from", with_coins, 1),
         ("uncounted missing from", without_coins, 0),
     ] {
-        let ret = eth_call(&forest, from, coin.eth, spend.clone(), latest())
+        let ret = eth_call(&forest, from, *coin, spend.clone(), latest())
             .await
             .with_context(|| format!("eth_call sendCoin from {label}"))?;
         ensure!(
@@ -1056,7 +1006,7 @@ async fn assert_call_b(
     let forest = forest_client()?;
     let (a, _) = linked_contracts().await?;
     assert_abi_u256(
-        eth_call(&forest, from, a.eth, selector(sig), latest())
+        eth_call(&forest, from, *a, selector(sig), latest())
             .await
             .with_context(|| label.to_string())?,
         expected,
@@ -1067,7 +1017,7 @@ async fn assert_call_b(
 async fn cross_contract_from_contract() -> anyhow::Result<()> {
     let (_, b) = linked_contracts().await?;
     assert_call_b(
-        b.eth,
+        *b,
         CALL_B_AND_READ_BACK,
         42,
         "cross-contract callback from contract from",
