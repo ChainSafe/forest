@@ -13,7 +13,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile mini
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN git clone https://github.com/filecoin-project/lotus.git . && git reset --hard 67a542ae851ac242371df07795b74aea899d4b8e
+RUN git clone https://github.com/filecoin-project/lotus.git . && git reset --hard 1c89ca8f80d58717d61b6a8de460f38febe4346a
 
 # https://github.com/Filecoin-project/filecoin-ffi?tab=readme-ov-file#building-from-source
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
