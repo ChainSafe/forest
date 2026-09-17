@@ -3,12 +3,17 @@
 
 //! Per-network reward bootstrap for FIP-0118, the only network-specific input of the Solstice
 //! migration. Values from the Lotus `params_<network>.go` files at
-//! <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params.go#L23-L31>.
+//! <https://github.com/filecoin-project/lotus/blob/74da8af2d595eca68153d43f5c610147f988adc5/build/buildconstants/params.go#L23-L36>.
 
 use crate::networks::NetworkChain;
+use crate::rpc::eth::types::EthAddress;
 use crate::shim::address::Address;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCHS_IN_HOUR};
+use crate::shim::state_tree::StateTree;
+use anyhow::{Context as _, ensure};
 use fil_actor_reward_state::v19::DENOM;
+use fvm_ipld_blockstore::Blockstore;
+use std::str::FromStr as _;
 
 /// The network's input to the reward migration: timelock, ramp, weights and contracts.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,7 +25,7 @@ pub struct SolsticeRewardBootstrapParams {
     pub consensus_weight_ramp_duration_epochs: ChainEpoch,
     pub consensus_weight: SolsticeRewardWeightParams,
     pub service_weight: SolsticeRewardWeightParams,
-    /// Stream weight authority contract, `None` until it is deployed and has an `f0` address.
+    /// Stream weight authority contract, `None` until it is deployed.
     pub swa_actor: Option<Address>,
     /// Service reward authority contract, the writer of the service stream's shares.
     pub sra_actor: Option<Address>,
@@ -37,6 +42,11 @@ pub struct SolsticeRewardWeightParams {
 }
 
 pub(super) const PERCENT: u64 = DENOM / 100;
+
+/// The consensus weight ramps over nine of the quarters the network's SRA is deployed with.
+const RAMP_QUARTERS: ChainEpoch = 9;
+/// A quarter of the builtin-actors year, 31_556_925 seconds of 30 second epochs.
+const MAINNET_EPOCHS_PER_QUARTER: ChainEpoch = 262_974;
 
 /// The FIP-0118 weights, with the timelock, ramp and contract addresses filled in per network.
 const FIP0118: SolsticeRewardBootstrapParams = SolsticeRewardBootstrapParams {
@@ -61,18 +71,26 @@ impl SolsticeRewardBootstrapParams {
     /// The bootstrap of `chain`, with the contract addresses unset where none is deployed.
     pub fn for_chain(chain: &NetworkChain) -> Self {
         match chain {
-            NetworkChain::Mainnet | NetworkChain::Butterflynet => Self {
+            NetworkChain::Mainnet => Self {
                 swa_timelock_epochs: 7 * EPOCHS_IN_DAY,
-                consensus_weight_ramp_duration_epochs: 9 * 90 * EPOCHS_IN_DAY,
+                consensus_weight_ramp_duration_epochs: RAMP_QUARTERS * MAINNET_EPOCHS_PER_QUARTER,
                 ..FIP0118
             },
             NetworkChain::Calibnet => Self {
                 swa_timelock_epochs: EPOCHS_IN_HOUR,
-                consensus_weight_ramp_duration_epochs: 7 * EPOCHS_IN_DAY,
+                consensus_weight_ramp_duration_epochs: RAMP_QUARTERS * EPOCHS_IN_DAY,
                 ..FIP0118
             },
-            // The burnt-funds orchestrator copies the Lotus 2k network; the reward actor rejects
-            // it as a stored recipient, see the reward migration tests.
+            NetworkChain::Butterflynet => Self {
+                swa_timelock_epochs: 40,
+                consensus_weight_ramp_duration_epochs: RAMP_QUARTERS * 2 * EPOCHS_IN_HOUR,
+                swa_actor: Some(evm_address("0x17c43bC9d8E8600ebE7599C18f2dA2D5CED68D95")),
+                sra_actor: Some(evm_address("0xea340224F4df7D01d2657964215E37452165b0A1")),
+                initial_orchestrator: Some(evm_address(
+                    "0x48C7DC38e74C9fA9eA6484Ad6Ad0520349dC9B40",
+                )),
+                ..FIP0118
+            },
             NetworkChain::Devnet(_) => Self {
                 swa_timelock_epochs: 50,
                 consensus_weight_ramp_duration_epochs: 900,
@@ -81,6 +99,169 @@ impl SolsticeRewardBootstrapParams {
                 initial_orchestrator: Some(Address::BURNT_FUNDS_ACTOR),
                 ..FIP0118
             },
+        }
+    }
+
+    /// Resolves the contract addresses to `f0` addresses against `actors`, the state tree the
+    /// migration reads.
+    ///
+    /// # Errors
+    /// The SWA is unset, or a set address is not on chain.
+    pub fn resolve<BS: Blockstore>(mut self, actors: &StateTree<BS>) -> anyhow::Result<Self> {
+        ensure!(
+            self.swa_actor.is_some(),
+            "Solstice bootstrap SWA actor is unset"
+        );
+        // A consensus-only bootstrap leaves the service stream addresses unset.
+        for (name, address) in [
+            ("SWA actor", &mut self.swa_actor),
+            ("SRA actor", &mut self.sra_actor),
+            ("initial orchestrator", &mut self.initial_orchestrator),
+        ] {
+            let Some(unresolved) = address.take() else {
+                continue;
+            };
+            let id = actors.lookup_id(&unresolved)?.with_context(|| {
+                format!("Solstice bootstrap {name} {unresolved} is not on chain")
+            })?;
+            *address = Some(Address::new_id(id));
+        }
+        Ok(self)
+    }
+}
+
+/// An EVM address as Lotus writes it: `f0` for a masked ID, `f410` for anything else.
+fn evm_address(hex: &str) -> Address {
+    EthAddress::from_str(hex)
+        .expect("hard-coded EVM address is well-formed")
+        .to_filecoin_address()
+        .expect("EVM address has a Filecoin form")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::MemoryDB;
+    use crate::shim::state_tree::{ActorState, StateTreeVersion};
+    use crate::utils::cid::CidCborExt as _;
+    use crate::utils::db::CborStoreExt as _;
+    use cid::Cid;
+    use std::sync::Arc;
+
+    /// A state tree whose init actor maps each address to a fresh ID, returned in order.
+    fn state_tree_with(addresses: &[Address]) -> (StateTree<Arc<MemoryDB>>, Vec<Address>) {
+        let store = Arc::new(MemoryDB::default());
+        let mut init_state =
+            fil_actor_init_state::v19::State::new(&store, "migrationtest".into()).unwrap();
+        let ids = addresses
+            .iter()
+            .map(|address| {
+                let (id, _) = init_state
+                    .map_addresses_to_id(&store, &address.into(), None)
+                    .unwrap();
+                Address::new_id(id)
+            })
+            .collect();
+        let init_head = store.put_cbor_default(&init_state).unwrap();
+        let init_actor = ActorState::new(
+            Cid::from_cbor_blake2b256(&"init code").unwrap(),
+            init_head,
+            Default::default(),
+            0,
+            None,
+        );
+        let mut actors = StateTree::new(&store, StateTreeVersion::V5).unwrap();
+        actors.set_actor(&Address::INIT_ACTOR, init_actor).unwrap();
+        (actors, ids)
+    }
+
+    fn params_with(
+        swa: Option<Address>,
+        sra: Option<Address>,
+        orchestrator: Option<Address>,
+    ) -> SolsticeRewardBootstrapParams {
+        SolsticeRewardBootstrapParams {
+            swa_actor: swa,
+            sra_actor: sra,
+            initial_orchestrator: orchestrator,
+            ..FIP0118
+        }
+    }
+
+    fn contract(seed: u8) -> Address {
+        Address::new_delegated(
+            Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id().unwrap(),
+            &[seed; 20],
+        )
+        .unwrap()
+    }
+
+    fn wallet(seed: u8) -> Address {
+        Address::new_secp256k1(&[seed; 65]).unwrap()
+    }
+
+    #[test]
+    fn resolves_contract_and_wallet_addresses_to_ids() {
+        let (swa, sra, orchestrator) = (contract(1), contract(2), wallet(3));
+        let (actors, ids) = state_tree_with(&[swa, sra, orchestrator]);
+
+        let resolved = params_with(Some(swa), Some(sra), Some(orchestrator))
+            .resolve(&actors)
+            .unwrap();
+
+        assert_eq!(
+            (
+                resolved.swa_actor,
+                resolved.sra_actor,
+                resolved.initial_orchestrator
+            ),
+            (Some(ids[0]), Some(ids[1]), Some(ids[2]))
+        );
+    }
+
+    #[test]
+    fn unset_service_stream_addresses_pass_through() {
+        let swa = contract(1);
+        let (actors, ids) = state_tree_with(&[swa]);
+
+        let resolved = params_with(Some(swa), None, None).resolve(&actors).unwrap();
+
+        assert_eq!(resolved.swa_actor, Some(ids[0]));
+        assert_eq!(resolved.sra_actor, None);
+        assert_eq!(resolved.initial_orchestrator, None);
+    }
+
+    #[test]
+    fn rejects_an_unset_swa() {
+        let (actors, _) = state_tree_with(&[]);
+
+        let error = params_with(None, Some(contract(2)), Some(wallet(3)))
+            .resolve(&actors)
+            .unwrap_err();
+
+        assert!(
+            error.to_string().contains("SWA actor is unset"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn rejects_an_address_missing_from_the_state_tree() {
+        let (swa, sra, orchestrator) = (contract(1), contract(2), wallet(3));
+        let cases = [
+            ("SWA actor", swa, [sra, orchestrator]),
+            ("SRA actor", sra, [swa, orchestrator]),
+            ("initial orchestrator", orchestrator, [swa, sra]),
+        ];
+        for (name, missing, on_chain) in cases {
+            let (actors, _) = state_tree_with(&on_chain);
+
+            let error = params_with(Some(swa), Some(sra), Some(orchestrator))
+                .resolve(&actors)
+                .unwrap_err();
+
+            let expected = format!("Solstice bootstrap {name} {missing} is not on chain");
+            assert!(error.to_string().contains(&expected), "{error:#}");
         }
     }
 }

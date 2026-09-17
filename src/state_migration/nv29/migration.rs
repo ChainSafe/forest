@@ -46,8 +46,10 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
         );
         // Streams start at the first epoch executed on the migrated state.
         let activation_epoch = chain_config.epoch(Height::Solstice) + 1;
+        let bootstrap =
+            SolsticeRewardBootstrapParams::for_chain(&chain_config.network).resolve(&state_tree)?;
         let reward_migrator = RewardMigrator::new(
-            &SolsticeRewardBootstrapParams::for_chain(&chain_config.network),
+            &bootstrap,
             activation_epoch,
             new_manifest.get(BuiltinActor::Reward)?,
         )?;
