@@ -22,9 +22,10 @@ use crate::shim::{
     state_tree::ActorState,
     version::NetworkVersion,
 };
+use crate::utils::encoding::encoded_len;
 use ahash::{HashMap, HashSet};
 use anyhow::bail;
-use fvm_ipld_encoding::{RawBytes, to_vec};
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::clock::ChainEpoch;
 use fvm2::{
     executor::{DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2},
@@ -456,7 +457,7 @@ impl VM {
         msg.message().check()?;
 
         let unsigned = msg.message().clone();
-        let raw_length = to_vec(msg)?.len();
+        let raw_length = encoded_len(msg)?;
         let ret: ApplyRet = match self {
             VM::VM2(fvm_executor) => {
                 let ret = fvm_executor.execute_message(
