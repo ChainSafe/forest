@@ -3182,13 +3182,10 @@ fn eth_tx_hash_and_signed_message(
 }
 
 /// Indexes a just-submitted tx immediately; `process_signed_messages` also indexes it once mined.
-fn index_sent_tx(ctx: &Ctx, tx_hash: EthHash, cid: Cid) {
-    if let Err(e) =
-        ctx.chain_store()
-            .put_mapping(tx_hash, cid, chrono::Utc::now().timestamp() as u64)
-    {
-        tracing::error!("error inserting eth tx mapping: {e}");
-    }
+fn index_sent_tx(ctx: &Ctx, tx_hash: EthHash, cid: Cid) -> Result<(), ServerError> {
+    ctx.chain_store()
+        .put_mapping(tx_hash, cid, chrono::Utc::now().timestamp() as u64)?;
+    Ok(())
 }
 
 pub enum EthSendRawTransaction {}
@@ -3212,7 +3209,7 @@ impl RpcMethod<1> for EthSendRawTransaction {
         let (tx_hash, smsg) =
             eth_tx_hash_and_signed_message(&raw_tx, ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.push(smsg).await?;
-        index_sent_tx(&ctx, tx_hash, cid);
+        index_sent_tx(&ctx, tx_hash, cid)?;
         Ok(tx_hash)
     }
 }
@@ -3237,7 +3234,7 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
         let (tx_hash, smsg) =
             eth_tx_hash_and_signed_message(&raw_tx, ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.push_untrusted(smsg).await?;
-        index_sent_tx(&ctx, tx_hash, cid);
+        index_sent_tx(&ctx, tx_hash, cid)?;
         Ok(tx_hash)
     }
 }
