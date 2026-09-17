@@ -49,9 +49,6 @@ pub mod metrics;
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V29;
 
 /// Placeholder epoch for a network upgrade that has no scheduled height yet.
-///
-/// Same sentinel as Lotus `UpgradeHeightUnscheduled`, so `Filecoin.StateGetNetworkParams` matches:
-/// <https://github.com/filecoin-project/lotus/blob/1b0155685292f691babd930f1060562ecff645c3/build/buildconstants/params.go#L13>
 pub const UPGRADE_HEIGHT_UNSCHEDULED: ChainEpoch = 999_999_999_999_999;
 
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
