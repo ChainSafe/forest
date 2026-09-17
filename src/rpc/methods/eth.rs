@@ -3170,10 +3170,14 @@ fn eth_tx_hash_and_signed_message(
     raw_tx: &EthBytes,
     eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<(EthHash, SignedMessage)> {
-    let tx_args = parse_eth_transaction(&raw_tx.0)?;
-    let smsg = tx_args.get_signed_message(eth_chain_id)?;
+    let tx_args =
+        parse_eth_transaction(&raw_tx.0).context("failed to parse raw Ethereum transaction")?;
+    let smsg = tx_args
+        .get_signed_message(eth_chain_id)
+        .context("failed to construct signed message from raw Ethereum transaction")?;
     // Same derivation `process_signed_messages` uses when re-indexing on mining.
-    let tx_hash = eth_tx_hash_from_signed_message(&smsg, eth_chain_id)?;
+    let tx_hash = eth_tx_hash_from_signed_message(&smsg, eth_chain_id)
+        .context("failed to derive Ethereum transaction hash from signed message")?;
     Ok((tx_hash, smsg))
 }
 
