@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::helpers::*;
+use crate::rpc::eth::types::EthAddress;
+use crate::utils::encoding::{hex, keccak_256};
 use libtest_mimic::{Arguments, Trial};
+use std::str::FromStr as _;
 
 /// Wallet integration tests
 #[derive(Debug, clap::Args)]
@@ -74,6 +77,10 @@ fn tests() -> Vec<Trial> {
         }),
         Trial::test("delegated_remote_send", || {
             block_on(delegated_remote_send());
+            Ok(())
+        }),
+        Trial::test("send_params_hex_invokes_contract", || {
+            block_on(send_params_hex_invokes_contract());
             Ok(())
         }),
     ]
@@ -217,4 +224,50 @@ async fn delegated_remote_send() {
         observed != baseline,
         "{target} balance unchanged after delegated --remote-wallet send: {observed}",
     );
+}
+
+const SIMPLE_COIN_HEX: &str = include_str!("../devnet_cmd/contracts/simple_coin/simple_coin.hex");
+
+async fn send_params_hex_invokes_contract() {
+    let from = funded_delegated_addr().await;
+    // Deploying an EVM actor costs more gas than the shared delegated seed.
+    let fund = send_from(
+        &FOREST_TEST_PRELOADED_ADDRESS,
+        from,
+        "1 FIL",
+        Backend::Local,
+    )
+    .unwrap();
+    eprintln!("funding delegated {from} for evm deploy, msg: {fund}");
+    let deploy = forest_evm_deploy_hex(from, SIMPLE_COIN_HEX).unwrap();
+    let f4 = parse_f4_from_evm_deploy(&deploy).unwrap();
+    eprintln!("deployed SimpleCoin at {f4}");
+    poll_until_actor_on("forest", f4, forest_client)
+        .await
+        .unwrap();
+
+    let eth = EthAddress::from_filecoin_address(&f4).unwrap();
+    let target = hex::encode_prefixed(eth.0.as_bytes());
+    let from_eth =
+        EthAddress::from_filecoin_address(&crate::shim::address::Address::from_str(from).unwrap())
+            .unwrap();
+    let mut calldata = keccak_256(b"getBalance(address)")
+        .get(..4)
+        .expect("keccak256 is 32 bytes")
+        .to_vec();
+    calldata.extend_from_slice(&[0u8; 12]);
+    calldata.extend_from_slice(from_eth.0.as_bytes());
+    let params = hex::encode(&calldata);
+
+    let out = wallet_send(
+        Backend::Local,
+        from,
+        &target,
+        "0",
+        &["--params-hex", &params],
+        true,
+    )
+    .unwrap();
+    let cid = assert_send_ok(&out).await.unwrap();
+    eprintln!("send --params-hex {cid}");
 }
