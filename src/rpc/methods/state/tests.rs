@@ -8,6 +8,7 @@ use crate::networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata, Height};
 use crate::rpc::test_utils::chain_store_with_config;
 use crate::rpc::{DbImpl, RPCState};
 use crate::shim::machine::BuiltinActor;
+use crate::shim::sector::RegisteredSealProofV4;
 use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
 use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::utils::db::CborStoreExt as _;
@@ -115,7 +116,9 @@ impl PledgeInputs {
             store.put_cbor_default(&state).unwrap()
         };
         // Read by the circulating-supply calculation below network version 23.
-        let market_state = market::State::V18(fil_actor_market_state::v18::State::default());
+        let market_state = market::State::V18(
+            fil_actor_market_state::v18::State::new(store).expect("empty market state"),
+        );
 
         let put = |tree: &mut StateTree<DbImpl>, address: &Address, code, state, balance| {
             if omit.as_ref() != Some(address) {
@@ -409,6 +412,36 @@ async fn initial_pledge_for_sector_adds_the_buffer() {
     // Restated from Lotus `node/impl/full/state.go` so the assertion is independent of the
     // constants under test.
     assert_eq!(pledge, (unbuffered * 110u64).div_floor(100u64));
+}
+
+/// The collateral RPC reaches the same pledge through a pre-commit carrying no deals.
+#[tokio::test]
+async fn initial_pledge_collateral_matches_the_sector_pledge() {
+    let (ctx, _) = ctx_at(ChainConfig::calibnet(), FIXTURE_EPOCH, &Default::default());
+    let duration = 1_000;
+    // Default seal proof is `Invalid`, so that field has to be set; the rest go unread.
+    let pre_commit = SectorPreCommitInfo::from(fil_actor_miner_state::v18::SectorPreCommitInfo {
+        seal_proof: RegisteredSealProofV4::StackedDRG32GiBV1P1,
+        expiration: FIXTURE_EPOCH + duration,
+        ..Default::default()
+    });
+
+    assert_eq!(
+        StateMinerInitialPledgeCollateral::handle(
+            ctx.clone(),
+            (Address::new_id(1000), pre_commit, ApiTipsetKey(None)),
+            &Default::default(),
+        )
+        .await
+        .unwrap(),
+        StateMinerInitialPledgeForSector::handle(
+            ctx,
+            (duration, SectorSize::_32GiB, 0, ApiTipsetKey(None)),
+            &Default::default(),
+        )
+        .await
+        .unwrap()
+    );
 }
 
 #[rstest]

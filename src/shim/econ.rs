@@ -128,6 +128,7 @@ impl TokenAmount {
         TokenAmount_v3::from_nano(nano).into()
     }
 
+    /// Creates an amount from microFIL (10^-6 FIL).
     pub fn from_micro(micro: impl Into<BigInt>) -> Self {
         Self::from_nano(micro.into() * 1_000)
     }
