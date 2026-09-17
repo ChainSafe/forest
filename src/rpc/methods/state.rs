@@ -1845,7 +1845,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch).await?;
+        let digest = chain_rand.get_beacon_randomness(rand_epoch).await?;
         let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
             &digest,
             personalization,
@@ -1875,7 +1875,7 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromBeacon {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_beacon_randomness_v3(rand_epoch).await?;
+        let digest = chain_rand.get_beacon_randomness(rand_epoch).await?;
         Ok(digest.to_vec())
     }
 }
@@ -2228,10 +2228,9 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         let heaviest = ctx.chain_store().heaviest_tipset();
         if epoch <= heaviest.epoch() {
             let chain_rand = ctx.state_manager.chain_rand(heaviest);
-            if let Ok(entry) = tokio::task::spawn_blocking(move || {
-                chain_rand.extract_beacon_entry_for_epoch(epoch)
-            })
-            .await?
+            if let Ok(entry) =
+                tokio::task::spawn_blocking(move || chain_rand.beacon_entry_for_epoch(epoch))
+                    .await?
             {
                 return Ok(entry);
             }
