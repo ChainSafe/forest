@@ -3,7 +3,6 @@
 
 use std::io;
 
-use async_trait::async_trait;
 use asynchronous_codec::{FramedRead, FramedWrite};
 use futures::{
     SinkExt, StreamExt,
@@ -32,7 +31,6 @@ fn codec() -> quick_protobuf_codec::Codec<bitswap_pb::Message> {
 #[derive(Default, Debug, Clone)]
 pub struct BitswapRequestResponseCodec;
 
-#[async_trait]
 impl request_response::Codec for BitswapRequestResponseCodec {
     type Protocol = &'static str;
     type Request = BitswapMessages;

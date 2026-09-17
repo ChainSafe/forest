@@ -28,6 +28,11 @@ static DEFAULT_REGISTRY: LazyLock<RwLock<prometheus_client::registry::Registry>>
 static COLLECTOR_REGISTRY: LazyLock<RwLock<prometheus_client::registry::Registry>> =
     LazyLock::new(Default::default);
 
+// Separate because `kubert-prometheus-process` is still on `prometheus-client` 0.23 while the rest
+// of the tree is on 0.25. Both encode to the same text format, so the scrape output is unaffected.
+static PROCESS_REGISTRY: LazyLock<RwLock<prometheus_client_023::registry::Registry>> =
+    LazyLock::new(Default::default);
+
 pub fn default_registry<'a>() -> RwLockWriteGuard<'a, prometheus_client::registry::Registry> {
     DEFAULT_REGISTRY.write()
 }
@@ -41,8 +46,21 @@ pub fn register_collector(collector: Box<dyn Collector>) {
     collector_registry().register_collector(collector)
 }
 
-pub fn reset_collector_registry() {
+fn register_process_metrics() {
+    if let Err(err) = kubert_prometheus_process::register(
+        PROCESS_REGISTRY.write().sub_registry_with_prefix("process"),
+    ) {
+        warn!("Failed to register process metrics: {err}");
+    }
+}
+
+/// Clears the collector and process registries, which are repopulated on each daemon run.
+///
+/// [`DEFAULT_REGISTRY`] is deliberately left alone: its families are registered from `LazyLock`
+/// statics, which only ever run once.
+pub fn reset_collector_registries() {
     *collector_registry() = Default::default();
+    *PROCESS_REGISTRY.write() = Default::default();
 }
 
 pub static RPC_METHOD_FAILURE: LazyLock<Family<RpcMethodLabel, Counter>> = LazyLock::new(|| {
@@ -89,12 +107,7 @@ pub async fn init_prometheus<DB>(
 where
     DB: DBStatistics + Send + Sync + 'static,
 {
-    // Add the process collector to the registry
-    if let Err(err) = kubert_prometheus_process::register(
-        collector_registry().sub_registry_with_prefix("process"),
-    ) {
-        warn!("Failed to register process metrics: {err}");
-    }
+    register_process_metrics();
 
     register_collector(Box::new(
         crate::utils::version::ForestVersionCollector::new(),
@@ -119,7 +132,7 @@ where
     Ok(axum::serve(prometheus_listener, app.into_make_service()).await?)
 }
 
-async fn collect_prometheus_metrics() -> impl IntoResponse {
+fn encode_metrics() -> String {
     let mut metrics = String::new();
     if let Err(e) =
         prometheus_client::encoding::text::encode_registry(&mut metrics, &DEFAULT_REGISTRY.read())
@@ -131,9 +144,20 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     {
         warn!("failed to encode the collector metrics registry: {e}");
     };
+    if let Err(e) = prometheus_client_023::encoding::text::encode_registry(
+        &mut metrics,
+        &PROCESS_REGISTRY.read(),
+    ) {
+        warn!("failed to encode the process metrics registry: {e}");
+    };
     if let Err(e) = prometheus_client::encoding::text::encode_eof(&mut metrics) {
         warn!("failed to encode metrics eof {e}");
     };
+    metrics
+}
+
+async fn collect_prometheus_metrics() -> impl IntoResponse {
+    let metrics = encode_metrics();
     (
         StatusCode::OK,
         [("content-type", "text/plain; charset=utf-8")],
@@ -225,5 +249,42 @@ impl GaugeGuardExt for Gauge {
     fn inc_guard(&self) -> GaugeGuard<'_> {
         self.inc();
         GaugeGuard { gauge: self }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use itertools::Itertools as _;
+
+    /// `kubert-prometheus-process` registers into a registry from a different `prometheus-client`
+    /// version than the rest of the tree, so guard that its metrics still reach the scrape output.
+    #[test]
+    #[serial_test::serial]
+    fn process_metrics_are_scraped() {
+        *PROCESS_REGISTRY.write() = Default::default();
+        register_process_metrics();
+
+        let scraped = encode_metrics();
+
+        assert!(scraped.contains("process_start_time_seconds"));
+        assert!(scraped.contains("process_uptime_seconds_total"));
+        assert_eq!(scraped.matches("# EOF").count(), 1);
+        assert!(scraped.ends_with("# EOF\n"));
+
+        // A duplicate family makes the whole scrape unparseable, which the substring
+        // assertions above cannot see.
+        for prefix in ["# HELP ", "# TYPE "] {
+            let duplicates = scraped
+                .lines()
+                .filter_map(|l| l.strip_prefix(prefix))
+                .filter_map(|declaration| declaration.split_whitespace().next())
+                .duplicates()
+                .collect_vec();
+            assert!(
+                duplicates.is_empty(),
+                "duplicate `{prefix}` names: {duplicates:?}"
+            );
+        }
     }
 }

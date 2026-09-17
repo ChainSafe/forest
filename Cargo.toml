@@ -22,8 +22,8 @@ flume = "0.12"
 futures = "0.3"
 get-size2 = { version = "0.10", features = ["derive", "bytes", "hashbrown"] }
 hashlink = "0.11"
-libp2p = { version = "0.56", default-features = false }
-libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
+libp2p = { version = "0.57", default-features = false }
+libp2p-swarm-test = { version = "0.7", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.2", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
 serde = { version = "1", default-features = false, features = ["derive", "rc"] }
@@ -114,7 +114,7 @@ git-version = "0.3"
 group = "0.13"
 hashbrown = "0.17"
 hashlink = { workspace = true }
-hickory-resolver = { version = "0.25", default-features = false, features = ["system-config", "tokio"] }
+hickory-resolver = { version = "0.26", default-features = false, features = ["system-config", "tokio"] }
 http = "1"
 human-repr = { version = "1", features = ["iec", "space"] }
 humantime = "2"
@@ -176,7 +176,9 @@ pathfinding = "4"
 pin-project-lite = "0.2"
 positioned-io = "0.3"
 pretty_assertions = "1"
-prometheus-client = "0.23"
+prometheus-client = "0.25"
+# Only for `kubert-prometheus-process`, which is still pinned to 0.23. Drop once it publishes a 0.25 build.
+prometheus-client-023 = { package = "prometheus-client", version = "0.23" }
 puruspe = "0.4"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.3"

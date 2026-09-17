@@ -4,7 +4,6 @@
 mod decoder;
 use std::{io, marker::PhantomData, time::Duration};
 
-use async_trait::async_trait;
 use decoder::DagCborDecodingReader;
 use futures::prelude::*;
 use libp2p::request_response::{self, OutboundFailure};
@@ -92,10 +91,9 @@ impl From<OutboundFailure> for RequestResponseError {
     }
 }
 
-#[async_trait]
 impl<P, RQ, RS, C> request_response::Codec for CborRequestResponse<P, RQ, RS, C>
 where
-    P: AsRef<str> + Send + Clone,
+    P: AsRef<str> + Send + Sync + Clone,
     RQ: Serialize + DeserializeOwned + Send + Sync,
     RS: Serialize + DeserializeOwned + Send + Sync,
     C: CodecConfig + Send + Sync,

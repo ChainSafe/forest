@@ -100,6 +100,8 @@ pub(in crate::libp2p) fn build_gossipsub(
     let mut gs_config_builder = gossipsub::ConfigBuilder::default();
     gs_config_builder.max_transmit_size(1 << 20);
     gs_config_builder.validation_mode(ValidationMode::Strict);
+    gs_config_builder.max_publish_messages(5000);
+    gs_config_builder.max_control_message_size(512 * 1024);
     gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
         let s = blake2b_256(&msg.data);
         MessageId::from(s)

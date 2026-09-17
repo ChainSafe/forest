@@ -816,7 +816,7 @@ pub(super) async fn start_services(
     rpc_stop_handle: jsonrpsee::server::StopHandle,
 ) -> anyhow::Result<()> {
     // Cleanup the collector prometheus metrics registry on start
-    crate::metrics::reset_collector_registry();
+    crate::metrics::reset_collector_registries();
     let mut services = JoinSet::new();
     let network = config.chain();
     let ctx = AppContext::init(opts, &config).await?;
