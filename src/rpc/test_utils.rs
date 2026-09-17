@@ -24,6 +24,11 @@ use tokio::task::JoinSet;
 
 /// A chain store over a fresh in-memory db, with its genesis persisted.
 pub(crate) fn chain_store() -> ChainStore {
+    chain_store_with_config(ChainConfig::default())
+}
+
+/// Like [`chain_store`], but over the given `chain_config` rather than the mainnet default.
+pub(crate) fn chain_store_with_config(chain_config: ChainConfig) -> ChainStore {
     let db = Arc::new(MemoryDB::default());
     let genesis = CachingBlockHeader::new(RawBlockHeader {
         timestamp: 7777,
@@ -32,7 +37,7 @@ pub(crate) fn chain_store() -> ChainStore {
         ..Default::default()
     });
     db.put_cbor_default(&genesis).unwrap();
-    ChainStore::new(db, Arc::new(ChainConfig::default()), genesis).unwrap()
+    ChainStore::new(db, Arc::new(chain_config), genesis).unwrap()
 }
 
 impl RPCState {
