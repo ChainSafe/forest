@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cli::humantoken;
-use crate::eth::{EAMMethod, EVMMethod};
+use crate::eth::{EAMMethod, EVMMethod, encode_evm_params};
 use crate::rpc::eth::{
     BlockNumberOrHash, Predefined,
     types::{EthAddress, EthBytes, EthCallMessage},
@@ -20,7 +20,7 @@ use base64::prelude::BASE64_STANDARD;
 use cid::Cid;
 use clap::Subcommand;
 use fil_actor_eam_state::v16::CreateExternalParams;
-use fil_actor_evm_state::v16::{InvokeContractParams, InvokeContractReturn};
+use fil_actor_evm_state::v16::InvokeContractReturn;
 use fvm_ipld_encoding::RawBytes;
 use std::path::PathBuf;
 use std::str::FromStr as _;
@@ -190,10 +190,7 @@ async fn invoke(
     calldata: EthBytes,
 ) -> anyhow::Result<()> {
     let from = resolve_from(&client, from).await?;
-    let params = RawBytes::serialize(InvokeContractParams {
-        input_data: calldata.0,
-    })
-    .context("failed to encode evm params as cbor")?;
+    let params = RawBytes::new(encode_evm_params(&calldata.0)?);
 
     let msg = Message {
         to: address,

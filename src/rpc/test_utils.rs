@@ -27,7 +27,7 @@ pub(crate) fn chain_store() -> ChainStore {
     chain_store_with_config(ChainConfig::default())
 }
 
-/// Like [`chain_store`], but over the given `chain_config` rather than the mainnet default.
+/// As [`chain_store`], on a specific network configuration.
 pub(crate) fn chain_store_with_config(chain_config: ChainConfig) -> ChainStore {
     let db = Arc::new(MemoryDB::default());
     let genesis = CachingBlockHeader::new(RawBlockHeader {

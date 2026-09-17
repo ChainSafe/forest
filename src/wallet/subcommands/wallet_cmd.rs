@@ -14,7 +14,7 @@ use crate::key_management::{Key, KeyInfo};
 use crate::{
     ENCRYPTED_KEYSTORE_NAME,
     cli::humantoken,
-    eth::{EAMMethod, EVMMethod},
+    eth::{EAMMethod, EVMMethod, encode_evm_params},
     rpc::{
         eth::{EthChainId, is_eth_address, types::EthAddress},
         mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
@@ -39,6 +39,7 @@ use anyhow::{Context as _, bail};
 use clap::Subcommand;
 use dialoguer::{Password, console::Term, theme::ColorfulTheme};
 use directories::ProjectDirs;
+use fvm_ipld_encoding::RawBytes;
 use jsonrpsee::core::ClientError;
 use num::Zero as _;
 use tabled::{builder::Builder, settings::Style};
@@ -321,6 +322,12 @@ pub enum WalletCommands {
         /// Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs.
         #[arg(long, requires = "wait_confidence", value_parser = humantime::parse_duration)]
         wait_timeout: Option<Duration>,
+        /// Specify method to invoke (default 0; selected automatically for ETH)
+        #[arg(long)]
+        method: Option<u64>,
+        /// Specify invocation parameters in hex
+        #[arg(long)]
+        params_hex: Option<String>,
     },
 }
 impl WalletCommands {
@@ -509,6 +516,8 @@ impl WalletCommands {
                 gas_premium,
                 wait_confidence,
                 wait_timeout,
+                method,
+                params_hex,
             } => {
                 let from: Address = match from {
                     Some(a) => a.into(),
@@ -532,13 +541,20 @@ impl WalletCommands {
                             )
                         })?;
                 }
-                let method_num = resolve_method_num(&from, &to, is_0x_recipient);
+                let invocation = resolve_send_invocation(
+                    &from,
+                    &to,
+                    is_0x_recipient,
+                    method,
+                    params_hex.as_deref(),
+                )?;
 
                 let message = Message {
                     from,
                     to,
                     value: amount,
-                    method_num,
+                    method_num: invocation.method_num,
+                    params: invocation.params,
                     gas_limit: gas_limit as u64,
                     gas_fee_cap: gas_feecap,
                     gas_premium,
@@ -679,14 +695,41 @@ fn wrap_frc0102(msg: &[u8]) -> Vec<u8> {
     [FRC_0102_FILECOIN_PREFIX, len.as_bytes(), msg].concat()
 }
 
-fn resolve_method_num(from: &Address, to: &Address, is_0x_recipient: bool) -> u64 {
-    if !is_eth_address(from) && !is_0x_recipient {
-        return METHOD_SEND;
-    }
-    if *to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
-        EAMMethod::CreateExternal as u64
+#[derive(Debug)]
+struct SendInvocation {
+    method_num: u64,
+    params: RawBytes,
+}
+
+fn resolve_send_invocation(
+    from: &Address,
+    to: &Address,
+    is_0x_recipient: bool,
+    method: Option<u64>,
+    params_hex: Option<&str>,
+) -> anyhow::Result<SendInvocation> {
+    let hex_bytes = params_hex
+        .map(|s| hex::decode(s).context("failed to decode hex params"))
+        .transpose()?;
+    let is_eth_path = is_eth_address(from) || is_0x_recipient;
+
+    if is_eth_path {
+        if method.is_some() {
+            bail!("messages from f410f addresses may not specify a method number");
+        }
+        Ok(SendInvocation {
+            method_num: if *to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+                EAMMethod::CreateExternal as u64
+            } else {
+                EVMMethod::InvokeContract as u64
+            },
+            params: RawBytes::new(encode_evm_params(hex_bytes.as_deref().unwrap_or_default())?),
+        })
     } else {
-        EVMMethod::InvokeContract as u64
+        Ok(SendInvocation {
+            method_num: method.unwrap_or(METHOD_SEND),
+            params: RawBytes::new(hex_bytes.unwrap_or_default()),
+        })
     }
 }
 
@@ -698,9 +741,10 @@ mod tests {
     use crate::rpc::eth::types::EthAddress;
     use crate::shim::address::{Address, CurrentNetwork, Network};
     use crate::shim::message::METHOD_SEND;
+    use crate::utils::encoding::hex;
     use rstest::rstest;
 
-    use super::{SignatureType, resolve_method_num, resolve_target_address, wrap_frc0102};
+    use super::{SignatureType, resolve_send_invocation, resolve_target_address, wrap_frc0102};
 
     #[test]
     fn test_resolve_target_address_id() {
@@ -765,58 +809,90 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::native_defaults("f01234", "f01234", false, METHOD_SEND)]
+    #[case::create_external(
+        "f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa",
+        "f010",
+        false,
+        EAMMethod::CreateExternal as u64
+    )]
+    #[case::invoke_contract(
+        "f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa",
+        "f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa",
+        false,
+        EVMMethod::InvokeContract as u64
+    )]
+    #[case::invoke_contract_eth(
+        "f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa",
+        "0x6cb414224f0b91de5c3b616e700e34a5172c149f",
+        true,
+        EVMMethod::InvokeContract as u64
+    )]
+    #[case::native_to_delegated(
+        "f01234",
+        "f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa",
+        false,
+        METHOD_SEND
+    )]
+    #[case::native_to_eth(
+        "f01234",
+        "0x6cb414224f0b91de5c3b616e700e34a5172c149f",
+        true,
+        EVMMethod::InvokeContract as u64
+    )]
+    fn test_resolve_send_invocation_method(
+        #[case] from: &str,
+        #[case] to: &str,
+        #[case] is_0x: bool,
+        #[case] expected: u64,
+    ) {
+        let from = Address::from_str(from).unwrap();
+        let to = if is_0x {
+            EthAddress::from_str(to)
+                .unwrap()
+                .to_filecoin_address()
+                .unwrap()
+        } else {
+            Address::from_str(to).unwrap()
+        };
+        let invocation = resolve_send_invocation(&from, &to, is_0x, None, None).unwrap();
+        assert_eq!(invocation.method_num, expected);
+        assert!(invocation.params.is_empty());
+    }
+
     #[test]
-    fn test_resolve_method_num_send() {
+    fn test_resolve_send_invocation_eth_wraps_params_hex() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let eth = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f").unwrap();
+        let to = eth.to_filecoin_address().unwrap();
+        let calldata = hex::decode("deadbeef").unwrap();
+        let invocation = resolve_send_invocation(&from, &to, true, None, Some("deadbeef")).unwrap();
+        assert_eq!(invocation.method_num, EVMMethod::InvokeContract as u64);
+        assert_eq!(
+            invocation.params.to_vec(),
+            crate::eth::encode_evm_params(&calldata).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_resolve_send_invocation_eth_rejects_method() {
+        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
+        let to = from;
+        let err = resolve_send_invocation(&from, &to, false, Some(0), None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("may not specify a method number"));
+    }
+
+    #[test]
+    fn test_resolve_send_invocation_native_params_hex() {
         let from = Address::from_str("f01234").unwrap();
         let to = Address::from_str("f01234").unwrap();
-        let method = resolve_method_num(&from, &to, false);
-        assert_eq!(method, METHOD_SEND);
-    }
-
-    #[test]
-    fn test_resolve_method_num_create_external() {
-        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let to = Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR;
-        let method = resolve_method_num(&from, &to, false);
-        assert_eq!(method, EAMMethod::CreateExternal as u64);
-    }
-
-    #[test]
-    fn test_resolve_method_num_invoke_contract() {
-        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let method = resolve_method_num(&from, &to, false);
-        assert_eq!(method, EVMMethod::InvokeContract as u64);
-    }
-
-    #[test]
-    fn test_resolve_method_num_invoke_contract_eth() {
-        let from = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let to = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f")
-            .unwrap()
-            .to_filecoin_address()
-            .unwrap();
-        let method = resolve_method_num(&from, &to, true);
-        assert_eq!(method, EVMMethod::InvokeContract as u64);
-    }
-
-    #[test]
-    fn test_resolve_method_num_send_to_delegated() {
-        let from = Address::from_str("f01234").unwrap();
-        let to = Address::from_str("f410fvfpyxvy6aqet3g2bfbj6h7nr5kjgyncpaeimgxa").unwrap();
-        let method = resolve_method_num(&from, &to, false);
-        assert_eq!(method, METHOD_SEND);
-    }
-
-    #[test]
-    fn test_resolve_method_num_send_to_eth() {
-        let from = Address::from_str("f01234").unwrap();
-        let to = EthAddress::from_str("0x6cb414224f0b91de5c3b616e700e34a5172c149f")
-            .unwrap()
-            .to_filecoin_address()
-            .unwrap();
-        let method = resolve_method_num(&from, &to, true);
-        assert_eq!(method, EVMMethod::InvokeContract as u64);
+        let invocation =
+            resolve_send_invocation(&from, &to, false, Some(2), Some("deadbeef")).unwrap();
+        assert_eq!(invocation.method_num, 2);
+        assert_eq!(invocation.params.to_vec(), hex::decode("deadbeef").unwrap());
     }
 
     #[rstest]
