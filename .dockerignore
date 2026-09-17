@@ -1,5 +1,4 @@
 .github
-benches
 .yarn
 docs
 monitored-stack

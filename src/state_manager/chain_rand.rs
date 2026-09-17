@@ -89,9 +89,7 @@ impl ChainRand {
         self.get_chain_randomness_blocking(round, false)
     }
 
-    /// Randomness from the beacon entry that was used for `round`, mirroring Lotus
-    /// `stateRand.GetBeaconRandomness`. All per-network-version behaviour, negative
-    /// rounds included, lives in [`Self::beacon_entry_for_epoch`].
+    /// Randomness from the beacon entry that was used for `round`
     pub fn get_beacon_randomness_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         let beacon_entry = self.beacon_entry_for_epoch(round)?;
         Ok(digest(beacon_entry.signature()))
@@ -103,23 +101,20 @@ impl ChainRand {
         tokio::task::spawn_blocking(move || this.get_beacon_randomness_blocking(round)).await?
     }
 
-    /// Returns the beacon entry that was used for `epoch`, dispatching on network
-    /// version exactly as Lotus `stateRand.GetBeaconEntry` does:
+    /// Returns the beacon entry that was used for `epoch`, based on network
+    /// version:
     /// <https://github.com/filecoin-project/lotus/blob/v1.36.0/chain/rand/rand.go#L192-L205>
     pub fn beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
         let network_version = self.chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V14 {
             self.beacon_entry_for_epoch_v3(epoch, network_version)
         } else if network_version == NetworkVersion::V13 {
-            // network v13: the latest entry in the tipset, without look-back.
             self.latest_beacon_entry_for_epoch(epoch, false)
         } else {
-            // network v0-12: as v13, but null tipsets resolve to the older side.
             self.latest_beacon_entry_for_epoch(epoch, true)
         }
     }
 
-    /// The pre-nv14 rule: whichever entry the resolved tipset carried last.
     fn latest_beacon_entry_for_epoch(
         &self,
         epoch: ChainEpoch,
@@ -129,18 +124,14 @@ impl ChainRand {
         Ok(self.chain_index.latest_beacon_entry(rand_ts)?)
     }
 
-    /// network v14 and on: the entry matching this epoch's round.
     fn beacon_entry_for_epoch_v3(
         &self,
         epoch: ChainEpoch,
         network_version: NetworkVersion,
     ) -> anyhow::Result<BeaconEntry> {
-        // `max_beacon_round_for_epoch` cannot answer for a negative epoch, so defer to
-        // the v2 rule, as Lotus `getBeaconEntryV3` does.
         if epoch < 0 {
             return self.latest_beacon_entry_for_epoch(epoch, false);
         }
-
         let mut rand_ts: Tipset = self.get_beacon_randomness_tipset_blocking(epoch, false)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch)?;

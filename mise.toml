@@ -19,7 +19,8 @@ if [ "${usage_native}" = true ]; then
     export RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native"
     echo "Native CPU optimizations enabled: RUSTFLAGS=${RUSTFLAGS}"
 fi
-cargo install --profile ${usage_profile} ${SLIM_FLAGS} --locked --path . --force
+TOOLCHAIN=$(rustup show active-toolchain | cut -d' ' -f1)
+cargo +${TOOLCHAIN} install --profile ${usage_profile} ${SLIM_FLAGS} --locked --path . --force
 '''
 alias = 'i'
 
