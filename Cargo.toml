@@ -93,9 +93,7 @@ fil_actor_power_state = { version = "27.0.0" }
 fil_actor_reward_state = { version = "27.0.0" }
 fil_actor_system_state = { version = "27.0.0" }
 fil_actor_verifreg_state = { version = "27.0.0" }
-fil_actors_shared = { version = "27.0.0", features = [
-  "json",
-] }
+fil_actors_shared = { version = "27.0.0", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
