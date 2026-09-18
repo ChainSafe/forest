@@ -1,4 +1,4 @@
-295
+296
 ABI
 Algorand/M
 API's
@@ -167,6 +167,7 @@ mempool/M
 Merkle
 MetaMask
 MiB
+microFIL
 middleware
 migrator/S
 milliGas

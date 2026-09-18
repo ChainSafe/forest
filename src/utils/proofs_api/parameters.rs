@@ -105,7 +105,7 @@ pub(super) fn param_dir(data_dir: &Path) -> PathBuf {
 /// to be located at in a specific folder. By default, it is
 /// `/var/tmp/filecoin-proof-parameters` but it can be overridden by the
 /// `FIL_PROOFS_PARAMETER_CACHE` environment variable. Forest will automatically
-/// download the parameter files from Cloudflare/IPFS and verify their validity. For
+/// download the parameter files from the ChainSafe mirror or the IPFS gateway and verify their validity. For
 /// consistency, Forest will prefer to download the files it's local data
 /// directory. To this end, the `FIL_PROOFS_PARAMETER_CACHE` environment
 /// variable is updated before the parameters are downloaded.
