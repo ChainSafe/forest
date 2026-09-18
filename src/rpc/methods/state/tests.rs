@@ -4,7 +4,7 @@
 use super::*;
 use crate::blocks::{CachingBlockHeader, Chain4U, HeaderBuilder, RawBlockHeader};
 use crate::chain::ChainStore;
-use crate::networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata, Height};
+use crate::networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata, Height, NetworkChain};
 use crate::rpc::test_utils::chain_store_with_config;
 use crate::rpc::{DbImpl, RPCState};
 use crate::shim::machine::BuiltinActor;
