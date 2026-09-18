@@ -107,20 +107,21 @@ impl ChainRand {
     pub fn beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
         let network_version = self.chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V14 {
-            self.beacon_entry_for_epoch_v3(epoch, network_version)
-        } else if network_version == NetworkVersion::V13 {
-            self.latest_beacon_entry_for_epoch(epoch, false)
-        } else {
-            self.latest_beacon_entry_for_epoch(epoch, true)
+            return self.beacon_entry_for_epoch_v3(epoch, network_version)
         }
+
+        let mut resolve = ResolveNullTipset::TakeNewer;
+        if network_version < NetworkVersion::V13 { resolve = ResolveNullTipset::TakeOlder }
+
+        self.latest_beacon_entry_for_epoch(epoch, resolve)
     }
 
     fn latest_beacon_entry_for_epoch(
         &self,
         epoch: ChainEpoch,
-        lookback: bool,
+        resolve: ResolveNullTipset,
     ) -> anyhow::Result<BeaconEntry> {
-        let rand_ts = self.get_beacon_randomness_tipset_blocking(epoch, lookback)?;
+        let rand_ts = self.get_beacon_randomness_tipset_blocking(epoch, resolve)?;
         Ok(self.chain_index.latest_beacon_entry(rand_ts)?)
     }
 
@@ -130,9 +131,10 @@ impl ChainRand {
         network_version: NetworkVersion,
     ) -> anyhow::Result<BeaconEntry> {
         if epoch < 0 {
-            return self.latest_beacon_entry_for_epoch(epoch, false);
+            return self.latest_beacon_entry_for_epoch(epoch, ResolveNullTipset::TakeNewer);
         }
-        let mut rand_ts: Tipset = self.get_beacon_randomness_tipset_blocking(epoch, false)?;
+        let mut rand_ts: Tipset =
+            self.get_beacon_randomness_tipset_blocking(epoch, ResolveNullTipset::TakeNewer)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch)?;
 
@@ -153,7 +155,7 @@ impl ChainRand {
     pub fn get_beacon_randomness_tipset_blocking(
         &self,
         round: ChainEpoch,
-        lookback: bool,
+        resolve: ResolveNullTipset,
     ) -> anyhow::Result<Tipset> {
         let ts = self.tipset.clone();
 
@@ -162,12 +164,6 @@ impl ChainRand {
         }
 
         let search_height = if round < 0 { 0 } else { round };
-
-        let resolve = if lookback {
-            ResolveNullTipset::TakeOlder
-        } else {
-            ResolveNullTipset::TakeNewer
-        };
 
         self.chain_index
             .load_required_tipset_by_height_blocking(search_height, ts, resolve)
