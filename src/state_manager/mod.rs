@@ -308,8 +308,7 @@ impl StateManager {
         self
     }
 
-    /// Test-only view of the ID -> deterministic-address cache.
-    #[cfg(test)]
+    /// The ID -> deterministic-address cache, `None` when disabled.
     pub(crate) fn id_to_deterministic_address_cache(&self) -> Option<&IdToAddressCache> {
         self.id_to_deterministic_address_cache.as_ref()
     }

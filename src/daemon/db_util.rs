@@ -635,12 +635,7 @@ async fn process_ts(
         }
     };
     // Store the block-logs bloom; idempotent if the loader already recomputed and stored it.
-    crate::rpc::eth::store_block_logs_bloom(
-        state_manager,
-        ts,
-        &executed.state_root,
-        &executed.executed_messages,
-    )?;
+    crate::rpc::eth::store_block_logs_bloom(state_manager, ts, &executed)?;
 
     delegated_messages.append(
         &mut state_manager
