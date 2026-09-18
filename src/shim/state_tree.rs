@@ -325,10 +325,10 @@ where
     {
         match self {
             StateTree::FvmV2(st) => {
-                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
+                st.for_each_cacheless(|address, actor_state| f(address.into(), &actor_state.into()))
             }
             StateTree::FvmV3(st) => {
-                st.for_each(|address, actor_state| f(address.into(), &actor_state.into()))
+                st.for_each_cacheless(|address, actor_state| f(address.into(), &actor_state.into()))
             }
             StateTree::FvmV4(st) => {
                 st.for_each_cacheless(|address, actor_state| f(address.into(), &actor_state.into()))

@@ -3539,29 +3539,4 @@ impl RpcMethod<0> for StateActorInfo {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use quickcheck_macros::quickcheck;
-    use rstest::rstest;
-
-    #[rstest]
-    #[case(1_000, Some(600))]
-    #[case(401, Some(1))]
-    #[case(400, None)]
-    #[case(399, None)]
-    #[case(i64::MIN, None)]
-    fn sector_duration_from_expiration_requires_positive(
-        #[case] expiration: ChainEpoch,
-        #[case] expected: Option<ChainEpoch>,
-    ) {
-        assert_eq!(
-            sector_duration_from_expiration(expiration, 400).ok(),
-            expected
-        );
-    }
-
-    #[quickcheck]
-    fn sector_duration_from_expiration_no_panic(expiration: ChainEpoch, epoch: ChainEpoch) {
-        let _ = sector_duration_from_expiration(expiration, epoch);
-    }
-}
+mod tests;

@@ -121,7 +121,11 @@ pub async fn reader(
                     (Left(Left(stream)), content_length)
                 }
                 DownloadFileOption::NonResumable => {
-                    let resp = global_http_client().get(url).send().await?;
+                    let resp = global_http_client()
+                        .get(url)
+                        .send()
+                        .await?
+                        .error_for_status()?;
                     let content_length = resp.content_length().unwrap_or_default();
                     let stream = resp
                         .bytes_stream()

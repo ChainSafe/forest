@@ -3166,6 +3166,28 @@ impl RpcMethod<2> for EthGetTransactionReceiptLimited {
     }
 }
 
+fn eth_tx_hash_and_signed_message(
+    raw_tx: &EthBytes,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<(EthHash, SignedMessage)> {
+    let tx_args =
+        parse_eth_transaction(&raw_tx.0).context("failed to parse raw Ethereum transaction")?;
+    let smsg = tx_args
+        .get_signed_message(eth_chain_id)
+        .context("failed to construct signed message from raw Ethereum transaction")?;
+    // Same derivation `process_signed_messages` uses when re-indexing on mining.
+    let tx_hash = eth_tx_hash_from_signed_message(&smsg, eth_chain_id)
+        .context("failed to derive Ethereum transaction hash from signed message")?;
+    Ok((tx_hash, smsg))
+}
+
+/// Indexes a just-submitted tx immediately; `process_signed_messages` also indexes it once mined.
+fn index_sent_tx(ctx: &Ctx, tx_hash: EthHash, cid: Cid) -> Result<(), ServerError> {
+    ctx.chain_store()
+        .put_mapping(tx_hash, cid, chrono::Utc::now().timestamp() as u64)?;
+    Ok(())
+}
+
 pub enum EthSendRawTransaction {}
 impl RpcMethod<1> for EthSendRawTransaction {
     const NAME: &'static str = "Filecoin.EthSendRawTransaction";
@@ -3184,10 +3206,11 @@ impl RpcMethod<1> for EthSendRawTransaction {
         (raw_tx,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let tx_args = parse_eth_transaction(&raw_tx.0)?;
-        let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
+        let (tx_hash, smsg) =
+            eth_tx_hash_and_signed_message(&raw_tx, ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.push(smsg).await?;
-        Ok(cid.into())
+        index_sent_tx(&ctx, tx_hash, cid)?;
+        Ok(tx_hash)
     }
 }
 
@@ -3208,10 +3231,11 @@ impl RpcMethod<1> for EthSendRawTransactionUntrusted {
         (raw_tx,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let tx_args = parse_eth_transaction(&raw_tx.0)?;
-        let smsg = tx_args.get_signed_message(ctx.chain_config().eth_chain_id)?;
+        let (tx_hash, smsg) =
+            eth_tx_hash_and_signed_message(&raw_tx, ctx.chain_config().eth_chain_id)?;
         let cid = ctx.mpool.push_untrusted(smsg).await?;
-        Ok(cid.into())
+        index_sent_tx(&ctx, tx_hash, cid)?;
+        Ok(tx_hash)
     }
 }
 
@@ -4575,6 +4599,156 @@ mod test {
             eth_tx_hash_from_signed_message(&signed, crate::networks::calibnet::ETH_CHAIN_ID)
                 .unwrap();
         assert_eq!(tx_hash.to_cid(), signed.message().cid());
+    }
+
+    /// An `RPCState` on calibnet with `sender` registered as a funded `EthAccount` actor at
+    /// nonce `sequence`, so a raw-transaction handler can push a signed message from it.
+    fn funded_calibnet_ctx(
+        sender: &crate::shim::address::Address,
+        sequence: u64,
+    ) -> (Ctx, flume::Receiver<crate::libp2p::NetworkMessage>) {
+        use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+        use crate::networks::{ACTOR_BUNDLES_METADATA, ChainConfig, NetworkChain};
+        use crate::rpc::RPCState;
+        use crate::rpc::test_utils::chain_store_with_config;
+        use crate::shim::machine::BuiltinActor;
+        use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+        use crate::test_utils::dummy_ticket;
+        use crate::utils::db::CborStoreExt as _;
+
+        let chain_config = ChainConfig::calibnet();
+        // Past the Hygge (NV18) upgrade, so `EthAccount` actors may send messages.
+        let head_epoch = chain_config.epoch(Height::Hygge) + 1;
+        let cs = chain_store_with_config(chain_config);
+        let db = cs.db();
+
+        let mut init_state =
+            fil_actor_init_state::v18::State::new(db, "calibrationnet".to_string()).unwrap();
+        let robust_addr = fvm_shared4::address::Address::new_actor(b"eth-send-raw-tx-test");
+        let delegated_addr = fvm_shared4::address::Address::from(sender);
+        let (sender_id, _) = init_state
+            .map_addresses_to_id(db, &robust_addr, Some(&delegated_addr))
+            .unwrap();
+        let init_head = db.put_cbor_default(&init_state).unwrap();
+
+        let manifest = &ACTOR_BUNDLES_METADATA
+            .get(&(NetworkChain::Calibnet, "v18.0.0".to_string()))
+            .unwrap()
+            .manifest;
+        let init_code = manifest.get(BuiltinActor::Init).unwrap();
+        let ethaccount_code = manifest.get(BuiltinActor::EthAccount).unwrap();
+
+        let mut state_tree = StateTree::new(db, StateTreeVersion::V5).unwrap();
+        state_tree
+            .set_actor(
+                &crate::shim::address::Address::new_id(1),
+                ActorState::new(init_code, init_head, TokenAmount::from_atto(0), 0, None),
+            )
+            .unwrap();
+        state_tree
+            .set_actor(
+                &crate::shim::address::Address::new_id(sender_id),
+                ActorState::new(
+                    ethaccount_code,
+                    Cid::default(),
+                    TokenAmount::from_whole(1000),
+                    sequence,
+                    Some(*sender),
+                ),
+            )
+            .unwrap();
+        let state_root = state_tree.flush().unwrap();
+
+        let head_header = CachingBlockHeader::new(RawBlockHeader {
+            parents: cs.genesis_tipset().key().clone(),
+            epoch: head_epoch,
+            state_root,
+            ticket: dummy_ticket(1),
+            ..Default::default()
+        });
+        db.put_cbor_default(&head_header).unwrap();
+        cs.set_heaviest_tipset(Tipset::from(head_header)).unwrap();
+
+        RPCState::for_tests(cs).unwrap()
+    }
+
+    // Regression test for the historical "EthSendRawTransaction returns the
+    // hash of the Filecoin message CID, not of the raw tx" bug: a delegated
+    // (eth account) transaction's own hash must never coincide with
+    // `EthHash::from(message_cid)` - the two are unrelated hashing schemes.
+    #[tokio::test]
+    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
+        use crate::eth::{EthEip1559TxArgsBuilder, EthTx};
+        use std::str::FromStr as _;
+
+        let mut tx_args = EthEip1559TxArgsBuilder::default()
+            .chain_id(314159_u64)
+            .nonce(486_u64)
+            .to(Some(
+                ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
+                    .unwrap()
+                    .into(),
+            ))
+            .value(num::BigInt::from(0))
+            .max_fee_per_gas(num::BigInt::from(1500000120))
+            .max_priority_fee_per_gas(num::BigInt::from(1500000000))
+            .gas_limit(37442471_u64)
+            .input(hex::decode("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap())
+            .build()
+            .unwrap();
+        tx_args.v = num::BigInt::from_str("1").unwrap();
+        tx_args.r = num::BigInt::from_str(
+            "84103132941276310528712440865285269631208564772362393569572880532520338257200",
+        )
+        .unwrap();
+        tx_args.s = num::BigInt::from_str(
+            "7820796778417228639067439047870612492553874254089570360061550763595363987236",
+        )
+        .unwrap();
+        let tx = EthTx::from(tx_args);
+        let raw_tx = EthBytes(tx.rlp_signed_message().unwrap());
+
+        let expected_hash = "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f";
+        let smsg = tx
+            .get_signed_message(crate::networks::calibnet::ETH_CHAIN_ID)
+            .unwrap();
+        // What it returned before the fix.
+        let wrong_hash: EthHash = smsg.cid().into();
+        let from = smsg.message().from();
+        let sequence = smsg.message().sequence;
+
+        let (trusted_ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
+        let sent_hash = EthSendRawTransaction::handle(
+            trusted_ctx.clone(),
+            (raw_tx.clone(),),
+            &Default::default(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(&format!("{sent_hash}"), expected_hash);
+        assert_ne!(sent_hash, wrong_hash);
+        assert_eq!(
+            trusted_ctx.chain_store().get_mapping(&sent_hash).unwrap(),
+            Some(smsg.cid()),
+            "the submitted tx must be immediately indexed under its own hash"
+        );
+
+        let (untrusted_ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
+        let sent_hash_untrusted = EthSendRawTransactionUntrusted::handle(
+            untrusted_ctx.clone(),
+            (raw_tx,),
+            &Default::default(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(sent_hash_untrusted, sent_hash);
+        assert_eq!(
+            untrusted_ctx
+                .chain_store()
+                .get_mapping(&sent_hash_untrusted)
+                .unwrap(),
+            Some(smsg.cid())
+        );
     }
 
     #[test]

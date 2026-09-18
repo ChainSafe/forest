@@ -128,6 +128,11 @@ impl TokenAmount {
         TokenAmount_v3::from_nano(nano).into()
     }
 
+    /// Creates an amount from microFIL (10^-6 FIL).
+    pub fn from_micro(micro: impl Into<BigInt>) -> Self {
+        Self::from_nano(micro.into() * 1_000)
+    }
+
     pub fn from_whole(fil: impl Into<BigInt>) -> Self {
         TokenAmount_v3::from_whole(fil).into()
     }
@@ -373,6 +378,15 @@ impl Signed for TokenAmount {
 mod tests {
     use super::*;
     use num_traits::Signed;
+
+    #[test]
+    fn from_micro_scales_by_a_millionth() {
+        assert_eq!(
+            TokenAmount::from_micro(1_000_000),
+            TokenAmount::from_whole(1)
+        );
+        assert_eq!(TokenAmount::from_micro(1), TokenAmount::from_nano(1_000));
+    }
 
     #[test]
     fn test_abs_positive() {

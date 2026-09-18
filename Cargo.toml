@@ -21,7 +21,7 @@ cid = { version = "0.11", default-features = false, features = ["std"] }
 flume = "0.12"
 futures = "0.3"
 get-size2 = { version = "0.10", features = ["derive", "bytes", "hashbrown"] }
-hashlink = "0.11"
+hashlink = "0.12"
 libp2p = { version = "0.56", default-features = false }
 libp2p-swarm-test = { version = "0.6", default-features = false, features = ["tokio"] }
 multihash-codetable = { version = "0.2", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
@@ -98,16 +98,16 @@ flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
 futures = { workspace = true }
-fvm2 = { package = "fvm", version = "~2.12", default-features = false }
-fvm3 = { package = "fvm", version = "~3.14", default-features = false }
-fvm4 = { package = "fvm", version = "~4.8", default-features = false, features = ["verify-signature"] }
+fvm2 = { package = "fvm", version = "~2.12.2", default-features = false }
+fvm3 = { package = "fvm", version = "~3.14.2", default-features = false }
+fvm4 = { package = "fvm", version = "~4.8.3", default-features = false, features = ["verify-signature"] }
 fvm_actor_utils = "15"
 fvm_ipld_blockstore = "0.3.1"
 fvm_ipld_encoding = "0.5.3"
 fvm_ipld_kamt = "0.4.5"
-fvm_shared2 = { package = "fvm_shared", version = "~2.12" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.14", features = ["proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.8", features = ["proofs"] }
+fvm_shared2 = { package = "fvm_shared", version = "~2.12.2" }
+fvm_shared3 = { package = "fvm_shared", version = "~3.14.2", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.8.3", features = ["proofs"] }
 get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
@@ -256,8 +256,8 @@ criterion = { version = "0.8", features = ["async_tokio", "csv_output"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
-fvm_shared3 = { package = "fvm_shared", version = "~3.14", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.8", features = ["arb", "proofs", "testing"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.14.2", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.8.3", features = ["arb", "proofs", "testing"] }
 hex = { version = "0.4", features = ["serde"] }
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }

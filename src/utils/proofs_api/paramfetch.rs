@@ -1,11 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! This module contains the logic for fetching the proofs parameters from the network.
-//! As a general rule, the parameters are first fetched from ChainSafe's Cloudflare R2 bucket, if
-//! that fails (or is overridden by [`PROOFS_ONLY_IPFS_GATEWAY_ENV`]), the IPFS gateway is used as a fallback.
+//! Every source is addressed by the parameter file CID, so the file name is only used for the local cache.
 //!
-//! The reason for this is that the IPFS gateway is not as reliable and performant as the centralized solution, which contributed to
-//! issues in CI in the past.
+//! ChainSafe's mirror is tried before the IPFS gateway, which is neither as reliable nor as performant
+//! as the centralized solution and contributed to issues in CI in the past.
 
 use std::{
     io::{self, ErrorKind},
@@ -15,16 +14,15 @@ use std::{
 
 use crate::{
     shim::sector::SectorSize,
-    utils::net::{download_ipfs_file_trustlessly, global_http_client},
+    utils::net::{DownloadFileOption, download_ipfs_file_trustlessly, download_to},
 };
-use anyhow::{Context, bail};
+use anyhow::Context as _;
 use backon::{ExponentialBuilder, Retryable};
-use futures::{AsyncWriteExt, TryStreamExt, stream::FuturesUnordered};
-use tokio::{
-    fs::{self},
-    sync::Mutex,
-};
+use cid::Cid;
+use futures::{TryStreamExt, stream::FuturesUnordered};
+use tokio::{fs, sync::Mutex};
 use tracing::{debug, info, warn};
+use url::Url;
 
 use super::parameters::{
     DEFAULT_PARAMETERS, PROOFS_PARAMETER_CACHE_ENV, ParameterData, ParameterMap,
@@ -33,9 +31,13 @@ use super::parameters::{
 
 /// Default IPFS gateway to use for fetching parameters.
 /// Set via the [`IPFS_GATEWAY_ENV`] environment variable.
-const DEFAULT_IPFS_GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
-/// Domain bound to the Cloudflare R2 bucket.
-const CLOUDFLARE_PROOF_PARAMETER_DOMAIN: &str = "filecoin-proof-parameters.chainsafe.dev";
+static DEFAULT_IPFS_GATEWAY: LazyLock<Url> = LazyLock::new(|| {
+    Url::parse("https://proofs.filecoin.io/ipfs/").expect("invalid default IPFS gateway")
+});
+static CHAINSAFE_PROOF_PARAMETER_GATEWAY: LazyLock<Url> = LazyLock::new(|| {
+    Url::parse("https://filecoin-proofs.chainsafe.dev/ipfs/")
+        .expect("invalid ChainSafe proof parameter gateway")
+});
 
 /// If set to 1, enforce using the IPFS gateway for fetching parameters.
 const PROOFS_ONLY_IPFS_GATEWAY_ENV: &str = "FOREST_PROOFS_ONLY_IPFS_GATEWAY";
@@ -94,6 +96,7 @@ pub async fn get_params(
     fs::create_dir_all(param_dir(data_dir)).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
+    let sources = &param_sources()?;
 
     FuturesUnordered::from_iter(
         params
@@ -106,8 +109,7 @@ pub async fn get_params(
                 SectorSizeOpt::All => true,
             })
             .map(|(name, info)| async move {
-                let data_dir_clone = data_dir.to_owned();
-                fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await
+                fetch_verify_params(data_dir, &name, Arc::new(info), sources).await
             }),
     )
     .try_collect::<Vec<_>>()
@@ -131,115 +133,146 @@ async fn fetch_verify_params(
     data_dir: &Path,
     name: &str,
     info: Arc<ParameterData>,
+    sources: &[ParamSource],
 ) -> anyhow::Result<()> {
-    crate::def_is_env_truthy!(force_ipfs_gateway, PROOFS_ONLY_IPFS_GATEWAY_ENV);
-
     let path: PathBuf = param_dir(data_dir).join(name);
 
     match check_parameter_file(&path, &info).await {
         Ok(()) => return Ok(()),
-        Err(e) => {
-            if let Some(e) = e.downcast_ref::<io::Error>() {
-                if e.kind() == ErrorKind::NotFound {
-                    // File is missing, download it
-                }
-            } else {
-                warn!("Error checking file: {e:?}");
+        // A missing file is the normal case, it is downloaded below.
+        Err(e)
+            if e.downcast_ref::<io::Error>()
+                .is_some_and(|e| e.kind() == ErrorKind::NotFound) => {}
+        Err(e) => warn!("Error checking file: {e:?}"),
+    }
+
+    let mut last_error = None;
+    for source in sources {
+        info!(
+            "Fetching param file {path} from {source}",
+            path = path.display()
+        );
+        let fetched = async {
+            source.download(&info.cid, &path).await?;
+            check_parameter_file(&path, &info).await
+        }
+        .await;
+        match fetched {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                warn!("Failed to fetch param file from {source}: {e:?}");
+                last_error = Some(e);
             }
         }
     }
 
-    if force_ipfs_gateway() {
-        fetch_params_ipfs_gateway(&path, &info).await?;
-    } else if let Err(e) = fetch_params_cloudflare(name, &path).await {
-        warn!("Failed to fetch param file from Cloudflare R2: {e:?}. Falling back to IPFS gateway",);
-        fetch_params_ipfs_gateway(&path, &info).await?;
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("no proof parameter source configured")))
+}
+
+/// A source of proof parameter files, addressed by CID.
+#[derive(derive_more::Display)]
+#[display("{_0}")]
+enum ParamSource {
+    /// Raw file, verified by [`check_parameter_file`] once downloaded.
+    Mirror(Url),
+    /// Trustless IPFS gateway, which verifies the CID while decoding the CAR response.
+    IpfsGateway(Url),
+}
+
+impl ParamSource {
+    async fn download(&self, cid: &Cid, path: &Path) -> anyhow::Result<()> {
+        match self {
+            Self::Mirror(base) => {
+                let url = base.join(&cid.to_string())?;
+                download_to(&url, path, DownloadFileOption::NonResumable, None)
+                    .await
+                    .with_context(|| format!("failed to download {url}"))
+            }
+            Self::IpfsGateway(gateway) => {
+                (|| download_ipfs_file_trustlessly(cid, gateway, path))
+                    .retry(ExponentialBuilder::default())
+                    .notify(|err, dur| {
+                        debug!(
+                            "retrying download_ipfs_file_trustlessly {err} after {}",
+                            humantime::format_duration(dur)
+                        );
+                    })
+                    .await
+            }
+        }
+    }
+}
+
+/// [`Url::join`] replaces the last path segment unless the path ends with a separator.
+fn with_trailing_slash(mut url: Url) -> Url {
+    if !url.path().ends_with('/') {
+        url.set_path(&format!("{}/", url.path()));
+    }
+    url
+}
+
+fn param_sources() -> anyhow::Result<Vec<ParamSource>> {
+    crate::def_is_env_truthy!(force_ipfs_gateway, PROOFS_ONLY_IPFS_GATEWAY_ENV);
+
+    let gateway = ParamSource::IpfsGateway(match std::env::var(IPFS_GATEWAY_ENV) {
+        Ok(gateway) => with_trailing_slash(
+            Url::parse(&gateway).with_context(|| format!("invalid {IPFS_GATEWAY_ENV}"))?,
+        ),
+        Err(_) => DEFAULT_IPFS_GATEWAY.clone(),
+    });
+
+    Ok(if force_ipfs_gateway() {
+        vec![gateway]
+    } else {
+        vec![
+            ParamSource::Mirror(CHAINSAFE_PROOF_PARAMETER_GATEWAY.clone()),
+            gateway,
+        ]
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use itertools::Itertools as _;
+
+    #[test]
+    #[serial_test::serial]
+    fn mirror_is_tried_before_the_gateway() {
+        unsafe {
+            std::env::remove_var(PROOFS_ONLY_IPFS_GATEWAY_ENV);
+            std::env::remove_var(IPFS_GATEWAY_ENV);
+        }
+        let sources = param_sources()
+            .unwrap()
+            .iter()
+            .map(ToString::to_string)
+            .collect_vec();
+        assert_eq!(
+            sources,
+            [
+                "https://filecoin-proofs.chainsafe.dev/ipfs/",
+                "https://proofs.filecoin.io/ipfs/"
+            ]
+        );
     }
 
-    check_parameter_file(&path, &info).await?;
-    Ok(())
-}
-
-async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
-    let gateway = std::env::var(IPFS_GATEWAY_ENV)
-        .unwrap_or_else(|_| DEFAULT_IPFS_GATEWAY.to_owned())
-        .parse()?;
-    info!(
-        "Fetching param file {path} from {gateway}",
-        path = path.display()
-    );
-    let result = (|| download_ipfs_file_trustlessly(&info.cid, &gateway, path))
-        .retry(ExponentialBuilder::default())
-        .notify(|err, dur| {
-            debug!(
-                "retrying download_ipfs_file_trustlessly {err} after {}",
-                humantime::format_duration(dur)
-            );
-        })
-        .await;
-
-    debug!(
-        "Done fetching param file {path} from {gateway}",
-        path = path.display(),
-    );
-    result
-}
-
-/// Downloads the parameter file from Cloudflare R2 to the given path. It wraps the [`download_from_cloudflare`] function with a retry and timeout mechanisms.
-async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
-    info!("Fetching param file {name} from Cloudflare R2 {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
-    let result = (|| download_from_cloudflare(name, path))
-        .retry(ExponentialBuilder::default())
-        .notify(|err, dur| {
-            debug!(
-                "retrying download_from_cloudflare {err} after {}",
-                humantime::format_duration(dur)
-            );
-        })
-        .await;
-    debug!(
-        "Done fetching param file {} from Cloudflare",
-        path.display()
-    );
-    result
-}
-
-/// Downloads the parameter file from Cloudflare R2 to the given path. In case of an error,
-/// the file is not written to the final path to avoid corrupted files.
-async fn download_from_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
-    let response = global_http_client()
-        .get(format!(
-            "https://{CLOUDFLARE_PROOF_PARAMETER_DOMAIN}/{name}"
-        ))
-        .send()
-        .await
-        .context("Failed to fetch param file from Cloudflare R2")?;
-
-    if !response.status().is_success() {
-        bail!("Failed to fetch param file from Cloudflare R2: {response:?}");
+    #[test]
+    #[serial_test::serial]
+    fn forced_gateway_drops_the_mirror() {
+        unsafe {
+            std::env::set_var(PROOFS_ONLY_IPFS_GATEWAY_ENV, "1");
+            std::env::set_var(IPFS_GATEWAY_ENV, "https://example.com/ipfs");
+        }
+        let sources = param_sources()
+            .unwrap()
+            .iter()
+            .map(ToString::to_string)
+            .collect_vec();
+        assert_eq!(sources, ["https://example.com/ipfs/"]);
+        unsafe {
+            std::env::remove_var(PROOFS_ONLY_IPFS_GATEWAY_ENV);
+            std::env::remove_var(IPFS_GATEWAY_ENV);
+        }
     }
-    // Create a temporary file to write the response to. This is to avoid writing
-    // to the final file path in case of an error and ending up with corrupted files.
-    //
-    // Note that we're using the same directory as the final path to avoid moving the file
-    // across filesystems.
-    let tmp = tempfile::NamedTempFile::new_in(path.parent().context("No parent dir")?)
-        .context("Failed to create temp file")?
-        .into_temp_path();
-
-    let reader = response
-        .bytes_stream()
-        .map_err(std::io::Error::other)
-        .into_async_read();
-
-    let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
-    futures::io::copy(reader, &mut writer)
-        .await
-        .context("Failed to write to temp file")?;
-
-    writer.flush().await.context("Failed to flush temp file")?;
-    writer.close().await.context("Failed to close temp file")?;
-
-    tmp.persist(path).context("Failed to persist temp file")?;
-    Ok(())
 }
