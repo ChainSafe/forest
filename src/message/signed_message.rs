@@ -10,8 +10,9 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
+use crate::utils::encoding::encoded_len;
+use fvm_ipld_encoding::RawBytes;
 use fvm_ipld_encoding::tuple::*;
-use fvm_ipld_encoding::{RawBytes, to_vec};
 use get_size2::GetSize;
 
 /// Represents a wrapped message with signature bytes.
@@ -86,17 +87,12 @@ impl SignedMessage {
 
     /// Returns the length of the chain message in bytes.
     pub fn chain_length(&self) -> anyhow::Result<usize> {
-        let serialized = match self.signature.signature_type() {
-            SignatureType::Bls => {
-                // BLS chain message length doesn't include the signature
-                to_vec(&self.message)?
-            }
-            SignatureType::Secp256k1 | SignatureType::Delegated => {
-                // SECP and Delegated chain message length includes the signature
-                to_vec(&self)?
-            }
-        };
-        Ok(serialized.len())
+        Ok(match self.signature.signature_type() {
+            // BLS chain message length doesn't include the signature
+            SignatureType::Bls => encoded_len(&self.message)?,
+            // SECP and Delegated chain message length includes the signature
+            SignatureType::Secp256k1 | SignatureType::Delegated => encoded_len(self)?,
+        })
     }
 
     /// Creates a mock signed message for testing purposes. The signature check will fail if
@@ -159,8 +155,15 @@ impl MessageReadWrite for SignedMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::shim::{address::Address, crypto::Signature, message::Message};
+    use crate::shim::{
+        address::Address,
+        crypto::{BLS_SIG_LEN, SECP_SIG_LEN, Signature},
+        message::Message,
+    };
+    use crate::utils::cid::CidCborExt as _;
+    use cid::Cid;
     use fvm_ipld_encoding::to_vec;
+    use quickcheck_macros::quickcheck;
 
     #[test]
     fn test_chain_length() {
@@ -170,20 +173,32 @@ mod tests {
             ..Message::default()
         };
 
-        // BLS signature, which does not include the signature in the chain length
-        let bls_sig = Signature::new_bls(vec![0; 96]);
-        let signed_message_bls = SignedMessage::new_unchecked(message.clone(), bls_sig);
-        assert_eq!(
-            signed_message_bls.chain_length().unwrap(),
-            to_vec(&message).unwrap().len()
-        );
+        // BLS excludes the signature from the chain length
+        let bls =
+            SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0; BLS_SIG_LEN]));
+        assert_eq!(bls.chain_length().unwrap(), to_vec(&message).unwrap().len());
 
-        // Secp256k1 signature, which includes the signature in the chain length
-        let secp_sig = Signature::new_secp256k1(vec![0; 65]);
-        let signed_message_secp = SignedMessage::new_unchecked(message, secp_sig);
-        assert_eq!(
-            signed_message_secp.chain_length().unwrap(),
-            to_vec(&signed_message_secp).unwrap().len()
-        );
+        // SECP and Delegated include it
+        for signature in [
+            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+            Signature::new_delegated(vec![0; SECP_SIG_LEN]),
+        ] {
+            let signed = SignedMessage::new_unchecked(message.clone(), signature);
+            assert_eq!(
+                signed.chain_length().unwrap(),
+                to_vec(&signed).unwrap().len()
+            );
+        }
+    }
+
+    #[quickcheck]
+    fn signed_message_cid_follows_signature_type(msg: SignedMessage) -> bool {
+        let expected = match msg.signature.signature_type() {
+            SignatureType::Bls => msg.message().cid(),
+            SignatureType::Secp256k1 | SignatureType::Delegated => {
+                Cid::from_cbor_blake2b256(&msg).unwrap()
+            }
+        };
+        msg.cid() == expected
     }
 }
