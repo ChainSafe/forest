@@ -4,8 +4,17 @@
 
 set -euo pipefail
 
-chain=${FOREST_CHAIN:?FOREST_CHAIN is not set}
-epochs=${EPOCHS:?EPOCHS is not set}
+chain=${FOREST_CHAIN:-}
+if [[ -z ${chain} ]]; then
+  echo "FOREST_CHAIN is not set"
+  exit 1
+fi
+
+epochs=${EPOCHS:-}
+if [[ -z ${epochs} ]]; then
+  echo "EPOCHS is not set"
+  exit 1
+fi
 
 # The Forest image ships neither curl nor jq.
 apt-get update -qq

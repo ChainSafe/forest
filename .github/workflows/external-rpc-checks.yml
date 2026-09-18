@@ -25,12 +25,23 @@ jobs:
   # scheduled runs skip this and test the published image instead
   build:
     name: Build Forest
+    # in what case we should build an forest image?
+    # if no image is provided as argument AND
+    # 1) someone manually dispatched the CI "external-rpc-checks" job. OR
+    # 2) on a PR AND that PR should be labeled with 'RPC' OR 'Release'
     if: |-
-      ${{ inputs.forest_image == ''
-      && (github.event_name == 'workflow_dispatch'
-      || (github.event_name == 'pull_request'
-      && (contains(github.event.pull_request.labels.*.name, 'RPC')
-      || contains(github.event.pull_request.labels.*.name, 'Release')))) }}
+      ${{ inputs.forest_image == '' && 
+        (
+          github.event_name == 'workflow_dispatch' || 
+          (
+            github.event_name == 'pull_request' && 
+            (
+              contains(github.event.pull_request.labels.*.name, 'RPC') || 
+              contains(github.event.pull_request.labels.*.name, 'Release')
+            )
+          )
+        ) 
+      }}
     runs-on: ubuntu-24.04-arm
     env:
       RUSTC_WRAPPER: sccache
