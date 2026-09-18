@@ -444,6 +444,75 @@ async fn initial_pledge_collateral_matches_the_sector_pledge() {
     );
 }
 
+/// Puts nv29 at [`FIXTURE_EPOCH`], because no network schedules Solstice yet.
+fn solstice_at_fixture_epoch(mut config: ChainConfig) -> ChainConfig {
+    config
+        .height_infos
+        .get_mut(&Height::Solstice)
+        .expect("every network lists Solstice")
+        .epoch = FIXTURE_EPOCH;
+    config
+}
+
+async fn initial_pledge_collateral(
+    config: ChainConfig,
+    epoch: ChainEpoch,
+) -> Result<TokenAmount, ServerError> {
+    let (ctx, _) = ctx_at(config, epoch, &Default::default());
+    // Default seal proof is `Invalid`, so that field has to be set; the rest go unread.
+    let pre_commit = SectorPreCommitInfo::from(fil_actor_miner_state::v18::SectorPreCommitInfo {
+        seal_proof: RegisteredSealProofV4::StackedDRG32GiBV1P1,
+        expiration: epoch + 1_000,
+        ..Default::default()
+    });
+    StateMinerInitialPledgeCollateral::handle(
+        ctx,
+        (Address::new_id(1000), pre_commit, ApiTipsetKey(None)),
+        &Default::default(),
+    )
+    .await
+}
+
+/// From NV29 a pre-commit no longer describes a pledge, so the collateral RPC refuses.
+#[rstest]
+#[case::mainnet(ChainConfig::mainnet())]
+#[case::calibnet(ChainConfig::calibnet())]
+#[case::butterflynet(ChainConfig::butterflynet())]
+#[case::devnet(ChainConfig::devnet())]
+#[tokio::test]
+async fn initial_pledge_collateral_is_retired_from_nv29(#[case] config: ChainConfig) {
+    let config = solstice_at_fixture_epoch(config);
+    let activation = first_epoch_of(&config, Height::Solstice);
+
+    let error = initial_pledge_collateral(config, activation)
+        .await
+        .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported from network version 29"),
+        "{error}"
+    );
+}
+
+#[rstest]
+#[case::mainnet(ChainConfig::mainnet())]
+#[case::calibnet(ChainConfig::calibnet())]
+#[case::butterflynet(ChainConfig::butterflynet())]
+#[case::devnet(ChainConfig::devnet())]
+#[tokio::test]
+async fn initial_pledge_collateral_answers_until_nv29(#[case] config: ChainConfig) {
+    let config = solstice_at_fixture_epoch(config);
+    let activation = first_epoch_of(&config, Height::Solstice);
+
+    let pledge = initial_pledge_collateral(config, activation - 1)
+        .await
+        .unwrap();
+
+    assert!(pledge.is_positive());
+}
+
 #[rstest]
 #[case::no_power_actor(Address::POWER_ACTOR)]
 #[case::no_reward_actor(Address::REWARD_ACTOR)]
