@@ -42,10 +42,10 @@ impl ChainRand {
     pub async fn get_chain_randomness(
         &self,
         round: ChainEpoch,
-        lookback: bool,
+        resolve: ResolveNullTipset,
     ) -> anyhow::Result<[u8; 32]> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.get_chain_randomness_blocking(round, lookback))
+        tokio::task::spawn_blocking(move || this.get_chain_randomness_blocking(round, resolve))
             .await?
     }
 
@@ -56,7 +56,7 @@ impl ChainRand {
     pub fn get_chain_randomness_blocking(
         &self,
         round: ChainEpoch,
-        lookback: bool,
+        resolve: ResolveNullTipset,
     ) -> anyhow::Result<[u8; 32]> {
         let ts = self.tipset.clone();
 
@@ -66,11 +66,6 @@ impl ChainRand {
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let resolve = if lookback {
-            ResolveNullTipset::TakeOlder
-        } else {
-            ResolveNullTipset::TakeNewer
-        };
         let rand_ts =
             self.chain_index
                 .load_required_tipset_by_height_blocking(search_height, ts, resolve)?;
@@ -86,7 +81,7 @@ impl ChainRand {
 
     /// network version 13 onward
     pub fn get_chain_randomness_v2_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness_blocking(round, false)
+        self.get_chain_randomness_blocking(round, ResolveNullTipset::TakeNewer)
     }
 
     /// Randomness from the beacon entry that was used for `round`

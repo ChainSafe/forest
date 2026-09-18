@@ -1790,7 +1790,9 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_chain_randomness(rand_epoch, false).await?;
+        let digest = chain_rand
+            .get_chain_randomness(rand_epoch, ResolveNullTipset::TakeNewer)
+            .await?;
         let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
             &digest,
             personalization,
@@ -1820,7 +1822,9 @@ impl RpcMethod<2> for StateGetRandomnessDigestFromTickets {
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let chain_rand = ctx.state_manager.chain_rand(tipset);
-        let digest = chain_rand.get_chain_randomness(rand_epoch, false).await?;
+        let digest = chain_rand
+            .get_chain_randomness(rand_epoch, ResolveNullTipset::TakeNewer)
+            .await?;
         Ok(digest.to_vec())
     }
 }
