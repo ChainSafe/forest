@@ -107,11 +107,13 @@ impl ChainRand {
     pub fn beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
         let network_version = self.chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V14 {
-            return self.beacon_entry_for_epoch_v3(epoch, network_version)
+            return self.beacon_entry_for_epoch_v3(epoch, network_version);
         }
 
         let mut resolve = ResolveNullTipset::TakeNewer;
-        if network_version < NetworkVersion::V13 { resolve = ResolveNullTipset::TakeOlder }
+        if network_version < NetworkVersion::V13 {
+            resolve = ResolveNullTipset::TakeOlder
+        }
 
         self.latest_beacon_entry_for_epoch(epoch, resolve)
     }
