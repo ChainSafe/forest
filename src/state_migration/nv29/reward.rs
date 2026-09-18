@@ -355,10 +355,11 @@ impl<BS: Blockstore> ActorMigration<BS> for RewardMigrator {
 mod tests {
     use super::*;
     use crate::db::MemoryDB;
-    use crate::networks::{ChainConfig, Height, UPGRADE_HEIGHT_UNSCHEDULED};
+    use crate::networks::{ChainConfig, Height};
     use crate::shim::state_tree::{ActorState, StateTreeVersion};
     use crate::utils::cid::CidCborExt as _;
     use fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate as FilterEstimateOld;
+    use rstest::rstest;
     use std::sync::Arc;
 
     use super::super::reward_bootstrap::PERCENT;
@@ -650,39 +651,29 @@ mod tests {
         }
     }
 
-    #[test]
-    fn scheduled_networks_have_complete_bootstrap_addresses() {
-        for config in [
-            ChainConfig::mainnet(),
-            ChainConfig::calibnet(),
-            ChainConfig::butterflynet(),
-        ] {
-            let solstice_epoch = config.epoch(Height::Solstice);
-            if solstice_epoch == UPGRADE_HEIGHT_UNSCHEDULED {
-                continue;
-            }
-            let params = SolsticeRewardBootstrapParams::for_chain(&config.network);
-            assert!(
-                params.swa_actor.is_some()
-                    && params.sra_actor.is_some()
-                    && params.initial_orchestrator.is_some(),
-                "{}: scheduled without all bootstrap addresses",
-                config.network
-            );
-            // The migration resolves the addresses on chain; stand-ins leave the weights to check.
-            let params = SolsticeRewardBootstrapParams {
-                swa_actor: Some(Address::new_id(100)),
-                sra_actor: Some(Address::new_id(101)),
-                initial_orchestrator: Some(Address::new_id(102)),
-                ..params
-            };
-            RewardMigrator::new(&params, solstice_epoch + 1, Cid::default()).unwrap_or_else(|e| {
-                panic!(
-                    "{}: scheduled without a valid bootstrap: {e:#}",
-                    config.network
-                )
-            });
-        }
+    #[rstest]
+    #[case::mainnet(ChainConfig::mainnet())]
+    #[case::calibnet(ChainConfig::calibnet())]
+    #[case::butterflynet(ChainConfig::butterflynet())]
+    #[case::devnet(ChainConfig::devnet())]
+    fn every_network_has_a_complete_and_valid_bootstrap(#[case] config: ChainConfig) {
+        let params = SolsticeRewardBootstrapParams::for_chain(&config.network);
+        assert!(
+            params.swa_actor.is_some()
+                && params.sra_actor.is_some()
+                && params.initial_orchestrator.is_some(),
+            "bootstrap addresses are incomplete"
+        );
+        // The migration resolves the addresses on chain; stand-ins leave the weights to check.
+        let params = SolsticeRewardBootstrapParams {
+            swa_actor: Some(Address::new_id(100)),
+            sra_actor: Some(Address::new_id(101)),
+            initial_orchestrator: Some(Address::new_id(102)),
+            ..params
+        };
+        let activation_epoch = config.epoch(Height::Solstice) + 1;
+
+        RewardMigrator::new(&params, activation_epoch, Cid::default()).unwrap();
     }
 
     #[test]
