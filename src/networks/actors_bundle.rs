@@ -86,7 +86,6 @@ pub static ACTOR_BUNDLES: LazyLock<Box<[ActorBundleInfo]>> = LazyLock::new(|| {
         "bafy2bzacecqtwq6hjhj2zy5gwjp76a4tpcg2lt7dps5ycenvynk2ijqqyo65e" @ "v16.0.1" for "calibrationnet",
         "bafy2bzacecn64rlb52rjsvgopnidz6w42z3zobmjxqek5s4xqjh3ly47rcurg" @ "v17.0.0" for "calibrationnet",
         "bafy2bzacebkfatnbe6w4rj7lf6gkjh7mywlrpdh2dj6hu2dl4rmtwksszm2hs" @ "v18.0.0" for "calibrationnet",
-        "bafy2bzacedzjwguwuihh4tptzfkkwaj3naamrnklbaixn2wfzqh67twwp56pi" @ "v17.0.0" for "butterflynet",
         "bafy2bzacedg3y3ylp3w4bqmfgyiasrikg3bgfibblc7o4gri3b7j7ftgjhyuu" @ "v18.0.0" for "butterflynet",
         "bafy2bzacecwrf4py3pqsga2gzzxmlmrl2p4eslknj6qb4ctexjrmzc4cpzpjs" @ "v19.0.0-dev1" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
