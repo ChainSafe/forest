@@ -3,7 +3,7 @@
 
 //! Per-network reward bootstrap for FIP-0118, the only network-specific input of the Solstice
 //! migration. Values from the Lotus `params_<network>.go` files at
-//! <https://github.com/filecoin-project/lotus/blob/74da8af2d595eca68153d43f5c610147f988adc5/build/buildconstants/params.go#L23-L36>.
+//! <https://github.com/filecoin-project/lotus/blob/1c89ca8f80d58717d61b6a8de460f38febe4346a/build/buildconstants/params.go#L23-L36>.
 
 use crate::networks::NetworkChain;
 use crate::rpc::eth::types::EthAddress;
@@ -74,11 +74,21 @@ impl SolsticeRewardBootstrapParams {
             NetworkChain::Mainnet => Self {
                 swa_timelock_epochs: 7 * EPOCHS_IN_DAY,
                 consensus_weight_ramp_duration_epochs: RAMP_QUARTERS * MAINNET_EPOCHS_PER_QUARTER,
+                swa_actor: Some(evm_address("0xDE4fBd083F18f96C241DdE0A83C3EDC422Be9BA6")),
+                sra_actor: Some(evm_address("0xeDfCd0947F7E9d58E0035f032520d75ce8eCA451")),
+                initial_orchestrator: Some(evm_address(
+                    "0x97A90f5696be5E3C8d3752C92Adac287c2b4484e",
+                )),
                 ..FIP0118
             },
             NetworkChain::Calibnet => Self {
-                swa_timelock_epochs: EPOCHS_IN_HOUR,
+                swa_timelock_epochs: EPOCHS_IN_HOUR * 6,
                 consensus_weight_ramp_duration_epochs: RAMP_QUARTERS * EPOCHS_IN_DAY,
+                swa_actor: Some(evm_address("0xDE4fBd083F18f96C241DdE0A83C3EDC422Be9BA6")),
+                sra_actor: Some(evm_address("0xeDfCd0947F7E9d58E0035f032520d75ce8eCA451")),
+                initial_orchestrator: Some(evm_address(
+                    "0x97A90f5696be5E3C8d3752C92Adac287c2b4484e",
+                )),
                 ..FIP0118
             },
             NetworkChain::Butterflynet => Self {
@@ -91,12 +101,13 @@ impl SolsticeRewardBootstrapParams {
                 )),
                 ..FIP0118
             },
+            // A devnet deploys no contracts, so the system actor stands in for all three.
             NetworkChain::Devnet(_) => Self {
                 swa_timelock_epochs: 50,
                 consensus_weight_ramp_duration_epochs: 900,
                 swa_actor: Some(Address::SYSTEM_ACTOR),
                 sra_actor: Some(Address::SYSTEM_ACTOR),
-                initial_orchestrator: Some(Address::BURNT_FUNDS_ACTOR),
+                initial_orchestrator: Some(Address::SYSTEM_ACTOR),
                 ..FIP0118
             },
         }
@@ -106,11 +117,16 @@ impl SolsticeRewardBootstrapParams {
     /// migration reads.
     ///
     /// # Errors
-    /// The SWA is unset, or a set address is not on chain.
+    /// The SWA is unset, the orchestrator is the burn actor, or a set address is not on chain.
     pub fn resolve<BS: Blockstore>(mut self, actors: &StateTree<BS>) -> anyhow::Result<Self> {
         ensure!(
             self.swa_actor.is_some(),
             "Solstice bootstrap SWA actor is unset"
+        );
+        // The reward actor strips the burn actor from share maps, so it cannot be a recipient.
+        ensure!(
+            self.initial_orchestrator != Some(Address::BURNT_FUNDS_ACTOR),
+            "Solstice bootstrap initial orchestrator is the burn actor"
         );
         // A consensus-only bootstrap leaves the service stream addresses unset.
         for (name, address) in [
@@ -241,6 +257,23 @@ mod tests {
 
         assert!(
             error.to_string().contains("SWA actor is unset"),
+            "{error:#}"
+        );
+    }
+
+    #[test]
+    fn rejects_the_burn_actor_as_orchestrator() {
+        let (swa, sra) = (contract(1), contract(2));
+        let (actors, _) = state_tree_with(&[swa, sra]);
+
+        let error = params_with(Some(swa), Some(sra), Some(Address::BURNT_FUNDS_ACTOR))
+            .resolve(&actors)
+            .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("initial orchestrator is the burn actor"),
             "{error:#}"
         );
     }

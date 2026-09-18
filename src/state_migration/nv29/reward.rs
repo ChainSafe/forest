@@ -4,8 +4,8 @@
 //! Reward actor migration for FIP-0118: keeps the reward accounting, drops the stored reward
 //! totals and installs the bootstrap streams and the stream weight authority (SWA).
 //!
-//! Reference: <https://github.com/filecoin-project/go-state-types/blob/6c7f7c311d954165144a3529a0c56a13b26c86bc/builtin/v19/migration/reward.go>
-//! and <https://github.com/filecoin-project/lotus/blob/74da8af2d595eca68153d43f5c610147f988adc5/chain/consensus/filcns/upgrades.go#L3377-L3475>.
+//! Reference: <https://github.com/filecoin-project/go-state-types/blob/2ab83afa6e453cc38d4f3f6a496289ac0af7233e/builtin/v19/migration/reward.go>
+//! and <https://github.com/filecoin-project/lotus/blob/1c89ca8f80d58717d61b6a8de460f38febe4346a/chain/consensus/filcns/upgrades.go#L3378-L3486>.
 
 use super::reward_bootstrap::{SolsticeRewardBootstrapParams, SolsticeRewardWeightParams};
 use crate::shim::address::{Address, Protocol};
@@ -82,37 +82,59 @@ impl RewardMigrator {
         })
     }
 
-    /// Checks that every share recipient exists in `actors` and is not a payment channel, which
-    /// `Collect` deletes and would strand its unpaid rewards.
+    /// Checks the SWA, every distribution writer and every share recipient against `actors`.
     ///
     /// # Errors
-    /// A recipient is missing or is a payment channel, or `paych_code` is `None` while a stream
-    /// has recipients.
+    /// `paych_code` is `None`, or a referenced actor is the burn actor, is missing, or is a
+    /// payment channel.
     pub fn validate_recipients<BS: Blockstore>(
         &self,
         actors: &StateTree<BS>,
         paych_code: Option<Cid>,
     ) -> anyhow::Result<()> {
+        let paych_code =
+            paych_code.context("code cid for payment channel actor not found in old manifest")?;
+        validate_actor_reference(actors, self.swa_actor, "SWA actor", paych_code)?;
         for stream in &self.streams.streams {
             let Some(distribution) = &stream.distribution else {
                 continue;
             };
-            let paych_code = paych_code
-                .context("code cid for payment channel actor not found in old manifest")?;
+            validate_actor_reference(
+                actors,
+                distribution.writer,
+                "distribution writer",
+                paych_code,
+            )?;
             for share in &distribution.shares {
-                let recipient = Address::from(share.recipient);
-                let actor = actors
-                    .get_actor(&recipient)
-                    .with_context(|| format!("failed to load reward recipient {recipient}"))?
-                    .with_context(|| format!("reward recipient {recipient} does not exist"))?;
-                ensure!(
-                    actor.code != paych_code,
-                    "reward recipient {recipient} is a payment channel"
-                );
+                validate_actor_reference(actors, share.recipient, "reward recipient", paych_code)?;
             }
         }
         Ok(())
     }
+}
+
+/// Rejects an actor the reward state must not name: the burn actor, one missing from `actors`,
+/// or a payment channel, which `Collect` deletes and would strand its unpaid rewards.
+fn validate_actor_reference<BS: Blockstore>(
+    actors: &StateTree<BS>,
+    address: Address_v4,
+    label: &str,
+    paych_code: Cid,
+) -> anyhow::Result<()> {
+    let address = Address::from(address);
+    ensure!(
+        address != Address::BURNT_FUNDS_ACTOR,
+        "{label} is the burn actor"
+    );
+    let actor = actors
+        .get_actor(&address)
+        .with_context(|| format!("failed to load {label} {address}"))?
+        .with_context(|| format!("{label} {address} does not exist"))?;
+    ensure!(
+        actor.code != paych_code,
+        "{label} {address} is a payment channel"
+    );
+    Ok(())
 }
 
 /// The streams to register: consensus alone at constant `DENOM` for a zero ramp, otherwise
@@ -664,58 +686,165 @@ mod tests {
     }
 
     #[test]
-    fn rejects_recipients_that_are_missing_or_payment_channels() {
-        let account_code = Cid::from_cbor_blake2b256(&"account code").unwrap();
-        let paych_code = Cid::from_cbor_blake2b256(&"paych code").unwrap();
-        let orchestrator = Address::new_id(102);
-        let state_tree_with = |code: Option<Cid>| {
-            let mut actors =
-                StateTree::new(&Arc::new(MemoryDB::default()), StateTreeVersion::V5).unwrap();
-            if let Some(code) = code {
-                let actor =
-                    ActorState::new(code, Cid::default(), TokenAmount::zero().into(), 0, None);
-                actors.set_actor(&orchestrator, actor).unwrap();
-            }
-            actors
-        };
-        let split = RewardMigrator::new(&bootstrap_params(), 100, Cid::default()).unwrap();
+    fn validates_every_actor_the_bootstrap_references() {
+        let account = Cid::from_cbor_blake2b256(&"account code").unwrap();
+        let paych = Cid::from_cbor_blake2b256(&"paych code").unwrap();
+        // The SWA, SRA and orchestrator of `bootstrap_params`.
+        let (swa, sra, orchestrator) = (
+            Address::new_id(100),
+            Address::new_id(101),
+            Address::new_id(102),
+        );
+        let burn = Some(Address::BURNT_FUNDS_ACTOR);
+        let system = Some(Address::SYSTEM_ACTOR);
+
+        // On-chain actors: all three as accounts, minus `missing`, with `channel` as a paych.
+        let on_chain =
+            |missing: Option<Address>, channel: Option<Address>| -> Vec<(Address, Cid)> {
+                [swa, sra, orchestrator]
+                    .into_iter()
+                    .filter(|address| Some(*address) != missing)
+                    .map(|address| {
+                        let code = if Some(address) == channel {
+                            paych
+                        } else {
+                            account
+                        };
+                        (address, code)
+                    })
+                    .collect()
+            };
+        let split = bootstrap_params();
         let neutral = SolsticeRewardBootstrapParams {
             consensus_weight_ramp_duration_epochs: 0,
             consensus_weight: NEUTRAL_CONSENSUS_WEIGHT,
             service_weight: NO_SERVICE_WEIGHT,
             ..bootstrap_params()
         };
-        let neutral = RewardMigrator::new(&neutral, 100, Cid::default()).unwrap();
 
-        let cases = [
-            (&split, Some(account_code), Some(paych_code), Ok(())),
-            (&neutral, None, None, Ok(())),
+        for (case, params, actors, paych_code, expected) in [
             (
-                &split,
-                None,
-                Some(paych_code),
-                Err("reward recipient f0102 does not exist"),
+                "account references",
+                split.clone(),
+                on_chain(None, None),
+                Some(paych),
+                Ok(()),
             ),
             (
-                &split,
-                Some(paych_code),
-                Some(paych_code),
+                "system actor references",
+                SolsticeRewardBootstrapParams {
+                    swa_actor: system,
+                    sra_actor: system,
+                    ..split.clone()
+                },
+                vec![(Address::SYSTEM_ACTOR, account), (orchestrator, account)],
+                Some(paych),
+                Ok(()),
+            ),
+            (
+                "neutral bootstrap needs only its SWA",
+                neutral.clone(),
+                vec![(swa, account)],
+                Some(paych),
+                Ok(()),
+            ),
+            (
+                "payment channel SWA",
+                split.clone(),
+                on_chain(None, Some(swa)),
+                Some(paych),
+                Err("SWA actor f0100 is a payment channel"),
+            ),
+            (
+                "payment channel distribution writer",
+                split.clone(),
+                on_chain(None, Some(sra)),
+                Some(paych),
+                Err("distribution writer f0101 is a payment channel"),
+            ),
+            (
+                "payment channel recipient",
+                split.clone(),
+                on_chain(None, Some(orchestrator)),
+                Some(paych),
                 Err("reward recipient f0102 is a payment channel"),
             ),
             (
-                &split,
-                Some(account_code),
+                "missing SWA",
+                split.clone(),
+                on_chain(Some(swa), None),
+                Some(paych),
+                Err("SWA actor f0100 does not exist"),
+            ),
+            (
+                "missing SWA of a neutral bootstrap",
+                neutral,
+                vec![],
+                Some(paych),
+                Err("SWA actor f0100 does not exist"),
+            ),
+            (
+                "missing distribution writer",
+                split.clone(),
+                on_chain(Some(sra), None),
+                Some(paych),
+                Err("distribution writer f0101 does not exist"),
+            ),
+            (
+                "missing recipient",
+                split.clone(),
+                on_chain(Some(orchestrator), None),
+                Some(paych),
+                Err("reward recipient f0102 does not exist"),
+            ),
+            (
+                "burn SWA",
+                SolsticeRewardBootstrapParams {
+                    swa_actor: burn,
+                    ..split.clone()
+                },
+                on_chain(None, None),
+                Some(paych),
+                Err("SWA actor is the burn actor"),
+            ),
+            (
+                "burn distribution writer",
+                SolsticeRewardBootstrapParams {
+                    sra_actor: burn,
+                    ..split.clone()
+                },
+                on_chain(None, None),
+                Some(paych),
+                Err("distribution writer is the burn actor"),
+            ),
+            (
+                "no payment channel code in the old manifest",
+                split,
+                on_chain(None, None),
                 None,
                 Err("code cid for payment channel actor not found in old manifest"),
             ),
-        ];
-        for (migrator, recipient_code, paych_code, expected) in cases {
-            let result = migrator.validate_recipients(&state_tree_with(recipient_code), paych_code);
+        ] {
+            let mut tree =
+                StateTree::new(&Arc::new(MemoryDB::default()), StateTreeVersion::V5).unwrap();
+            for (address, code) in actors {
+                let actor =
+                    ActorState::new(code, Cid::default(), TokenAmount::zero().into(), 0, None);
+                tree.set_actor(&address, actor).unwrap();
+            }
+            let migrator = RewardMigrator::new(&params, 100, Cid::default())
+                .unwrap_or_else(|e| panic!("{case}: {e:#}"));
+
+            let result = migrator.validate_recipients(&tree, paych_code);
+
             match expected {
-                Ok(()) => result.unwrap(),
+                Ok(()) => result.unwrap_or_else(|e| panic!("{case}: {e:#}")),
                 Err(message) => {
-                    let error = format!("{:#}", result.unwrap_err());
-                    assert!(error.contains(message), "{error}");
+                    let error = result
+                        .err()
+                        .unwrap_or_else(|| panic!("{case}: accepted"))
+                        .to_string();
+                    assert!(error.contains(message), "{case}: {error}");
                 }
             }
         }

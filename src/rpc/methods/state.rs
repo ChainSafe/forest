@@ -1108,7 +1108,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the deal IDs are ignored; use StateMinerInitialPledgeForSector instead.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. From NV29 (FIP-0118) it returns an error: every sector gets maximum quality-adjusted power regardless of its deals, so a pre-commit no longer describes a pledge. Use StateMinerInitialPledgeForSector instead.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -1120,29 +1120,29 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
+        if ctx.state_manager.get_network_version(ts.epoch()) >= NetworkVersion::V29 {
+            return Err(anyhow::anyhow!(
+                "StateMinerInitialPledgeCollateral is unsupported from network version 29 (FIP-0118): use StateMinerInitialPledgeForSector"
+            )
+            .into());
+        }
+
         let sector_size = pci
             .seal_proof
             .sector_size()
             .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
-        let sector_size = SectorSize::from(sector_size).into();
+        let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
+        let (w, vw) = market_state.verify_deals_for_activation(
+            ctx.db(),
+            address,
+            pci.deal_ids,
+            ts.epoch(),
+            pci.expiration,
+        )?;
+        let duration = sector_duration_from_expiration(pci.expiration, ts.epoch())?;
         let sector_weight =
-            if ctx.state_manager.get_network_version(ts.epoch()) >= NetworkVersion::V29 {
-                // Every sector holds maximum quality-adjusted power, which deal weight does not
-                // describe.
-                qa_power_max(sector_size)
-            } else {
-                let market_state: market::State = ctx.state_manager.get_actor_state(&ts)?;
-                let (w, vw) = market_state.verify_deals_for_activation(
-                    ctx.db(),
-                    address,
-                    pci.deal_ids,
-                    ts.epoch(),
-                    pci.expiration,
-                )?;
-                let duration = sector_duration_from_expiration(pci.expiration, ts.epoch())?;
-                qa_power_for_weight(sector_size, duration, &w, &vw)
-            };
+            qa_power_for_weight(SectorSize::from(sector_size).into(), duration, &w, &vw);
 
         let initial_pledge = compute_initial_pledge_for_power(&ctx, &ts, &sector_weight)?;
 

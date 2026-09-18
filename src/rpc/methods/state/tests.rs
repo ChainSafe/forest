@@ -444,6 +444,39 @@ async fn initial_pledge_collateral_matches_the_sector_pledge() {
     );
 }
 
+/// From NV29 a pre-commit no longer describes a pledge, so the collateral RPC refuses.
+#[tokio::test]
+async fn initial_pledge_collateral_is_retired_from_nv29() {
+    let mut config = ChainConfig::calibnet();
+    // A height applies to the epochs after it.
+    config
+        .height_infos
+        .get_mut(&Height::Solstice)
+        .unwrap()
+        .epoch = FIXTURE_EPOCH - 1;
+    let (ctx, _) = ctx_at(config, FIXTURE_EPOCH, &Default::default());
+    let pre_commit = SectorPreCommitInfo::from(fil_actor_miner_state::v18::SectorPreCommitInfo {
+        seal_proof: RegisteredSealProofV4::StackedDRG32GiBV1P1,
+        expiration: FIXTURE_EPOCH + 1_000,
+        ..Default::default()
+    });
+
+    let error = StateMinerInitialPledgeCollateral::handle(
+        ctx,
+        (Address::new_id(1000), pre_commit, ApiTipsetKey(None)),
+        &Default::default(),
+    )
+    .await
+    .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("unsupported from network version 29"),
+        "{error}"
+    );
+}
+
 #[rstest]
 #[case::no_power_actor(Address::POWER_ACTOR)]
 #[case::no_reward_actor(Address::REWARD_ACTOR)]
