@@ -43,21 +43,21 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
-    Cid::from_str("bafy2bzacebloglgiwoabfjvmaxjkxwpje6elli5tsuiktgzi2qlenfbvk5zlk")
+    Cid::from_str("bafy2bzaceb2fabrzsyyjgh7hbxzlwwtead6oiv7kilfxc4cqoxoqzce636jou")
         .expect("hard-coded CID must parse")
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: LazyLock<Url> = LazyLock::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacebloglgiwoabfjvmaxjkxwpje6elli5tsuiktgzi2qlenfbvk5zlk.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzaceb2fabrzsyyjgh7hbxzlwwtead6oiv7kilfxc4cqoxoqzce636jou.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
 
 /// Alternative URL for the genesis file. This is hosted on the `lotus` repository.
-/// `<https://github.com/filecoin-project/lotus/commit/3e833aa03a79e23de213afb4ca15364c00015bfe>`
+/// `<https://github.com/filecoin-project/lotus/commit/a7b93c7558750f02a9a860a723e9d5793cfbda0a>`
 static GENESIS_URL_ALT: LazyLock<Url> = LazyLock::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/3e833aa03a79e23de213afb4ca15364c00015bfe/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/a7b93c7558750f02a9a860a723e9d5793cfbda0a/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -108,7 +108,7 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         make_height!(Tock, -29),
         make_height!(GoldenWeek, -30),
         make_height!(FireHorse, -31),
-        make_height!(Solstice, 90, get_bundle_cid("v19.0.0-dev1")),
+        make_height!(Solstice, 5220, get_bundle_cid("v19.0.0-dev1")),
     ])
 });
 
