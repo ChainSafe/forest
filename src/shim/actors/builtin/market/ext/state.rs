@@ -133,6 +133,9 @@ impl MarketStateExt for market::State {
                     Ok(())
                 })?;
             }
+            Self::V19(_) => {
+                anyhow::bail!("unsupported from actors v19");
+            }
         }
         Ok(result)
     }
