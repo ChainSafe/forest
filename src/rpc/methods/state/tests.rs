@@ -339,7 +339,7 @@ async fn creation_deposit_is_positive_from_goldenweek(#[case] config: ChainConfi
     assert!(creation_deposit(config, activation).await.is_positive());
 }
 
-/// Butterflynet is absent because its genesis is already nv27: it has no epoch to be inactive at.
+/// Butterflynet is absent because its genesis is already past the `goldenweek`: it has no epoch to be inactive at.
 #[rstest]
 #[case::mainnet(ChainConfig::mainnet())]
 #[case::calibnet(ChainConfig::calibnet())]

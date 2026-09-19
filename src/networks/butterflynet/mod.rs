@@ -14,14 +14,14 @@ use crate::{
 };
 
 use super::{
-    DrandPoint, Height, HeightInfo, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED,
-    actors_bundle::ACTOR_BUNDLES_METADATA, drand::DRAND_QUICKNET, parse_bootstrap_peers,
+    DrandPoint, Height, HeightInfo, NetworkChain, actors_bundle::ACTOR_BUNDLES_METADATA,
+    drand::DRAND_QUICKNET, parse_bootstrap_peers,
 };
 
 /// Well-known network names.
 pub const NETWORK_COMMON_NAME: &str = "butterflynet";
 
-pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V27;
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V28;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -43,21 +43,21 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
-    Cid::from_str("bafy2bzacebt5wxzyrgizu2uunetxtkc6aom3ult236vviv2nseiwnquu6anha")
+    Cid::from_str("bafy2bzaceb2fabrzsyyjgh7hbxzlwwtead6oiv7kilfxc4cqoxoqzce636jou")
         .expect("hard-coded CID must parse")
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
 static GENESIS_URL: LazyLock<Url> = LazyLock::new(|| {
-    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzacebt5wxzyrgizu2uunetxtkc6aom3ult236vviv2nseiwnquu6anha.car.zst"
+    "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/genesis/butterflynet-bafy2bzaceb2fabrzsyyjgh7hbxzlwwtead6oiv7kilfxc4cqoxoqzce636jou.car.zst"
         .parse()
         .expect("hard-coded URL must parse")
 });
 
 /// Alternative URL for the genesis file. This is hosted on the `lotus` repository.
-/// `<https://github.com/filecoin-project/lotus/commit/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253>`
+/// `<https://github.com/filecoin-project/lotus/commit/a7b93c7558750f02a9a860a723e9d5793cfbda0a>`
 static GENESIS_URL_ALT: LazyLock<Url> = LazyLock::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/a0ecb8687f1c60d5e66040b6de364dbc9cc4d253/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/a7b93c7558750f02a9a860a723e9d5793cfbda0a/build/genesis/butterflynet.car.zst".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -107,8 +107,8 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         make_height!(Teep, -28),
         make_height!(Tock, -29),
         make_height!(GoldenWeek, -30),
-        make_height!(FireHorse, 1440, get_bundle_cid("v18.0.0")),
-        make_height!(Solstice, UPGRADE_HEIGHT_UNSCHEDULED),
+        make_height!(FireHorse, -31),
+        make_height!(Solstice, 5220, get_bundle_cid("v19.0.0-dev1")),
     ])
 });
 
