@@ -25,6 +25,7 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
         chain_config: &ChainConfig,
+        epoch: ChainEpoch,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store, state)?;
         let system_actor = state_tree.get_required_actor(&Address::SYSTEM_ACTOR)?;
@@ -45,7 +46,7 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
             system::system_migrator(new_manifest),
         );
         // Streams start at the first epoch executed on the migrated state.
-        let activation_epoch = chain_config.epoch(Height::Solstice) + 1;
+        let activation_epoch = epoch + 1;
         let bootstrap =
             SolsticeRewardBootstrapParams::for_chain(&chain_config.network).resolve(&state_tree)?;
         let reward_migrator = RewardMigrator::new(
@@ -59,7 +60,6 @@ impl<BS: Blockstore + ShallowClone> StateMigration<BS> {
                 current_manifest.get(BuiltinActor::PaymentChannel).ok(),
             )
             .context("invalid reward migration recipients")?;
-        // The output depends on priorEpoch as well as the actor head.
         self.add_migrator(
             current_manifest.get(BuiltinActor::Reward)?,
             Arc::new(reward_migrator),
@@ -102,7 +102,7 @@ where
 
     let new_manifest = BuiltinActorManifest::load_manifest(blockstore, new_manifest_cid)?;
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    migration.add_nv29_migrations(blockstore, state, &new_manifest, chain_config)?;
+    migration.add_nv29_migrations(blockstore, state, &new_manifest, chain_config, epoch)?;
 
     let actors_in = StateTree::new_from_root(blockstore, state)?;
     let actors_out = StateTree::new(blockstore, StateTreeVersion::V5)?;

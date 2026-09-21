@@ -258,7 +258,7 @@ impl State {
                 FVM4ExitCode::USR_ILLEGAL_STATE,
                 "failed to load deal state array",
             )?)),
-            State::V17(st) => Ok(DealStates::V17(V16AsActorError::context_code(
+            State::V17(st) => Ok(DealStates::V17(V17AsActorError::context_code(
                 V17DealMetaArray::load(&st.states, store),
                 FVM4ExitCode::USR_ILLEGAL_STATE,
                 "failed to load deal state array",
