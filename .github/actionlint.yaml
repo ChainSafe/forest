@@ -7,3 +7,12 @@ self-hosted-runner:
   labels:
     - warp-ubuntu-2404-arm64-8x
     - warp-ubuntu-2404-x64-8x
+
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    # actionlint 1.7.12 bundles a stale schema for `actions/create-github-app-token@v3`, where
+    # `client-id` is the canonical input and `app-id` merely a deprecated alias.
+    # Drop once https://github.com/rhysd/actionlint/pull/668 ships in a release.
+    ignore:
+      - 'missing input "app-id" which is required by action "actions/create-github-app-token@v3"'
+      - 'input "client-id" is not defined in action "actions/create-github-app-token@v3"'
