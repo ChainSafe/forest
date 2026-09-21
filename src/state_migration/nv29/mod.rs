@@ -9,7 +9,6 @@ mod reward_bootstrap;
 
 /// Run migration for `NV29`. This should be the only exported method in this
 /// module.
-#[allow(unused)]
 pub use migration::run_migration;
 
 use crate::{define_system_states, impl_system, impl_verifier};
