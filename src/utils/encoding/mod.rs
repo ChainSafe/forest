@@ -40,6 +40,34 @@ pub fn from_slice_with_fallback<'a, T: serde::de::Deserialize<'a>>(
 mod cid_de_cbor;
 pub use cid_de_cbor::extract_cids;
 
+/// `io::Write` that discards the bytes and only tracks how many were written.
+#[derive(Default)]
+struct CountingSink(usize);
+
+impl std::io::Write for CountingSink {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0 += buf.len();
+        Ok(buf.len())
+    }
+
+    fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+        let n: usize = bufs.iter().map(|b| b.len()).sum();
+        self.0 += n;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Calculate the byte length of the `DAG_CBOR` encoding of `value`, without allocating it.
+pub fn calc_encoded_len<T: serde::Serialize>(value: &T) -> Result<usize, fvm_ipld_encoding::Error> {
+    let mut sink = CountingSink::default();
+    fvm_ipld_encoding::to_writer(&mut sink, value)?;
+    Ok(sink.0)
+}
+
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {
     use super::*;
@@ -133,12 +161,19 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
 mod tests {
     use ipld_core::ipld::Ipld;
     use itertools::Itertools as _;
+    use quickcheck_macros::quickcheck;
     use rand::Rng;
     use serde::{Deserialize, Serialize};
     use serde_ipld_dagcbor::to_vec;
 
     use super::*;
+    use crate::message::SignedMessage;
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
+
+    #[quickcheck]
+    fn calc_encoded_len_matches_to_vec(msg: SignedMessage) -> bool {
+        calc_encoded_len(&msg).unwrap() == to_vec(&msg).unwrap().len()
+    }
 
     #[test]
     fn vector_hashing() {

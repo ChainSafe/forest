@@ -14,6 +14,7 @@ use crate::shim::{
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
+use crate::utils::encoding::calc_encoded_len;
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -28,7 +29,6 @@ use crate::{
 };
 use ahash::HashMap;
 use futures::TryFutureExt;
-use fvm_ipld_encoding::to_vec;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
 use tokio::task::JoinSet;
@@ -422,7 +422,7 @@ async fn check_block_messages(
                          tree: &StateTree<DbImpl>|
      -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
-        let min_gas = price_list.on_chain_message(to_vec(msg)?.len());
+        let min_gas = price_list.on_chain_message(calc_encoded_len(msg)?);
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         sum_gas_limit += msg.gas_limit;
