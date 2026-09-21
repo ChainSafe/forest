@@ -14,7 +14,7 @@ use crate::{
     blocks::{Tipset, TipsetKey},
     chain::{ChainStore, Error as ChainError},
     prelude::*,
-    utils::{encoding::encoded_len, misc::env::env_or_default_logged},
+    utils::{encoding::calc_encoded_len, misc::env::env_or_default_logged},
 };
 
 /// Maximum encoded byte size of a chain-exchange response we serve to peers.
@@ -80,7 +80,7 @@ fn make_chain_exchange_response_with_cap(
                 tipset_bundle.blocks = tipset.block_headers().iter().cloned().collect_vec();
             }
 
-            let bundle_bytes = encoded_len(&tipset_bundle).map_err(ChainError::from)?;
+            let bundle_bytes = calc_encoded_len(&tipset_bundle).map_err(ChainError::from)?;
             // Always include the first bundle so a peer can make forward
             // progress even if a single tipset exceeds the cap.
             if !chain.is_empty() && accumulated + bundle_bytes > max_bytes {
@@ -308,7 +308,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn encoded_len_matches_to_vec() {
+    async fn calc_encoded_len_matches_to_vec() {
         // A populated response exercises vectors, byte arrays, and nested structs.
         let (cids, cs) = populate_chain_store().await;
         let response = make_chain_exchange_response(
@@ -320,7 +320,7 @@ mod tests {
             },
         );
 
-        let len = encoded_len(&response).unwrap();
+        let len = calc_encoded_len(&response).unwrap();
         let to_vec_len = fvm_ipld_encoding::to_vec(&response).unwrap().len();
         assert!(len > 0, "expected a non-empty encoded response");
         assert_eq!(len, to_vec_len);

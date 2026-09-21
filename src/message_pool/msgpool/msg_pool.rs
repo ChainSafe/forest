@@ -34,7 +34,7 @@ use crate::shim::{
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::cache::SizeTrackingCache;
-use crate::utils::encoding::encoded_len;
+use crate::utils::encoding::calc_encoded_len;
 use ahash::HashSet;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
@@ -584,7 +584,7 @@ where
 }
 
 fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
-    if encoded_len(msg)? > MAX_MESSAGE_SIZE {
+    if calc_encoded_len(msg)? > MAX_MESSAGE_SIZE {
         return Err(Error::MessageTooBig);
     }
     let to = msg.message().to();

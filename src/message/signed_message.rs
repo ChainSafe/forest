@@ -10,7 +10,7 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use crate::utils::encoding::encoded_len;
+use crate::utils::encoding::calc_encoded_len;
 use fvm_ipld_encoding::RawBytes;
 use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
@@ -89,9 +89,9 @@ impl SignedMessage {
     pub fn chain_length(&self) -> anyhow::Result<usize> {
         Ok(match self.signature.signature_type() {
             // BLS chain message length doesn't include the signature
-            SignatureType::Bls => encoded_len(&self.message)?,
+            SignatureType::Bls => calc_encoded_len(&self.message)?,
             // SECP and Delegated chain message length includes the signature
-            SignatureType::Secp256k1 | SignatureType::Delegated => encoded_len(self)?,
+            SignatureType::Secp256k1 | SignatureType::Delegated => calc_encoded_len(self)?,
         })
     }
 

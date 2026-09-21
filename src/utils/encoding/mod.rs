@@ -54,8 +54,8 @@ impl std::io::Write for CountingSink {
     }
 }
 
-/// Byte length of the `DAG_CBOR` encoding of `value`, without allocating it.
-pub fn encoded_len<T: serde::Serialize>(value: &T) -> Result<usize, fvm_ipld_encoding::Error> {
+/// Calculate the byte length of the `DAG_CBOR` encoding of `value`, without allocating it.
+pub fn calc_encoded_len<T: serde::Serialize>(value: &T) -> Result<usize, fvm_ipld_encoding::Error> {
     let mut sink = CountingSink(0);
     fvm_ipld_encoding::to_writer(&mut sink, value)?;
     Ok(sink.0)
@@ -164,8 +164,8 @@ mod tests {
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
 
     #[quickcheck]
-    fn encoded_len_matches_to_vec(msg: SignedMessage) -> bool {
-        encoded_len(&msg).unwrap() == to_vec(&msg).unwrap().len()
+    fn calc_encoded_len_matches_to_vec(msg: SignedMessage) -> bool {
+        calc_encoded_len(&msg).unwrap() == to_vec(&msg).unwrap().len()
     }
 
     #[test]
