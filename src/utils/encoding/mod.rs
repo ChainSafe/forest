@@ -41,12 +41,19 @@ mod cid_de_cbor;
 pub use cid_de_cbor::extract_cids;
 
 /// `io::Write` that discards the bytes and only tracks how many were written.
+#[derive(Default)]
 struct CountingSink(usize);
 
 impl std::io::Write for CountingSink {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.0 += buf.len();
         Ok(buf.len())
+    }
+
+    fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+        let n: usize = bufs.iter().map(|b| b.len()).sum();
+        self.0 += n;
+        Ok(n)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
@@ -56,7 +63,7 @@ impl std::io::Write for CountingSink {
 
 /// Calculate the byte length of the `DAG_CBOR` encoding of `value`, without allocating it.
 pub fn calc_encoded_len<T: serde::Serialize>(value: &T) -> Result<usize, fvm_ipld_encoding::Error> {
-    let mut sink = CountingSink(0);
+    let mut sink = CountingSink::default();
     fvm_ipld_encoding::to_writer(&mut sink, value)?;
     Ok(sink.0)
 }
