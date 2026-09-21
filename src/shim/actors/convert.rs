@@ -78,10 +78,12 @@ pub fn from_token_v4_to_v2(token: &TokenAmountV4) -> TokenAmountV2 {
     TokenAmountV2::from_atto(token.atto().clone())
 }
 
+pub fn from_token_v4_to_v3(token: &TokenAmountV4) -> TokenAmountV3 {
+    TokenAmountV3::from_atto(token.atto().clone())
+}
+
 pub fn from_opt_token_v4_to_v2(token: Option<&TokenAmountV4>) -> TokenAmountV2 {
-    token.map_or_else(TokenAmountV2::default, |t| {
-        TokenAmountV2::from_atto(t.atto().clone())
-    })
+    token.map_or_else(TokenAmountV2::default, from_token_v4_to_v2)
 }
 
 pub fn from_token_v2_to_v3(token: &TokenAmountV2) -> TokenAmountV3 {
@@ -659,6 +661,7 @@ mod tests {
 
         let t4 = TokenAmountV4::from_atto(9);
         assert_eq!(from_token_v4_to_v2(&t4), TokenAmountV2::from_atto(9));
+        assert_eq!(from_token_v4_to_v3(&t4), TokenAmountV3::from_atto(9));
     }
 
     #[test]
