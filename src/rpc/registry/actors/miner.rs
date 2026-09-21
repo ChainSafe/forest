@@ -171,6 +171,17 @@ macro_rules! register_miner_common_method_v18_onwards {
     }};
 }
 
+macro_rules! register_miner_common_method_v19_onwards {
+    ($registry:expr, $code_cid:expr, $state_version:path) => {{
+        use $state_version::{Method, UpgradeSectorQualityParams};
+        register_actor_methods!(
+            $registry,
+            $code_cid,
+            [(Method::UpgradeSectorQuality, UpgradeSectorQualityParams)]
+        );
+    }};
+}
+
 fn register_miner_version_8(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_basic_methods!(registry, cid, fil_actor_miner_state::v8);
 
@@ -419,6 +430,14 @@ fn register_miner_version_18(registry: &mut MethodRegistry, cid: Cid) {
     register_miner_common_method_v18_onwards!(registry, cid, fil_actor_miner_state::v18);
 }
 
+fn register_miner_version_19(registry: &mut MethodRegistry, cid: Cid) {
+    register_miner_common_methods_v10_onwards!(registry, cid, fil_actor_miner_state::v19);
+    register_miner_common_method_v14_onwards!(registry, cid, fil_actor_miner_state::v19);
+    register_miner_common_method_v16_onwards!(registry, cid, fil_actor_miner_state::v19);
+    register_miner_common_method_v18_onwards!(registry, cid, fil_actor_miner_state::v19);
+    register_miner_common_method_v19_onwards!(registry, cid, fil_actor_miner_state::v19);
+}
+
 pub(crate) fn register_miner_actor_methods(
     registry: &mut MethodRegistry,
     cid: Cid,
@@ -436,5 +455,6 @@ pub(crate) fn register_miner_actor_methods(
         ActorVersion::V16 => register_miner_version_16(registry, cid),
         ActorVersion::V17 => register_miner_version_17(registry, cid),
         ActorVersion::V18 => register_miner_version_18(registry, cid),
+        ActorVersion::V19 => register_miner_version_19(registry, cid),
     }
 }

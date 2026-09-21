@@ -15,7 +15,7 @@ use crate::eth::EthChainId;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::eth::types::CallSource;
 use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
@@ -553,6 +553,24 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Robust address not found")?;
                     Ok(robust_addr)
                 }
+                init::State::V19(state) => {
+                    let map = fil_actor_init_state::v19::AddressMap::load(
+                        &store,
+                        &state.address_map,
+                        fil_actors_shared::v19::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )
+                    .context("Failed to load address map")?;
+                    map.for_each(|addr, v| {
+                        if *v == id_addr_decoded {
+                            robust_addr = addr.into();
+                            return Ok(());
+                        }
+                        Ok(())
+                    })
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
+                }
             }
         } else {
             Ok(Address::default())
@@ -1018,6 +1036,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.db(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V19(s) => (
+                s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V18(s) => (
                 s.check_vested_funds(ctx.db(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
@@ -1086,8 +1108,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str =
-        "Returns the initial pledge collateral for the specified miner's sector.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. From NV29 (FIP-0118) it returns an error: every sector gets maximum quality-adjusted power regardless of its deals, so a pre-commit no longer describes a pledge. Use StateMinerInitialPledgeForSector instead.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -1098,6 +1119,13 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        if ctx.state_manager.get_network_version(ts.epoch()) >= NetworkVersion::V29 {
+            return Err(anyhow::anyhow!(
+                "StateMinerInitialPledgeCollateral is unsupported from network version 29 (FIP-0118): use StateMinerInitialPledgeForSector"
+            )
+            .into());
+        }
 
         let sector_size = pci
             .seal_proof
@@ -2450,6 +2478,20 @@ impl StateSectorPreCommitInfo {
                     })
                     .context("failed to iterate over precommitted sectors")
             }
+            miner::State::V19(s) => {
+                let precommitted = fil_actor_miner_state::v19::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v19::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
         }?;
 
         Ok(sectors)
@@ -2597,6 +2639,20 @@ impl StateSectorPreCommitInfo {
                     store,
                     &s.pre_committed_sectors,
                     fil_actor_miner_state::v18::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V19(s) => {
+                let precommitted = fil_actor_miner_state::v19::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v19::PRECOMMIT_CONFIG,
                     "precommits",
                 )?;
                 precommitted
@@ -3074,6 +3130,18 @@ impl StateGetAllocations {
                         Ok(())
                     })?;
                 }
+                init::State::V19(s) => {
+                    let map = fil_actor_init_state::v19::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v19::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
             };
         }
 
@@ -3277,8 +3345,7 @@ pub struct ForkUpgradeParams {
     upgrade_tock_height: ChainEpoch,
     upgrade_golden_week_height: ChainEpoch,
     upgrade_fire_horse_height: ChainEpoch,
-    // placeholder for the next network upgrade
-    upgrade_xx_height: ChainEpoch,
+    upgrade_solstice_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3328,10 +3395,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_tock_height: get_height(Tock)?,
             upgrade_golden_week_height: get_height(GoldenWeek)?,
             upgrade_fire_horse_height: get_height(FireHorse)?,
-            upgrade_xx_height: match config.network {
-                NetworkChain::Mainnet => 9_999_999_999,
-                _ => 999_999_999_999_999,
-            },
+            upgrade_solstice_height: get_height(Solstice)?,
         })
     }
 }
@@ -3343,7 +3407,7 @@ impl RpcMethod<4> for StateMinerInitialPledgeForSector {
         ["sectorDuration", "sectorSize", "verifiedSize", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset. From NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals: pass the full sector size as verifiedSize to get the pledge the network charges.";
 
     type Params = (ChainEpoch, SectorSize, u64, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -3539,29 +3603,4 @@ impl RpcMethod<0> for StateActorInfo {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use quickcheck_macros::quickcheck;
-    use rstest::rstest;
-
-    #[rstest]
-    #[case(1_000, Some(600))]
-    #[case(401, Some(1))]
-    #[case(400, None)]
-    #[case(399, None)]
-    #[case(i64::MIN, None)]
-    fn sector_duration_from_expiration_requires_positive(
-        #[case] expiration: ChainEpoch,
-        #[case] expected: Option<ChainEpoch>,
-    ) {
-        assert_eq!(
-            sector_duration_from_expiration(expiration, 400).ok(),
-            expected
-        );
-    }
-
-    #[quickcheck]
-    fn sector_duration_from_expiration_no_panic(expiration: ChainEpoch, epoch: ChainEpoch) {
-        let _ = sector_duration_from_expiration(expiration, epoch);
-    }
-}
+mod tests;

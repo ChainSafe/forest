@@ -39,6 +39,7 @@ pub enum State {
     V16(fil_actor_power_state::v16::State),
     V17(fil_actor_power_state::v17::State),
     V18(fil_actor_power_state::v18::State),
+    V19(fil_actor_power_state::v19::State),
 }
 
 impl State {
@@ -52,7 +53,7 @@ impl State {
         this_epoch_raw_byte_power: StoragePower,
         this_epoch_quality_adj_power: StoragePower,
         this_epoch_pledge_collateral: fvm_shared4::econ::TokenAmount,
-        this_epoch_qa_power_smoothed: fil_actors_shared::v18::builtin::reward::smooth::FilterEstimate,
+        this_epoch_qa_power_smoothed: fil_actors_shared::v19::builtin::reward::smooth::FilterEstimate,
         miner_count: i64,
         miner_above_min_power_count: i64,
         cron_event_queue: cid::Cid,
@@ -62,7 +63,7 @@ impl State {
         ramp_start_epoch: ChainEpoch,
         ramp_duration_epochs: u64,
     ) -> Self {
-        State::V18(fil_actor_power_state::v18::State {
+        State::V19(fil_actor_power_state::v19::State {
             total_raw_byte_power,
             total_bytes_committed,
             total_quality_adj_power,
@@ -158,6 +159,15 @@ impl State {
                 })?;
                 Ok(miners)
             }
+            State::V19(st) => {
+                let claims = st.load_claims(store)?;
+                let mut miners = Vec::new();
+                claims.for_each(|addr, _claim| {
+                    miners.push(addr.into());
+                    Ok(())
+                })?;
+                Ok(miners)
+            }
         }
     }
 
@@ -233,6 +243,10 @@ impl State {
                 .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{e}")),
+            State::V19(st) => st
+                .miner_nominal_power_meets_consensus_minimum(&policy.into(), &s, miner.id()?)
+                .map(|(_, bool_val)| bool_val)
+                .map_err(|e| anyhow::anyhow!("{e}")),
         }
     }
 
@@ -270,6 +284,10 @@ impl State {
                 velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
             State::V18(st) => FilterEstimate {
+                position: st.this_epoch_qa_power_smoothed.position.clone(),
+                velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
+            },
+            State::V19(st) => FilterEstimate {
                 position: st.this_epoch_qa_power_smoothed.position.clone(),
                 velocity: st.this_epoch_qa_power_smoothed.velocity.clone(),
             },
@@ -382,6 +400,15 @@ impl From<fil_actor_power_state::v17::Claim> for Claim {
 
 impl From<fil_actor_power_state::v18::Claim> for Claim {
     fn from(cl: fil_actor_power_state::v18::Claim) -> Self {
+        Self {
+            raw_byte_power: cl.raw_byte_power,
+            quality_adj_power: cl.quality_adj_power,
+        }
+    }
+}
+
+impl From<fil_actor_power_state::v19::Claim> for Claim {
+    fn from(cl: fil_actor_power_state::v19::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,

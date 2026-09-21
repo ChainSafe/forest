@@ -9,7 +9,6 @@ use crate::shim::{
     sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorNumber},
 };
 use ::cid::Cid;
-use fil_actor_miner_state::v18::SectorStatusCode;
 use fil_actors_shared::fvm_ipld_bitfield::{BitField, UnvalidatedBitField};
 use fil_actors_shared::v16::reward::FilterEstimate;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
@@ -624,12 +623,28 @@ pub enum SectorStatusCodeLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct ValidateSectorStatusParamsLotusJson {
     pub sector_number: SectorNumber,
-    #[schemars(with = "LotusJson<SectorStatusCode>")]
-    #[serde(with = "crate::lotus_json")]
-    pub status: SectorStatusCode,
+    pub status: SectorStatusCodeLotusJson,
     #[schemars(with = "LotusJson<Vec<u8>>")]
     #[serde(with = "crate::lotus_json")]
     pub aux_data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct UpgradeSectorQualityParamsLotusJson {
+    pub upgrades: Vec<UpgradeSectorQualityLotusJson>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct UpgradeSectorQualityLotusJson {
+    pub deadline: u64,
+    pub partition: u64,
+    #[schemars(with = "LotusJson<BitField>")]
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: BitField,
+    // None: upgrade only, every sector keeps its expiration.
+    pub new_expiration: Option<ChainEpoch>,
 }
 
 macro_rules! impl_lotus_json_for_miner_change_worker_param {
@@ -4160,7 +4175,7 @@ macro_rules! impl_lotus_json_for_validate_sector_status_change_params {
                         fn into_lotus_json(self) -> Self::LotusJson {
                             ValidateSectorStatusParamsLotusJson {
                                 sector_number: self.sector_number,
-                                status: self.status,
+                                status: self.status.into_lotus_json(),
                                 aux_data: self.aux_data,
                             }
                         }
@@ -4168,7 +4183,7 @@ macro_rules! impl_lotus_json_for_validate_sector_status_change_params {
                         fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
                             Self {
                                 sector_number: lotus_json.sector_number,
-                                status: lotus_json.status,
+                                status: HasLotusJson::from_lotus_json(lotus_json.status),
                                 aux_data: lotus_json.aux_data,
                             }
                         }
@@ -4179,65 +4194,187 @@ macro_rules! impl_lotus_json_for_validate_sector_status_change_params {
     }
 }
 
-impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_extend_sector_expiration2_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_change_beneficiary_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_declare_faults_recovered_params!(
-    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+macro_rules! impl_lotus_json_for_miner_upgrade_sector_quality_params {
+    ($($version:literal),+) => {
+        $(
+            paste! {
+                mod [<impl_miner_upgrade_sector_quality_params_ $version>] {
+                    use super::*;
+                    type T = fil_actor_miner_state::[<v $version>]::UpgradeSectorQualityParams;
+                    #[test]
+                    fn snapshots() {
+                        crate::lotus_json::assert_all_snapshots::<T>();
+                        crate::lotus_json::assert_all_snapshots::<fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality>();
+                    }
+                    impl HasLotusJson for T {
+                        type LotusJson = UpgradeSectorQualityParamsLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Upgrades": [
+                                        {
+                                            "Deadline": 1,
+                                            "Partition": 2,
+                                            "Sectors": [0],
+                                            "NewExpiration": 1000
+                                        },
+                                        {
+                                            "Deadline": 3,
+                                            "Partition": 4,
+                                            "Sectors": [0],
+                                            "NewExpiration": null
+                                        }
+                                    ]
+                                }),
+                                Self {
+                                    upgrades: vec![
+                                        fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality {
+                                            deadline: 1,
+                                            partition: 2,
+                                            sectors: BitField::new(),
+                                            new_expiration: Some(1000),
+                                        },
+                                        fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality {
+                                            deadline: 3,
+                                            partition: 4,
+                                            sectors: BitField::new(),
+                                            new_expiration: None,
+                                        },
+                                    ],
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpgradeSectorQualityParamsLotusJson {
+                                upgrades: self.upgrades.into_iter().map(|u| u.into_lotus_json()).collect(),
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                upgrades: lotus_json.upgrades.into_iter().map(HasLotusJson::from_lotus_json).collect(),
+                            }
+                        }
+                    }
+
+                    impl HasLotusJson for fil_actor_miner_state::[<v $version>]::UpgradeSectorQuality {
+                        type LotusJson = UpgradeSectorQualityLotusJson;
+
+                        #[cfg(test)]
+                        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                            vec![(
+                                json!({
+                                    "Deadline": 1,
+                                    "Partition": 2,
+                                    "Sectors": [0],
+                                    "NewExpiration": 1000
+                                }),
+                                Self {
+                                    deadline: 1,
+                                    partition: 2,
+                                    sectors: BitField::new(),
+                                    new_expiration: Some(1000),
+                                },
+                            )]
+                        }
+
+                        fn into_lotus_json(self) -> Self::LotusJson {
+                            UpgradeSectorQualityLotusJson {
+                                deadline: self.deadline,
+                                partition: self.partition,
+                                sectors: self.sectors,
+                                new_expiration: self.new_expiration,
+                            }
+                        }
+
+                        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+                            Self {
+                                deadline: lotus_json.deadline,
+                                partition: lotus_json.partition,
+                                sectors: lotus_json.sectors,
+                                new_expiration: lotus_json.new_expiration,
+                            }
+                        }
+                    }
+                }
+            }
+        )+
+    };
+}
+
+impl_lotus_json_for_miner_constructor_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_change_worker_param!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_change_owner_address_params!(11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_extend_sector_expiration2_params!(
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 );
-impl_lotus_json_for_miner_dispute_windowed_post_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_recover_declaration_params_v9_and_above!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_post_partition_v9_and_above!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_miner_change_beneficiary_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_declare_faults_recovered_params!(
+    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+);
+impl_lotus_json_for_miner_dispute_windowed_post_params!(
+    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+);
+impl_lotus_json_for_recover_declaration_params_v9_and_above!(
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+);
+impl_lotus_json_for_miner_post_partition_v9_and_above!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared2: 9);
 impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared3: 10, 11);
-impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared4: 12, 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_miner_submit_windowed_post_params_v9_and_above!(fvm_shared4: 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_declare_faults_params_v9_and_above!(
-    9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 );
-impl_lotus_json_for_miner_declare_faults_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_miner_declare_faults_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_termination_declaration_v9_and_above!(
-    9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 );
 impl_lotus_json_for_miner_terminate_sectors_params_v9_and_above!(
-    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 );
-impl_lotus_json_for_miner_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_change_multiaddrs_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_compact_partitions_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_compact_sector_numbers_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_pre_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_miner_withdraw_balance_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_change_multiaddrs_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_compact_partitions_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_compact_sector_numbers_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_pre_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_pre_commit_sector_and_batch_params!(
-    9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 );
-impl_lotus_json_for_miner_pre_commit_sector_batch2_params!(9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_prove_commit_sectors3_params!(13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_prove_replica_updates3_params!(13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_report_consensus_fault_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_check_sector_proven_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_apply_reward_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_miner_pre_commit_sector_batch2_params!(
+    9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+);
+impl_lotus_json_for_miner_prove_commit_sectors3_params!(13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_prove_replica_updates3_params!(13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_report_consensus_fault_params!(
+    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+);
+impl_lotus_json_for_miner_check_sector_proven_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_apply_reward_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_lotus_json_for_miner_prove_commit_aggregate_params_v9_to_v16!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared2: 8, 9);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared3: 10, 11);
 impl_lotus_json_for_miner_prove_replica_updates_params!(fvm_shared4: 12, 13, 14, 15, 16);
-impl_lotus_json_for_miner_is_controlling_address_param!(10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_max_termination_fee_params!(16, 17, 18);
-impl_lotus_json_for_miner_change_peer_id_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_sector_activation_manifest!(13, 14, 15, 16, 17, 18);
-impl_lotus_json_for_miner_sector_update_manifest!(13, 14, 15, 16, 17, 18);
-impl_miner_prove_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+impl_lotus_json_for_miner_is_controlling_address_param!(10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_max_termination_fee_params!(16, 17, 18, 19);
+impl_lotus_json_for_miner_change_peer_id_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_sector_activation_manifest!(13, 14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_miner_sector_update_manifest!(13, 14, 15, 16, 17, 18, 19);
+impl_miner_prove_commit_sector_params!(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
 impl_miner_extend_sector_expiration_params_v9_onwards!(9, 10, 11, 12, 13, 14, 15, 16);
 impl_miner_confirm_sector_proofs_param_v8_to_v13!(fvm_shared2: 8, 9);
 impl_miner_confirm_sector_proofs_param_v8_to_v13!(fvm_shared3: 10, 11,12, 13);
-impl_miner_deferred_cron_event_params_v14_onwards!(14, 15, 16, 17, 18);
+impl_miner_deferred_cron_event_params_v14_onwards!(14, 15, 16, 17, 18, 19);
 impl_miner_deferred_cron_event_params_v8_to_v13!(fvm_shared2: 8, 9);
 impl_miner_deferred_cron_event_params_v8_to_v13!(fvm_shared3: 10, 11, 12, 13);
 impl_miner_prove_replica_update_params2!(fvm_shared2: 9);
 impl_miner_prove_replica_update_params2!(fvm_shared3: 10, 11);
 impl_miner_prove_replica_update_params2!(fvm_shared4: 12);
-impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16, 17, 18);
-impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16, 17, 18);
-impl_lotus_json_for_generate_sector_location_params!(18);
-impl_lotus_json_sector_status_code!(18);
-impl_lotus_json_for_validate_sector_status_change_params!(18);
+impl_lotus_json_for_miner_prove_commit_sector_ni_params!(14, 15, 16, 17, 18, 19);
+impl_miner_internal_sector_setup_for_preseal_params!(14, 15, 16, 17, 18, 19);
+impl_lotus_json_for_generate_sector_location_params!(18, 19);
+impl_lotus_json_sector_status_code!(18, 19);
+impl_lotus_json_for_validate_sector_status_change_params!(18, 19);
+impl_lotus_json_for_miner_upgrade_sector_quality_params!(19);
