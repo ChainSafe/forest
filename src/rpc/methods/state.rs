@@ -1108,7 +1108,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const PARAM_NAMES: [&'static str; 3] = ["minerAddress", "sectorPreCommitInfo", "tipsetKey"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
     const PERMISSION: Permission = Permission::Read;
-    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. Deprecated: from NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals, so the value is far too low; use StateMinerInitialPledgeForSector instead.";
+    const DESCRIPTION: &'static str = "Returns the initial pledge collateral for the specified miner's sector. From NV29 (FIP-0118) it returns an error: every sector gets maximum quality-adjusted power regardless of its deals, so a pre-commit no longer describes a pledge. Use StateMinerInitialPledgeForSector instead.";
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
     type Ok = TokenAmount;
@@ -1119,6 +1119,13 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+
+        if ctx.state_manager.get_network_version(ts.epoch()) >= NetworkVersion::V29 {
+            return Err(anyhow::anyhow!(
+                "StateMinerInitialPledgeCollateral is unsupported from network version 29 (FIP-0118): use StateMinerInitialPledgeForSector"
+            )
+            .into());
+        }
 
         let sector_size = pci
             .seal_proof
