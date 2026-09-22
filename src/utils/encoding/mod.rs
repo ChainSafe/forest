@@ -40,32 +40,41 @@ pub fn from_slice_with_fallback<'a, T: serde::de::Deserialize<'a>>(
 mod cid_de_cbor;
 pub use cid_de_cbor::extract_cids;
 
-/// `io::Write` that discards the bytes and only tracks how many were written.
-#[derive(Default)]
-struct CountingSink(usize);
+/// `io::Write` that tracks how many bytes were written to `inner`.
+pub(crate) struct CountingWriter<W> {
+    pub(crate) inner: W,
+    pub(crate) written: usize,
+}
 
-impl std::io::Write for CountingSink {
+impl<W> CountingWriter<W> {
+    pub(crate) fn new(inner: W) -> Self {
+        Self { inner, written: 0 }
+    }
+}
+
+impl<W: std::io::Write> std::io::Write for CountingWriter<W> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0 += buf.len();
-        Ok(buf.len())
+        let n = self.inner.write(buf)?;
+        self.written += n;
+        Ok(n)
     }
 
     fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
-        let n: usize = bufs.iter().map(|b| b.len()).sum();
-        self.0 += n;
+        let n = self.inner.write_vectored(bufs)?;
+        self.written += n;
         Ok(n)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+        self.inner.flush()
     }
 }
 
 /// Calculate the byte length of the `DAG_CBOR` encoding of `value`, without allocating it.
 pub fn calc_encoded_len<T: serde::Serialize>(value: &T) -> Result<usize, fvm_ipld_encoding::Error> {
-    let mut sink = CountingSink::default();
+    let mut sink = CountingWriter::new(std::io::sink());
     fvm_ipld_encoding::to_writer(&mut sink, value)?;
-    Ok(sink.0)
+    Ok(sink.written)
 }
 
 /// `serde_bytes` with max length check
@@ -169,10 +178,25 @@ mod tests {
     use super::*;
     use crate::message::SignedMessage;
     use crate::utils::encoding::serde_byte_array::BYTE_ARRAY_MAX_LEN;
+    use std::io::{IoSlice, Write};
 
     #[quickcheck]
     fn calc_encoded_len_matches_to_vec(msg: SignedMessage) -> bool {
         calc_encoded_len(&msg).unwrap() == to_vec(&msg).unwrap().len()
+    }
+
+    #[test]
+    fn counting_writer_counts_bytes_inner_accepts() {
+        let mut buf = [0u8; 2];
+        let mut writer = CountingWriter::new(std::io::Cursor::new(buf.as_mut_slice()));
+        assert_eq!(writer.write(b"abcd").unwrap(), 2);
+        assert_eq!(writer.written, 2);
+
+        let mut buf = [0u8; 3];
+        let mut writer = CountingWriter::new(std::io::Cursor::new(buf.as_mut_slice()));
+        let bufs = [IoSlice::new(b"ab"), IoSlice::new(b"cdef")];
+        assert_eq!(writer.write_vectored(&bufs).unwrap(), 3);
+        assert_eq!(writer.written, 3);
     }
 
     #[test]

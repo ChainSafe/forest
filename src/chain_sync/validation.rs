@@ -150,6 +150,14 @@ impl TipsetValidator<'_> {
             .map(Cid::from_cbor_blake2b256)
             .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
 
+        Self::compute_msg_root_from_cids(blockstore, bls_cids, secp_cids)
+    }
+
+    pub fn compute_msg_root_from_cids<DB: Blockstore>(
+        blockstore: &DB,
+        bls_cids: impl IntoIterator<Item = Cid>,
+        secp_cids: impl IntoIterator<Item = Cid>,
+    ) -> Result<Cid, TipsetValidationError> {
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;
         let secp_message_root = Amt::new_from_iter(blockstore, secp_cids)?;

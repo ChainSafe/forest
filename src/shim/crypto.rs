@@ -139,12 +139,23 @@ impl Signature {
         msg: &SignedMessage,
         addr: &crate::shim::address::Address,
     ) -> anyhow::Result<()> {
+        self.authenticate_msg_with_cid(eth_chain_id, msg, addr, msg.message().cid())
+    }
+
+    /// `message_cid` is the CID of `msg.message()`, not the [`SignedMessage`].
+    pub(crate) fn authenticate_msg_with_cid(
+        &self,
+        eth_chain_id: EthChainId,
+        msg: &SignedMessage,
+        addr: &crate::shim::address::Address,
+        message_cid: Cid,
+    ) -> anyhow::Result<()> {
         match self.sig_type {
             SignatureType::Delegated => {
                 let eth_tx = EthTx::from_signed_message(eth_chain_id, msg)?;
                 let filecoin_msg = eth_tx.get_unsigned_message(msg.from(), eth_chain_id)?;
                 ensure!(
-                    msg.message().cid() == filecoin_msg.cid(),
+                    message_cid == filecoin_msg.cid(),
                     "Ethereum transaction roundtrip mismatch"
                 );
                 // update the exiting signature bytes with the verifiable signature for delegated signature
@@ -156,10 +167,7 @@ impl Signature {
                 let digest = eth_tx.rlp_unsigned_message(eth_chain_id)?;
                 sig.verify(&digest, addr)
             }
-            _ => {
-                let digest = msg.message().cid().to_bytes();
-                self.verify(&digest, addr)
-            }
+            _ => self.verify(&message_cid.to_bytes(), addr),
         }
     }
 
@@ -336,9 +344,9 @@ mod tests {
     use crate::networks::calibnet;
     use crate::utils::encoding::hex;
     use crate::{
-        key_management::{generate_key, sign},
+        key_management::{generate_key, sign, sign_message},
         message::SignedMessage,
-        shim::{address::Address, crypto::SignatureType},
+        shim::{address::Address, crypto::SignatureType, message::Message},
     };
     use num_bigint::BigInt;
     use std::str::FromStr;
@@ -388,6 +396,40 @@ mod tests {
             signature,
         );
         (from, msg)
+    }
+
+    fn create_secp_signed_message() -> (Address, SignedMessage) {
+        let key = generate_key(SignatureType::Secp256k1).unwrap();
+        let from = key.address;
+        let message = Message {
+            from,
+            ..Message::default()
+        };
+        let signed = sign_message(&key, &message, TEST_CHAIN_ID).unwrap();
+        (from, signed)
+    }
+
+    #[test]
+    fn authenticate_msg_rejects_wrong_cid_secp() {
+        let (from, signed_msg) = create_secp_signed_message();
+        signed_msg
+            .signature()
+            .authenticate_msg_with_cid(TEST_CHAIN_ID, &signed_msg, &from, Cid::default())
+            .expect_err("wrong message CID must fail");
+    }
+
+    #[test]
+    fn authenticate_msg_rejects_wrong_cid_delegated() {
+        let (from, signed_msg) = create_signed_message(SignatureType::Delegated);
+        let err = signed_msg
+            .signature()
+            .authenticate_msg_with_cid(TEST_CHAIN_ID, &signed_msg, &from, Cid::default())
+            .expect_err("wrong message CID must fail");
+        let expected = "Ethereum transaction roundtrip mismatch";
+        assert!(
+            err.to_string().contains(expected),
+            "expected {expected}, got: {err}"
+        );
     }
 
     #[test]

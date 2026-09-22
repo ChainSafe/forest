@@ -14,7 +14,7 @@ use crate::shim::{
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
-use crate::utils::encoding::calc_encoded_len;
+use crate::utils::cid::{CidCborExt, cid_and_encoded_len};
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -387,26 +387,28 @@ async fn check_block_messages(
         .network_version(block.header.epoch);
     let eth_chain_id = state_manager.chain_config().eth_chain_id;
 
+    let mut bls_info = Vec::with_capacity(block.bls_msgs().len());
     if let Some(sig) = &block.header().bls_aggregate {
         // Do the initial loop here
         // check block message and signatures in them
         let mut pub_keys = Vec::with_capacity(block.bls_msgs().len());
-        let mut cids = Vec::with_capacity(block.bls_msgs().len());
         let db = state_manager.db();
         for m in block.bls_msgs() {
             let pk = StateManager::get_bls_public_key(db, m.from, *base_tipset.parent_state())?;
             pub_keys.push(pk);
-            cids.push(m.cid().to_bytes());
+            bls_info.push(cid_and_encoded_len(m).expect("message serialization is infallible"));
         }
 
+        let cid_bytes = bls_info.iter().map(|(cid, _)| cid.to_bytes()).collect_vec();
         if !verify_bls_aggregate(
-            &cids.iter().map(|x| x.as_slice()).collect_vec(),
+            &cid_bytes.iter().map(|x| x.as_slice()).collect_vec(),
             &pub_keys,
             sig,
         ) {
+            let bls_cids = bls_info.iter().map(|(cid, _)| cid).collect_vec();
             return Err(TipsetSyncerError::BlsAggregateSignatureInvalid(
                 format!("{sig:?}"),
-                format!("{cids:?}"),
+                format!("{bls_cids:?}"),
             ));
         }
     } else {
@@ -418,11 +420,12 @@ async fn check_block_messages(
 
     // Check messages for validity
     let mut check_msg = |msg: &Message,
+                         encoded_len: usize,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DbImpl>|
      -> anyhow::Result<()> {
         // Phase 1: Syntactic validation
-        let min_gas = price_list.on_chain_message(calc_encoded_len(msg)?);
+        let min_gas = price_list.on_chain_message(encoded_len);
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         sum_gas_limit += msg.gas_limit;
@@ -474,8 +477,8 @@ async fn check_block_messages(
     })?;
 
     // Check validity for BLS messages
-    for (i, msg) in block.bls_msgs().iter().enumerate() {
-        check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
+    for (i, (msg, (_, encoded_len))) in block.bls_msgs().iter().zip(&bls_info).enumerate() {
+        check_msg(msg, *encoded_len, &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
                 "Block had invalid BLS message at index {i}: {e:#}"
             ))
@@ -491,7 +494,9 @@ async fn check_block_messages(
                 "Network version must be at least NV23 for legacy Ethereum transactions".to_owned(),
             ));
         }
-        check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
+        let (msg_cid, encoded_len) =
+            cid_and_encoded_len(msg.message()).expect("message serialization is infallible");
+        check_msg(msg.message(), encoded_len, &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
                 "block had an invalid secp message at index {i}: {e:#}"
             ))
@@ -503,13 +508,20 @@ async fn check_block_messages(
             .map_err(|e| TipsetSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .authenticate_msg(eth_chain_id, msg, &key_addr)
+            .authenticate_msg_with_cid(eth_chain_id, msg, &key_addr, msg_cid)
             .map_err(|e| TipsetSyncerError::MessageSignatureInvalid(e.to_string()))?;
     }
 
     // Validate message root from header matches message root
+    let bls_cids = bls_info.iter().map(|(cid, _)| *cid);
+    let secp_cids = block
+        .secp_msgs()
+        .iter()
+        .map(Cid::from_cbor_blake2b256)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
     let msg_root =
-        TipsetValidator::compute_msg_root(state_manager.db(), block.bls_msgs(), block.secp_msgs())
+        TipsetValidator::compute_msg_root_from_cids(state_manager.db(), bls_cids, secp_cids)
             .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
     if block.header().messages != msg_root {
         return Err(TipsetSyncerError::BlockMessageRootInvalid(
