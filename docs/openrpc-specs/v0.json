@@ -4552,7 +4552,7 @@
     },
     {
       "name": "Filecoin.StateMinerInitialPledgeCollateral",
-      "description": "Returns the initial pledge collateral for the specified miner's sector.",
+      "description": "Returns the initial pledge collateral for the specified miner's sector. From NV29 (FIP-0118) it returns an error: every sector gets maximum quality-adjusted power regardless of its deals, so a pre-commit no longer describes a pledge. Use StateMinerInitialPledgeForSector instead.",
       "params": [
         {
           "name": "minerAddress",
@@ -4593,7 +4593,7 @@
     },
     {
       "name": "Filecoin.StateMinerInitialPledgeForSector",
-      "description": "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset.",
+      "description": "Returns the initial pledge collateral required to commit a sector with the given duration, size, and verified deal size at the specified tipset. From NV29 (FIP-0118) every sector gets maximum quality-adjusted power regardless of its deals: pass the full sector size as verifiedSize to get the pledge the network charges.",
       "params": [
         {
           "name": "sectorDuration",
@@ -10503,6 +10503,10 @@
             "type": "integer",
             "format": "int64"
           },
+          "UpgradeSolsticeHeight": {
+            "type": "integer",
+            "format": "int64"
+          },
           "UpgradeTapeHeight": {
             "type": "integer",
             "format": "int64"
@@ -10536,10 +10540,6 @@
             "format": "int64"
           },
           "UpgradeWatermelonHeight": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "UpgradeXxHeight": {
             "type": "integer",
             "format": "int64"
           }
@@ -10578,7 +10578,7 @@
           "UpgradeTockHeight",
           "UpgradeGoldenWeekHeight",
           "UpgradeFireHorseHeight",
-          "UpgradeXxHeight"
+          "UpgradeSolsticeHeight"
         ]
       },
       "GasTrace": {
