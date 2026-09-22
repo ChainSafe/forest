@@ -12,16 +12,18 @@ docker compose down --remove-orphans --volumes
 
 # The dataset publishes each UTC day's archives some time the next morning, so
 # yesterday's may not exist yet. Try yesterday's snapshot first, and the day
-# before if the dataset has no data for it. The checks cover the 1000 epochs
-# below the chosen snapshot's head epoch.
+# before if the dataset has no data for it.
 for days_ago in 1 2; do
   docker compose run --rm --env DAYS_AGO="${days_ago}" resolve
-  SNAPSHOT_EPOCH="$(docker compose run --rm --no-TTY --entrypoint cat resolve /data/snapshot-epoch)"
-  START=$((SNAPSHOT_EPOCH - 1000))
-  END=$((SNAPSHOT_EPOCH - 1))
+  CHECK_TARGET="$(docker compose run --rm --no-TTY --entrypoint cat resolve /data/check-target)"
+  read -r CHAIN START END <<< "${CHECK_TARGET}"
+  [[ -n ${CHAIN} && ${START} =~ ^[0-9]+$ && ${END} =~ ^[0-9]+$ ]] || {
+    echo "resolve did not report a usable chain and epoch range: ${CHECK_TARGET}"
+    exit 1
+  }
 
   probe=0
-  docker compose run --rm rpc-checks --probe --network calibnet "${START}" "${END}" || probe=$?
+  docker compose run --rm rpc-checks --probe --network "${CHAIN}" "${START}" "${END}" || probe=$?
   case ${probe} in
     0) break ;;
     2) echo "the dataset has not published that day yet" ;;

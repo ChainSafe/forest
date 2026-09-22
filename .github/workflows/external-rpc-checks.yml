@@ -14,6 +14,15 @@ on:
         description: "Test this image instead of building one."
         required: false
         type: string
+      chain:
+        description: "Chains to test."
+        required: false
+        default: both
+        type: choice
+        options:
+          - both
+          - calibnet
+          - mainnet
   pull_request:
     branches:
       - main
@@ -22,14 +31,16 @@ on:
     - cron: "0 13 * * *" # Runs every day at 13:00 UTC
 
 jobs:
-  # scheduled runs skip this and test the published image instead
+  # Runs for a dispatch that names no image, and for `RPC`- or `Release`-labelled pull requests.
+  # Skipped for scheduled runs, for a dispatch that names an image, and for unlabelled pull requests.
   build:
     name: Build Forest
     if: |-
-      ${{ github.event_name == 'workflow_dispatch'
+      ${{ inputs.forest_image == ''
+      && (github.event_name == 'workflow_dispatch'
       || (github.event_name == 'pull_request'
       && (contains(github.event.pull_request.labels.*.name, 'RPC')
-      || contains(github.event.pull_request.labels.*.name, 'Release'))) }}
+      || contains(github.event.pull_request.labels.*.name, 'Release')))) }}
     runs-on: ubuntu-24.04-arm
     env:
       RUSTC_WRAPPER: sccache
@@ -75,17 +86,24 @@ jobs:
           if-no-files-found: error
 
   rpc-checks:
-    name: RPC checks against the data.riba.plus dataset
+    name: RPC checks against the data.riba.plus dataset (${{ matrix.chain }})
     runs-on: warp-ubuntu-2404-arm64-8x
     needs: build
     # `build` only runs for dispatches and labelled pull requests; scheduled runs skip
     # it and test `edge-fat`. Unlabelled pull requests do not run the checks at all.
     if: |-
-      ${{ always()
+      ${{ !cancelled()
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
       && (github.event_name != 'pull_request'
       || contains(github.event.pull_request.labels.*.name, 'RPC')
       || contains(github.event.pull_request.labels.*.name, 'Release')) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # A dispatch tests the chains it asked for; otherwise mainnet is reserved for scheduled runs and `Release`-labelled pull requests.
+        chain: ${{ fromJSON(inputs.chain == 'both' && '["calibnet", "mainnet"]' || inputs.chain != '' && format('["{0}"]', inputs.chain) || (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'Release')) && '["calibnet", "mainnet"]' || '["calibnet"]') }}
+    env:
+      FOREST_CHAIN: ${{ matrix.chain }}
     defaults:
       run:
         working-directory: scripts/tests/external-rpc-checks
@@ -98,7 +116,7 @@ jobs:
         with:
           name: "forest-${{ runner.os }}"
       - name: Build an image from those binaries
-        if: ${{ needs.build.result == 'success' && inputs.forest_image == '' }}
+        if: ${{ needs.build.result == 'success' }}
         working-directory: .
         run: |
           docker build --platform linux/arm64 --file scripts/devnet/forest_ci.dockerfile --tag forest-under-test:ci .
@@ -112,6 +130,8 @@ jobs:
         run: |
           echo "FOREST_IMAGE=${FOREST_IMAGE_INPUT}" >> "$GITHUB_ENV"
       - name: Run the RPC checks
+        # Mostly buffer around snapshot download, node processing should take ~10 minutes.
+        timeout-minutes: 90
         run: ./setup.sh
       - name: Dump docker logs
         if: always()
