@@ -98,9 +98,15 @@ function forest_run_node_stateless_detached {
 function forest_stop_node {
   pkill -9 -x forest || true
 
+  # Reaping our own child first keeps it out of the `pgrep` sweep below.
   if [[ -n "${FOREST_NODE_PID:-}" ]]; then
     wait "$FOREST_NODE_PID" 2>/dev/null || true
     FOREST_NODE_PID=""
+  fi
+
+  if ! timeout 30s sh -c 'while pgrep -x forest >/dev/null; do sleep 0.2; done'; then
+    echo "Timed out waiting for forest processes to exit"
+    return 1
   fi
 }
 
