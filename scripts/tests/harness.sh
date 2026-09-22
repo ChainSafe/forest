@@ -93,6 +93,17 @@ function forest_run_node_stateless_detached {
   $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --stateless &
 }
 
+# SIGKILL is asynchronous, and the daemon holds both the RPC port and an exclusive
+# ParityDb `flock` until it is gone, so the next launch must not start before it dies.
+function forest_stop_node {
+  pkill -9 -x forest || true
+
+  if [[ -n "${FOREST_NODE_PID:-}" ]]; then
+    wait "$FOREST_NODE_PID" 2>/dev/null || true
+    FOREST_NODE_PID=""
+  fi
+}
+
 function forest_wait_api {
   echo "Waiting for Forest API"
   $FOREST_CLI_PATH wait-api --timeout 60s

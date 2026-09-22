@@ -7,10 +7,12 @@ source "$(dirname "$0")/harness.sh"
 
 # Run a stateless node with a filter list as an argument.
 function forest_run_node_stateless_detached_with_filter_list {
-  pkill -9 forest || true
   local filter_list=$1
 
+  forest_stop_node
+
   $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --stateless --rpc-filter-list "$filter_list" &
+  FOREST_NODE_PID=$!
   forest_wait_api
 }
 

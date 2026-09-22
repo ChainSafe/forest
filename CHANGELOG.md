@@ -47,6 +47,8 @@
 
 - [#7599](https://github.com/ChainSafe/forest/pull/7599): `Filecoin.StateMinerInitialPledgeCollateral` returns an error from NV29 (FIP-0118), matching Lotus: a pre-commit no longer describes a pledge. Use `Filecoin.StateMinerInitialPledgeForSector` with the full sector size as the verified size.
 
+- [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
+
 ### Removed
 
 ### Fixed
