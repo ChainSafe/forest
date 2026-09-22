@@ -193,7 +193,6 @@ reqwest = { version = "0.13", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.11"
 rlp = "0.6"
-rs-car-ipfs = "0.4"
 rust2go = { workspace = true }
 schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = "1"
