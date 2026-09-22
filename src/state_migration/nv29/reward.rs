@@ -409,12 +409,48 @@ mod tests {
         let new_code_cid = Cid::from_cbor_blake2b256(&"reward v19 code").unwrap();
         let activation_epoch = 100;
 
-        let output = RewardMigrator::new(&bootstrap_params(), activation_epoch, new_code_cid)
-            .unwrap()
+        let migrator =
+            RewardMigrator::new(&bootstrap_params(), activation_epoch, new_code_cid).unwrap();
+        let output = migrator
             .migrate_state(&store, ActorMigrationInput::for_head(head))
             .unwrap()
             .unwrap();
+
         assert_eq!(output.new_code_cid, new_code_cid);
+        let out_state: RewardStateNew = store.get_cbor_required(&output.new_head).unwrap();
+
+        // The streams block is stored under `streams_root`.
+        let installed: StreamsState = store.get_cbor_required(&out_state.streams_root).unwrap();
+        assert_eq!(installed, migrator.streams);
+        let stream_ids: Vec<_> = installed.streams.iter().map(|stream| stream.id).collect();
+        assert_eq!(stream_ids, [CONSENSUS_STREAM_ID, SERVICE_STREAM_ID]);
+
+        // Every other field: carried over, renamed, or new.
+        let expected = RewardStateNew {
+            cumsum_baseline: 1.into(),
+            cumsum_realized: 2.into(),
+            effective_network_time: 3,
+            effective_baseline_power: 4.into(),
+            this_epoch_reward: TokenAmount::from_atto(5),
+            this_epoch_reward_smoothed: FilterEstimate {
+                position: 6.into(),
+                velocity: 7.into(),
+            },
+            this_epoch_baseline_power: 8.into(),
+            epoch: 9,
+            total_minted_reward: TokenAmount::from_atto(10),
+            total_burn_minted: TokenAmount::zero(),
+            total_explicit_minted: TokenAmount::zero(),
+            accrued: vec![StreamAccrual {
+                id: SERVICE_STREAM_ID,
+                amount: TokenAmount::zero(),
+            }],
+            swa_timelock_epochs: 20_160,
+            swa_actor: Address_v4::new_id(100),
+            streams_root: out_state.streams_root,
+        };
+        // `State` has no `PartialEq`.
+        assert_eq!(format!("{out_state:?}"), format!("{expected:?}"));
     }
 
     #[test]

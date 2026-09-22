@@ -3211,17 +3211,6 @@ impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
     }
 }
 
-impl StateGetAllocationIdForPendingDeal {
-    pub fn get_allocations_for_pending_deals(
-        store: &(impl Blockstore + ShallowClone),
-        tipset: &Tipset,
-    ) -> anyhow::Result<HashMap<DealID, AllocationID>> {
-        let state_tree = StateTree::new_from_tipset(store, tipset)?;
-        let state: market::State = state_tree.get_actor_state()?;
-        state.get_allocations_for_pending_deals(store)
-    }
-}
-
 pub enum StateGetAllocationForPendingDeal {}
 
 impl RpcMethod<2> for StateGetAllocationForPendingDeal {

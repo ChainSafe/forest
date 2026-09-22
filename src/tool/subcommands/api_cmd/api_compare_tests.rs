@@ -1021,14 +1021,17 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
+        // Both nodes reject these from actors v19: the market no longer tracks pending allocations.
         RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
             u64::from(u16::MAX), // Invalid deal id
             tipset.key().into(),
-        ))?),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(StateGetAllocationForPendingDeal::request((
             u64::from(u16::MAX), // Invalid deal id
             tipset.key().into(),
-        ))?),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(StateCompute::request((
             tipset.epoch(),
             vec![],
@@ -1038,23 +1041,6 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
 
     tests.extend(read_state_api_tests(tipset)?);
     tests.extend(create_all_state_decode_params_tests(tipset)?);
-
-    for &pending_deal_id in
-        StateGetAllocationIdForPendingDeal::get_allocations_for_pending_deals(store, tipset)?
-            .keys()
-            .take(COLLECTION_SAMPLE_SIZE)
-    {
-        tests.extend([
-            RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
-                pending_deal_id,
-                tipset.key().into(),
-            ))?),
-            RpcTest::identity(StateGetAllocationForPendingDeal::request((
-                pending_deal_id,
-                tipset.key().into(),
-            ))?),
-        ]);
-    }
 
     // Get deals
     let (deals, deals_map) = {
@@ -1267,13 +1253,15 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 }
             })
         }) {
-            tests.extend([RpcTest::identity(
-                StateMinerInitialPledgeCollateral::request((
+            // Both nodes reject this from NV29.
+            tests.extend([
+                RpcTest::identity(StateMinerInitialPledgeCollateral::request((
                     block.miner_address,
                     info.clone(),
                     tipset.key().into(),
-                ))?,
-            )]);
+                ))?)
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            ]);
             tests.extend([RpcTest::identity(
                 StateMinerPreCommitDepositForPower::request((
                     block.miner_address,

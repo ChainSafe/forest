@@ -444,13 +444,16 @@ async fn initial_pledge_collateral_matches_the_sector_pledge() {
     );
 }
 
-/// Puts nv29 at [`FIXTURE_EPOCH`], because no network schedules Solstice yet.
+/// Puts nv29 at [`FIXTURE_EPOCH`] so the boundary is exercised independently of any shipped height.
 fn solstice_at_fixture_epoch(mut config: ChainConfig) -> ChainConfig {
     config
         .height_infos
         .get_mut(&Height::Solstice)
         .expect("every network lists Solstice")
         .epoch = FIXTURE_EPOCH;
+    config
+        .height_infos
+        .sort_by(|_, a, _, b| a.epoch.cmp(&b.epoch));
     config
 }
 
