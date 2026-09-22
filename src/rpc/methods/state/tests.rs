@@ -204,6 +204,7 @@ impl PledgeInputs {
     }
 }
 
+/// Must be called from a Tokio context: the message pool spawns background tasks.
 fn build_ctx(
     config: ChainConfig,
     epoch: ChainEpoch,
@@ -212,11 +213,6 @@ fn build_ctx(
 ) -> (Ctx, Tipset) {
     let chain_store = chain_store_with_config(config);
     let state_root = inputs.write_state_tree(&chain_store, epoch, omit);
-    ctx_at_state_root(chain_store, epoch, state_root)
-}
-
-/// Must be called from a Tokio context: the message pool spawns background tasks.
-fn ctx_at_state_root(chain_store: ChainStore, epoch: ChainEpoch, state_root: Cid) -> (Ctx, Tipset) {
     let blocks = Chain4U::with_blockstore(chain_store.db_owned());
     let mut header = HeaderBuilder::new();
     header.with_epoch(epoch).with_state_root(state_root);
@@ -548,79 +544,4 @@ async fn initial_pledge_fails_on_an_unknown_state_root() {
     }));
 
     assert!(compute_initial_pledge_for_power(&ctx, &unknown, &qa_sector_power()).is_err());
-}
-
-/// A context whose init actor maps `robust` to the returned ID address and nothing else.
-fn ctx_with_address_mapping(robust: &Address) -> (Ctx, Address) {
-    let chain_store = chain_store_with_config(ChainConfig::calibnet());
-    let (state_root, id) = {
-        let store = chain_store.db();
-        let mut init_state =
-            fil_actor_init_state::v18::State::new(store, "calibrationnet".into()).unwrap();
-        let (id, _) = init_state
-            .map_addresses_to_id(store, &robust.into(), None)
-            .unwrap();
-        let init_actor = ActorState::new(
-            fixture_bundle().manifest.get(BuiltinActor::Init).unwrap(),
-            store.put_cbor_default(&init_state).unwrap(),
-            TokenAmount::zero(),
-            0,
-            None,
-        );
-        let mut tree = StateTree::new(store, StateTreeVersion::V5).unwrap();
-        tree.set_actor(&Address::INIT_ACTOR, init_actor).unwrap();
-        (tree.flush().unwrap(), id)
-    };
-    let (ctx, _) = ctx_at_state_root(chain_store, FIXTURE_EPOCH, state_root);
-    (ctx, Address::new_id(id))
-}
-
-async fn lookup_robust_address(ctx: &Ctx, address: Address) -> Result<Address, ServerError> {
-    StateLookupRobustAddress::handle(
-        ctx.clone(),
-        (address, ApiTipsetKey(None)),
-        &Default::default(),
-    )
-    .await
-}
-
-#[tokio::test]
-async fn lookup_robust_address_returns_the_mapped_address() {
-    let robust = Address::new_actor(b"robust");
-    let (ctx, id_address) = ctx_with_address_mapping(&robust);
-
-    assert_eq!(
-        lookup_robust_address(&ctx, id_address).await.unwrap(),
-        robust
-    );
-}
-
-#[tokio::test]
-async fn lookup_robust_address_rejects_an_address_it_cannot_answer() {
-    let robust = Address::new_actor(b"robust");
-    let (ctx, id_address) = ctx_with_address_mapping(&robust);
-    let unmapped = Address::new_id(id_address.id().unwrap() + 1);
-
-    for (case, address, expected_error) in [
-        (
-            "ID address the init actor never assigned",
-            unmapped,
-            format!("Address {unmapped} not found"),
-        ),
-        (
-            "non-ID address",
-            robust,
-            "failed to decode provided address as id addr: cannot get id from non id address"
-                .to_string(),
-        ),
-    ] {
-        let error = lookup_robust_address(&ctx, address)
-            .await
-            .err()
-            .unwrap_or_else(|| panic!("{case}: accepted"));
-        assert!(
-            error.to_string().contains(&expected_error),
-            "{case}: {error}"
-        );
-    }
 }

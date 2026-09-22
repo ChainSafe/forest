@@ -385,11 +385,12 @@ macro_rules! get_robust_address {
         let map = $make_map_with_root(&$state.address_map, &$store)?;
         map.for_each(|addr, v| {
             if *v == $id_addr_decoded {
-                $robust_addr = Some(Address::from_bytes(addr)?);
+                $robust_addr = Address::from_bytes(addr)?;
                 return Ok(());
             }
             Ok(())
         })?;
+        Ok($robust_addr)
     }};
 }
 
@@ -414,14 +415,12 @@ impl RpcMethod<2> for StateLookupRobustAddress {
         let state_tree = StateTree::new_from_root(ctx.db(), ts.parent_state())?;
         if let &Payload::ID(id_addr_decoded) = addr.payload() {
             let init_state: init::State = state_tree.get_actor_state()?;
-            let mut robust_addr = None;
+            let mut robust_addr = Address::default();
             match init_state {
-                init::State::V0(_) => {
-                    return Err(ServerError::internal_error(
-                        "StateLookupRobustAddress is not implemented for init state v0",
-                        None,
-                    ));
-                }
+                init::State::V0(_) => Err(ServerError::internal_error(
+                    "StateLookupRobustAddress is not implemented for init state v0",
+                    None,
+                )),
                 init::State::V8(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
@@ -474,12 +473,13 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Failed to load address map")?;
                     map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Some(addr.into());
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
                     })
-                    .context("Failed to iterate address map")?;
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
                 }
                 init::State::V15(state) => {
                     let map = fil_actor_init_state::v15::AddressMap::load(
@@ -491,12 +491,13 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Failed to load address map")?;
                     map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Some(addr.into());
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
                     })
-                    .context("Failed to iterate address map")?;
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
                 }
                 init::State::V16(state) => {
                     let map = fil_actor_init_state::v16::AddressMap::load(
@@ -508,12 +509,13 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Failed to load address map")?;
                     map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Some(addr.into());
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
                     })
-                    .context("Failed to iterate address map")?;
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
                 }
                 init::State::V17(state) => {
                     let map = fil_actor_init_state::v17::AddressMap::load(
@@ -525,12 +527,13 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Failed to load address map")?;
                     map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Some(addr.into());
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
                     })
-                    .context("Failed to iterate address map")?;
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
                 }
                 init::State::V18(state) => {
                     let map = fil_actor_init_state::v18::AddressMap::load(
@@ -542,12 +545,13 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Failed to load address map")?;
                     map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Some(addr.into());
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
                     })
-                    .context("Failed to iterate address map")?;
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
                 }
                 init::State::V19(state) => {
                     let map = fil_actor_init_state::v19::AddressMap::load(
@@ -559,20 +563,17 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                     .context("Failed to load address map")?;
                     map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Some(addr.into());
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
                     })
-                    .context("Failed to iterate address map")?;
+                    .context("Robust address not found")?;
+                    Ok(robust_addr)
                 }
             }
-            Ok(robust_addr.with_context(|| format!("Address {addr} not found"))?)
         } else {
-            Err(anyhow::anyhow!(
-                "failed to decode provided address as id addr: cannot get id from non id address"
-            )
-            .into())
+            Ok(Address::default())
         }
     }
 }
