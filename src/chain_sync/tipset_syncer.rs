@@ -14,7 +14,7 @@ use crate::shim::{
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
-use crate::utils::cid::{CidCborExt, cid_and_encoded_len};
+use crate::utils::cid::cid_and_encoded_len;
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -486,6 +486,7 @@ async fn check_block_messages(
     }
 
     // Check validity for SECP messages
+    let mut secp_cids = Vec::with_capacity(block.secp_msgs().len());
     for (i, msg) in block.secp_msgs().iter().enumerate() {
         if msg.signature().signature_type() == SignatureType::Delegated
             && !is_valid_eth_tx_for_sending(eth_chain_id, network_version, msg)
@@ -494,8 +495,9 @@ async fn check_block_messages(
                 "Network version must be at least NV23 for legacy Ethereum transactions".to_owned(),
             ));
         }
-        let (msg_cid, encoded_len) =
-            cid_and_encoded_len(msg.message()).expect("message serialization is infallible");
+        let (cid, encoded_len) =
+            cid_and_encoded_len(msg).expect("message serialization is infallible");
+        secp_cids.push(cid);
         check_msg(msg.message(), encoded_len, &mut account_sequences, &tree).map_err(|e| {
             TipsetSyncerError::Validation(format!(
                 "block had an invalid secp message at index {i}: {e:#}"
@@ -508,18 +510,12 @@ async fn check_block_messages(
             .map_err(|e| TipsetSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .authenticate_msg_with_cid(eth_chain_id, msg, &key_addr, msg_cid)
+            .authenticate_msg(eth_chain_id, msg, &key_addr)
             .map_err(|e| TipsetSyncerError::MessageSignatureInvalid(e.to_string()))?;
     }
 
     // Validate message root from header matches message root
     let bls_cids = bls_info.iter().map(|(cid, _)| *cid);
-    let secp_cids = block
-        .secp_msgs()
-        .iter()
-        .map(Cid::from_cbor_blake2b256)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
     let msg_root =
         TipsetValidator::compute_msg_root_from_cids(state_manager.db(), bls_cids, secp_cids)
             .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;

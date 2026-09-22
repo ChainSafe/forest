@@ -143,7 +143,7 @@ impl Signature {
     }
 
     /// `message_cid` is the CID of `msg.message()`, not the [`SignedMessage`].
-    pub(crate) fn authenticate_msg_with_cid(
+    fn authenticate_msg_with_cid(
         &self,
         eth_chain_id: EthChainId,
         msg: &SignedMessage,
