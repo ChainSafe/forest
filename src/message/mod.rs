@@ -7,6 +7,7 @@ pub mod signed_message;
 use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use crate::shim::{gas::Gas, version::NetworkVersion};
+use crate::utils::encoding::calc_encoded_len;
 use ambassador::delegatable_trait;
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
@@ -18,6 +19,17 @@ pub use signed_message::SignedMessage;
 #[auto_impl::auto_impl(&, Arc)]
 #[delegatable_trait]
 pub trait MessageRead {
+    /// Returns the message the VM executes. For a signed message this is the inner unsigned
+    /// message.
+    ///
+    /// Mirrors Lotus [`ChainMsg.VMMessage`](https://github.com/filecoin-project/lotus/blob/a56f7b7399c2804cdab1a230b0efbd92b1694617/chain/types/message.go#L134-L136).
+    fn vm_message(&self) -> &Message;
+    /// Returns the number of bytes this message contributes to the chain, which is what on-chain
+    /// gas is charged for. A `Secp256k1` or delegated signature counts towards it; a BLS signature
+    /// does not, because it is aggregated into the block header.
+    ///
+    /// Mirrors Lotus [`ChainMsg.ChainLength`](https://github.com/filecoin-project/lotus/blob/a56f7b7399c2804cdab1a230b0efbd92b1694617/chain/types/signedmessage.go#L86-L98).
+    fn chain_length(&self) -> anyhow::Result<usize>;
     /// Returns the from address of the message.
     fn from(&self) -> Address;
     /// Returns the destination address of the message.
@@ -65,6 +77,12 @@ pub trait MessageReadWrite: MessageRead {
 }
 
 impl MessageRead for Message {
+    fn vm_message(&self) -> &Message {
+        self
+    }
+    fn chain_length(&self) -> anyhow::Result<usize> {
+        Ok(calc_encoded_len(self)?)
+    }
     fn from(&self) -> Address {
         self.from
     }
@@ -164,8 +182,11 @@ mod tests {
     mod builder_test;
 
     use itertools::Itertools;
+    use rstest::rstest;
 
     use super::*;
+    use crate::shim::crypto::{SECP_SIG_LEN, Signature};
+    use crate::shim::gas::price_list_by_network_version;
 
     #[test]
     fn gas_limit_below_min_gas_rejected_for_block_inclusion() {
@@ -179,6 +200,70 @@ mod tests {
             err.to_string().contains("less than cost"),
             "expected the gas-limit floor to reject, got: {err}"
         );
+    }
+
+    /// The floor is charged over the signed encoding for `Secp256k1` and delegated messages, so a
+    /// gas limit that only covers the unsigned encoding must be rejected.
+    ///
+    /// See Lotus [`checkMsg`](https://github.com/filecoin-project/lotus/blob/a56f7b7399c2804cdab1a230b0efbd92b1694617/chain/consensus/common.go#L217-L223).
+    #[rstest]
+    #[case(Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))]
+    #[case(Signature::new_delegated(vec![0; SECP_SIG_LEN]))]
+    fn block_inclusion_floor_counts_signature_bytes(#[case] signature: Signature) {
+        let network_version = NetworkVersion::V29;
+        let price_list = price_list_by_network_version(network_version);
+        let signed = SignedMessage::new_unchecked(
+            Message {
+                to: Address::new_id(1),
+                from: Address::new_id(2),
+                ..Default::default()
+            },
+            signature,
+        );
+
+        let floor = |len| price_list.on_chain_message(len).total();
+        let signed_floor = floor(signed.chain_length().unwrap());
+        let unsigned_floor = floor(signed.vm_message().chain_length().unwrap());
+        assert!(
+            signed_floor > unsigned_floor,
+            "signature bytes must raise the floor, got {signed_floor} and {unsigned_floor}"
+        );
+
+        let underpaying = Message {
+            gas_limit: unsigned_floor.round_up(),
+            ..signed.message.clone()
+        };
+        assert!(
+            valid_for_block_inclusion(&underpaying, unsigned_floor, network_version).is_ok(),
+            "this is the message the unsigned floor used to accept"
+        );
+        assert!(
+            valid_for_block_inclusion(&underpaying, signed_floor, network_version).is_err(),
+            "a gas limit covering only the unsigned encoding must be rejected"
+        );
+
+        let paying = Message {
+            gas_limit: signed_floor.round_up(),
+            ..signed.message
+        };
+        valid_for_block_inclusion(&paying, signed_floor, network_version)
+            .expect("a gas limit covering the signed encoding must be accepted");
+    }
+
+    #[test]
+    fn vm_message_is_the_unsigned_message() {
+        let message = Message {
+            to: Address::new_id(1),
+            from: Address::new_id(2),
+            ..Default::default()
+        };
+        let signed = SignedMessage::new_unchecked(
+            message.clone(),
+            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+        );
+
+        assert_eq!(message.vm_message(), &message);
+        assert_eq!(signed.vm_message(), &message);
     }
 
     #[test]
