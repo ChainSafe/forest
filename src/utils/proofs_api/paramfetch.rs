@@ -3,48 +3,47 @@
 //! This module contains the logic for fetching the proofs parameters from the network.
 //! Every source is addressed by the parameter file CID, so the file name is only used for the local cache.
 //!
-//! ChainSafe's mirror is tried before the IPFS gateway, which is neither as reliable nor as performant
-//! as the centralized solution and contributed to issues in CI in the past.
+//! Every download is checked against the digest from the parameter manifest, unless
+//! `FOREST_FORCE_TRUST_PARAMS` says otherwise, so the mirrors do not have to be trusted.
 
 use std::{
     io::{self, ErrorKind},
     path::{Path, PathBuf},
-    sync::{Arc, LazyLock},
+    sync::LazyLock,
 };
 
 use crate::{
     shim::sector::SectorSize,
-    utils::net::{DownloadFileOption, download_ipfs_file_trustlessly, download_to},
+    utils::net::{DownloadFileOption, download_to},
 };
 use anyhow::Context as _;
-use backon::{ExponentialBuilder, Retryable};
-use cid::Cid;
 use futures::{TryStreamExt, stream::FuturesUnordered};
 use tokio::{fs, sync::Mutex};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use url::Url;
 
+#[cfg(test)]
+use super::parameters::PROOF_DIGEST_LEN;
 use super::parameters::{
     DEFAULT_PARAMETERS, PROOFS_PARAMETER_CACHE_ENV, ParameterData, ParameterMap,
     check_parameter_file, param_dir,
 };
 
-/// Default IPFS gateway to use for fetching parameters.
-/// Set via the [`IPFS_GATEWAY_ENV`] environment variable.
-static DEFAULT_IPFS_GATEWAY: LazyLock<Url> = LazyLock::new(|| {
-    Url::parse("https://proofs.filecoin.io/ipfs/").expect("invalid default IPFS gateway")
-});
-static CHAINSAFE_PROOF_PARAMETER_GATEWAY: LazyLock<Url> = LazyLock::new(|| {
+static CHAINSAFE_PROOF_PARAMETER_MIRROR: LazyLock<Url> = LazyLock::new(|| {
     Url::parse("https://filecoin-proofs.chainsafe.dev/ipfs/")
-        .expect("invalid ChainSafe proof parameter gateway")
+        .expect("invalid ChainSafe proof parameter mirror")
 });
 
-/// If set to 1, enforce using the IPFS gateway for fetching parameters.
-const PROOFS_ONLY_IPFS_GATEWAY_ENV: &str = "FOREST_PROOFS_ONLY_IPFS_GATEWAY";
+/// Independently operated mirror, so that [`CHAINSAFE_PROOF_PARAMETER_MIRROR`] is not a single point of failure.
+/// <https://github.com/filecoin-project/lotus/issues/12273#issuecomment-5718053900>
+static FALLBACK_PROOF_PARAMETER_MIRROR: LazyLock<Url> = LazyLock::new(|| {
+    Url::parse("https://vault.ezpdpz.net/ipfs/").expect("invalid fallback proof parameter mirror")
+});
 
-/// Running Forest requires the download of chain's proof parameters which are large files, by default are hosted outside of China and very slow to download there.
-/// To get around that, users should set this variable to:
-/// <https://proof-parameters.s3.cn-south-1.jdcloud-oss.com/ipfs/>
+/// Mirror to fetch parameters from, replacing the default ones.
+///
+/// The defaults are hosted outside of China and are very slow to download from there, so users in such regions
+/// should point this at a mirror close to them.
 const IPFS_GATEWAY_ENV: &str = "IPFS_GATEWAY";
 
 /// Sector size options for fetching.
@@ -109,7 +108,7 @@ pub async fn get_params(
                 SectorSizeOpt::All => true,
             })
             .map(|(name, info)| async move {
-                fetch_verify_params(data_dir, &name, Arc::new(info), sources).await
+                fetch_verify_params(data_dir, &name, &info, sources).await
             }),
     )
     .try_collect::<Vec<_>>()
@@ -132,12 +131,12 @@ pub async fn get_params_default(
 async fn fetch_verify_params(
     data_dir: &Path,
     name: &str,
-    info: Arc<ParameterData>,
-    sources: &[ParamSource],
+    info: &ParameterData,
+    sources: &[Url],
 ) -> anyhow::Result<()> {
     let path: PathBuf = param_dir(data_dir).join(name);
 
-    match check_parameter_file(&path, &info).await {
+    match check_parameter_file(&path, info).await {
         Ok(()) => return Ok(()),
         // A missing file is the normal case, it is downloaded below.
         Err(e)
@@ -146,61 +145,31 @@ async fn fetch_verify_params(
         Err(e) => warn!("Error checking file: {e:?}"),
     }
 
+    let cid = info.cid.to_string();
     let mut last_error = None;
     for source in sources {
+        let url = source.join(&cid)?;
         info!(
-            "Fetching param file {path} from {source}",
+            "Fetching param file {path} from {url}",
             path = path.display()
         );
         let fetched = async {
-            source.download(&info.cid, &path).await?;
-            check_parameter_file(&path, &info).await
+            download_to(&url, &path, DownloadFileOption::NonResumable, None)
+                .await
+                .with_context(|| format!("failed to download {url}"))?;
+            check_parameter_file(&path, info).await
         }
         .await;
         match fetched {
             Ok(()) => return Ok(()),
             Err(e) => {
-                warn!("Failed to fetch param file from {source}: {e:?}");
+                warn!("Failed to fetch param file from {url}: {e:?}");
                 last_error = Some(e);
             }
         }
     }
 
     Err(last_error.unwrap_or_else(|| anyhow::anyhow!("no proof parameter source configured")))
-}
-
-/// A source of proof parameter files, addressed by CID.
-#[derive(derive_more::Display)]
-#[display("{_0}")]
-enum ParamSource {
-    /// Raw file, verified by [`check_parameter_file`] once downloaded.
-    Mirror(Url),
-    /// Trustless IPFS gateway, which verifies the CID while decoding the CAR response.
-    IpfsGateway(Url),
-}
-
-impl ParamSource {
-    async fn download(&self, cid: &Cid, path: &Path) -> anyhow::Result<()> {
-        match self {
-            Self::Mirror(base) => {
-                let url = base.join(&cid.to_string())?;
-                download_to(&url, path, DownloadFileOption::NonResumable, None)
-                    .await
-                    .with_context(|| format!("failed to download {url}"))
-            }
-            Self::IpfsGateway(gateway) => {
-                (|| download_ipfs_file_trustlessly(cid, gateway, path))
-                    .retry(ExponentialBuilder::default())
-                    .notify(|err, dur| {
-                        debug!(
-                            "retrying download_ipfs_file_trustlessly {err} after {}",
-                            humantime::format_duration(dur)
-                        );
-                    })
-                    .await
-            }
-        }
-    }
 }
 
 /// [`Url::join`] replaces the last path segment unless the path ends with a separator.
@@ -211,68 +180,96 @@ fn with_trailing_slash(mut url: Url) -> Url {
     url
 }
 
-fn param_sources() -> anyhow::Result<Vec<ParamSource>> {
-    crate::def_is_env_truthy!(force_ipfs_gateway, PROOFS_ONLY_IPFS_GATEWAY_ENV);
-
-    let gateway = ParamSource::IpfsGateway(match std::env::var(IPFS_GATEWAY_ENV) {
-        Ok(gateway) => with_trailing_slash(
+fn param_sources() -> anyhow::Result<Vec<Url>> {
+    let custom = match std::env::var(IPFS_GATEWAY_ENV) {
+        Ok(gateway) => Some(with_trailing_slash(
             Url::parse(&gateway).with_context(|| format!("invalid {IPFS_GATEWAY_ENV}"))?,
-        ),
-        Err(_) => DEFAULT_IPFS_GATEWAY.clone(),
-    });
+        )),
+        Err(_) => None,
+    };
 
-    Ok(if force_ipfs_gateway() {
-        vec![gateway]
-    } else {
-        vec![
-            ParamSource::Mirror(CHAINSAFE_PROOF_PARAMETER_GATEWAY.clone()),
-            gateway,
-        ]
-    })
+    Ok(param_sources_from(custom))
+}
+
+fn param_sources_from(custom: Option<Url>) -> Vec<Url> {
+    match custom {
+        Some(custom) => vec![custom],
+        None => vec![
+            CHAINSAFE_PROOF_PARAMETER_MIRROR.clone(),
+            FALLBACK_PROOF_PARAMETER_MIRROR.clone(),
+        ],
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cid::Cid;
     use itertools::Itertools as _;
+    use rstest::rstest;
 
-    #[test]
-    #[serial_test::serial]
-    fn mirror_is_tried_before_the_gateway() {
-        unsafe {
-            std::env::remove_var(PROOFS_ONLY_IPFS_GATEWAY_ENV);
-            std::env::remove_var(IPFS_GATEWAY_ENV);
-        }
-        let sources = param_sources()
-            .unwrap()
+    const CHAINSAFE: &str = "https://filecoin-proofs.chainsafe.dev/ipfs/";
+    const FALLBACK: &str = "https://vault.ezpdpz.net/ipfs/";
+
+    #[rstest]
+    #[case(None, &[CHAINSAFE, FALLBACK])]
+    #[case(Some("https://example.com/ipfs"), &["https://example.com/ipfs/"])]
+    fn a_custom_mirror_replaces_the_defaults(
+        #[case] custom: Option<&str>,
+        #[case] expected: &[&str],
+    ) {
+        let custom = custom.map(|custom| with_trailing_slash(custom.parse().unwrap()));
+        let sources = param_sources_from(custom)
             .iter()
             .map(ToString::to_string)
             .collect_vec();
-        assert_eq!(
-            sources,
-            [
-                "https://filecoin-proofs.chainsafe.dev/ipfs/",
-                "https://proofs.filecoin.io/ipfs/"
-            ]
-        );
+        assert_eq!(sources, expected);
     }
 
-    #[test]
+    /// Serves `content` on any path, or 500 when it is `None`.
+    async fn serve(content: Option<&'static [u8]>) -> Url {
+        let app = axum::Router::new().fallback(move || async move {
+            match content {
+                Some(content) => (axum::http::StatusCode::OK, content),
+                None => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, &b""[..]),
+            }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        format!("http://{addr}/").parse().unwrap()
+    }
+
+    #[tokio::test]
     #[serial_test::serial]
-    fn forced_gateway_drops_the_mirror() {
-        unsafe {
-            std::env::set_var(PROOFS_ONLY_IPFS_GATEWAY_ENV, "1");
-            std::env::set_var(IPFS_GATEWAY_ENV, "https://example.com/ipfs");
-        }
-        let sources = param_sources()
-            .unwrap()
-            .iter()
-            .map(ToString::to_string)
-            .collect_vec();
-        assert_eq!(sources, ["https://example.com/ipfs/"]);
-        unsafe {
-            std::env::remove_var(PROOFS_ONLY_IPFS_GATEWAY_ENV);
-            std::env::remove_var(IPFS_GATEWAY_ENV);
-        }
+    async fn sources_are_tried_until_one_serves_the_expected_digest() {
+        const CONTENT: &[u8] = b"Cthulhu fhtagn!";
+
+        let data_dir = tempfile::TempDir::new().unwrap();
+        unsafe { std::env::set_var(PROOFS_PARAMETER_CACHE_ENV, data_dir.path()) };
+        fs::create_dir_all(param_dir(data_dir.path()))
+            .await
+            .unwrap();
+
+        let info = ParameterData {
+            cid: Cid::default(),
+            digest: blake2b_simd::blake2b(CONTENT).as_bytes()[..PROOF_DIGEST_LEN]
+                .try_into()
+                .unwrap(),
+            sector_size: 2048,
+        };
+
+        let sources = [
+            serve(None).await,
+            serve(Some(b"not the expected content")).await,
+            serve(Some(CONTENT)).await,
+        ];
+        fetch_verify_params(data_dir.path(), "test.vk", &info, &sources)
+            .await
+            .unwrap();
+
+        let downloaded = fs::read(data_dir.path().join("test.vk")).await.unwrap();
+        assert_eq!(downloaded, CONTENT);
+        unsafe { std::env::remove_var(PROOFS_PARAMETER_CACHE_ENV) };
     }
 }

@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7639](https://github.com/ChainSafe/forest/issues/7639): `IPFS_GATEWAY` now replaces every default proof parameter mirror. Previously `https://filecoin-proofs.chainsafe.dev/ipfs/` was still tried first and `IPFS_GATEWAY` only replaced the source after it, unless `FOREST_PROOFS_ONLY_IPFS_GATEWAY` was set as well. That variable has been removed, since setting `IPFS_GATEWAY` alone now has the same effect.
+
 ### Added
 
 - [#7471](https://github.com/ChainSafe/forest/issues/7471): Implement `forest-cli evm deploy` and `forest-cli evm call`.
@@ -36,6 +38,8 @@
 - [#7472](https://github.com/ChainSafe/forest/issues/7472): `forest-wallet send` now accepts `--method` and `--params-hex`, matching `lotus send`.
 
 ### Changed
+
+- [#7639](https://github.com/ChainSafe/forest/issues/7639): The fallback source for proof parameters is now `https://vault.ezpdpz.net/ipfs/`. `https://proofs.filecoin.io/ipfs/` redirects to the primary source, so it no longer provided any redundancy. Every download is still verified against the digest in the parameter manifest.
 
 - [#7594](https://github.com/ChainSafe/forest/pull/7594): `forest-cli index backfill` now defaults `--recompute` to true and exits with an error if any tipsets were skipped.
 

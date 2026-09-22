@@ -3419,7 +3419,6 @@ dependencies = [
  "reqwest 0.13.5",
  "rlimit",
  "rlp",
- "rs-car-ipfs",
  "rstest",
  "rust2go",
  "schemars 1.2.2",
@@ -8251,30 +8250,6 @@ name = "route-recognizer"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
-
-[[package]]
-name = "rs-car"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "660d1576a918f8ccab9a98025367f6c1996e7551d5059833ddf0995e2f444cbf"
-dependencies = [
- "blake2b_simd",
- "futures",
- "ipld-core",
- "serde_ipld_dagcbor",
- "sha2 0.10.9",
-]
-
-[[package]]
-name = "rs-car-ipfs"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "435a33c073eaceda58c3d4556fee67ab397ae2aa8dda23e417e5abbbbac2b3d6"
-dependencies = [
- "futures",
- "quick-protobuf",
- "rs-car",
-]
 
 [[package]]
 name = "rstest"
