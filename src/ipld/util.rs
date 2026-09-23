@@ -19,7 +19,7 @@ use std::collections::VecDeque;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-fn should_save_block_to_snapshot(cid: Cid) -> bool {
+pub fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
     // We only include raw and dagcbor, for now.
     // Raw for "code" CIDs.

@@ -39,7 +39,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, ExportOptions};
 use crate::chain_sync::ChainFollower;
-use crate::cid_collections::FileBackedCidHashSet;
+use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::cli_shared::chain_path;
 use crate::db::DbImpl;
 use crate::db::{
@@ -49,12 +49,16 @@ use crate::db::{
     parity_db::GarbageCollectableDb,
 };
 use crate::interpreter::VMTrace;
-use crate::ipld::{ChainExportGuard, ChainExportKind};
+use crate::ipld::{ChainExportGuard, ChainExportKind, should_save_block_to_snapshot};
 use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
+use crate::utils::db::car_stream::CarBlock;
+use crate::utils::encoding::extract_cids;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::HashMap;
 use anyhow::Context as _;
+use bytes::Bytes;
+use fvm_ipld_encoding::DAG_CBOR;
 use human_repr::HumanCount as _;
 use parking_lot::RwLock;
 use sha2::Sha256;
@@ -238,6 +242,9 @@ impl SnapshotGarbageCollector {
             "exporting lite snapshot with {} recent state roots",
             self.recent_state_roots
         );
+        // Drop the backfill of a previous run that never reached its cleanup, so its stale head is never applied.
+        self.memory_db.write().take();
+        self.memory_db_head_key.write().take();
         let temp_path = new_forest_car_temp_path_in(&self.car_db_dir)?;
         let file = tokio::fs::File::create(&temp_path).await?;
         let mut db_write_ops_rx = db.subscribe_write_ops()?;
@@ -317,18 +324,80 @@ impl SnapshotGarbageCollector {
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
         let current_chain_head = db.heaviest_tipset_key().ok().flatten();
+        // Collect while still subscribed, so that writes made meanwhile are captured.
+        let unexported = self
+            .collect_unexported(head_ts.shallow_clone(), current_chain_head)
+            .await?;
         // Unsubscribe before taking the snapshot of in-memory db to avoid deadlock
         db.unsubscribe_write_ops();
         match joinset.join_next().await {
-            Some(Ok(map)) if !map.is_empty() => {
-                *self.memory_db.write() = Some(map);
-                *self.memory_db_head_key.write() = current_chain_head;
-            }
+            Some(Ok(map)) if !map.is_empty() => self.stash_backfill(map, unexported),
             Some(Err(e)) => tracing::warn!("{e}"),
             _ => {}
         }
         joinset.shutdown().await;
         Ok(())
+    }
+
+    /// Collects the chain data from `current_chain_head` down to `exported_head`, see
+    /// [`collect_unexported_chain_data`]. Drops `current_chain_head` if that fails, as resetting
+    /// the head to it would leave a gap in the chain.
+    async fn collect_unexported(
+        &self,
+        exported_head: Tipset,
+        current_chain_head: Option<TipsetKey>,
+    ) -> anyhow::Result<Unexported> {
+        let db = self.db().shallow_clone();
+        Ok(tokio::task::spawn_blocking(move || {
+            let mut blocks = HashMap::default();
+            let mut parent_states = vec![];
+            let head = current_chain_head.filter(|tsk| {
+                let result = Tipset::load_required(&db, tsk).and_then(|head| {
+                    collect_unexported_chain_data(&db, head, &exported_head, &mut blocks)
+                });
+                match result {
+                    Ok(states) => {
+                        parent_states = states;
+                        true
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "failed to collect chain data above the exported head, falling back to the exported head: {e:#}"
+                        );
+                        false
+                    }
+                }
+            });
+            Unexported {
+                blocks,
+                head,
+                parent_states,
+            }
+        })
+        .await?)
+    }
+
+    /// Stores the records to backfill after the purge, along with the chain head to reset to.
+    fn stash_backfill(&self, mut captured: HashMap<Cid, Bytes>, unexported: Unexported) {
+        let Unexported {
+            blocks,
+            head,
+            parent_states,
+        } = unexported;
+        // State trees above the exported head are not collected, so they must have been computed,
+        // and thereby written in full, during the export.
+        let missing_state = parent_states.iter().find(|cid| !captured.contains_key(cid));
+        if let Some(cid) = missing_state {
+            tracing::warn!(
+                "parent state {cid} above the exported head was not captured, falling back to the exported head"
+            );
+        }
+        let head = head.filter(|_| missing_state.is_none());
+        for (cid, data) in blocks {
+            captured.entry(cid).or_insert(data);
+        }
+        *self.memory_db.write() = Some(captured);
+        *self.memory_db_head_key.write() = head;
     }
 
     async fn cleanup_after_snapshot_export(&self) -> anyhow::Result<()> {
@@ -347,6 +416,10 @@ impl SnapshotGarbageCollector {
                 move || db.reset_gc_columns()
             })
             .await??;
+            // Cached results of tipsets above the exported head may point at wiped state.
+            self.chain_follower
+                .state_manager
+                .clear_tipset_state_caches();
 
             // Backfill new db records during snapshot export
             if let Some(mem_db) = self.memory_db.write().take() {
@@ -370,6 +443,10 @@ impl SnapshotGarbageCollector {
 
             // Reload CAR files
             db.clear_and_reload_cars(std::iter::once(blessed_lite_snapshot.clone()))?;
+            // Results computed while the db was incomplete may point at missing state.
+            self.chain_follower
+                .state_manager
+                .clear_tipset_state_caches();
             tracing::info!(
                 "reloaded car db at {} with head epoch {}",
                 blessed_lite_snapshot.display(),
@@ -454,10 +531,79 @@ impl SnapshotGarbageCollector {
     }
 }
 
+/// Chain data above the exported head, see [`collect_unexported_chain_data`].
+struct Unexported {
+    blocks: HashMap<Cid, Bytes>,
+    /// Chain head to reset to, if its chain down to the exported head is complete.
+    head: Option<TipsetKey>,
+    parent_states: Vec<Cid>,
+}
+
+/// Adds to `map` the headers, tipset keys, messages, receipts and events of the tipsets from
+/// `head` down to `exported` (exclusive) that are in `db` but not yet in `map`. Some of them may
+/// have been written before the write-ops subscription (e.g. gossiped headers or mpool messages),
+/// so they are neither in the exported snapshot nor tracked by the subscription.
+///
+/// `head` may also descend from a sibling of `exported`, e.g. the exported tipset grown by late
+/// blocks: it shares the parents, and thereby the parent state and receipts, of `exported`.
+///
+/// Returns the parent states of the tipsets above the exported epoch, which the exported snapshot
+/// does not contain. Fails if `head` does not descend from `exported` or its sibling through
+/// tipsets present in `db`.
+fn collect_unexported_chain_data(
+    db: &impl Blockstore,
+    head: Tipset,
+    exported: &Tipset,
+    map: &mut HashMap<Cid, Bytes>,
+) -> anyhow::Result<Vec<Cid>> {
+    let mut seen = CidHashSet::default();
+    let mut stack = vec![];
+    let mut parent_states = vec![];
+    for ts in head.chain(db) {
+        if ts.key() == exported.key() {
+            return Ok(parent_states);
+        }
+        let is_sibling = ts.epoch() == exported.epoch() && ts.parents() == exported.parents();
+        anyhow::ensure!(
+            ts.epoch() > exported.epoch() || is_sibling,
+            "chain head does not descend from the exported head at epoch {}",
+            exported.epoch()
+        );
+        if !is_sibling {
+            parent_states.push(*ts.parent_state());
+        }
+        let CarBlock { cid, data } = ts.key().car_block()?;
+        map.entry(cid).or_insert(data);
+        for block in ts.block_headers() {
+            let (cid, data) = block.car_block()?;
+            map.entry(cid).or_insert_with(|| data.into());
+            stack.extend([block.messages, block.message_receipts]);
+            while let Some(cid) = stack.pop() {
+                if !should_save_block_to_snapshot(cid) || !seen.insert(cid) {
+                    continue;
+                }
+                // Tolerate missing receipts and events, as the snapshot export does.
+                let Some(data) = db.get(&cid)? else { continue };
+                if cid.codec() == DAG_CBOR {
+                    stack.extend(extract_cids(&data)?);
+                }
+                map.entry(cid).or_insert_with(|| data.into());
+            }
+        }
+        if is_sibling {
+            return Ok(parent_states);
+        }
+    }
+    anyhow::bail!(
+        "missing ancestors of the chain head above the exported head at epoch {}",
+        exported.epoch()
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
+    use crate::blocks::{CachingBlockHeader, Chain4U, HeaderBuilder, RawBlockHeader, chain4u};
     use crate::chain_sync::network_context::SyncNetworkContext;
     use crate::db::MemoryDB;
     use crate::ipld::{ChainExportGuard, ChainExportKind};
@@ -466,21 +612,31 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
+    use crate::utils::db::CborStoreExt as _;
+    use ipld_core::ipld::Ipld;
+    use std::sync::Arc;
     use tokio::task::JoinSet;
 
     fn test_gc(
         data_dir: &std::path::Path,
     ) -> (SnapshotGarbageCollector, JoinSet<anyhow::Result<()>>) {
-        let (network_send, _network_rx) = flume::bounded(5);
-        let (_net_event_tx, net_event_rx) = flume::bounded(5);
-        let mut services = JoinSet::new();
-        let db = std::sync::Arc::new(MemoryDB::default());
-        let chain_config = std::sync::Arc::new(ChainConfig::default());
         let genesis_header = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             timestamp: 7777,
             ..Default::default()
         });
+        test_gc_with_db(data_dir, Arc::new(MemoryDB::default()), genesis_header)
+    }
+
+    fn test_gc_with_db(
+        data_dir: &std::path::Path,
+        db: impl Into<DbImpl>,
+        genesis_header: CachingBlockHeader,
+    ) -> (SnapshotGarbageCollector, JoinSet<anyhow::Result<()>>) {
+        let (network_send, _network_rx) = flume::bounded(5);
+        let (_net_event_tx, net_event_rx) = flume::bounded(5);
+        let mut services = JoinSet::new();
+        let chain_config = Arc::new(ChainConfig::default());
         let cs = ChainStore::new(db, chain_config, genesis_header.clone()).unwrap();
         let state_manager = StateManager::new(cs.shallow_clone()).unwrap();
         let mpool = MessagePool::new(
@@ -492,7 +648,7 @@ mod tests {
         )
         .unwrap();
         let genesis_ts = Tipset::from(genesis_header);
-        let peer_manager = std::sync::Arc::new(PeerManager::default());
+        let peer_manager = Arc::new(PeerManager::default());
         let network = SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
         let chain_follower = ChainFollower::new(
             state_manager,
@@ -508,6 +664,163 @@ mod tests {
         (gc, services)
     }
 
+    #[test]
+    fn collect_unexported_chain_data_accepts_grown_exported_tipset() {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [_genesis]
+            -> grown @ [a1, a2]
+            -> head @ [_c]
+        };
+        let exported = c4u.tipset(&["a1"]);
+
+        let mut map = HashMap::default();
+        collect_unexported_chain_data(&db, head.shallow_clone(), &exported, &mut map).unwrap();
+
+        assert!(map.contains_key(&a2.cid()));
+        assert!(map.contains_key(&grown.key().car_block().unwrap().cid));
+        assert!(map.contains_key(&a1.cid()));
+    }
+
+    #[test]
+    fn collect_unexported_chain_data_fails_on_missing_ancestor() {
+        let c4u = Chain4U::new();
+        chain4u! {
+            in c4u;
+            [_genesis]
+            -> exported @ [a]
+            -> [_b]
+            -> head @ [c]
+        };
+        let db = MemoryDB::default();
+        db.put_cbor_default(a).unwrap();
+        db.put_cbor_default(c).unwrap();
+
+        let mut map = HashMap::default();
+        assert!(
+            collect_unexported_chain_data(&db, head.shallow_clone(), exported, &mut map).is_err()
+        );
+    }
+
+    #[test]
+    fn collect_unexported_chain_data_fails_on_fork_below_exported_head() {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [_genesis]
+            -> [_a]
+            -> exported @ [_b]
+        };
+        chain4u! {
+            from [_genesis] in c4u;
+            [_x]
+            -> [_y]
+            -> head @ [_z]
+        };
+
+        let mut map = HashMap::default();
+        assert!(
+            collect_unexported_chain_data(&db, head.shallow_clone(), exported, &mut map).is_err()
+        );
+    }
+
+    /// GC keeps only the snapshot plus the writes it watched during the export. Blocks above the
+    /// snapshot that were stored before the watch started must be kept too, otherwise the chain
+    /// from the new head down to the snapshot has a hole in it.
+    #[rstest::rstest]
+    #[case::parent_state_captured(true)]
+    #[case::parent_state_not_captured(false)]
+    #[tokio::test]
+    async fn gc_keeps_chain_data_written_before_subscription(#[case] parent_state_captured: bool) {
+        use crate::db::car::ManyCar;
+        use crate::db::parity_db::{GarbageCollectableParityDb, ParityDb};
+        use crate::db::parity_db_config::ParityDbConfig;
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        let parity = GarbageCollectableParityDb::new(ParityDb::to_options(
+            tmp.path().join("parity"),
+            &ParityDbConfig::default(),
+        ))
+        .unwrap();
+        let db = DbImpl::from(Arc::new(ManyCar::new(Arc::new(parity))));
+        let leaf = db.put_cbor_default(&Ipld::String("leaf".into())).unwrap();
+        let messages = db
+            .put_cbor_default(&Ipld::List(vec![Ipld::Link(leaf)]))
+            .unwrap();
+        let event = db.put_cbor_default(&Ipld::String("event".into())).unwrap();
+        let receipts = db
+            .put_cbor_default(&Ipld::List(vec![Ipld::Link(event)]))
+            .unwrap();
+        let state = Ipld::String("state".into());
+        let state_cid = db.put_cbor_default(&state).unwrap();
+        let c4u = Chain4U::with_blockstore(db.shallow_clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> exported @ [a]
+            -> t1 @ [b1 = HeaderBuilder::new().with_messages(messages).with_message_receipts(receipts).with_state_root(state_cid), b2 = HeaderBuilder::new().with_state_root(state_cid)]
+            -> head @ [c = HeaderBuilder::new().with_state_root(state_cid)]
+        };
+        let (gc, _services) = test_gc_with_db(
+            tmp.path(),
+            db.shallow_clone(),
+            CachingBlockHeader::new(genesis.clone()),
+        );
+
+        // The lite snapshot holds the chain up to the exported head.
+        let snapshot = MemoryDB::default();
+        for header in [genesis, a] {
+            snapshot.put_cbor_default(header).unwrap();
+        }
+        std::fs::create_dir_all(&gc.car_db_dir).unwrap();
+        let snapshot_path = gc.car_db_dir.join("lite.forest.car.zst");
+        let mut file = tokio::fs::File::create(&snapshot_path).await.unwrap();
+        snapshot
+            .export_forest_car_with_roots(exported.key().to_cids(), &mut file)
+            .await
+            .unwrap();
+        *gc.blessed_lite_snapshot.write() = Some(snapshot_path);
+        *gc.exported_head_key.write() = Some(exported.key().clone());
+
+        // `t1` was written before the subscription, so at most `head` and the state computed
+        // during the export were captured.
+        let (cid, data) = CachingBlockHeader::new(c.clone()).car_block().unwrap();
+        let mut captured = HashMap::from_iter([(cid, Bytes::from(data))]);
+        if parent_state_captured {
+            captured.insert(state_cid, fvm_ipld_encoding::to_vec(&state).unwrap().into());
+        }
+        let unexported = gc
+            .collect_unexported(exported.shallow_clone(), Some(head.key().clone()))
+            .await
+            .unwrap();
+        gc.stash_backfill(captured, unexported);
+        gc.cleanup_after_snapshot_export().await.unwrap();
+
+        let expected_head = if parent_state_captured {
+            head
+        } else {
+            exported
+        };
+        assert_eq!(gc.cs().heaviest_tipset().key(), expected_head.key());
+        for cid in [
+            b1.cid(),
+            b2.cid(),
+            t1.key().car_block().unwrap().cid,
+            messages,
+            leaf,
+            receipts,
+            event,
+        ] {
+            assert!(
+                db.has(&cid).unwrap(),
+                "{cid} above the exported head was purged"
+            );
+        }
+    }
+
     /// `forest-cli chain prune snap` must not exit 0 with the GC error only in the
     /// daemon logs.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -515,7 +828,7 @@ mod tests {
     async fn manual_gc_trigger_propagates_failure() {
         let tmp = tempfile::TempDir::new().unwrap();
         let (gc, _services) = test_gc(tmp.path());
-        let gc = std::sync::Arc::new(gc);
+        let gc = Arc::new(gc);
         tokio::spawn({
             let gc = gc.clone();
             async move { gc.event_loop().await }
