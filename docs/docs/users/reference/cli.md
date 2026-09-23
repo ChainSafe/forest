@@ -417,6 +417,30 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-cli chain genesis`
+
+```
+Prints out the genesis tipset
+
+Usage: forest-cli chain genesis
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli chain head`
+
+```
+Prints out the canonical head of the chain
+
+Usage: forest-cli chain head [OPTIONS]
+
+Options:
+  -n, --tipsets <TIPSETS>  Print the first `n` tipsets from the head (inclusive). Tipsets are categorized by epoch in descending order [default: 1]
+      --format <FORMAT>    Format of the output. `json` or `text` [default: text] [possible values: json, text]
+  -h, --help               Print help
+```
+
 ### `forest-cli chain message`
 
 ```
@@ -470,6 +494,18 @@ Commands:
 
 Options:
   -h, --help  Print help
+```
+
+### `forest-cli chain prune snap`
+
+```
+Run snapshot GC
+
+Usage: forest-cli chain prune snap [OPTIONS]
+
+Options:
+      --no-wait  Do not block until GC is completed
+  -h, --help     Print help
 ```
 
 ### `forest-cli chain list`
@@ -548,6 +584,28 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-cli net listen`
+
+```
+Lists `libp2p` swarm listener addresses
+
+Usage: forest-cli net listen
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli net info`
+
+```
+Lists `libp2p` swarm network info
+
+Usage: forest-cli net info
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-cli net peers`
 
 ```
@@ -588,6 +646,17 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-cli net reachability`
+
+```
+Print information about reachability from the internet
+
+Usage: forest-cli net reachability
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-cli sync`
 
 ```
@@ -615,6 +684,17 @@ Usage: forest-cli sync wait [OPTIONS]
 
 Options:
   -w          Don't exit after node is synced
+  -h, --help  Print help
+```
+
+### `forest-cli sync status`
+
+```
+Check sync status
+
+Usage: forest-cli sync status
+
+Options:
   -h, --help  Print help
 ```
 
@@ -676,6 +756,20 @@ Options:
   -h, --help         Print help
 ```
 
+### `forest-cli mpool nonce`
+
+```
+Get the current nonce for an address
+
+Usage: forest-cli mpool nonce <ADDRESS>
+
+Arguments:
+  <ADDRESS>  Address to check nonce for
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-cli mpool stat`
 
 ```
@@ -692,18 +786,39 @@ Options:
           Print help
 ```
 
-### `forest-cli mpool nonce`
+### `forest-cli mpool nonce-fix`
 
 ```
-Get the current nonce for an address
+Fill an on-chain nonce gap by pushing signed self-transfer messages
 
-Usage: forest-cli mpool nonce <ADDRESS>
-
-Arguments:
-  <ADDRESS>  Address to check nonce for
+Usage: forest-cli mpool nonce-fix [OPTIONS] --addr <ADDR>
 
 Options:
-  -h, --help  Print help
+      --addr <ADDR>                Address to fill nonce gaps (must be signable by the node's wallet)
+      --auto                       Derive the fill range from chain state and the mempool (ignores `--start` / `--end`)
+      --start <START>              First sequence to fill (inclusive); required unless `--auto`
+      --end <END>                  End of range (exclusive); required unless `--auto`
+      --gas-fee-cap <GAS_FEE_CAP>  Gas fee cap for filler messages. Default: twice the parent base fee from chain head
+  -h, --help                       Print help
+```
+
+### `forest-cli mpool replace`
+
+```
+Replace a pending message in the mempool with updated gas parameters (replace-by-fee)
+
+Usage: forest-cli mpool replace [OPTIONS]
+
+Options:
+      --from <FROM>                Address that sent the message (required unless `--cid` is used)
+      --nonce <NONCE>              Nonce of the message to replace (required unless `--cid` is used)
+      --cid <CID>                  CID of the message to replace (alternative to `--from`/`--nonce`)
+      --auto                       Automatically re-estimate gas, ensuring the RBF minimum premium is met
+      --max-fee <MAX_FEE>          Maximum total fee; only used with `--auto`
+      --gas-premium <GAS_PREMIUM>  Gas premium (required unless `--auto` is used)
+      --gas-feecap <GAS_FEECAP>    Gas fee cap (required unless `--auto` is used)
+      --gas-limit <GAS_LIMIT>      Gas limit (Optional; keeps original value if unset)
+  -h, --help                       Print help
 ```
 
 ### `forest-cli state`
@@ -752,6 +867,32 @@ Options:
   -h, --help                 Print help
 ```
 
+### `forest-cli state read-state`
+
+```
+Read the state of an actor
+
+Usage: forest-cli state read-state <ACTOR_ADDRESS>
+
+Arguments:
+  <ACTOR_ADDRESS>  Actor address to read the state of
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli state actor-cids`
+
+```
+Returns the built-in actor bundle CIDs for the current network
+
+Usage: forest-cli state actor-cids [OPTIONS]
+
+Options:
+      --format <FORMAT>  Format output [default: text] [possible values: json, text]
+  -h, --help             Print help
+```
+
 ### `forest-cli config`
 
 ```
@@ -762,6 +903,17 @@ Usage: forest-cli config <COMMAND>
 Commands:
   dump  Dump default configuration to standard output
   help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli config dump`
+
+```
+Dump default configuration to standard output
+
+Usage: forest-cli config dump
 
 Options:
   -h, --help  Print help
@@ -801,6 +953,45 @@ Options:
       --format <FORMAT>            Snapshot format to export [default: v2] [possible values: v1, v2]
       --augmented-snapshot         Also exports an augmented data snapshot that contains message receipts and events
       --tipset-lookup              Also exports a tipset lookup HAMT snapshot
+  -h, --help                       Print help
+```
+
+### `forest-cli snapshot export-status`
+
+```
+Show status of the current export
+
+Usage: forest-cli snapshot export-status [OPTIONS]
+
+Options:
+      --wait             Wait until it completes and print progress
+      --format <FORMAT>  Format of the output. `json` or `text` [default: text] [possible values: json, text]
+  -h, --help             Print help
+```
+
+### `forest-cli snapshot export-cancel`
+
+```
+Cancel the current export
+
+Usage: forest-cli snapshot export-cancel
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli snapshot export-diff`
+
+```
+Export a diff snapshot between `from` and `to` epochs to `<output_path>`
+
+Usage: forest-cli snapshot export-diff [OPTIONS] --from <FROM> --to <TO>
+
+Options:
+  -o, --output-path <OUTPUT_PATH>  `./forest_snapshot_diff_{chain}_{from}_{to}+{depth}.car.zst`. [default: .]
+      --from <FROM>                Epoch to export from
+      --to <TO>                    Epoch to diff against
+  -d, --depth <DEPTH>              How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`
   -h, --help                       Print help
 ```
 
@@ -882,12 +1073,6 @@ Options:
   -h, --help  Print help
 ```
 
-### `forest-cli send`
-
-```
-
-```
-
 ### `forest-cli info`
 
 ```
@@ -898,6 +1083,15 @@ Usage: forest-cli info <COMMAND>
 Commands:
   show
   help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-cli info show`
+
+```
+Usage: forest-cli info show
 
 Options:
   -h, --help  Print help
@@ -941,6 +1135,32 @@ Usage: forest-cli healthcheck ready [OPTIONS]
 
 Options:
       --wait                                 Don't exit until node is ready
+      --healthcheck-port <HEALTHCHECK_PORT>  Healthcheck port [default: 2346]
+  -h, --help                                 Print help
+```
+
+### `forest-cli healthcheck live`
+
+```
+Display liveness status
+
+Usage: forest-cli healthcheck live [OPTIONS]
+
+Options:
+      --wait                                 Don't exit until node is live
+      --healthcheck-port <HEALTHCHECK_PORT>  Healthcheck port [default: 2346]
+  -h, --help                                 Print help
+```
+
+### `forest-cli healthcheck healthy`
+
+```
+Display health status
+
+Usage: forest-cli healthcheck healthy [OPTIONS]
+
+Options:
+      --wait                                 Don't exit until node is healthy
       --healthcheck-port <HEALTHCHECK_PORT>  Healthcheck port [default: 2346]
   -h, --help                                 Print help
 ```
@@ -1202,6 +1422,18 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-cli wait-api`
+
+```
+Wait for lotus API to come online
+
+Usage: forest-cli wait-api [OPTIONS]
+
+Options:
+      --timeout <TIMEOUT>  duration to wait till fail, e.g. `5s`, `5seconds`, `1m`, `1min`, etc
+  -h, --help               Print help
+```
+
 ## `forest-tool`
 
 ```
@@ -1388,6 +1620,21 @@ Options:
           Print help
 ```
 
+### `forest-tool benchmark blockstore`
+
+```
+Benchmark key-value blockstore
+
+Usage: forest-tool benchmark blockstore [OPTIONS] <SNAPSHOT_FILE>
+
+Arguments:
+  <SNAPSHOT_FILE>  Snapshot input file (`.car.`, `.car.zst`, `.forest.car.zst`)
+
+Options:
+      --db <DB>  [default: parity] [possible values: parity, parity-opt]
+  -h, --help     Print help
+```
+
 ### `forest-tool state-migration`
 
 ```
@@ -1413,6 +1660,17 @@ Usage: forest-tool state-migration actor-bundle [OUTPUT]
 
 Arguments:
   [OUTPUT]  [default: actor_bundles.car.zst]
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-tool state-migration generate-actors-metadata`
+
+```
+Generate actors metadata from required bundles list
+
+Usage: forest-tool state-migration generate-actors-metadata
 
 Options:
   -h, --help  Print help
@@ -2183,6 +2441,60 @@ Options:
           Print help (see a summary with '-h')
 ```
 
+### `forest-tool api test-stateful`
+
+````
+Run multiple stateful JSON-RPC API tests against a Filecoin node.
+
+Connection: uses `FULLNODE_API_INFO` from the environment.
+
+Some tests require sending a transaction to trigger events; the provided `from`, `to`, `payload`, and `topic` inputs are used for those cases.
+
+Useful for verifying methods like `eth_newFilter`, `eth_getFilterLogs`, and others that rely on internal state.
+
+Inputs: - `--to`, `--from`: delegated Filecoin (f4) addresses - `--payload`: calldata in hex (accepts optional `0x` prefix) - `--topic`: `32‑byte` event topic in hex - `--filter`: run only tests that interact with a specific RPC method
+
+Example output: ```text running 7 tests test eth_newFilter install/uninstall ... ok test eth_newFilter under limit ... ok test eth_newFilter just under limit ... ok test eth_newFilter over limit ... ok test eth_newBlockFilter works ... ok test eth_newPendingTransactionFilter works ... ok test eth_getFilterLogs works ... ok test result: ok. 7 passed; 0 failed; 0 ignored; 0 filtered out ```
+
+Usage: forest-tool api test-stateful [OPTIONS] --to <TO> --from <FROM> --payload <PAYLOAD> --topic <TOPIC>
+
+Options:
+      --to <TO>
+          Test Transaction `to` address (delegated f4)
+
+      --from <FROM>
+          Test Transaction `from` address (delegated f4)
+
+      --payload <PAYLOAD>
+          Test Transaction hex `payload`
+
+      --topic <TOPIC>
+          Log `topic` to search for
+
+      --filter <FILTER>
+          Filter which tests to run according to method name. Case sensitive
+
+          [default: ""]
+
+  -h, --help
+          Print help (see a summary with '-h')
+````
+
+### `forest-tool net`
+
+```
+Network utilities
+
+Usage: forest-tool net <COMMAND>
+
+Commands:
+  ping  Ping a peer via its `multiaddress`
+  help  Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
 ### `forest-tool net ping`
 
 ```
@@ -2267,6 +2579,21 @@ Options:
   -h, --help  Print help
 ```
 
+### `forest-tool shed key-pair-from-private-key`
+
+```
+Generate a key-pair file from the given base64-encoded private key. This effectively transforms Lotus's private key into a Forest-compatible key-pair file. If `output` is not provided, the key-pair is printed to stdout as a base64-encoded string
+
+Usage: forest-tool shed key-pair-from-private-key [OPTIONS] <PRIVATE_KEY>
+
+Arguments:
+  <PRIVATE_KEY>  Base64-encoded private key
+
+Options:
+  -o, --output <OUTPUT>  Path to save the key-pair file
+  -h, --help             Print help
+```
+
 ### `forest-tool shed openrpc`
 
 ```
@@ -2294,6 +2621,28 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
+```
+
+### `forest-tool shed migrate-state`
+
+```
+Run a network upgrade migration
+
+Usage: forest-tool shed migrate-state [OPTIONS] --chain <CHAIN> <NETWORK_VERSION> <BLOCK_TO_LOOK_BACK>
+
+Arguments:
+  <NETWORK_VERSION>     Target network version
+  <BLOCK_TO_LOOK_BACK>  Block to look back from
+
+Options:
+      --db <DB>
+          Path to the Forest database folder
+      --chain <CHAIN>
+          Filecoin network chain
+      --db-write-buffer <DB_WRITE_BUFFER>
+          Size of database write buffer, use 0 to disable write buffer [default: 10000]
+  -h, --help
+          Print help
 ```
 
 ### `forest-tool index`
@@ -2530,4 +2879,80 @@ Options:
       --to <TO>          The minimum tipset epoch to export state tree from (Inclusive)
   -o, --output <OUTPUT>  The path to the output `ForestCAR` file
   -h, --help             Print help
+```
+
+### `forest-dev tests`
+
+```
+Integration tests
+
+Usage: forest-dev tests <COMMAND>
+
+Commands:
+  wallet  Wallet integration tests
+  mpool   Mpool integration tests
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev tests wallet`
+
+```
+Wallet integration tests
+
+Usage: forest-dev tests wallet
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev tests mpool`
+
+```
+Mpool integration tests
+
+Usage: forest-dev tests mpool
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev devnet`
+
+```
+Integration tests that require the local docker devnet
+
+Usage: forest-dev devnet <COMMAND>
+
+Commands:
+  eth-gas          `eth_estimateGas` parity tests
+  eth-skip-sender  Skip-sender integration tests that need a private chain with a miner
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev devnet eth-gas`
+
+```
+`eth_estimateGas` parity tests
+
+Usage: forest-dev devnet eth-gas
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev devnet eth-skip-sender`
+
+```
+Skip-sender integration tests that need a private chain with a miner
+
+Usage: forest-dev devnet eth-skip-sender
+
+Options:
+  -h, --help  Print help
 ```
