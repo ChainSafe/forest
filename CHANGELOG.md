@@ -37,7 +37,7 @@
 
 ## Forest v0.37.0 "Sharad Sampat"
 
-Mandatory release for calibnet node operators. It includes support for the NV29 _Solstice_ network upgrade for calibnet, which is set to activate at epoch `4109133` (2026-09-28T12:59:30Z). It also includes important fixes around the ipfs gateway and proof parameters.
+Mandatory release for calibnet node operators. It includes support for the NV29 _Solstice_ network upgrade for calibnet, which is set to activate at epoch `4109133` (2026-09-28T12:59:30Z). There are also additional (breaking) changes and improvements; see below.
 
 ### Breaking
 
