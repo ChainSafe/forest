@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.37.0 "Sharad Sampat"
+
+Mandatory release for calibnet node operators. It includes support for the NV29 _Solstice_ network upgrade for calibnet, which is set to activate at epoch `4109133` (2026-09-28T12:59:30Z). There are also additional (breaking) changes and improvements; see below.
+
+### Breaking
+
 - [#7639](https://github.com/ChainSafe/forest/issues/7639): `IPFS_GATEWAY` now replaces every default proof parameter mirror. Previously `https://filecoin-proofs.chainsafe.dev/ipfs/` was still tried first and `IPFS_GATEWAY` only replaced the source after it, unless `FOREST_PROOFS_ONLY_IPFS_GATEWAY` was set as well. That variable has been removed, since setting `IPFS_GATEWAY` alone now has the same effect.
 
 ### Added
@@ -48,8 +62,6 @@
 - [#7552](https://github.com/ChainSafe/forest/issues/7552): `Filecoin.StateGetNetworkParams` now reports `UpgradeSolsticeHeight` (NV29) in place of the `UpgradeXxHeight` placeholder, matching Lotus. The upgrade is not scheduled on any network yet.
 
 - [#7599](https://github.com/ChainSafe/forest/pull/7599): `Filecoin.StateMinerInitialPledgeCollateral` returns an error from NV29 (FIP-0118), matching Lotus: a pre-commit no longer describes a pledge. Use `Filecoin.StateMinerInitialPledgeForSector` with the full sector size as the verified size.
-
-### Removed
 
 ### Fixed
 
