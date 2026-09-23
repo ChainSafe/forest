@@ -108,7 +108,7 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         make_height!(Tock, -29),
         make_height!(GoldenWeek, -30),
         make_height!(FireHorse, -31),
-        make_height!(Solstice, 5220, get_bundle_cid("v19.0.0-dev1")),
+        make_height!(Solstice, 5220, get_bundle_cid("v19.0.1")),
     ])
 });
 

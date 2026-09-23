@@ -79,6 +79,7 @@ where
                 (Height::TockFix, Some(nv26fix::run_migration::<DB>)),
                 (Height::GoldenWeek, Some(nv27::run_migration::<DB>)),
                 (Height::FireHorse, Some(nv28::run_migration::<DB>)),
+                (Height::Solstice, Some(nv29::run_migration::<DB>)),
             ]
         }
         NetworkChain::Butterflynet => {
