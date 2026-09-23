@@ -37,6 +37,8 @@
 
 - [#7472](https://github.com/ChainSafe/forest/issues/7472): `forest-wallet send` now accepts `--method` and `--params-hex`, matching `lotus send`.
 
+- [#7654](https://github.com/ChainSafe/forest/pull/7654): Set the calibnet NV29 _Solstice_ network upgrade epoch to `4109133` which corresponds to `Mon Sep 28 12:59:30 PM UTC 2026`.
+
 ### Changed
 
 - [#7639](https://github.com/ChainSafe/forest/issues/7639): The fallback source for proof parameters is now `https://vault.ezpdpz.net/ipfs/`. `https://proofs.filecoin.io/ipfs/` redirects to the primary source, so it no longer provided any redundancy. Every download is still verified against the digest in the parameter manifest.
