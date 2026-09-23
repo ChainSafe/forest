@@ -84,8 +84,8 @@ impl SolsticeRewardBootstrapParams {
             NetworkChain::Calibnet => Self {
                 swa_timelock_epochs: EPOCHS_IN_HOUR * 6,
                 consensus_weight_ramp_duration_epochs: RAMP_QUARTERS * EPOCHS_IN_DAY,
-                swa_actor: Some(evm_address("0xDE4fBd083F18f96C241DdE0A83C3EDC422Be9BA6")),
-                sra_actor: Some(evm_address("0xeDfCd0947F7E9d58E0035f032520d75ce8eCA451")),
+                swa_actor: Some(evm_address("0x66C11A9F6dfEC3c1557958cF9f575a023EB01421")),
+                sra_actor: Some(evm_address("0x0339f205314C8210AF7Cb075d1A96D012e7896a9")),
                 initial_orchestrator: Some(evm_address(
                     "0x97A90f5696be5E3C8d3752C92Adac287c2b4484e",
                 )),
