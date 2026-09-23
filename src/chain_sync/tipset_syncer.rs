@@ -384,7 +384,7 @@ struct MessageChecker {
 }
 
 impl MessageChecker {
-    /// Generic over the message so that a block's BLS and `SECP` lists each get a copy specialised
+    /// Generic over the message so that a block's BLS and `SECP` lists each get a copy specialized
     /// to what they carry: the gas floor is charged over the whole chain message, while the rest of
     /// validation applies to the message the VM executes.
     fn check(&mut self, msg: &impl MessageRead) -> anyhow::Result<()> {
