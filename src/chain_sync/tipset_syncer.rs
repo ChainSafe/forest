@@ -8,6 +8,7 @@ use crate::prelude::*;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::crypto::SignatureType;
 use crate::shim::message::Message;
+use crate::shim::version::NetworkVersion;
 use crate::shim::{
     address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
     gas::price_list_by_network_version, state_tree::StateTree,
@@ -75,6 +76,10 @@ pub enum TipsetSyncerError {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(FilecoinConsensusError),
+    #[error(
+        "Block had a signed message at index {0} whose signature type {1} is not allowed in the SECP message list"
+    )]
+    SecpSignatureTypeInvalid(usize, SignatureType),
 }
 
 impl From<tokio::task::JoinError> for TipsetSyncerError {
@@ -484,6 +489,14 @@ async fn check_block_messages(
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        if network_version >= NetworkVersion::V14
+            && !msg.signature().is_valid_secpk_sig_type(network_version)
+        {
+            return Err(TipsetSyncerError::SecpSignatureTypeInvalid(
+                i,
+                msg.signature().signature_type(),
+            ));
+        }
         if msg.signature().signature_type() == SignatureType::Delegated
             && !is_valid_eth_tx_for_sending(eth_chain_id, network_version, msg)
         {
@@ -569,5 +582,131 @@ mod tests {
         let concatenated =
             TipsetSyncerError::concat(nunny::vec![TipsetSyncerError::Validation("a".into())]);
         assert!(matches!(concatenated, TipsetSyncerError::Validation(_)));
+    }
+
+    mod block_messages {
+        use super::*;
+        use crate::blocks::RawBlockHeader;
+        use crate::db::MemoryDB;
+        use crate::message::SignedMessage;
+        use crate::networks::ChainConfig;
+        use crate::shim::crypto::{BLS_SIG_LEN, SECP_SIG_LEN, Signature};
+        use crate::shim::state_tree::StateTreeVersion;
+
+        fn chain_config() -> Arc<ChainConfig> {
+            Arc::new(ChainConfig::default())
+        }
+
+        /// An upgrade takes effect at the epoch after the one the schedule names, so the
+        /// `Chocolate` epoch itself is still NV13.
+        fn last_epoch_before_nv14(chain_config: &ChainConfig) -> ChainEpoch {
+            chain_config.epoch(Height::Chocolate)
+        }
+
+        fn first_epoch_at_nv14(chain_config: &ChainConfig) -> ChainEpoch {
+            last_epoch_before_nv14(chain_config) + 1
+        }
+
+        async fn validate(
+            chain_config: Arc<ChainConfig>,
+            epoch: ChainEpoch,
+            signature: Signature,
+        ) -> TipsetSyncerError {
+            let db = Arc::new(MemoryDB::default());
+            let genesis = CachingBlockHeader::new(RawBlockHeader {
+                timestamp: 7777,
+                ..Default::default()
+            });
+            let chain_store = ChainStore::new(db, chain_config, genesis).unwrap();
+            let state_manager = StateManager::new(chain_store).unwrap();
+
+            let state_root = StateTree::new(state_manager.db(), StateTreeVersion::V5)
+                .unwrap()
+                .flush()
+                .unwrap();
+            let base_tipset = state_manager.chain_store().heaviest_tipset();
+            state_manager.insert_executed_tipset(
+                base_tipset.key().clone(),
+                ExecutedTipset {
+                    state_root,
+                    receipt_root: Cid::default(),
+                    executed_messages: Arc::new(vec![]),
+                },
+            );
+
+            let block = Arc::new(Block {
+                header: CachingBlockHeader::new(RawBlockHeader {
+                    epoch,
+                    bls_aggregate: Some(Signature::new_bls(vec![0; BLS_SIG_LEN])),
+                    ..Default::default()
+                }),
+                bls_messages: vec![],
+                secp_messages: vec![SignedMessage::new_unchecked(
+                    Message {
+                        to: Address::new_id(1),
+                        from: Address::new_id(2),
+                        gas_limit: u64::from(u32::MAX),
+                        ..Default::default()
+                    },
+                    signature,
+                )],
+            });
+
+            check_block_messages(state_manager, block, base_tipset)
+                .await
+                .unwrap_err()
+        }
+
+        #[tokio::test]
+        async fn bls_signature_type_is_rejected_in_the_secp_message_list() {
+            let chain_config = chain_config();
+            let epoch = first_epoch_at_nv14(&chain_config);
+            let err = validate(
+                chain_config,
+                epoch,
+                Signature::new_bls(vec![0; BLS_SIG_LEN]),
+            )
+            .await;
+            assert!(
+                matches!(
+                    err,
+                    TipsetSyncerError::SecpSignatureTypeInvalid(0, SignatureType::Bls)
+                ),
+                "got: {err}"
+            );
+        }
+
+        #[tokio::test]
+        async fn secp256k1_signature_type_passes_the_guard() {
+            let chain_config = chain_config();
+            let epoch = first_epoch_at_nv14(&chain_config);
+            let err = validate(
+                chain_config,
+                epoch,
+                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+            )
+            .await;
+            assert!(
+                !matches!(err, TipsetSyncerError::SecpSignatureTypeInvalid(..)),
+                "the guard must not fire, got: {err}"
+            );
+        }
+
+        /// The guard only applies from NV14 onwards, so earlier blocks must keep validating.
+        #[tokio::test]
+        async fn signature_type_is_not_checked_before_nv14() {
+            let chain_config = chain_config();
+            let epoch = last_epoch_before_nv14(&chain_config);
+            let err = validate(
+                chain_config,
+                epoch,
+                Signature::new_bls(vec![0; BLS_SIG_LEN]),
+            )
+            .await;
+            assert!(
+                !matches!(err, TipsetSyncerError::SecpSignatureTypeInvalid(..)),
+                "the guard must not fire, got: {err}"
+            );
+        }
     }
 }
