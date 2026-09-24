@@ -25,5 +25,6 @@ pub use self::{config::*, peer_manager::*, service::*};
 #[cfg(test)]
 mod tests {
     mod decode_test;
+    mod drand_gossip_tests;
     mod gossipsub_filter_test;
 }
