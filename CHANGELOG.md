@@ -31,6 +31,8 @@
 
 ### Changed
 
+- [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
+
 ### Removed
 
 ### Fixed

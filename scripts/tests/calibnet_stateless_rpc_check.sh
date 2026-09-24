@@ -7,10 +7,12 @@ source "$(dirname "$0")/harness.sh"
 
 # Run a stateless node with a filter list as an argument.
 function forest_run_node_stateless_detached_with_filter_list {
-  pkill -9 forest || true
   local filter_list=$1
 
+  forest_stop_node
+
   $FOREST_DAEMON_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --stateless --rpc-filter-list "$filter_list" &
+  FOREST_NODE_PID=$!
   forest_wait_api
 }
 
@@ -48,18 +50,20 @@ EOF
 forest_run_node_stateless_detached_with_filter_list "$TMP_DIR/filter-list"
 test_rpc 403
 
-# Filter list with a single other RPC allowed. `ChainHead` should be disallowed and return 403.
-# Note - this method is required for the test harness.
+# Filter list with only the harness methods allowed. `ChainHead` should be disallowed and return 403.
+# Note - `Shutdown` and `Version` are required by the test harness, the latter by `forest-cli wait-api`.
 cat <<- EOF > "$TMP_DIR"/filter-list
 Filecoin.Shutdown
+Filecoin.Version
 EOF
 
 forest_run_node_stateless_detached_with_filter_list "$TMP_DIR/filter-list"
 test_rpc 403
 
-# Filter list with a single other RPC allowed, along with `ChainHead`. Should succeed.
+# Filter list with the harness methods allowed, along with `ChainHead`. Should succeed.
 cat <<- EOF > "$TMP_DIR"/filter-list
 Filecoin.Shutdown
+Filecoin.Version
 Filecoin.ChainHead
 EOF
 
