@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::encoding::CountingWriter;
 use crate::utils::multihash::prelude::*;
 use cid::Cid;
 use fvm_ipld_encoding::Error;
@@ -34,6 +35,19 @@ pub trait CidCborExt {
 
 impl CidCborExt for Cid {}
 
+/// Streams `DAG_CBOR` into Blake2b-256.
+pub fn cid_and_encoded_len<S: serde::ser::Serialize>(obj: &S) -> Result<(Cid, usize), Error> {
+    let mut writer = CountingWriter::new(multihash_codetable::Blake2b256::default());
+    fvm_ipld_encoding::to_writer(&mut writer, obj)?;
+    let digest = MultihashCode::Blake2b256
+        .wrap(writer.inner.finalize())
+        .expect("BLAKE2b-256 digest is 32 bytes, within the multihash allocation");
+    Ok((
+        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, digest),
+        writer.written,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,5 +59,12 @@ mod tests {
         let bytes = fvm_ipld_encoding::to_vec(&msg).unwrap();
         Cid::from_cbor_blake2b256(&msg).unwrap()
             == Cid::from_cbor_encoded_raw_bytes_blake2b256(&bytes)
+    }
+
+    #[quickcheck]
+    fn cid_and_encoded_len_matches_buffered(msg: SignedMessage) -> bool {
+        let bytes = fvm_ipld_encoding::to_vec(&msg).unwrap();
+        let (cid, len) = cid_and_encoded_len(&msg).unwrap();
+        cid == Cid::from_cbor_encoded_raw_bytes_blake2b256(&bytes) && len == bytes.len()
     }
 }

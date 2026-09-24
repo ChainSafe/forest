@@ -139,12 +139,13 @@ impl Signature {
         msg: &SignedMessage,
         addr: &crate::shim::address::Address,
     ) -> anyhow::Result<()> {
+        let message_cid = msg.message().cid();
         match self.sig_type {
             SignatureType::Delegated => {
                 let eth_tx = EthTx::from_signed_message(eth_chain_id, msg)?;
                 let filecoin_msg = eth_tx.get_unsigned_message(msg.from(), eth_chain_id)?;
                 ensure!(
-                    msg.message().cid() == filecoin_msg.cid(),
+                    message_cid == filecoin_msg.cid(),
                     "Ethereum transaction roundtrip mismatch"
                 );
                 // update the exiting signature bytes with the verifiable signature for delegated signature
@@ -156,10 +157,7 @@ impl Signature {
                 let digest = eth_tx.rlp_unsigned_message(eth_chain_id)?;
                 sig.verify(&digest, addr)
             }
-            _ => {
-                let digest = msg.message().cid().to_bytes();
-                self.verify(&digest, addr)
-            }
+            _ => self.verify(&message_cid.to_bytes(), addr),
         }
     }
 
