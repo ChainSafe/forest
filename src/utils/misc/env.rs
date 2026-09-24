@@ -12,15 +12,22 @@ pub fn env_or_default<T: FromStr>(key: &str, default: T) -> T {
         .unwrap_or(default)
 }
 
-/// Like [`env_or_default`], but logs at `info` level when the env var was used,
-/// so the operator can confirm the override took effect.
+/// Like [`env_or_default`], but with logging.
 pub fn env_or_default_logged<T: FromStr + Display>(key: &str, default: T) -> T {
-    match std::env::var(key).ok().and_then(|v| v.parse().ok()) {
+    let Some(raw) = std::env::var_os(key) else {
+        return default;
+    };
+    match raw.to_str().and_then(|raw| raw.parse().ok()) {
         Some(value) => {
             tracing::info!("`{key}` set to {value}");
             value
         }
-        None => default,
+        None => {
+            tracing::warn!(
+                "`{key}` is set to {raw:?}, which is not a valid value; using {default}"
+            );
+            default
+        }
     }
 }
 
@@ -74,6 +81,21 @@ mod tests {
             // unparsable value given the default type, should return default
             std::env::set_var("TEST_ENV", "42");
             assert!(!env_or_default("TEST_ENV", false));
+        }
+    }
+
+    #[test]
+    fn test_env_or_default_logged() {
+        unsafe {
+            std::env::set_var("TEST_ENV_LOGGED", "42");
+            assert_eq!(env_or_default_logged("TEST_ENV_LOGGED", 0), 42);
+
+            // Set but unparsable: falls back. The warning itself is not asserted here.
+            std::env::set_var("TEST_ENV_LOGGED", "cthulhu fhtagn");
+            assert_eq!(env_or_default_logged("TEST_ENV_LOGGED", 7), 7);
+
+            std::env::remove_var("TEST_ENV_LOGGED");
+            assert_eq!(env_or_default_logged("TEST_ENV_LOGGED", 7), 7);
         }
     }
 
