@@ -85,16 +85,6 @@ impl SignedMessage {
         }
     }
 
-    /// Returns the length of the chain message in bytes.
-    pub fn chain_length(&self) -> anyhow::Result<usize> {
-        Ok(match self.signature.signature_type() {
-            // BLS chain message length doesn't include the signature
-            SignatureType::Bls => calc_encoded_len(&self.message)?,
-            // SECP and Delegated chain message length includes the signature
-            SignatureType::Secp256k1 | SignatureType::Delegated => calc_encoded_len(self)?,
-        })
-    }
-
     /// Creates a mock signed message for testing purposes. The signature check will fail if
     /// invoked.
     #[cfg(test)]
@@ -105,6 +95,17 @@ impl SignedMessage {
 }
 
 impl MessageRead for SignedMessage {
+    fn vm_message(&self) -> &Message {
+        &self.message
+    }
+    fn chain_length(&self) -> anyhow::Result<usize> {
+        Ok(match self.signature.signature_type() {
+            // BLS chain message length doesn't include the signature
+            SignatureType::Bls => calc_encoded_len(&self.message)?,
+            // SECP and Delegated chain message length includes the signature
+            SignatureType::Secp256k1 | SignatureType::Delegated => calc_encoded_len(self)?,
+        })
+    }
     fn from(&self) -> Address {
         self.message.from()
     }
@@ -165,40 +166,79 @@ mod tests {
     use fvm_ipld_encoding::to_vec;
     use quickcheck_macros::quickcheck;
 
+    #[track_caller]
+    fn assert_measures_and_hashes(signed: &SignedMessage, encoded: &[u8]) {
+        assert_eq!(signed.chain_length().unwrap(), encoded.len());
+        assert_eq!(
+            signed.cid(),
+            Cid::from_cbor_encoded_raw_bytes_blake2b256(encoded)
+        );
+    }
+
+    /// Anchors both values to the Lotus rule, which a test derived from the same `match` as the
+    /// implementation cannot do.
     #[test]
-    fn test_chain_length() {
+    fn chain_length_and_cid_follow_signature_type() {
         let message = Message {
             to: Address::new_id(1),
             from: Address::new_id(2),
             ..Message::default()
         };
 
-        // BLS excludes the signature from the chain length
+        // BLS signatures are aggregated into the block header, so they count for neither value.
         let bls =
             SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0; BLS_SIG_LEN]));
-        assert_eq!(bls.chain_length().unwrap(), to_vec(&message).unwrap().len());
+        assert_measures_and_hashes(&bls, &to_vec(&message).unwrap());
 
-        // SECP and Delegated include it
         for signature in [
             Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
             Signature::new_delegated(vec![0; SECP_SIG_LEN]),
         ] {
             let signed = SignedMessage::new_unchecked(message.clone(), signature);
-            assert_eq!(
-                signed.chain_length().unwrap(),
-                to_vec(&signed).unwrap().len()
-            );
+            assert_measures_and_hashes(&signed, &to_vec(&signed).unwrap());
         }
     }
 
+    /// The signature type selects one encoding for both the CID and the chain length, so the two
+    /// cannot be allowed to disagree about which bytes they mean.
     #[quickcheck]
-    fn signed_message_cid_follows_signature_type(msg: SignedMessage) -> bool {
-        let expected = match msg.signature.signature_type() {
-            SignatureType::Bls => msg.message().cid(),
-            SignatureType::Secp256k1 | SignatureType::Delegated => {
-                Cid::from_cbor_blake2b256(&msg).unwrap()
-            }
+    fn chain_length_measures_the_bytes_the_cid_hashes(msg: SignedMessage) -> bool {
+        [to_vec(msg.message()).unwrap(), to_vec(&msg).unwrap()]
+            .into_iter()
+            .find(|bytes| Cid::from_cbor_encoded_raw_bytes_blake2b256(bytes) == msg.cid())
+            .is_some_and(|bytes| msg.chain_length().unwrap() == bytes.len())
+    }
+
+    /// Both values are derived from an encoding of the message, so neither may be memoized without
+    /// being invalidated when the message or the signature type changes.
+    #[test]
+    fn chain_length_and_cid_track_mutation() {
+        let message = Message {
+            to: Address::new_id(1),
+            from: Address::new_id(2),
+            ..Message::default()
         };
-        msg.cid() == expected
+        let secp = || {
+            SignedMessage::new_unchecked(
+                message.clone(),
+                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+            )
+        };
+
+        let mut signed = secp();
+        let (length, cid) = (signed.chain_length().unwrap(), signed.cid());
+        signed.set_gas_limit(u64::from(u32::MAX));
+        assert_ne!(signed.chain_length().unwrap(), length);
+        assert_ne!(signed.cid(), cid);
+
+        let mut signed = secp();
+        let secp_length = signed.chain_length().unwrap();
+        signed.signature = Signature::new_bls(vec![0; BLS_SIG_LEN]);
+        assert_ne!(signed.chain_length().unwrap(), secp_length);
+        assert_eq!(
+            signed.chain_length().unwrap(),
+            to_vec(&message).unwrap().len()
+        );
+        assert_eq!(signed.cid(), message.cid());
     }
 }
