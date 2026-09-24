@@ -48,6 +48,50 @@ Make a pull request with the following changes:
   [packages][7] list.
 - Verify that the new release is published to [crates.io](https://crates.io/crates/forest-filecoin).
 
+## Network upgrade releases
+
+> [!IMPORTANT]
+> This section applies only to a release that adds support for a network upgrade
+(NVXX). Skip it for regular releases.
+
+A network upgrade needs two releases: one ahead of the calibnet upgrade and one
+ahead of the mainnet upgrade. Both are announced in a single GitHub discussion. The latest
+posts are in the [Announcements category][8]; the [NV29 post][9] is a complete
+example.
+
+### Open the announcement discussion (calibnet release)
+
+On the day of the calibnet release, create a discussion in the
+`Announcements 📢` category titled `Forest NVXX support`. Copy the
+previous post and replace every detail:
+
+- The link to the upstream post with the upgrade scope and dates (the Core Devs
+  planning discussion, or the final Filecoin community post it points to).
+- The `mermaid` timeline: Forest calibnet release, calibnet upgrade with its
+  epoch and UTC time, Forest mainnet release, mainnet upgrade. Prefix dates that
+  are not final with `~`.
+- Hardware requirements: state migration duration and peak RSS for calibnet and
+  mainnet. Measure them with `forest-tool shed migrate-state` as described in
+  the [state migration guide][10]; do not reuse the numbers from the previous
+  upgrade.
+- The link to the [network upgrades knowledge base page][11].
+
+### Comment on the discussion after each release
+
+Once the release is published, reply in the discussion (see the
+[NV29 calibnet comment][12]) with:
+
+- the release link, and the upgrade epoch and UTC time before which operators
+  must upgrade; write **mainnet** in bold in the mainnet comment,
+- links to the release assets, the `<version>-fat` image in the [packages][7]
+  list, and crates.io,
+- a picture that plays on the release name, with a link to its source.
+
+After the post and after each comment, share the discussion link in the
+`#fil-forest-announcements` channel of the Filecoin Slack, re-share it with the
+ChainSafe Infra team, and tick the matching box in the tracking issue. Edit the
+timeline in the post once the mainnet dates are final.
+
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml
 [3]: https://doc.rust-lang.org/cargo/reference/publishing.html
@@ -55,3 +99,8 @@ Make a pull request with the following changes:
 [5]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md
 [6]: https://github.com/ChainSafe/forest/actions/workflows/docker-latest-tag.yml
 [7]: https://github.com/ChainSafe/forest/pkgs/container/forest
+[8]: https://github.com/ChainSafe/forest/discussions/categories/announcements
+[9]: https://github.com/ChainSafe/forest/discussions/7670
+[10]: ./state_migration_guide.md
+[11]: https://docs.forest.chainsafe.io/knowledge_base/network_upgrades_state_migrations/
+[12]: https://github.com/ChainSafe/forest/discussions/7670#discussioncomment-18579988
