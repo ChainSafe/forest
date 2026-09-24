@@ -52,7 +52,7 @@ Make a pull request with the following changes:
 
 > [!IMPORTANT]
 > This section applies only to a release that adds support for a network upgrade
-(NVXX). Skip it for regular releases.
+> (NVXX). Skip it for regular releases.
 
 A network upgrade needs two releases: one ahead of the calibnet upgrade and one
 ahead of the mainnet upgrade. Both are announced in a single GitHub discussion. The latest
@@ -70,7 +70,7 @@ previous post and replace every detail:
 - The `mermaid` timeline: Forest calibnet release, calibnet upgrade with its
   epoch and UTC time, Forest mainnet release, mainnet upgrade. Prefix dates that
   are not final with `~`.
-- Hardware requirements: state migration duration and peak RSS for calibnet and
+- Hardware requirements: state migration duration and peak `RSS` for calibnet and
   mainnet. Measure them with `forest-tool shed migrate-state` as described in
   the [state migration guide][10]; do not reuse the numbers from the previous
   upgrade.
