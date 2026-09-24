@@ -118,8 +118,27 @@ The most crucial part of the network upgrade is coordinating with other Filecoin
 
 We communicate the network upgrades via the following channels:
 
-- [Forest Discussions](https://github.com/ChainSafe/forest/discussions). See the [NV23 announcement](https://github.com/ChainSafe/forest/discussions/4488) for an example.
-- The `#fil-forest-announcements` channel in the Filecoin Slack.
+- [Forest Discussions](https://github.com/ChainSafe/forest/discussions/categories/announcements), in the Announcements category.
+- The `#fil-forest-announcements` channel in the Filecoin Slack, where the GitHub Slack app posts the announcements automatically.
+
+A network upgrade needs two Forest releases: one ahead of the calibnet upgrade and one ahead of the mainnet upgrade. Both are announced in a single discussion; see the [NV29 announcement](https://github.com/ChainSafe/forest/discussions/7670) for the latest example.
+
+### Announcement discussion
+
+Create the discussion as soon as the upgrade schedule is known, before the calibnet release, titled `Forest NVXX support`, using the previous announcement as a template. It must contain:
+
+- A link to the upstream post with the upgrade scope and dates (the Core Devs planning discussion, or the final Filecoin community post it points to).
+- The timeline: Forest releases and upgrade dates for calibnet and mainnet, with the upgrade epochs and UTC times. Mark the dates that are not final as tentative.
+- Hardware requirements: state migration duration and peak `RSS` for calibnet and mainnet, measured with `forest-tool shed migrate-state` as described in the [state migration guide](./state_migration_guide.md). Do not reuse the numbers from the previous upgrade.
+- A link to the [network upgrades knowledge base page](https://docs.forest.chainsafe.io/knowledge_base/network_upgrades_state_migrations/).
+
+Update the announcement as the remaining details are confirmed, such as the mainnet dates.
+
+### Release comment
+
+Once a release is published, reply in the discussion with the release link, the network it targets, and the epoch and UTC time before which operators must upgrade, together with links to the release assets, the Docker image and the crates.io entry. A picture playing on the release name is customary but optional. See the [NV29 calibnet comment](https://github.com/ChainSafe/forest/discussions/7670#discussioncomment-18579988) for the format.
+
+After the announcement and after each release comment, re-share the discussion link with the ChainSafe Infra team and tick the matching box in the tracking issue.
 
 ## Network upgrade monitoring
 

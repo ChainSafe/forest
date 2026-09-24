@@ -47,6 +47,8 @@ Make a pull request with the following changes:
   `docker pull ghcr.io/chainsafe/forest:<version>`. Verify the tags in the
   [packages][7] list.
 - Verify that the new release is published to [crates.io](https://crates.io/crates/forest-filecoin).
+- If the release adds support for a network upgrade, announce it by following
+  the [communication steps][8] in the network upgrades guide.
 
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml
@@ -55,3 +57,4 @@ Make a pull request with the following changes:
 [5]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md
 [6]: https://github.com/ChainSafe/forest/actions/workflows/docker-latest-tag.yml
 [7]: https://github.com/ChainSafe/forest/pkgs/container/forest
+[8]: ./network_upgrades.md#communication
