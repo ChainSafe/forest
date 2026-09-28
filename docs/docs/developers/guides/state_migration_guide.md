@@ -300,6 +300,17 @@ While the resulting state might be incorrect (not matching what Lotus
 calculated), at least we verify that the migration isn't causing OOMs and takes
 reasonable amount of time.
 
+The migration can also be run on its own, without validating any tipset. Import
+a snapshot with `forest --import-snapshot <snapshot> --halt-after-import`, then
+run the migration for the target network version on the state of a block from
+that snapshot, e.g., one of its head blocks. The command prints the migration
+duration, and `/usr/bin/time` (`-l` instead of `-v` on macOS) reports the peak
+memory as the maximum resident set size:
+
+```
+/usr/bin/time -v forest-tool shed migrate-state --chain mainnet 29 <block CID>
+```
+
 ### Future considerations
 
 - Grab the actor bundles from the IPFS. This would make Forest less dependent on
