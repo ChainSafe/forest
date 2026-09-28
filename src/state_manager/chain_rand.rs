@@ -102,17 +102,22 @@ impl ChainRand {
     pub fn beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
         let network_version = self.chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V14 {
-            return self.beacon_entry_for_epoch_v3(epoch, network_version);
+            return self.beacon_entry_for_epoch_post_nv14(epoch, network_version);
         }
 
-        let mut resolve = ResolveNullTipset::TakeNewer;
-        if network_version < NetworkVersion::V13 {
-            resolve = ResolveNullTipset::TakeOlder
-        }
-
+        let resolve = if network_version < NetworkVersion::V13 {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        };
         self.latest_beacon_entry_for_epoch(epoch, resolve)
     }
 
+    /// Returns the latest beacon entry included in the tipset at `epoch`, walking
+    /// back up to 20 ancestors if that tipset has none. Null rounds are resolved
+    /// according to `resolve`.
+    ///
+    /// Blocking: loads tipsets from the store.
     fn latest_beacon_entry_for_epoch(
         &self,
         epoch: ChainEpoch,
@@ -122,7 +127,12 @@ impl ChainRand {
         Ok(self.chain_index.latest_beacon_entry(rand_ts)?)
     }
 
-    fn beacon_entry_for_epoch_v3(
+    /// Returns the beacon entry whose round matches the one expected at `epoch`,
+    /// searching up to 20 parent tipsets. Negative epochs fall back to
+    /// [`Self::latest_beacon_entry_for_epoch`].
+    ///
+    /// Blocking: loads tipsets from the store.
+    fn beacon_entry_for_epoch_post_nv14(
         &self,
         epoch: ChainEpoch,
         network_version: NetworkVersion,
