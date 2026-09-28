@@ -27,7 +27,7 @@ title: Metrics
 | `process_start_time_seconds`   | Gauge     | Seconds      | Time that the process started (in seconds since the UNIX epoch)                              |
 | `process_uptime_seconds`       | Counter   | Seconds      | Total time since the process started                                                         |
 | `libp2p_bandwidth_bytes_total` | Counter   | Bytes        | Bandwidth usage by direction and transport protocols. Indexed by `protocols` and `direction` |
-| `cache_{name}_size_bytes`      | Gauge     | Bytes        | Cache size in bytes                                                                          |
+| `cache_{name}_size_bytes`      | Gauge     | Bytes        | Cache size in bytes; recomputed at most every 5 minutes, so it can lag by that much          |
 | `cache_{name}_len`             | Gauge     | Count        | Cache entry count                                                                            |
 | `cache_{name}_cap`             | Gauge     | Count        | Cache entry capacity                                                                         |
 | `cache_{name}_hits`            | Counter   | Count        | Cache hit count                                                                              |

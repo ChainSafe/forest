@@ -71,7 +71,7 @@ use crate::state_manager::{
 };
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::misc::env::env_or_default;
+use crate::utils::misc::env::{env_or_default, env_or_default_logged};
 use crate::utils::multihash::prelude::*;
 use ahash::{HashMap, HashSet};
 use anyhow::{Error, Result, anyhow, bail, ensure};
@@ -3682,12 +3682,16 @@ pub(crate) async fn eth_trace_block(
     ts: &Tipset,
     source: CallSource,
 ) -> Result<Vec<EthBlockTrace>, ServerError> {
-    // 64 most-recent blocks; bounded by count, not bytes (a few MiB on mainnet,
-    // see the `cache_eth_trace_block_size` metric).
-    const ETH_TRACE_BLOCK_CACHE_SIZE: NonZeroUsize = nonzero!(64usize);
+    const DEFAULT_ETH_TRACE_BLOCK_CACHE_SIZE: NonZeroUsize = nonzero!(64usize); // 0.04 to 0.4 MiB per entry measured, so ~3 to 25 MiB
     static ETH_TRACE_BLOCK_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Vec<EthBlockTrace>>>> =
         LazyLock::new(|| {
-            SizeTrackingCache::new_with_metrics("eth_trace_block", ETH_TRACE_BLOCK_CACHE_SIZE)
+            SizeTrackingCache::new_with_metrics(
+                "eth_trace_block",
+                env_or_default_logged(
+                    "FOREST_ETH_TRACE_BLOCK_CACHE_SIZE",
+                    DEFAULT_ETH_TRACE_BLOCK_CACHE_SIZE,
+                ),
+            )
         });
 
     let block_cid = ts.key().cid()?;

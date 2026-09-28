@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay` and the `trace_*`/`debug_trace*` methods, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the built block traces cached in front of it for `trace_block`, `trace_transaction` and `trace_filter`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
+
 ### Changed
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
