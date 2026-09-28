@@ -4,7 +4,7 @@ This guide covers testing and development workflows for Forest's `trace_call` im
 
 ## Tracer Contract
 
-The [`Tracer.sol`](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract provides various functions to test different tracing scenarios.
+The [`Tracer.sol`](https://github.com/ChainSafe/forest/blob/3846eb2627d55dc44621c2bf0ffc3d334e5931d4/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract provides various functions to test different tracing scenarios.
 
 ### Storage Layout
 
