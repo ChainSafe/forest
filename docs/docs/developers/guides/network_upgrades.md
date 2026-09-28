@@ -121,13 +121,13 @@ We communicate the network upgrades via the following channels:
 - [Forest Discussions](https://github.com/ChainSafe/forest/discussions/categories/announcements), in the Announcements category.
 - The `#fil-forest-announcements` channel in the Filecoin Slack, where the GitHub Slack app posts the announcements automatically.
 
-A network upgrade needs two Forest releases: one ahead of the calibnet upgrade and one ahead of the mainnet upgrade. Both are announced in a single discussion; see the [NV29 announcement](https://github.com/ChainSafe/forest/discussions/7670) for the latest example.
+A network upgrade needs two Forest releases: one ahead of the calibnet upgrade and one ahead of the mainnet upgrade. Both are announced in a single discussion; see the [NV29 announcement](https://github.com/ChainSafe/forest/discussions/7670) for an example.
 
 ### Announcement discussion
 
-Create the discussion as soon as the upgrade schedule is known, before the calibnet release, titled `Forest NVXX support`, using the previous announcement as a template. It must contain:
+Create the discussion as soon as the upgrade schedule is known, before the calibnet release, titled `Forest NVXX support`; you can use the previous announcement as a template. It must contain:
 
-- A link to the upstream post with the upgrade scope and dates (the Core Devs planning discussion, or the final Filecoin community post it points to).
+- A link to the upstream post with the upgrade scope and dates (the [Core Devs planning discussion](https://github.com/filecoin-project/core-devs/discussions), or the final [Filecoin community post](https://github.com/filecoin-project/community/discussions) it points to).
 - The timeline: Forest releases and upgrade dates for calibnet and mainnet, with the upgrade epochs and UTC times. Mark the dates that are not final as tentative.
 - Hardware requirements: state migration duration and peak `RSS` for calibnet and mainnet, measured with `forest-tool shed migrate-state` as described in the state migration guide's [performance considerations](./state_migration_guide.md#performance-considerations). Do not reuse the numbers from the previous upgrade.
 - A link to the [network upgrades knowledge base page](https://docs.forest.chainsafe.io/knowledge_base/network_upgrades_state_migrations/).
