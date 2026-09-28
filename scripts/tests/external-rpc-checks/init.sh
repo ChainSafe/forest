@@ -6,8 +6,9 @@ set -euo pipefail
 
 url=$(< /data/snapshot-url)
 epoch=$(< /data/snapshot-epoch)
+read -r chain start _ < /data/check-target
 
-forest --chain=calibnet --encrypt-keystore=false --import-snapshot="${url}" --halt-after-import
+forest --chain="${chain}" --encrypt-keystore=false --import-snapshot="${url}" --halt-after-import
 
-# Indexes the 1000 epochs below the snapshot head, inclusive on both ends
-forest-tool index backfill --chain=calibnet --from="${epoch}" --to="$((epoch - 1000))"
+# inclusive on both ends
+forest-tool index backfill --chain="${chain}" --from="${epoch}" --to="${start}"

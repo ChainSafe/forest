@@ -16,6 +16,9 @@ services:
       - node-data:/data
       - ./resolve.rb:/resolve.rb:ro
     entrypoint: ["ruby", "/resolve.rb"]
+    environment:
+      - FOREST_CHAIN=${FOREST_CHAIN}
+      - FOREST_CHECK_EPOCHS=${FOREST_CHECK_EPOCHS}
 
   init:
     <<: *forest-service
@@ -31,7 +34,7 @@ services:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
     command:
-      - --chain=calibnet
+      - --chain=${FOREST_CHAIN}
       - --encrypt-keystore=false
       - --no-gc
       - --rpc-address=0.0.0.0:${FOREST_RPC_PORT}

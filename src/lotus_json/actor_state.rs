@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
+use crate::shim::{
+    address::Address,
+    econ::TokenAmount,
+    state_tree::{ActorState, ActorState_latest},
+};
 use ::cid::Cid;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
@@ -51,23 +55,43 @@ impl HasLotusJson for ActorState {
                 0,
                 None,
             ),
+        ),
+        (
+            json!({
+                "Balance": "123456789012345678901234567890",
+                "Code": {
+                    "/": "baeaaaaa"
+                },
+                "Head": {
+                    "/": "baeaaaaa"
+                },
+                "Nonce": 7,
+                "DelegatedAddress": "f410fgaytemzugu3doobzmfrggzdfmztwq2lkevnyy5i",
+            }),
+            Self::new(
+                Cid::default(),
+                Cid::default(),
+                TokenAmount::from_atto(123456789012345678901234567890u128),
+                7,
+                Some(Address::new_delegated(10, b"0123456789abcdefghij").unwrap()),
+            ),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let fvm3::state_tree::ActorState {
+        let ActorState_latest {
             code,
             state,
             sequence,
             balance,
             delegated_address,
-        } = From::from(self);
+        } = self.into();
         Self::LotusJson {
             code,
             head: state,
             nonce: sequence,
-            balance: crate::shim::econ::TokenAmount::from(balance),
-            delegated_address: delegated_address.map(crate::shim::address::Address::from),
+            balance: balance.into(),
+            delegated_address: delegated_address.map(Into::into),
         }
     }
 
