@@ -191,9 +191,12 @@ The new state is the result of the migration.
 ### Use the migration
 
 After completing the migration, we need to invoke it at the proper height. This
-is done in the `handle_state_migrations` method in the
-[state manager](https://github.com/ChainSafe/forest/blob/main/blockchain/state_manager/src/lib.rs).
-This step could be potentially done automatically in the future.
+is done by registering it for the upgrade height in the `get_migrations` function
+in the
+[state migration module](https://github.com/ChainSafe/forest/blob/1017e2dc7ee34646d34253b33dc698695e3bb7b6/src/state_migration/mod.rs#L33).
+The [state manager](https://github.com/ChainSafe/forest/blob/1017e2dc7ee34646d34253b33dc698695e3bb7b6/src/state_manager/state_computation.rs#L579)
+then runs it automatically via `run_state_migrations` when the chain reaches that
+height.
 
 ### Testing
 
