@@ -39,6 +39,8 @@
 
 - [#7661](https://github.com/ChainSafe/forest/pull/7661): Fixed snapshot GC occasionally leaving a gap in the chain right above the exported snapshot.
 
+- [#7677](https://github.com/ChainSafe/forest/pull/7677): Fixed the same state migration running several times in parallel when multiple tipsets at the upgrade epoch share a parent, which is redundant.
+
 ## Forest v0.37.0 "Sharad Sampat"
 
 Mandatory release for calibnet node operators. It includes support for the NV29 _Solstice_ network upgrade for calibnet, which is set to activate at epoch `4109133` (2026-09-28T12:59:30Z). There are also additional (breaking) changes and improvements; see below.
