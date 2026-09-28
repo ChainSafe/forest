@@ -178,6 +178,3 @@ where
 
     Ok(None)
 }
-
-#[cfg(test)]
-mod tests;
