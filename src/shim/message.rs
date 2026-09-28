@@ -35,87 +35,53 @@ pub struct Message {
     pub gas_premium: TokenAmount,
 }
 
-impl From<Message_v4> for Message {
-    fn from(other: Message_v4) -> Self {
-        Self {
-            version: other.version,
-            from: other.from.into(),
-            to: other.to.into(),
-            sequence: other.sequence,
-            value: other.value.into(),
-            method_num: other.method_num,
-            params: other.params,
-            gas_limit: other.gas_limit,
-            gas_fee_cap: other.gas_fee_cap.into(),
-            gas_premium: other.gas_premium.into(),
-        }
-    }
+macro_rules! message_conversion {
+    ($($version:ty),+ $(,)?) => {
+        $(
+            impl From<$version> for Message {
+                fn from(other: $version) -> Self {
+                    Self {
+                        version: other.version,
+                        from: other.from.into(),
+                        to: other.to.into(),
+                        sequence: other.sequence,
+                        value: other.value.into(),
+                        method_num: other.method_num,
+                        params: other.params,
+                        gas_limit: other.gas_limit,
+                        gas_fee_cap: other.gas_fee_cap.into(),
+                        gas_premium: other.gas_premium.into(),
+                    }
+                }
+            }
+
+            impl From<Message> for $version {
+                fn from(other: Message) -> Self {
+                    Self {
+                        version: other.version,
+                        from: other.from.into(),
+                        to: other.to.into(),
+                        sequence: other.sequence,
+                        value: other.value.into(),
+                        method_num: other.method_num,
+                        params: other.params,
+                        gas_limit: other.gas_limit,
+                        gas_fee_cap: other.gas_fee_cap.into(),
+                        gas_premium: other.gas_premium.into(),
+                    }
+                }
+            }
+
+            impl From<&Message> for $version {
+                fn from(other: &Message) -> Self {
+                    other.clone().into()
+                }
+            }
+        )+
+    };
 }
 
-impl From<Message> for Message_v4 {
-    fn from(other: Message) -> Self {
-        (&other).into()
-    }
-}
-
-impl From<&Message> for Message_v4 {
-    fn from(other: &Message) -> Self {
-        let other: Message = other.clone();
-        Self {
-            version: other.version,
-            from: other.from.into(),
-            to: other.to.into(),
-            sequence: other.sequence,
-            value: other.value.into(),
-            method_num: other.method_num,
-            params: other.params,
-            gas_limit: other.gas_limit,
-            gas_fee_cap: other.gas_fee_cap.into(),
-            gas_premium: other.gas_premium.into(),
-        }
-    }
-}
-
-impl From<Message_v3> for Message {
-    fn from(other: Message_v3) -> Self {
-        Self {
-            version: other.version,
-            from: other.from.into(),
-            to: other.to.into(),
-            sequence: other.sequence,
-            value: other.value.into(),
-            method_num: other.method_num,
-            params: other.params,
-            gas_limit: other.gas_limit,
-            gas_fee_cap: other.gas_fee_cap.into(),
-            gas_premium: other.gas_premium.into(),
-        }
-    }
-}
-
-impl From<Message> for Message_v3 {
-    fn from(other: Message) -> Self {
-        (&other).into()
-    }
-}
-
-impl From<&Message> for Message_v3 {
-    fn from(other: &Message) -> Self {
-        let other: Message = other.clone();
-        Self {
-            version: other.version,
-            from: other.from.into(),
-            to: other.to.into(),
-            sequence: other.sequence,
-            value: other.value.into(),
-            method_num: other.method_num,
-            params: other.params,
-            gas_limit: other.gas_limit,
-            gas_fee_cap: other.gas_fee_cap.into(),
-            gas_premium: other.gas_premium.into(),
-        }
-    }
-}
+message_conversion!(Message_v3, Message_v4);
 
 impl From<Message_v2> for Message {
     fn from(other: Message_v2) -> Self {
@@ -256,5 +222,36 @@ impl<'de> Deserialize<'de> for Message {
             gas_fee_cap,
             gas_premium,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn message_v4_roundtrip(msg: Message) {
+        assert_eq!(Message::from(Message_v4::from(msg.clone())), msg);
+    }
+
+    #[quickcheck]
+    fn message_v3_roundtrip(msg: Message) {
+        assert_eq!(Message::from(Message_v3::from(msg.clone())), msg);
+    }
+
+    #[quickcheck]
+    fn message_v2_roundtrip(msg: Message) {
+        use crate::shim::address::Protocol;
+
+        let representable =
+            msg.from.protocol() != Protocol::Delegated && msg.to.protocol() != Protocol::Delegated;
+        match Message_v2::try_from(msg.clone()) {
+            Ok(v2) => {
+                assert!(representable);
+                assert_eq!(Message::from(v2), msg);
+            }
+            Err(_) => assert!(!representable),
+        }
     }
 }

@@ -27,6 +27,7 @@ pub enum State {
     V16(fil_actor_cron_state::v16::State),
     V17(fil_actor_cron_state::v17::State),
     V18(fil_actor_cron_state::v18::State),
+    V19(fil_actor_cron_state::v19::State),
 }
 
 impl State {
@@ -35,13 +36,13 @@ impl State {
             .into_iter()
             .map(|entry| entry.into_latest_inner())
             .collect();
-        State::V18(fil_actor_cron_state::v18::State {
+        State::V19(fil_actor_cron_state::v19::State {
             entries: latest_entries,
         })
     }
 
-    pub fn default_latest_version(entries: Vec<fil_actor_cron_state::v18::Entry>) -> Self {
-        State::V18(fil_actor_cron_state::v18::State { entries })
+    pub fn default_latest_version(entries: Vec<fil_actor_cron_state::v19::Entry>) -> Self {
+        State::V19(fil_actor_cron_state::v19::State { entries })
     }
 }
 
@@ -59,6 +60,7 @@ pub enum Entry {
     V16(fil_actor_cron_state::v16::Entry),
     V17(fil_actor_cron_state::v17::Entry),
     V18(fil_actor_cron_state::v18::Entry),
+    V19(fil_actor_cron_state::v19::Entry),
 }
 
 impl Entry {
@@ -66,15 +68,15 @@ impl Entry {
         receiver: fvm_shared4::address::Address,
         method_num: u64,
     ) -> Self {
-        Entry::V18(fil_actor_cron_state::v18::Entry {
+        Entry::V19(fil_actor_cron_state::v19::Entry {
             receiver,
             method_num,
         })
     }
 
-    pub fn into_latest_inner(self) -> fil_actor_cron_state::v18::Entry {
+    pub fn into_latest_inner(self) -> fil_actor_cron_state::v19::Entry {
         let latest_entry = self.into_lotus_json();
-        fil_actor_cron_state::v18::Entry {
+        fil_actor_cron_state::v19::Entry {
             receiver: latest_entry.receiver.into(),
             method_num: latest_entry.method_num,
         }

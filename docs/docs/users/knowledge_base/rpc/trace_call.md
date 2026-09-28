@@ -169,7 +169,7 @@ Forest RPC endpoint: `http://localhost:2345/rpc/v1`
 
 ### Deployed Contracts
 
-A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is pre-deployed on Calibnet and Mainnet for testing `trace_call`. It provides functions for storage writes, ETH transfers, nested calls, and reverts.
+A [Tracer](https://github.com/ChainSafe/forest/blob/3846eb2627d55dc44621c2bf0ffc3d334e5931d4/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is pre-deployed on Calibnet and Mainnet for testing `trace_call`. It provides functions for storage writes, ETH transfers, nested calls, and reverts.
 
 | Network  | Contract Address                                                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -208,7 +208,7 @@ forge create YourContract.sol:YourContract \
 
 ## Example curl Requests
 
-The examples below use the pre-deployed [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract. Here are the functions used:
+The examples below use the pre-deployed [Tracer](https://github.com/ChainSafe/forest/blob/3846eb2627d55dc44621c2bf0ffc3d334e5931d4/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract. Here are the functions used:
 
 | Function                                   | Selector     | Description                         |
 | ------------------------------------------ | ------------ | ----------------------------------- |

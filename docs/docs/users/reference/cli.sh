@@ -39,10 +39,13 @@ generate_markdown_section "forest-cli"
 
 generate_markdown_section "forest-cli" "chain"
 generate_markdown_section "forest-cli" "chain block"
+generate_markdown_section "forest-cli" "chain genesis"
+generate_markdown_section "forest-cli" "chain head"
 generate_markdown_section "forest-cli" "chain message"
 generate_markdown_section "forest-cli" "chain read-obj"
 generate_markdown_section "forest-cli" "chain set-head"
 generate_markdown_section "forest-cli" "chain prune"
+generate_markdown_section "forest-cli" "chain prune snap"
 generate_markdown_section "forest-cli" "chain list"
 
 generate_markdown_section "forest-cli" "auth"
@@ -50,40 +53,55 @@ generate_markdown_section "forest-cli" "auth create-token"
 generate_markdown_section "forest-cli" "auth api-info"
 
 generate_markdown_section "forest-cli" "net"
+generate_markdown_section "forest-cli" "net listen"
+generate_markdown_section "forest-cli" "net info"
 generate_markdown_section "forest-cli" "net peers"
 generate_markdown_section "forest-cli" "net connect"
 generate_markdown_section "forest-cli" "net disconnect"
+generate_markdown_section "forest-cli" "net reachability"
 
 generate_markdown_section "forest-cli" "sync"
 generate_markdown_section "forest-cli" "sync wait"
+generate_markdown_section "forest-cli" "sync status"
 generate_markdown_section "forest-cli" "sync check-bad"
 generate_markdown_section "forest-cli" "sync mark-bad"
 
 generate_markdown_section "forest-cli" "mpool"
 generate_markdown_section "forest-cli" "mpool pending"
-generate_markdown_section "forest-cli" "mpool stat"
 generate_markdown_section "forest-cli" "mpool nonce"
+generate_markdown_section "forest-cli" "mpool stat"
+generate_markdown_section "forest-cli" "mpool nonce-fix"
+generate_markdown_section "forest-cli" "mpool replace"
 
 generate_markdown_section "forest-cli" "state"
 generate_markdown_section "forest-cli" "state fetch"
 generate_markdown_section "forest-cli" "state compute"
+generate_markdown_section "forest-cli" "state read-state"
+generate_markdown_section "forest-cli" "state actor-cids"
 
 generate_markdown_section "forest-cli" "config"
+generate_markdown_section "forest-cli" "config dump"
 
 generate_markdown_section "forest-cli" "snapshot"
 generate_markdown_section "forest-cli" "snapshot export"
+generate_markdown_section "forest-cli" "snapshot export-status"
+generate_markdown_section "forest-cli" "snapshot export-cancel"
+generate_markdown_section "forest-cli" "snapshot export-diff"
 
 generate_markdown_section "forest-cli" "index"
 generate_markdown_section "forest-cli" "index backfill"
 generate_markdown_section "forest-cli" "index backfill-status"
 generate_markdown_section "forest-cli" "index backfill-cancel"
 
-generate_markdown_section "forest-cli" "send"
 generate_markdown_section "forest-cli" "info"
+generate_markdown_section "forest-cli" "info show"
+
 generate_markdown_section "forest-cli" "shutdown"
 
 generate_markdown_section "forest-cli" "healthcheck"
 generate_markdown_section "forest-cli" "healthcheck ready"
+generate_markdown_section "forest-cli" "healthcheck live"
+generate_markdown_section "forest-cli" "healthcheck healthy"
 
 generate_markdown_section "forest-cli" "f3"
 generate_markdown_section "forest-cli" "f3 manifest"
@@ -101,6 +119,8 @@ generate_markdown_section "forest-cli" "evm deploy"
 generate_markdown_section "forest-cli" "evm invoke"
 generate_markdown_section "forest-cli" "evm call"
 
+generate_markdown_section "forest-cli" "wait-api"
+
 generate_markdown_section "forest-tool" ""
 
 generate_markdown_section "forest-tool" "backup"
@@ -114,9 +134,11 @@ generate_markdown_section "forest-tool" "benchmark car-streaming"
 generate_markdown_section "forest-tool" "benchmark graph-traversal"
 generate_markdown_section "forest-tool" "benchmark forest-encoding"
 generate_markdown_section "forest-tool" "benchmark export"
+generate_markdown_section "forest-tool" "benchmark blockstore"
 
 generate_markdown_section "forest-tool" "state-migration"
 generate_markdown_section "forest-tool" "state-migration actor-bundle"
+generate_markdown_section "forest-tool" "state-migration generate-actors-metadata"
 
 generate_markdown_section "forest-tool" "snapshot"
 generate_markdown_section "forest-tool" "snapshot fetch"
@@ -155,14 +177,18 @@ generate_markdown_section "forest-tool" "api compare"
 generate_markdown_section "forest-tool" "api generate-test-snapshot"
 generate_markdown_section "forest-tool" "api dump-tests"
 generate_markdown_section "forest-tool" "api test"
+generate_markdown_section "forest-tool" "api test-stateful"
 
+generate_markdown_section "forest-tool" "net"
 generate_markdown_section "forest-tool" "net ping"
 
 generate_markdown_section "forest-tool" "shed"
 generate_markdown_section "forest-tool" "shed summarize-tipsets"
 generate_markdown_section "forest-tool" "shed peer-id-from-key-pair"
 generate_markdown_section "forest-tool" "shed private-key-from-key-pair"
+generate_markdown_section "forest-tool" "shed key-pair-from-private-key"
 generate_markdown_section "forest-tool" "shed openrpc"
+generate_markdown_section "forest-tool" "shed migrate-state"
 
 generate_markdown_section "forest-tool" "index"
 generate_markdown_section "forest-tool" "index backfill"
@@ -184,3 +210,11 @@ generate_markdown_section "forest-dev" "archive-missing"
 generate_markdown_section "forest-dev" "export-tipset-lookup"
 
 generate_markdown_section "forest-dev" "export-state-tree"
+
+generate_markdown_section "forest-dev" "tests"
+generate_markdown_section "forest-dev" "tests wallet"
+generate_markdown_section "forest-dev" "tests mpool"
+
+generate_markdown_section "forest-dev" "devnet"
+generate_markdown_section "forest-dev" "devnet eth-gas"
+generate_markdown_section "forest-dev" "devnet eth-skip-sender"

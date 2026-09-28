@@ -1035,21 +1035,18 @@ fn eth_get_filter_logs(tx: TestTransaction) -> RpcTestScenario {
     RpcTestScenario::basic(move |client| {
         let tx = tx.clone();
         async move {
-            const BLOCK_RANGE: u64 = 1;
-
             let tipset = client.call(ChainHead::request(())?).await?;
             let cid = invoke_contract(&client, &tx).await?;
-            let lookup = client
+            client
                 .call(
                     StateWaitMsg::request((cid, 1, tipset.epoch(), true))?
                         .with_timeout(Duration::from_secs(300)),
                 )
                 .await?;
-            let block_num = EthUint64(lookup.height as u64);
 
             let topics = EthTopicSpec(vec![EthHashList::Single(Some(tx.topic))]);
             let filter_spec = EthFilterSpec {
-                from_block: Some(format!("0x{:x}", block_num.0.saturating_sub(BLOCK_RANGE))),
+                from_block: Some(format!("0x{:x}", tipset.epoch())),
                 topics: Some(topics),
                 ..Default::default()
             };
