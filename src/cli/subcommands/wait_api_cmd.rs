@@ -30,12 +30,11 @@ impl WaitApiCommand {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
 
-        if success {
-            println!("Forest API is online!");
-        } else {
-            println!("Timed out waiting for the API to come online");
+        if !success {
+            anyhow::bail!("Timed out waiting for the API to come online");
         }
 
+        println!("Forest API is online!");
         Ok(())
     }
 }

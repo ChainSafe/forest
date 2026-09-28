@@ -18,6 +18,7 @@ x-lotus-heights: &lotus-heights
   LOTUS_TOCK_HEIGHT: ${TOCK_HEIGHT}
   LOTUS_GOLDENWEEK_HEIGHT: ${GOLDEN_WEEK_HEIGHT}
   LOTUS_FIREHORSE_HEIGHT: ${FIREHORSE_HEIGHT}
+  LOTUS_SOLSTICE_HEIGHT: ${SOLSTICE_HEIGHT}
 
 x-forest-heights: &forest-heights
   FOREST_GENESIS_NETWORK_VERSION: ${GENESIS_NETWORK_VERSION}
@@ -33,6 +34,7 @@ x-forest-heights: &forest-heights
   FOREST_TOCK_HEIGHT: ${TOCK_HEIGHT}
   FOREST_GOLDEN_WEEK_HEIGHT: ${GOLDEN_WEEK_HEIGHT}
   FOREST_FIREHORSE_HEIGHT: ${FIREHORSE_HEIGHT}
+  FOREST_SOLSTICE_HEIGHT: ${SOLSTICE_HEIGHT}
 
 services:
   # One-shot: pre-seal the genesis miner and build the genesis template.

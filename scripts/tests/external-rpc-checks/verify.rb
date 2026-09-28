@@ -20,7 +20,13 @@ ARGV.each do |argument|
 
   response = Net::HTTP.start(url.hostname, url.port) { |http| http.request(request) }
   body = JSON.parse(response.body)
-  abort "epoch #{epoch} is not indexed: #{response.code} #{response.body}" unless body.dig('result', 'number')
+  # Error code 12 denotes a null round across implementations.
+  # https://github.com/ChainSafe/forest/blob/8c980e679b6606c534c6eb5bd8aa03ff8cc6f5c0/src/rpc/methods/eth/errors.rs#L22
+  null_round = body.dig('error', 'code') == 12
 
-  puts "epoch #{epoch} is indexed"
+  unless body.dig('result', 'number') || null_round
+    abort "epoch #{epoch} is not indexed: #{response.code} #{response.body}"
+  end
+
+  puts "epoch #{epoch} #{null_round ? 'was a null round' : 'is indexed'}"
 end

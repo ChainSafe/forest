@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{io, num::NonZeroUsize, sync::LazyLock};
+use std::{num::NonZeroUsize, sync::LazyLock};
 
 use ahash::{HashMap, HashMapExt};
 use nonzero_ext::nonzero;
@@ -14,7 +14,7 @@ use crate::{
     blocks::{Tipset, TipsetKey},
     chain::{ChainStore, Error as ChainError},
     prelude::*,
-    utils::misc::env::env_or_default_logged,
+    utils::{encoding::calc_encoded_len, misc::env::env_or_default_logged},
 };
 
 /// Maximum encoded byte size of a chain-exchange response we serve to peers.
@@ -27,26 +27,6 @@ static MAX_OUTBOUND_CHAIN_EXCHANGE_RESPONSE_BYTES: LazyLock<NonZeroUsize> = Lazy
         nonzero!(10 * 1024 * 1024_usize),
     )
 });
-
-/// `io::Write` that discards the bytes and only tracks how many were written.
-struct CountingSink(usize);
-
-impl io::Write for CountingSink {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0 += buf.len();
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-fn encoded_size<T: serde::Serialize>(value: &T) -> Result<usize, ChainError> {
-    let mut sink = CountingSink(0);
-    fvm_ipld_encoding::to_writer(&mut sink, value)?;
-    Ok(sink.0)
-}
 
 /// Builds chain exchange response out of chain data.
 pub fn make_chain_exchange_response(
@@ -100,7 +80,7 @@ fn make_chain_exchange_response_with_cap(
                 tipset_bundle.blocks = tipset.block_headers().iter().cloned().collect_vec();
             }
 
-            let bundle_bytes = encoded_size(&tipset_bundle)?;
+            let bundle_bytes = calc_encoded_len(&tipset_bundle).map_err(ChainError::from)?;
             // Always include the first bundle so a peer can make forward
             // progress even if a single tipset exceeds the cap.
             if !chain.is_empty() && accumulated + bundle_bytes > max_bytes {
@@ -328,11 +308,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn counting_sink_matches_to_vec() {
-        // Sanity: the sink's running count equals what `to_vec` produces, so the
-        // budget we apply is the same byte count we'd actually write on the wire.
-        // A real populated response exercises Vec, byte-array, and nested-struct
-        // serializations rather than a trivial primitive.
+    async fn calc_encoded_len_matches_to_vec() {
+        // A populated response exercises vectors, byte arrays, and nested structs.
         let (cids, cs) = populate_chain_store().await;
         let response = make_chain_exchange_response(
             &cs,
@@ -343,10 +320,9 @@ mod tests {
             },
         );
 
-        let mut sink = CountingSink(0);
-        fvm_ipld_encoding::to_writer(&mut sink, &response).unwrap();
+        let len = calc_encoded_len(&response).unwrap();
         let to_vec_len = fvm_ipld_encoding::to_vec(&response).unwrap().len();
-        assert!(sink.0 > 0, "expected a non-empty encoded response");
-        assert_eq!(sink.0, to_vec_len);
+        assert!(len > 0, "expected a non-empty encoded response");
+        assert_eq!(len, to_vec_len);
     }
 }

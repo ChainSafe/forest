@@ -3,13 +3,13 @@
 
 use crate::lotus_json::HasLotusJson;
 use ::cid::Cid;
-use fil_actor_evm_state::v18::{BytecodeHash, TransientData};
+use fil_actor_evm_state::v19::{BytecodeHash, TransientData};
 use fvm_shared2::address::Address;
 use serde::Serialize;
 use spire_enum::prelude::delegated_enum;
 
-pub use fil_actor_evm_state::evm_shared::v18::uints::U256;
-pub use fil_actor_evm_state::v18::Tombstone;
+pub use fil_actor_evm_state::evm_shared::v19::uints::U256;
+pub use fil_actor_evm_state::v19::Tombstone;
 
 /// EVM actor method.
 pub type Method = fil_actor_evm_state::v10::Method;
@@ -28,6 +28,7 @@ pub enum State {
     V16(fil_actor_evm_state::v16::State),
     V17(fil_actor_evm_state::v17::State),
     V18(fil_actor_evm_state::v18::State),
+    V19(fil_actor_evm_state::v19::State),
 }
 
 impl State {
@@ -39,7 +40,7 @@ impl State {
         nonce: u64,
         tombstone: Option<Tombstone>,
     ) -> Self {
-        State::V18(fil_actor_evm_state::v18::State {
+        State::V19(fil_actor_evm_state::v19::State {
             bytecode,
             bytecode_hash: BytecodeHash::from(bytecode_hash),
             contract_state,
@@ -83,10 +84,11 @@ pub enum TombstoneState {
     V16(fil_actor_evm_state::v16::Tombstone),
     V17(fil_actor_evm_state::v17::Tombstone),
     V18(fil_actor_evm_state::v18::Tombstone),
+    V19(fil_actor_evm_state::v19::Tombstone),
 }
 
 impl TombstoneState {
     pub fn default_latest_version(origin: fvm_shared4::ActorID, nonce: u64) -> Self {
-        TombstoneState::V18(fil_actor_evm_state::v18::Tombstone { origin, nonce })
+        TombstoneState::V19(fil_actor_evm_state::v19::Tombstone { origin, nonce })
     }
 }

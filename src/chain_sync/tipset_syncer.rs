@@ -7,10 +7,13 @@ use crate::networks::Height;
 use crate::prelude::*;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::crypto::SignatureType;
-use crate::shim::message::Message;
+use crate::shim::version::NetworkVersion;
 use crate::shim::{
-    address::Address, crypto::verify_bls_aggregate, econ::BLOCK_GAS_LIMIT,
-    gas::price_list_by_network_version, state_tree::StateTree,
+    address::Address,
+    crypto::verify_bls_aggregate,
+    econ::BLOCK_GAS_LIMIT,
+    gas::{PriceList, price_list_by_network_version},
+    state_tree::StateTree,
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
@@ -24,11 +27,10 @@ use crate::{
 };
 use crate::{
     eth::is_valid_eth_tx_for_sending,
-    message::{MessageRead as _, valid_for_block_inclusion},
+    message::{MessageRead, valid_for_block_inclusion},
 };
 use ahash::HashMap;
 use futures::TryFutureExt;
-use fvm_ipld_encoding::to_vec;
 use nunny::Vec as NonEmpty;
 use thiserror::Error;
 use tokio::task::JoinSet;
@@ -75,6 +77,10 @@ pub enum TipsetSyncerError {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(FilecoinConsensusError),
+    #[error(
+        "Block had a signed message at index {0} whose signature type {1} is not allowed in the SECP message list"
+    )]
+    SecpSignatureTypeInvalid(usize, SignatureType),
 }
 
 impl From<tokio::task::JoinError> for TipsetSyncerError {
@@ -367,6 +373,62 @@ async fn validate_block(
     Ok(block)
 }
 
+/// Runs the per-message checks of [`check_block_messages`], carrying the state they accumulate
+/// across a block's messages.
+struct MessageChecker {
+    price_list: PriceList,
+    network_version: NetworkVersion,
+    tree: StateTree<DbImpl>,
+    sum_gas_limit: u64,
+    account_sequences: HashMap<Address, u64>,
+}
+
+impl MessageChecker {
+    /// Generic over the message so that a block's BLS and `SECP` lists each get a copy specialized
+    /// to what they carry: the gas floor is charged over the whole chain message, while the rest of
+    /// validation applies to the message the VM executes.
+    fn check(&mut self, msg: &impl MessageRead) -> anyhow::Result<()> {
+        // Phase 1: Syntactic validation
+        let min_gas = self.price_list.on_chain_message(msg.chain_length()?);
+        let msg = msg.vm_message();
+        valid_for_block_inclusion(msg, min_gas.total(), self.network_version)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        self.sum_gas_limit += msg.gas_limit;
+        anyhow::ensure!(
+            self.sum_gas_limit <= BLOCK_GAS_LIMIT,
+            "block gas limit exceeded"
+        );
+
+        // Phase 2: (Partial) Semantic validation
+        // Send exists and is an account actor, and sequence is correct
+        let sequence: u64 = match self.account_sequences.get(&msg.from()) {
+            Some(sequence) => *sequence,
+            None => {
+                let actor = self.tree.get_actor(&msg.from)?.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    )
+                })?;
+                anyhow::ensure!(
+                    is_valid_for_sending(self.network_version, &actor),
+                    "not valid for sending!"
+                );
+                actor.sequence
+            }
+        };
+
+        // Sequence equality check
+        anyhow::ensure!(
+            sequence == msg.sequence,
+            "Message has incorrect sequence (exp: {} got: {})",
+            sequence,
+            msg.sequence
+        );
+        self.account_sequences.insert(msg.from(), sequence + 1);
+        Ok(())
+    }
+}
+
 /// Validate messages in a full block, relative to the parent tipset.
 ///
 /// This includes:
@@ -413,56 +475,6 @@ async fn check_block_messages(
         return Err(TipsetSyncerError::BlockWithoutBlsAggregate);
     }
 
-    let price_list = price_list_by_network_version(network_version);
-    let mut sum_gas_limit = 0;
-
-    // Check messages for validity
-    let mut check_msg = |msg: &Message,
-                         account_sequences: &mut HashMap<Address, u64>,
-                         tree: &StateTree<DbImpl>|
-     -> anyhow::Result<()> {
-        // Phase 1: Syntactic validation
-        let min_gas = price_list.on_chain_message(to_vec(msg)?.len());
-        valid_for_block_inclusion(msg, min_gas.total(), network_version)
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
-        sum_gas_limit += msg.gas_limit;
-        if sum_gas_limit > BLOCK_GAS_LIMIT {
-            anyhow::bail!("block gas limit exceeded");
-        }
-
-        // Phase 2: (Partial) Semantic validation
-        // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(&msg.from()) {
-            Some(sequence) => *sequence,
-            None => {
-                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Failed to retrieve nonce for addr: Actor does not exist in state"
-                    )
-                })?;
-                let network_version = state_manager
-                    .chain_config()
-                    .network_version(block.header.epoch);
-                if !is_valid_for_sending(network_version, &actor) {
-                    anyhow::bail!("not valid for sending!");
-                }
-                actor.sequence
-            }
-        };
-
-        // Sequence equality check
-        if sequence != msg.sequence {
-            anyhow::bail!(
-                "Message has incorrect sequence (exp: {} got: {})",
-                sequence,
-                msg.sequence
-            );
-        }
-        account_sequences.insert(msg.from(), sequence + 1);
-        Ok(())
-    };
-
-    let mut account_sequences: HashMap<Address, u64> = HashMap::default();
     let ExecutedTipset { state_root, .. } = state_manager
         .load_executed_tipset(&base_tipset)
         .await
@@ -473,9 +485,17 @@ async fn check_block_messages(
         ))
     })?;
 
+    let mut checker = MessageChecker {
+        price_list: price_list_by_network_version(network_version),
+        network_version,
+        tree,
+        sum_gas_limit: 0,
+        account_sequences: HashMap::default(),
+    };
+
     // Check validity for BLS messages
     for (i, msg) in block.bls_msgs().iter().enumerate() {
-        check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
+        checker.check(msg).map_err(|e| {
             TipsetSyncerError::Validation(format!(
                 "Block had invalid BLS message at index {i}: {e:#}"
             ))
@@ -484,6 +504,14 @@ async fn check_block_messages(
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        if network_version >= NetworkVersion::V14
+            && !msg.signature().is_valid_secpk_sig_type(network_version)
+        {
+            return Err(TipsetSyncerError::SecpSignatureTypeInvalid(
+                i,
+                msg.signature().signature_type(),
+            ));
+        }
         if msg.signature().signature_type() == SignatureType::Delegated
             && !is_valid_eth_tx_for_sending(eth_chain_id, network_version, msg)
         {
@@ -491,7 +519,7 @@ async fn check_block_messages(
                 "Network version must be at least NV23 for legacy Ethereum transactions".to_owned(),
             ));
         }
-        check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
+        checker.check(msg).map_err(|e| {
             TipsetSyncerError::Validation(format!(
                 "block had an invalid secp message at index {i}: {e:#}"
             ))
@@ -569,5 +597,205 @@ mod tests {
         let concatenated =
             TipsetSyncerError::concat(nunny::vec![TipsetSyncerError::Validation("a".into())]);
         assert!(matches!(concatenated, TipsetSyncerError::Validation(_)));
+    }
+
+    mod block_messages {
+        use super::*;
+        use crate::blocks::RawBlockHeader;
+        use crate::db::MemoryDB;
+        use crate::message::SignedMessage;
+        use crate::networks::ChainConfig;
+        use crate::shim::crypto::{BLS_SIG_LEN, SECP_SIG_LEN, Signature};
+        use crate::shim::message::Message;
+        use crate::shim::state_tree::StateTreeVersion;
+
+        /// Wide enough that the CBOR encoding of the field does not change when the placeholder is
+        /// replaced by either of the gas floors under test.
+        const GAS_LIMIT_PLACEHOLDER: u64 = 1_000_000;
+
+        fn chain_config() -> Arc<ChainConfig> {
+            Arc::new(ChainConfig::default())
+        }
+
+        /// An upgrade takes effect at the epoch after the one the schedule names, so the
+        /// `Chocolate` epoch itself is still NV13.
+        fn last_epoch_before_nv14(chain_config: &ChainConfig) -> ChainEpoch {
+            chain_config.epoch(Height::Chocolate)
+        }
+
+        fn first_epoch_at_nv14(chain_config: &ChainConfig) -> ChainEpoch {
+            last_epoch_before_nv14(chain_config) + 1
+        }
+
+        /// The first epoch at NV28, so the floors under test are computed with a price list the
+        /// network has actually scheduled.
+        fn first_epoch_at_nv28(chain_config: &ChainConfig) -> ChainEpoch {
+            chain_config.epoch(Height::FireHorse) + 1
+        }
+
+        fn signed_message(gas_limit: u64, signature: Signature) -> SignedMessage {
+            SignedMessage::new_unchecked(
+                Message {
+                    to: Address::new_id(1),
+                    from: Address::new_id(2),
+                    gas_limit,
+                    ..Default::default()
+                },
+                signature,
+            )
+        }
+
+        fn secp_message(gas_limit: u64) -> SignedMessage {
+            signed_message(gas_limit, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
+        }
+
+        /// A state manager whose base tipset resolves to an empty state tree, so validation gets
+        /// past the state load and into the per-message checks.
+        fn empty_state_manager(chain_config: Arc<ChainConfig>) -> (StateManager, Tipset) {
+            let db = Arc::new(MemoryDB::default());
+            let genesis = CachingBlockHeader::new(RawBlockHeader {
+                timestamp: 7777,
+                ..Default::default()
+            });
+            let chain_store = ChainStore::new(db, chain_config, genesis).unwrap();
+            let state_manager = StateManager::new(chain_store).unwrap();
+
+            let state_root = StateTree::new(state_manager.db(), StateTreeVersion::V5)
+                .unwrap()
+                .flush()
+                .unwrap();
+            let base_tipset = state_manager.chain_store().heaviest_tipset();
+            state_manager.insert_executed_tipset(
+                base_tipset.key().clone(),
+                ExecutedTipset {
+                    state_root,
+                    receipt_root: Cid::default(),
+                    executed_messages: Arc::new(vec![]),
+                },
+            );
+            (state_manager, base_tipset)
+        }
+
+        fn block_with(epoch: ChainEpoch, secp_message: SignedMessage) -> Arc<Block> {
+            Arc::new(Block {
+                header: CachingBlockHeader::new(RawBlockHeader {
+                    epoch,
+                    bls_aggregate: Some(Signature::new_bls(vec![0; BLS_SIG_LEN])),
+                    ..Default::default()
+                }),
+                bls_messages: vec![],
+                secp_messages: vec![secp_message],
+            })
+        }
+
+        async fn validate(
+            chain_config: Arc<ChainConfig>,
+            epoch: ChainEpoch,
+            signature: Signature,
+        ) -> TipsetSyncerError {
+            let (state_manager, base_tipset) = empty_state_manager(chain_config);
+            let message = signed_message(u64::from(u32::MAX), signature);
+            check_block_messages(state_manager, block_with(epoch, message), base_tipset)
+                .await
+                .unwrap_err()
+        }
+
+        #[tokio::test]
+        async fn bls_signature_type_is_rejected_in_the_secp_message_list() {
+            let chain_config = chain_config();
+            let epoch = first_epoch_at_nv14(&chain_config);
+            let err = validate(
+                chain_config,
+                epoch,
+                Signature::new_bls(vec![0; BLS_SIG_LEN]),
+            )
+            .await;
+            assert!(
+                matches!(
+                    err,
+                    TipsetSyncerError::SecpSignatureTypeInvalid(0, SignatureType::Bls)
+                ),
+                "got: {err}"
+            );
+        }
+
+        #[tokio::test]
+        async fn secp256k1_signature_type_passes_the_guard() {
+            let chain_config = chain_config();
+            let epoch = first_epoch_at_nv14(&chain_config);
+            let err = validate(
+                chain_config,
+                epoch,
+                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+            )
+            .await;
+            assert!(
+                !matches!(err, TipsetSyncerError::SecpSignatureTypeInvalid(..)),
+                "the guard must not fire, got: {err}"
+            );
+        }
+
+        /// The guard only applies from NV14 onwards, so earlier blocks must keep validating.
+        #[tokio::test]
+        async fn signature_type_is_not_checked_before_nv14() {
+            let chain_config = chain_config();
+            let epoch = last_epoch_before_nv14(&chain_config);
+            let err = validate(
+                chain_config,
+                epoch,
+                Signature::new_bls(vec![0; BLS_SIG_LEN]),
+            )
+            .await;
+            assert!(
+                !matches!(err, TipsetSyncerError::SecpSignatureTypeInvalid(..)),
+                "the guard must not fire, got: {err}"
+            );
+        }
+
+        /// The floor a SECP message must clear is charged over its signed encoding, so a block
+        /// carrying a message that only pays for the unsigned encoding must be rejected.
+        #[tokio::test]
+        async fn secp_gas_floor_is_charged_over_the_signed_encoding() {
+            let (state_manager, base_tipset) = empty_state_manager(chain_config());
+            let epoch = first_epoch_at_nv28(state_manager.chain_config());
+            let price_list =
+                price_list_by_network_version(state_manager.chain_config().network_version(epoch));
+            let floor = |length| price_list.on_chain_message(length).total().round_up();
+
+            let placeholder = secp_message(GAS_LIMIT_PLACEHOLDER);
+            let signed_floor = floor(placeholder.chain_length().unwrap());
+            let unsigned_floor = floor(placeholder.vm_message().chain_length().unwrap());
+            assert!(signed_floor > unsigned_floor);
+
+            let underpaying = secp_message(unsigned_floor);
+            let paying = secp_message(signed_floor);
+            for message in [&underpaying, &paying] {
+                assert_eq!(
+                    message.chain_length().unwrap(),
+                    placeholder.chain_length().unwrap(),
+                    "the gas floors must be exact for the messages they are applied to"
+                );
+            }
+
+            let err = check_block_messages(
+                state_manager.shallow_clone(),
+                block_with(epoch, underpaying),
+                base_tipset.shallow_clone(),
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                err.to_string().contains("less than cost"),
+                "a gas limit covering only the unsigned encoding must be rejected, got: {err}"
+            );
+
+            let err = check_block_messages(state_manager, block_with(epoch, paying), base_tipset)
+                .await
+                .unwrap_err();
+            assert!(
+                err.to_string().contains("Actor does not exist in state"),
+                "a gas limit covering the signed encoding must clear the floor, got: {err}"
+            );
+        }
     }
 }
