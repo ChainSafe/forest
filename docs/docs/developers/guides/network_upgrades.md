@@ -129,7 +129,7 @@ Create the discussion as soon as the upgrade schedule is known, before the calib
 
 - A link to the upstream post with the upgrade scope and dates (the Core Devs planning discussion, or the final Filecoin community post it points to).
 - The timeline: Forest releases and upgrade dates for calibnet and mainnet, with the upgrade epochs and UTC times. Mark the dates that are not final as tentative.
-- Hardware requirements: state migration duration and peak `RSS` for calibnet and mainnet, measured with `forest-tool shed migrate-state` as described in the [state migration guide](./state_migration_guide.md). Do not reuse the numbers from the previous upgrade.
+- Hardware requirements: state migration duration and peak `RSS` for calibnet and mainnet, measured with `forest-tool shed migrate-state` as described in the state migration guide's [performance considerations](./state_migration_guide.md#performance-considerations). Do not reuse the numbers from the previous upgrade.
 - A link to the [network upgrades knowledge base page](https://docs.forest.chainsafe.io/knowledge_base/network_upgrades_state_migrations/).
 
 Update the announcement as the remaining details are confirmed, such as the mainnet dates.
