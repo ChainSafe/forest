@@ -25,3 +25,5 @@ tests:
     - 3007295
     # FireHorse state migration with FVM@4
     - 3694535
+    # Solstice state migration with FVM@4
+    - 4109134
