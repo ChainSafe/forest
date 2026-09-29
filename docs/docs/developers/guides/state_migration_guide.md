@@ -211,61 +211,9 @@ upgrade height.
 forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot <SNAPSHOT>
 ```
 
-### Test first development
-
-When the Go migration code to translate from is large (e.g., NV17), it makes
-development much easier to be able to attach debuggers. Follow below steps to
-create simple unit tests for both Rust and Go with real calibnet or mainnet data
-and attach debuggers when needed during development.
-
-- Get input state CID. Run
-  `forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot <SNAPSHOT>`,
-  the input state CID will be in the failure messages `Previous state: <CID>`.
-  And the expected output state CID can be found in state mismatch error
-  messages.
-- Export input state by running
-  `forest-cli state fetch <PREVIOUS_STATE_CID> <PREVIOUS_STATE_CID>.car`
-- Compress the car file by running `zstd <PREVIOUS_STATE_CID>.car`
-- Move the compressed car file to data folder `src/state_migration/tests/data`
-- Create a Rust test in `src/state_migration/tests/mod.rs`. Note: the output CID
-  does not need to be correct to attach a debugger during development.
-
-  Example test for NV17 on calibnet:
-
-  ```rust
-  #[tokio::test]
-  async fn test_nv17_state_migration_calibnet() -> Result<()> {
-      test_state_migration(
-          Height::Shark,
-          NetworkChain::Calibnet,
-          Cid::from_str("bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg")?,
-          Cid::from_str("bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4")?,
-      )
-      .await
-  }
-  ```
-
-- Create a Go test in `src/state_migration/go-test/state_migration_test.go`.
-  Note: `newManifestCid` is the bundle CID, epoch is the height that migration
-  happens.
-
-  Example test for NV17 on calibnet:
-
-  ```go
-  func TestStateMigrationNV17(t *testing.T) {
-    startRoot := cid.MustParse("bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg")
-    newManifestCid := cid.MustParse("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy")
-    epoch := abi.ChainEpoch(16800)
-
-    bs := migration9Test.NewSyncBlockStoreInMemory()
-    ctx := context.Background()
-
-    loadCar(t, ctx, bs, fmt.Sprintf("%s/.local/share/forest/bundles/calibnet/bundle_Shark.car", os.Getenv("HOME")))
-    loadCompressedCar(t, ctx, bs, fmt.Sprintf("../data/%s.car.zst", startRoot))
-
-    runStateMigration(t, ctx, cbor.NewCborStore(bs), startRoot, newManifestCid, epoch)
-  }
-  ```
+Once the upgrade has happened, add a state compute test for the epoch right after
+the upgrade to `src/state_manager/state_compute_tests.yaml`, so the migration
+stays covered in CI.
 
 ### Performance considerations
 
