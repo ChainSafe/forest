@@ -203,7 +203,7 @@ Forest RPC endpoint: `http://localhost:2345/rpc/v1`
 
 ### Deployed Contracts
 
-A [Tracer](https://github.com/ChainSafe/forest/blob/963237708137e9c7388c57eba39a2f8bf12ace74/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is `pre-deployed` on Calibnet and Mainnet for testing. You can send transactions to these contracts and then trace them.
+A [Tracer](https://github.com/ChainSafe/forest/blob/3846eb2627d55dc44621c2bf0ffc3d334e5931d4/src/tool/subcommands/api_cmd/contracts/tracer/Tracer.sol) contract is `pre-deployed` on Calibnet and Mainnet for testing. You can send transactions to these contracts and then trace them.
 
 | Network  | Contract Address                                                                                                                      |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |

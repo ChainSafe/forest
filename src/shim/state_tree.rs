@@ -7,7 +7,10 @@ use crate::{
     networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata},
     prelude::*,
     shim::{
-        actors::{AccountActorStateLoad as _, account},
+        actors::{
+            AccountActorStateLoad as _, account,
+            convert::{from_token_v3_to_v4, from_token_v4_to_v2, from_token_v4_to_v3},
+        },
         address::Address,
         econ::TokenAmount,
     },
@@ -483,21 +486,21 @@ impl From<ActorStateV2> for ActorState {
 
 impl From<ActorStateV3> for ActorState {
     fn from(value: ActorStateV3) -> Self {
-        Self(ActorState_latest {
-            code: value.code,
-            state: value.state,
-            sequence: value.sequence,
-            balance: TokenAmount::from(value.balance).into(),
-            delegated_address: value
-                .delegated_address
-                .map(|addr| Address::from(addr).into()),
-        })
+        (&value).into()
     }
 }
 
 impl From<&ActorStateV3> for ActorState {
     fn from(value: &ActorStateV3) -> Self {
-        value.clone().into()
+        Self(ActorState_latest {
+            code: value.code,
+            state: value.state,
+            sequence: value.sequence,
+            balance: from_token_v3_to_v4(&value.balance),
+            delegated_address: value
+                .delegated_address
+                .map(|addr| Address::from(addr).into()),
+        })
     }
 }
 
@@ -515,12 +518,7 @@ impl From<&ActorStateV4> for ActorState {
 
 impl From<ActorState> for ActorStateV2 {
     fn from(other: ActorState) -> ActorStateV2 {
-        Self {
-            code: other.code,
-            state: other.state,
-            sequence: other.sequence,
-            balance: TokenAmount::from(&other.balance).into(),
-        }
+        (&other).into()
     }
 }
 
@@ -530,7 +528,7 @@ impl From<&ActorState> for ActorStateV2 {
             code: other.code,
             state: other.state,
             sequence: other.sequence,
-            balance: TokenAmount::from(&other.balance).into(),
+            balance: from_token_v4_to_v2(&other.balance),
         }
     }
 }
@@ -541,7 +539,7 @@ impl From<ActorState> for ActorStateV3 {
             code: other.code,
             state: other.state,
             sequence: other.sequence,
-            balance: TokenAmount::from(&other.balance).into(),
+            balance: from_token_v4_to_v3(&other.balance),
             delegated_address: other
                 .delegated_address
                 .map(|addr| Address::from(addr).into()),
@@ -557,12 +555,13 @@ impl From<ActorState> for ActorStateV4 {
 
 #[cfg(test)]
 mod tests {
-    use super::StateTree;
+    use super::{ActorState, ActorStateV2, ActorStateV3, StateTree};
     use crate::blocks::CachingBlockHeader;
     use crate::db::car::AnyCar;
     use crate::networks::{calibnet, mainnet};
     use crate::shim::actors::init;
     use cid::Cid;
+    use quickcheck_macros::quickcheck;
     use std::sync::Arc;
 
     // refactored from `StateManager::get_network_name`
@@ -591,5 +590,17 @@ mod tests {
             get_network_name(mainnet::DEFAULT_GENESIS, *mainnet::GENESIS_CID),
             "testnetnet"
         );
+    }
+
+    #[quickcheck]
+    fn actor_state_v2_roundtrip_drops_delegated_address(state: ActorState) {
+        let mut expected = state.clone();
+        expected.delegated_address = None;
+        assert_eq!(ActorState::from(ActorStateV2::from(&state)), expected);
+    }
+
+    #[quickcheck]
+    fn actor_state_v3_roundtrip(state: ActorState) {
+        assert_eq!(ActorState::from(ActorStateV3::from(state.clone())), state);
     }
 }

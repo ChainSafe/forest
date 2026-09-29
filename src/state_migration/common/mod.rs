@@ -63,6 +63,20 @@ pub(in crate::state_migration) struct ActorMigrationInput {
     pub cache: MigrationCache,
 }
 
+#[cfg(test)]
+impl ActorMigrationInput {
+    /// Input for migrating one actor head in unit tests; the other fields are placeholders.
+    pub(in crate::state_migration) fn for_head(head: Cid) -> Self {
+        Self {
+            address: Address::new_id(0),
+            balance: TokenAmount::default(),
+            head,
+            prior_epoch: 0,
+            cache: MigrationCache::new(nonzero_ext::nonzero!(1usize)),
+        }
+    }
+}
+
 /// Output of actor migration job.
 pub(in crate::state_migration) struct ActorMigrationOutput {
     /// New CID for the actor

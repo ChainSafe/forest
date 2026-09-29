@@ -432,6 +432,13 @@ impl StateManager {
         &self.cs
     }
 
+    /// Seeds the executed-tipset cache so that a test can validate against a state root it built
+    /// itself, instead of executing a tipset.
+    #[cfg(test)]
+    pub(crate) fn insert_executed_tipset(&self, key: TipsetKey, executed: ExecutedTipset) {
+        self.cache.insert(key, executed);
+    }
+
     /// Returns reference to the state manager's [`ChainIndex`].
     pub fn chain_index(&self) -> &ChainIndex {
         self.cs.chain_index()
