@@ -71,7 +71,7 @@ use crate::state_manager::{
 };
 use crate::utils::cache::SizeTrackingCache;
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::misc::env::{env_or_default, env_or_default_logged};
+use crate::utils::misc::env::env_or_default;
 use crate::utils::multihash::prelude::*;
 use ahash::{HashMap, HashSet};
 use anyhow::{Error, Result, anyhow, bail, ensure};
@@ -3613,9 +3613,8 @@ impl RpcMethod<1> for EthTraceBlock {
         let ts = resolver
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
-        eth_trace_block(&ctx.state_manager, &ts, CallSource::External)
-            .await
-            .map(NotNullVec)
+        let txs = eth_tipset_traces(&ctx.state_manager, &ts, CallSource::External).await?;
+        Ok(NotNullVec(to_block_traces(&ts, txs.iter())?))
     }
 }
 
@@ -3674,48 +3673,42 @@ fn non_system_traces_with_positions(
         .map(|(idx, ir)| (idx as i64, ir))
 }
 
-/// Builds the Parity-style block traces for `ts`, caching the result by tipset.
+/// Builds the per-transaction Ethereum traces for `ts`, caching the result by tipset.
 /// Unlike [`StateManager::execution_trace`], this also caches the tx-hash
 /// lookups and parity-trace construction.
-pub(crate) async fn eth_trace_block(
+pub(crate) async fn eth_tipset_traces(
     state_manager: &StateManager,
     ts: &Tipset,
     source: CallSource,
-) -> Result<Vec<EthBlockTrace>, ServerError> {
-    const DEFAULT_ETH_TRACE_BLOCK_CACHE_SIZE: NonZeroUsize = nonzero!(64usize); // 0.04 to 0.4 MiB per entry measured, so ~3 to 25 MiB
-    static ETH_TRACE_BLOCK_CACHE: LazyLock<SizeTrackingCache<CidWrapper, Arc<Vec<EthBlockTrace>>>> =
-        LazyLock::new(|| {
-            SizeTrackingCache::new_with_metrics(
-                "eth_trace_block",
-                env_or_default_logged(
-                    "FOREST_ETH_TRACE_BLOCK_CACHE_SIZE",
-                    DEFAULT_ETH_TRACE_BLOCK_CACHE_SIZE,
-                ),
-            )
-        });
-
-    let block_cid = ts.key().cid()?;
-    let traces = ETH_TRACE_BLOCK_CACHE
-        .get_or_insert_async(&CidWrapper::from(block_cid), async move {
+) -> Result<Arc<Vec<EthTxTraces>>, ServerError> {
+    state_manager
+        .eth_trace_cache()
+        .get_or_insert_async(ts.key(), async move {
             let (state, entries) = execute_tipset_traces(state_manager, ts, source).await?;
-            let block_hash: EthHash = block_cid.into();
-            let mut all_traces = vec![];
-
-            for entry in entries {
-                for trace in entry.build_parity_traces(&state)? {
-                    all_traces.push(EthBlockTrace {
-                        trace,
-                        block_hash,
-                        block_number: ts.epoch(),
-                        transaction_hash: entry.tx_hash,
-                        transaction_position: entry.msg_position,
-                    });
-                }
-            }
-            anyhow::Ok(Arc::new(all_traces))
+            entries
+                .into_iter()
+                .map(|entry| {
+                    Ok(EthTxTraces {
+                        traces: entry.build_parity_traces(&state)?,
+                        tx_hash: entry.tx_hash,
+                        msg_position: entry.msg_position,
+                    })
+                })
+                .collect::<Result<Vec<_>, ServerError>>()
+                .map(Arc::new)
         })
-        .await?;
-    Ok(Arc::unwrap_or_clone(traces))
+        .await
+}
+
+/// Flattens the traces of `txs`, all belonging to `ts`, into block traces.
+fn to_block_traces<'a>(
+    ts: &Tipset,
+    txs: impl Iterator<Item = &'a EthTxTraces>,
+) -> Result<Vec<EthBlockTrace>> {
+    let block_hash: EthHash = ts.key().cid()?.into();
+    Ok(txs
+        .flat_map(|tx| tx.block_traces(block_hash, ts.epoch()))
+        .collect_vec())
 }
 
 pub enum EthDebugTraceTransaction {}
@@ -4045,11 +4038,8 @@ impl RpcMethod<1> for EthTraceTransaction {
             .tipset_by_block_number_or_hash(eth_txn.block_number, ResolveNullTipset::TakeOlder)
             .await?;
 
-        let traces = eth_trace_block(&ctx.state_manager, &ts, CallSource::External)
-            .await?
-            .into_iter()
-            .filter(|trace| trace.transaction_hash == eth_hash)
-            .collect();
+        let txs = eth_tipset_traces(&ctx.state_manager, &ts, CallSource::External).await?;
+        let traces = to_block_traces(&ts, txs.iter().filter(|tx| tx.tx_hash == eth_hash))?;
         Ok(NotNullVec(traces))
     }
 }
@@ -4085,30 +4075,17 @@ impl RpcMethod<2> for EthTraceReplayBlockTransactions {
             .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
 
-        eth_trace_replay_block_transactions(&ctx, &ts, CallSource::External)
-            .await
-            .map(NotNullVec)
+        let txs = eth_tipset_traces(&ctx.state_manager, &ts, CallSource::External).await?;
+        Ok(NotNullVec(
+            txs.iter()
+                .map(|tx| EthReplayBlockTransactionTrace {
+                    full_trace: EthTraceResults::from_parity_traces(tx.traces.clone()),
+                    transaction_hash: tx.tx_hash,
+                    vm_trace: None,
+                })
+                .collect_vec(),
+        ))
     }
-}
-
-async fn eth_trace_replay_block_transactions(
-    ctx: &Ctx,
-    ts: &Tipset,
-    source: CallSource,
-) -> Result<Vec<EthReplayBlockTransactionTrace>, ServerError> {
-    let (state, entries) = execute_tipset_traces(&ctx.state_manager, ts, source).await?;
-
-    let mut all_traces = vec![];
-    for entry in entries {
-        let traces = entry.build_parity_traces(&state)?;
-        all_traces.push(EthReplayBlockTransactionTrace {
-            full_trace: EthTraceResults::from_parity_traces(traces),
-            transaction_hash: entry.tx_hash,
-            vm_trace: None,
-        });
-    }
-
-    Ok(all_traces)
 }
 
 async fn get_eth_block_number_from_string(

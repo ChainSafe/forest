@@ -620,6 +620,31 @@ pub struct EthBlockTrace {
 }
 lotus_json_with_self!(EthBlockTrace);
 
+/// Ethereum traces of a single non-system transaction in a tipset.
+#[derive(Debug, GetSize)]
+pub struct EthTxTraces {
+    pub tx_hash: EthHash,
+    pub msg_position: i64,
+    pub traces: Vec<EthTrace>,
+}
+
+impl EthTxTraces {
+    /// Expands into [`EthBlockTrace`]s tagged with the given block hash and number.
+    pub fn block_traces(
+        &self,
+        block_hash: EthHash,
+        block_number: i64,
+    ) -> impl Iterator<Item = EthBlockTrace> {
+        self.traces.iter().map(move |trace| EthBlockTrace {
+            trace: trace.clone(),
+            block_hash,
+            block_number,
+            transaction_hash: self.tx_hash,
+            transaction_position: self.msg_position,
+        })
+    }
+}
+
 impl EthBlockTrace {
     pub fn sort_key(&self) -> (i64, i64, &[i64]) {
         (
