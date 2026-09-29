@@ -218,9 +218,6 @@ fn run_migration_once<DB: Blockstore>(
 }
 
 #[cfg(test)]
-mod tests;
-
-#[cfg(test)]
 mod run_migration_once_tests {
     use super::*;
     use crate::db::MemoryDB;
