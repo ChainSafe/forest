@@ -37,23 +37,21 @@ impl ShallowClone for ChainRand {
 }
 
 impl ChainRand {
-    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
-    /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
-    pub async fn get_chain_randomness(
-        &self,
-        round: ChainEpoch,
-        resolve: ResolveNullTipset,
-    ) -> anyhow::Result<[u8; 32]> {
+    /// Non-blocking version of [`Self::get_chain_randomness_blocking`]
+    pub async fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         let this = self.shallow_clone();
-        tokio::task::spawn_blocking(move || this.get_chain_randomness_blocking(round, resolve))
-            .await?
+        tokio::task::spawn_blocking(move || this.get_chain_randomness_blocking(round)).await?
     }
 
-    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
-    /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
-    /// This call can be expensive and blocking, use [`Self::get_chain_randomness`]
-    /// in async contexts to avoid exhausting Tokio worker threads.
-    pub fn get_chain_randomness_blocking(
+    /// Randomness from the ticket of the tipset at `round`, resolving null
+    /// rounds by network version:
+    /// <https://github.com/filecoin-project/lotus/blob/v1.36.0/chain/rand/rand.go#L182-L190>
+    pub fn get_chain_randomness_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
+        let resolve = Self::null_round_resolution(self.chain_config.network_version(round));
+        self.chain_randomness_blocking(round, resolve)
+    }
+
+    fn chain_randomness_blocking(
         &self,
         round: ChainEpoch,
         resolve: ResolveNullTipset,
@@ -79,9 +77,12 @@ impl ChainRand {
         ))
     }
 
-    /// network version 13 onward
-    pub fn get_chain_randomness_v2_blocking(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness_blocking(round, ResolveNullTipset::TakeNewer)
+    fn null_round_resolution(network_version: NetworkVersion) -> ResolveNullTipset {
+        if network_version < NetworkVersion::V13 {
+            ResolveNullTipset::TakeOlder
+        } else {
+            ResolveNullTipset::TakeNewer
+        }
     }
 
     /// Randomness from the beacon entry that was used for `round`
@@ -105,12 +106,7 @@ impl ChainRand {
             return self.beacon_entry_for_epoch_post_nv14(epoch, network_version);
         }
 
-        let resolve = if network_version < NetworkVersion::V13 {
-            ResolveNullTipset::TakeOlder
-        } else {
-            ResolveNullTipset::TakeNewer
-        };
-        self.latest_beacon_entry_for_epoch(epoch, resolve)
+        self.latest_beacon_entry_for_epoch(epoch, Self::null_round_resolution(network_version))
     }
 
     /// Returns the latest beacon entry included in the tipset at `epoch`, walking
@@ -181,14 +177,13 @@ impl ChainRand {
 impl Rand for ChainRand {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
-        self.get_chain_randomness_v2_blocking(round)
-            .inspect_err(|e| {
-                tracing::warn!(
-                    "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
-                    self.tipset.epoch(),
-                    self.tipset.key()
-                );
-            })
+        self.get_chain_randomness_blocking(round).inspect_err(|e| {
+            tracing::warn!(
+                "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                self.tipset.epoch(),
+                self.tipset.key()
+            );
+        })
     }
 
     fn get_beacon_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
@@ -348,5 +343,33 @@ mod tests {
             .expect("resolves through the null run");
 
         assert_eq!(entry.round(), expected_round);
+    }
+
+    // https://github.com/filecoin-project/lotus/blob/70e807ea17bddeec4e5551540f345e2dee28d53e/chain/rand/rand_test.go#L27
+    #[rstest]
+    #[case::before_nv13(None, BEFORE_NULLS)]
+    #[case::from_nv13(Some(make_height!(Hyperdrive, 0)), AFTER_NULLS)]
+    fn null_round_chain_randomness(
+        #[case] upgrade: Option<(Height, HeightInfo)>,
+        #[case] expected_epoch: ChainEpoch,
+    ) {
+        let chain = chain_with_null_rounds();
+        let expected = digest(
+            chain
+                .iter()
+                .find(|ts| ts.epoch() == expected_epoch)
+                .expect("tipset in chain")
+                .min_ticket()
+                .expect("ticket")
+                .vrfproof
+                .as_bytes(),
+        );
+        let beacon = BeaconSchedule(vec![BeaconPoint::new(0, MockBeacon::default())]);
+
+        let got = chain_rand(chain_config_with_upgrade(upgrade), beacon, &chain)
+            .get_chain_randomness_blocking(NULL_EPOCH)
+            .expect("resolves through the null run");
+
+        assert_eq!(got, expected);
     }
 }
