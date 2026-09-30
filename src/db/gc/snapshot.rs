@@ -37,7 +37,7 @@
 //!
 
 use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{ChainStore, ExportOptions};
+use crate::chain::{ChainStore, ExportOptions, MissingRecentRoot};
 use crate::chain_sync::ChainFollower;
 use crate::cid_collections::{CidHashSet, FileBackedCidHashSet};
 use crate::cli_shared::chain_path;
@@ -301,7 +301,14 @@ impl SnapshotGarbageCollector {
         chain_export_guard
             .run_cancellable(state_compute_and_export)
             .await
-            .context("snapshot GC export was cancelled")??;
+            .context("snapshot GC export was cancelled")?
+            .map_err(|e| {
+                if e.is::<MissingRecentRoot>() {
+                    e.context("lower FOREST_SNAPSHOT_GC_KEEP_STATE_TREE_EPOCHS or wait until the node has synced enough recent roots")
+                } else {
+                    e
+                }
+            })?;
         let target_path = self.car_db_dir.join(format!(
             "lite_{}_{}.forest.car.zst",
             self.recent_state_roots,
