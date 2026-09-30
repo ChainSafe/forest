@@ -20,7 +20,7 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 /// Serves recorded `mainnet` and `quicknet` responses, so no test below reaches a public
-/// relay. Using fixtures so chain info and signature verification is matches the real networks'.
+/// relay. Chain info and signatures are recorded from the real networks, so verification is real.
 static FAKE_DRAND: LazyLock<FakeDrandServer> = LazyLock::new(|| {
     FakeDrandServer::start(vec![FakeDrandChain::mainnet(), FakeDrandChain::quicknet()])
 });
