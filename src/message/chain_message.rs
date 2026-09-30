@@ -5,10 +5,8 @@ use super::*;
 use crate::message::signed_message::SignedMessage;
 use crate::shim::address::Protocol;
 use crate::shim::crypto::{SECP_SIG_LEN, Signature, SignatureType};
-use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use ambassador::Delegate;
-use fvm_ipld_encoding::RawBytes;
 use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 use spire_enum::prelude::delegated_enum;
@@ -106,11 +104,10 @@ mod tests {
     use super::*;
 
     fn dummy_msg() -> Message {
-        Message {
-            from: Address::new_id(2),
-            to: Address::new_id(1),
-            ..Default::default()
-        }
+        Message::builder()
+            .from(Address::new_id(2))
+            .to(Address::new_id(1))
+            .build()
     }
 
     #[track_caller]

@@ -404,18 +404,18 @@ impl TryFrom<EthCallMessage> for Message {
                 EAMMethod::CreateExternal as MethodNum,
             )
         };
-        Ok(Message {
-            from,
-            to,
-            value: tx.value.unwrap_or_default().into(),
-            method_num,
-            params,
-            gas_limit: match tx.gas {
-                Some(EthUint64(gas)) if gas > 0 => gas.min(BLOCK_GAS_LIMIT),
-                _ => BLOCK_GAS_LIMIT,
-            },
-            ..Default::default()
-        })
+        let gas_limit = match tx.gas {
+            Some(EthUint64(gas)) if gas > 0 => gas.min(BLOCK_GAS_LIMIT),
+            _ => BLOCK_GAS_LIMIT,
+        };
+        Ok(Message::builder()
+            .from(from)
+            .to(to)
+            .value(tx.value.unwrap_or_default().into())
+            .method_num(method_num)
+            .params(params)
+            .gas_limit(gas_limit)
+            .build())
     }
 }
 
@@ -657,7 +657,7 @@ mod tests {
                 ..Default::default()
             })
             .unwrap()
-            .gas_limit
+            .gas_limit()
         };
         assert_eq!(gas_limit(None), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(0)), BLOCK_GAS_LIMIT);
