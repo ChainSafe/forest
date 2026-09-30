@@ -13,10 +13,32 @@ use axum::{
 use std::sync::Arc;
 use url::Url;
 
-/// One `drand` chain served by a [`MockDrandServer`], keyed by `info.hash` like a real relay.
-pub struct MockDrandChain {
+/// One `drand` chain served by a [`FakeDrandServer`], keyed by `info.hash` like a real relay.
+pub struct FakeDrandChain {
     pub info: ChainInfo<'static>,
     pub entries: Vec<serde_json::Value>,
+}
+
+/// On-disk shape of `fixtures/drand_*.json`.
+#[derive(serde::Deserialize)]
+struct Fixture {
+    info: ChainInfo<'static>,
+    entries: Vec<serde_json::Value>,
+}
+
+impl FakeDrandChain {
+    pub fn from_fixture(json: &str) -> Self {
+        let Fixture { info, entries } = serde_json::from_str(json).expect("valid drand fixture");
+        Self { info, entries }
+    }
+
+    pub fn mainnet() -> Self {
+        Self::from_fixture(include_str!("fixtures/drand_mainnet.json"))
+    }
+
+    pub fn quicknet() -> Self {
+        Self::from_fixture(include_str!("fixtures/drand_quicknet.json"))
+    }
 }
 
 struct Chain {
@@ -29,12 +51,12 @@ type Chains = Arc<HashMap<String, Chain>>;
 /// Serves the subset of the `drand` HTTP API that [`crate::beacon::DrandBeacon`] uses
 /// (`/{hash}/info` and `/{hash}/public/{round}`) from in-memory documents on a random
 /// localhost port. Unknown chains and rounds answer `404`, as the public relays do.
-pub struct MockDrandServer {
+pub struct FakeDrandServer {
     url: Url,
 }
 
-impl MockDrandServer {
-    pub fn start(chains: Vec<MockDrandChain>) -> Self {
+impl FakeDrandServer {
+    pub fn start(chains: Vec<FakeDrandChain>) -> Self {
         let chains: Chains = Arc::new(
             chains
                 .into_iter()
@@ -46,7 +68,7 @@ impl MockDrandServer {
                             let round = entry
                                 .get("round")
                                 .and_then(serde_json::Value::as_u64)
-                                .expect("mock drand entry must carry a numeric `round`");
+                                .expect("fake drand entry must carry a numeric `round`");
                             (round, entry)
                         })
                         .collect();
@@ -62,27 +84,29 @@ impl MockDrandServer {
             .route("/{hash}/public/{round}", get(public_round))
             .with_state(chains);
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind mock drand server");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind fake drand server");
         listener
             .set_nonblocking(true)
-            .expect("set mock drand listener non-blocking");
-        let addr = listener.local_addr().expect("mock drand server address");
+            .expect("set fake drand listener non-blocking");
+        let addr = listener.local_addr().expect("fake drand server address");
 
         std::thread::spawn(move || {
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .expect("build mock drand server runtime")
+                .expect("build fake drand server runtime")
                 .block_on(async move {
                     let listener = tokio::net::TcpListener::from_std(listener)
-                        .expect("adopt mock drand listener");
+                        .expect("adopt fake drand listener");
                     axum::serve(listener, router)
                         .await
-                        .expect("mock drand server exited");
+                        .expect("fake drand server exited");
                 });
         });
 
-        Self { url: Url::parse(&format!("http://{addr}/")).expect("mock drand server url"), }
+        Self {
+            url: Url::parse(&format!("http://{addr}/")).expect("fake drand server url"),
+        }
     }
 
     pub fn url(&self) -> &Url {
@@ -136,14 +160,14 @@ mod tests {
         })
     }
 
-    fn start() -> MockDrandServer {
-        MockDrandServer::start(vec![MockDrandChain {
+    fn start() -> FakeDrandServer {
+        FakeDrandServer::start(vec![FakeDrandChain {
             info: chain_info(),
             entries: vec![round_json(1), round_json(2)],
         }])
     }
 
-    async fn get(server: &MockDrandServer, path: &str) -> reqwest::Response {
+    async fn get(server: &FakeDrandServer, path: &str) -> reqwest::Response {
         global_http_client()
             .get(server.url().join(path).unwrap())
             .send()
@@ -153,7 +177,7 @@ mod tests {
 
     #[tokio::test]
     async fn serves_chain_info() {
-        let server: MockDrandServer = start();
+        let server: FakeDrandServer = start();
         let resp = get(&server, &format!("{HASH}/info")).await;
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(resp.json::<ChainInfo>().await.unwrap(), chain_info());
@@ -179,5 +203,34 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let resp = get(&server, "deadbeef/info").await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    fn rounds(chain: &FakeDrandChain) -> Vec<u64> {
+        chain
+            .entries
+            .iter()
+            .map(|e| e.get("round").and_then(serde_json::Value::as_u64).unwrap())
+            .collect()
+    }
+
+    /// The recorded relay responses must cover exactly the rounds the beacon tests ask for.
+    #[test]
+    fn recorded_mainnet_fixture_covers_tested_rounds() {
+        let chain = FakeDrandChain::mainnet();
+        assert_eq!(
+            chain.info.hash,
+            "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"
+        );
+        assert_eq!(rounds(&chain), [1, 2, 3, 3907446, 3907447]);
+    }
+
+    #[test]
+    fn recorded_quicknet_fixture_covers_tested_rounds() {
+        let chain = FakeDrandChain::quicknet();
+        assert_eq!(chain.info.hash, HASH);
+        assert_eq!(
+            rounds(&chain),
+            [1, 2, 3, 30662982, 30662990, 30662992, 30663002]
+        );
     }
 }
