@@ -3,7 +3,11 @@
 
 use super::*;
 
-use crate::shim::{address::Address, econ::TokenAmount, message::Message};
+use crate::shim::{
+    address::Address,
+    econ::TokenAmount,
+    message::{Message, Message_v4},
+};
 use fvm_ipld_encoding::RawBytes;
 use ::cid::Cid;
 
@@ -73,8 +77,9 @@ impl HasLotusJson for Message {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let cid = self.cid();
-        let Self {
+        let cid = Some(self.cid());
+        // The only lossless way to take a `Message` apart by value from outside its module.
+        let Message_v4 {
             version,
             from,
             to,
@@ -85,19 +90,19 @@ impl HasLotusJson for Message {
             gas_limit,
             gas_fee_cap,
             gas_premium,
-        } = self;
+        } = self.into();
         Self::LotusJson {
             version,
-            to,
-            from,
+            to: to.into(),
+            from: from.into(),
             nonce: sequence,
-            value,
+            value: value.into(),
             gas_limit,
-            gas_fee_cap,
-            gas_premium,
+            gas_fee_cap: gas_fee_cap.into(),
+            gas_premium: gas_premium.into(),
             method: method_num,
             params,
-            cid: Some(cid),
+            cid,
         }
     }
 
@@ -115,17 +120,17 @@ impl HasLotusJson for Message {
             params,
             cid: _,
         } = lotus_json;
-        Self {
-            version,
-            from,
-            to,
-            sequence: nonce,
-            value,
-            method_num: method,
-            params,
-            gas_limit,
-            gas_fee_cap,
-            gas_premium,
-        }
+        Message::builder()
+            .version(version)
+            .from(from)
+            .to(to)
+            .sequence(nonce)
+            .value(value)
+            .method_num(method)
+            .params(params)
+            .gas_limit(gas_limit)
+            .gas_fee_cap(gas_fee_cap)
+            .gas_premium(gas_premium)
+            .build()
     }
 }

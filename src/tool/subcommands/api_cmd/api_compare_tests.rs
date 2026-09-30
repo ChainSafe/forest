@@ -10,7 +10,7 @@ use crate::chain::ChainStore;
 use crate::db::car::ManyCar;
 use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::HasLotusJson;
-use crate::message::{MessageRead as _, SignedMessage};
+use crate::message::SignedMessage;
 use crate::prelude::*;
 use crate::rpc;
 use crate::rpc::auth::AuthNewParams;
@@ -865,10 +865,7 @@ fn miner_create_block_test(
         .into_iter()
         .map(|message| {
             let sig = priv_key.sign(message.cid().to_bytes());
-            SignedMessage {
-                message,
-                signature: Signature::new_bls(sig.as_bytes().to_vec()),
-            }
+            SignedMessage::new_unchecked(message, Signature::new_bls(sig.as_bytes().to_vec()))
         })
         .collect_vec();
 
@@ -1404,13 +1401,12 @@ fn wallet_tests(worker_address: Option<Address>) -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             WalletSign::request((worker_address, Vec::new())).unwrap(),
         ));
-        let msg: Message = Message {
-            from: worker_address,
-            to: worker_address,
-            value: TokenAmount::from_whole(1),
-            method_num: METHOD_SEND,
-            ..Default::default()
-        };
+        let msg: Message = Message::builder()
+            .from(worker_address)
+            .to(worker_address)
+            .value(TokenAmount::from_whole(1))
+            .method_num(METHOD_SEND)
+            .build();
         tests.push(RpcTest::identity(
             WalletSignMessage::request((worker_address, msg)).unwrap(),
         ));
@@ -1741,12 +1737,11 @@ fn eth_skip_sender_filecoin_gas_limit_tests(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let from = EthAddress::from_str(CALIBNET_EVM_CONTRACT)?.to_filecoin_address()?;
     let to = *KNOWN_CALIBNET_F4_ADDRESS;
-    let message = Message {
-        from,
-        to,
-        method_num: METHOD_SEND,
-        ..Default::default()
-    };
+    let message = Message::builder()
+        .from(from)
+        .to(to)
+        .method_num(METHOD_SEND)
+        .build();
     Ok(vec![
         RpcTest::identity(GasEstimateGasLimit::request((
             message,
@@ -2385,14 +2380,14 @@ fn eth_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 msg.from(),
                 Some(Predefined::Latest.into()),
             ))?)]);
-            if let Ok(eth_to_addr) = EthAddress::try_from(msg.to) {
+            if let Ok(eth_to_addr) = EthAddress::try_from(msg.to()) {
                 for api_path in [ApiPaths::V1, ApiPaths::V2] {
                     tests.extend([RpcTest::identity(
                         EthEstimateGas::request((
                             EthCallMessage {
                                 to: Some(eth_to_addr),
-                                value: Some(msg.value.clone().into()),
-                                data: Some(msg.params.clone().into()),
+                                value: Some(msg.value().clone().into()),
+                                data: Some(msg.params().clone().into()),
                                 ..Default::default()
                             },
                             Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
@@ -2593,8 +2588,8 @@ fn eth_state_tests_with_tipset<DB: Blockstore + ShallowClone>(
             tests.push(RpcTest::identity(EthTraceTransaction::request((tx
                 .hash
                 .to_string(),))?));
-            if smsg.message.from.protocol() == Protocol::Delegated
-                && smsg.message.to.protocol() == Protocol::Delegated
+            if smsg.message().from().protocol() == Protocol::Delegated
+                && smsg.message().to().protocol() == Protocol::Delegated
             {
                 tests.push(
                     RpcTest::identity(EthGetTransactionReceipt::request((tx.hash,))?)
@@ -2628,13 +2623,12 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     // This is a testnet address with a few FILs. The private key has been
     // discarded. If calibnet is reset, a new address should be created.
     let addr = Address::from_str("t15ydyu3d65gznpp2qxwpkjsgz4waubeunn6upvla").unwrap();
-    let message = Message {
-        from: addr,
-        to: addr,
-        value: TokenAmount::from_whole(1),
-        method_num: METHOD_SEND,
-        ..Default::default()
-    };
+    let message = Message::builder()
+        .from(addr)
+        .to(addr)
+        .value(TokenAmount::from_whole(1))
+        .method_num(METHOD_SEND)
+        .build();
 
     vec![
         // The tipset is only used for resolving the 'from' address and not when
@@ -2657,15 +2651,15 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
             |forest_msg, lotus_msg| {
                 // Validate that the gas limit is identical (must be deterministic)
-                if forest_msg.gas_limit != lotus_msg.gas_limit {
+                if forest_msg.gas_limit() != lotus_msg.gas_limit() {
                     return false;
                 }
 
                 // Validate gas fee cap and premium are within reasonable bounds (±5%)
-                let forest_fee_cap = &forest_msg.gas_fee_cap;
-                let lotus_fee_cap = &lotus_msg.gas_fee_cap;
-                let forest_premium = &forest_msg.gas_premium;
-                let lotus_premium = &lotus_msg.gas_premium;
+                let forest_fee_cap = forest_msg.gas_fee_cap();
+                let lotus_fee_cap = lotus_msg.gas_fee_cap();
+                let forest_premium = forest_msg.gas_premium();
+                let lotus_premium = lotus_msg.gas_premium();
 
                 // Gas fee cap and premium should not be negative
                 if [forest_fee_cap, lotus_fee_cap, forest_premium, lotus_premium]

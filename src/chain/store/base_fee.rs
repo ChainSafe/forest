@@ -122,9 +122,9 @@ where
     // Add all unique messages' gas limit to get the total for the Tipset.
     for b in ts.block_headers() {
         let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
-        for m in bls_msgs.iter().chain(secp_msgs.iter().map(|m| &m.message)) {
+        for m in bls_msgs.iter().chain(secp_msgs.iter().map(|m| m.message())) {
             if seen.insert(m.cid()) {
-                total_limit += m.gas_limit;
+                total_limit += m.gas_limit();
             }
         }
     }

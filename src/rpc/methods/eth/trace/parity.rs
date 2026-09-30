@@ -246,7 +246,7 @@ fn trace_call(
                 from: env.caller,
                 to: Some(to),
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
-                value: trace.msg.value.clone().into(),
+                value: (&trace.msg.value).into(),
                 input,
             }),
             result: TraceResult::Call(EthCallTraceResult {
@@ -376,7 +376,7 @@ fn trace_native_create(
             action: TraceAction::Create(EthCreateTraceAction {
                 from: env.caller,
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
-                value: trace.msg.value.clone().into(),
+                value: (&trace.msg.value).into(),
                 // If we get here, this isn't a native EVM create. Those always go through
                 // the EAM. So we have no "real" initcode and must use the sentinel value
                 // for "invalid" initcode.
@@ -496,7 +496,7 @@ fn trace_eth_create(
             action: TraceAction::Create(EthCreateTraceAction {
                 from: env.caller,
                 gas: trace.msg.gas_limit.unwrap_or_default().into(),
-                value: trace.msg.value.clone().into(),
+                value: (&trace.msg.value).into(),
                 init: init_code.into(),
             }),
             result: TraceResult::Create(EthCreateTraceResult {
@@ -587,7 +587,7 @@ fn trace_evm_private(
                         from: env.caller,
                         to: env.last_byte_code,
                         gas: trace.msg.gas_limit.unwrap_or_default().into(),
-                        value: trace.msg.value.clone().into(),
+                        value: (&trace.msg.value).into(),
                         input: dp.input.into(),
                     }),
                     result: TraceResult::Call(EthCallTraceResult {
@@ -621,12 +621,13 @@ impl TipsetTraceEntry {
         &self,
         state: &StateTree<DB>,
     ) -> Result<Vec<EthTrace>, crate::rpc::error::ServerError> {
-        let mut env = super::base_environment(state, &self.invoc_result.msg.from).map_err(|e| {
-            format!(
-                "when processing message {}: {}",
-                self.invoc_result.msg_cid, e
-            )
-        })?;
+        let mut env =
+            super::base_environment(state, &self.invoc_result.msg.from()).map_err(|e| {
+                format!(
+                    "when processing message {}: {}",
+                    self.invoc_result.msg_cid, e
+                )
+            })?;
         if let Some(ref execution_trace) = self.invoc_result.execution_trace {
             build_traces(&mut env, &[], execution_trace.clone())?;
         }
