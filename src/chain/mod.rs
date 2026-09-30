@@ -15,7 +15,7 @@ use crate::chain::index::ChainIndex;
 use crate::cid_collections::{CidHashSet, CidHashSetLike};
 use crate::db::IndexMapBlockstore;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
-use crate::ipld::{IpldStream, stream_chain};
+use crate::ipld::{IpldStream, should_save_block_to_snapshot, stream_chain};
 use crate::prelude::*;
 use crate::shim::executor::Receipt;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
@@ -71,6 +71,65 @@ fn lookup_epoch_limit(
     tipset_epoch
         .checked_sub(lookup_depth)
         .with_context(|| format!("recent roots depth {lookup_depth} is out of range"))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+enum RootKind {
+    #[strum(to_string = "messages")]
+    Messages,
+    #[strum(to_string = "state root")]
+    StateRoot,
+}
+
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "{kind} {cid} at epoch {epoch} is missing, the database does not hold {depth} recent roots"
+)]
+pub(crate) struct MissingRecentRoot {
+    kind: RootKind,
+    cid: Cid,
+    epoch: ChainEpoch,
+    depth: ChainEpochDelta,
+}
+
+/// Fails fast when the oldest tipset an export walks lacks its roots, instead of hours into the export.
+/// Only the roots are checked, as verifying the full trees would cost as much as the export.
+async fn ensure_recent_roots_present(
+    db: &(impl Blockstore + ShallowClone + Send + Sync + 'static),
+    tipset: &Tipset,
+    stateroot_lookup_limit: ChainEpoch,
+) -> anyhow::Result<()> {
+    let db = db.shallow_clone();
+    let tipset = tipset.shallow_clone();
+    let depth = tipset.epoch() - stateroot_lookup_limit;
+    tokio::task::spawn_blocking(move || {
+        let Some(oldest) = tipset
+            .chain(&db)
+            .take_while(|ts| ts.epoch() > stateroot_lookup_limit)
+            .last()
+        else {
+            return Ok(());
+        };
+        let roots = std::iter::once((RootKind::StateRoot, *oldest.parent_state())).chain(
+            oldest
+                .block_headers()
+                .iter()
+                .map(|b| (RootKind::Messages, b.messages)),
+        );
+        for (kind, cid) in roots {
+            if should_save_block_to_snapshot(cid) && !db.has(&cid)? {
+                return Err(MissingRecentRoot {
+                    kind,
+                    cid,
+                    epoch: oldest.epoch(),
+                    depth,
+                }
+                .into());
+            }
+        }
+        Ok(())
+    })
+    .await?
 }
 
 /// Exports a Filecoin snapshot in v1 format
@@ -181,6 +240,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
     );
 
     let stateroot_lookup_limit = lookup_epoch_limit(tipset.epoch(), lookup_depth)?;
+    ensure_recent_roots_present(db, tipset, stateroot_lookup_limit).await?;
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
