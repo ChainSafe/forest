@@ -3079,7 +3079,7 @@ async fn get_eth_transaction_receipt(
         Ok(Some(found)) => found,
         Ok(None) => return Ok(None),
         Err(e) => {
-            tracing::debug!("could not find transaction receipt for hash {tx_hash}: {e}");
+            tracing::debug!("could not find transaction receipt for hash {tx_hash}: {e:#}");
             return Ok(None);
         }
     };

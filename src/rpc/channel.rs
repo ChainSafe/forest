@@ -381,12 +381,12 @@ impl RpcModule {
                                         match create_notif_message(&sink, &msg) {
                                             Ok(msg) => {
                                                 if let Err(e) = sink.send(msg).await {
-                                                    tracing::error!("Failed to send message: {:?}", e);
+                                                    tracing::error!("Failed to send message: {e}");
                                                     break;
                                                 }
                                             }
                                             Err(e) => {
-                                                tracing::error!("Failed to serialize channel message: {:?}", e);
+                                                tracing::error!("Failed to serialize channel message: {e:#}");
                                                 break;
                                             }
                                         }

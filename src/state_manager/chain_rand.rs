@@ -179,7 +179,7 @@ impl Rand for ChainRand {
         // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
         self.get_chain_randomness_blocking(round).inspect_err(|e| {
             tracing::warn!(
-                "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                "get_chain_randomness failed, round: {round}, ts@{}: {}, error: {e:#}",
                 self.tipset.epoch(),
                 self.tipset.key()
             );
@@ -190,7 +190,7 @@ impl Rand for ChainRand {
         // Inspect and log errors as this is only called in `FVM` and errors are not propagated to the caller
         self.get_beacon_randomness_blocking(round).inspect_err(|e| {
             tracing::warn!(
-                "get_beacon_randomness failed, round: {round}, ts@{}: {}, error: {e:#?}",
+                "get_beacon_randomness failed, round: {round}, ts@{}: {}, error: {e:#}",
                 self.tipset.epoch(),
                 self.tipset.key()
             );

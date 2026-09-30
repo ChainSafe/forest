@@ -272,12 +272,12 @@ where
                 ) {
                     Ok(m) => m,
                     Err(e) => {
-                        tracing::error!("Failed to serialize subscription message: {e:?}");
+                        tracing::error!("Failed to serialize subscription message: {e}");
                         continue;
                     }
                 };
                 if let Err(e) = sink.send(msg).await {
-                    tracing::debug!("Subscription sink send failed (client disconnected): {e:?}");
+                    tracing::debug!("Subscription sink send failed (client disconnected): {e}");
                     break;
                 }
             }
