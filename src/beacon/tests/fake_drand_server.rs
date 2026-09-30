@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::beacon::ChainInfo;
+use crate::beacon::{BeaconEntryJson, ChainInfo};
 use ahash::HashMap;
 use axum::{
     Json, Router,
@@ -10,7 +10,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use serde_json::json;
 use std::borrow::Cow;
 use std::sync::Arc;
 use url::Url;
@@ -18,7 +17,7 @@ use url::Url;
 /// One `drand` chain served by a [`FakeDrandServer`], keyed by `info.hash` like a real relay.
 pub struct FakeDrandChain {
     pub info: ChainInfo<'static>,
-    pub entries: Vec<serde_json::Value>,
+    pub entries: Vec<BeaconEntryJson>,
 }
 
 impl FakeDrandChain {
@@ -40,11 +39,36 @@ impl FakeDrandChain {
                 ),
             },
             entries: vec![
-                json!({ "round": 1, "randomness": "101297f1ca7dc44ef6088d94ad5fb7ba03455dc33d53ddb412bbc4564ed986ec", "signature": "8d61d9100567de44682506aea1a7a6fa6e5491cd27a0a0ed349ef6910ac5ac20ff7bc3e09d7c046566c9f7f3c6f3b10104990e7cb424998203d8f7de586fb7fa5f60045417a432684f85093b06ca91c769f0e7ca19268375e659c2a2352b4655" }),
-                json!({ "round": 2, "randomness": "e8fee7dac6eb2b89df97d631cfccedbada7d5d05495bb546eef462e4145fdf8f", "signature": "aa18facd2d51b616511d542de6f9af8a3b920121401dad1434ed1db4a565f10e04fad8d9b2b4e3e0094364374caafe9b10478bf75650124831509c638b5a36a7a232ec70289f8751a2adb47fc32eb70b57dc81c39d48cbcac9fec46cdfc31663" }),
-                json!({ "round": 3, "randomness": "5e0c316703de0d11cc63439a26a5082ce966f4f1e4068cd64b35fee906a0f84b", "signature": "a7b0877eaea7a0222f4c39a2c03434c34f5fe3ea47c533d24b88e5c3053b84775ccb78e984addcb55173f40428513f280cc6e0fccc3c89bb1625c7c0b477deb6faae43fc6ec036f09233bf38da16586b3042dd01a7e9ed97c8bafa343cc6071e" }),
-                json!({ "round": 3907446, "randomness": "4958332b0b624013aa168807c7fee10abc13d032a2d50ea6d846ecd54e75e605", "signature": "934d1eb250fec0e5234c11a7e30a8c428a975b500df0deb91a6f6ca57dace8d90705812673e517ad163731f7a2861d1d18cfd60dcca4c93bf01f8ad38279e09cf991d7babe0bd81329daec2702bfb8c6b870fb381e35216528e2e2c0b742c2ba" }),
-                json!({ "round": 3907447, "randomness": "77076fd6f14c136e5f6fd54489320cdeffd90318691bc0f4badc654562434aed", "signature": "ac7ad5153605b6a3ec082640989b49e34f554ada33a9d944268213fb2a030cbaf0262c916cfaad866bde80682edeb223129465ae9540cdffd7d85b0180eeba125b16fd1b938c2bbc9bf2597fe20be688b58a615a209f2c6701363228c0682755" }),
+                BeaconEntryJson {
+                    round: 1,
+                    randomness: "101297f1ca7dc44ef6088d94ad5fb7ba03455dc33d53ddb412bbc4564ed986ec".into(),
+                    signature: "8d61d9100567de44682506aea1a7a6fa6e5491cd27a0a0ed349ef6910ac5ac20ff7bc3e09d7c046566c9f7f3c6f3b10104990e7cb424998203d8f7de586fb7fa5f60045417a432684f85093b06ca91c769f0e7ca19268375e659c2a2352b4655".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 2,
+                    randomness: "e8fee7dac6eb2b89df97d631cfccedbada7d5d05495bb546eef462e4145fdf8f".into(),
+                    signature: "aa18facd2d51b616511d542de6f9af8a3b920121401dad1434ed1db4a565f10e04fad8d9b2b4e3e0094364374caafe9b10478bf75650124831509c638b5a36a7a232ec70289f8751a2adb47fc32eb70b57dc81c39d48cbcac9fec46cdfc31663".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 3,
+                    randomness: "5e0c316703de0d11cc63439a26a5082ce966f4f1e4068cd64b35fee906a0f84b".into(),
+                    signature: "a7b0877eaea7a0222f4c39a2c03434c34f5fe3ea47c533d24b88e5c3053b84775ccb78e984addcb55173f40428513f280cc6e0fccc3c89bb1625c7c0b477deb6faae43fc6ec036f09233bf38da16586b3042dd01a7e9ed97c8bafa343cc6071e".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 3907446,
+                    randomness: "4958332b0b624013aa168807c7fee10abc13d032a2d50ea6d846ecd54e75e605".into(),
+                    signature: "934d1eb250fec0e5234c11a7e30a8c428a975b500df0deb91a6f6ca57dace8d90705812673e517ad163731f7a2861d1d18cfd60dcca4c93bf01f8ad38279e09cf991d7babe0bd81329daec2702bfb8c6b870fb381e35216528e2e2c0b742c2ba".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 3907447,
+                    randomness: "77076fd6f14c136e5f6fd54489320cdeffd90318691bc0f4badc654562434aed".into(),
+                    signature: "ac7ad5153605b6a3ec082640989b49e34f554ada33a9d944268213fb2a030cbaf0262c916cfaad866bde80682edeb223129465ae9540cdffd7d85b0180eeba125b16fd1b938c2bbc9bf2597fe20be688b58a615a209f2c6701363228c0682755".into(),
+                    previous_signature: None,
+                },
             ],
         }
     }
@@ -67,21 +91,56 @@ impl FakeDrandChain {
                 ),
             },
             entries: vec![
-                json!({ "round": 1, "randomness": "1466a6cd24e327188770752f6134001c64d6efcc590ccc26b721611ad96f165a", "signature": "b55e7cb2d5c613ee0b2e28d6750aabbb78c39dcc96bd9d38c2c2e12198df95571de8e8e402a0cc48871c7089a2b3af4b" }),
-                json!({ "round": 2, "randomness": "5782d6987841c654515a0e72b2d1ebb4e741234042c37cb19608ae50d93fb60c", "signature": "b6b6a585449b66eb12e875b64fcbab3799861a00e4dbf092d99e969a5eac57dd3f798acf61e705fe4f093db926626807" }),
-                json!({ "round": 3, "randomness": "7ef4621ace1c6da4eb2eee7cd901f81385bca5b189771ec0f08d0d2566dd1a21", "signature": "b3fab6df720b68cc47175f2c777e86d84187caab5770906f515ff1099cb01e4deaa027075d860823e49477b93c72bd64" }),
-                json!({ "round": 30662982, "randomness": "ae76da5137c6d0a0d3b50d325948b26cc3ff1f804cd7bbca29b9250c2bfe8d67", "signature": "8b3edd0d42a2fa36ac15641a2dea2e4f4895acec2ef72ef39e5b6138f0346fb6b046dde1b4b3d09ff5fe8a6a7acd674a" }),
-                json!({ "round": 30662990, "randomness": "aac361dad26f7e5f5c2460fa905ed6d4e2bf8d21ccb67bbe5100204475b56742", "signature": "8b2ebe176d153849d5db7f358a3a21be96f8c5d1c26ed2b530fff4419face8909d77f4ee6a211623e2432c30841411b5" }),
-                json!({ "round": 30662992, "randomness": "b21201bdbe54b1e3ca135bf319bbca22b90b8ae30944c4a6790f74267d074827", "signature": "b72a64269e84523a73a87db491505b6f1675dfc7f71c69026efdce3996f59ce2d1b446fc00c13beff7fcfd428053a534" }),
-                json!({ "round": 30663002, "randomness": "2a231554933f6fd70314fa470152710fac3eba10d052cab996e8f30854fa7f55", "signature": "b9e7e1e3d7d9cf17a9f4703abfae4c137acfbef1fdb45715a98422c244a499ea381c7fd759851ed8eeb8a03d778959b3" }),
+                BeaconEntryJson {
+                    round: 1,
+                    randomness: "1466a6cd24e327188770752f6134001c64d6efcc590ccc26b721611ad96f165a".into(),
+                    signature: "b55e7cb2d5c613ee0b2e28d6750aabbb78c39dcc96bd9d38c2c2e12198df95571de8e8e402a0cc48871c7089a2b3af4b".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 2,
+                    randomness: "5782d6987841c654515a0e72b2d1ebb4e741234042c37cb19608ae50d93fb60c".into(),
+                    signature: "b6b6a585449b66eb12e875b64fcbab3799861a00e4dbf092d99e969a5eac57dd3f798acf61e705fe4f093db926626807".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 3,
+                    randomness: "7ef4621ace1c6da4eb2eee7cd901f81385bca5b189771ec0f08d0d2566dd1a21".into(),
+                    signature: "b3fab6df720b68cc47175f2c777e86d84187caab5770906f515ff1099cb01e4deaa027075d860823e49477b93c72bd64".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 30662982,
+                    randomness: "ae76da5137c6d0a0d3b50d325948b26cc3ff1f804cd7bbca29b9250c2bfe8d67".into(),
+                    signature: "8b3edd0d42a2fa36ac15641a2dea2e4f4895acec2ef72ef39e5b6138f0346fb6b046dde1b4b3d09ff5fe8a6a7acd674a".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 30662990,
+                    randomness: "aac361dad26f7e5f5c2460fa905ed6d4e2bf8d21ccb67bbe5100204475b56742".into(),
+                    signature: "8b2ebe176d153849d5db7f358a3a21be96f8c5d1c26ed2b530fff4419face8909d77f4ee6a211623e2432c30841411b5".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 30662992,
+                    randomness: "b21201bdbe54b1e3ca135bf319bbca22b90b8ae30944c4a6790f74267d074827".into(),
+                    signature: "b72a64269e84523a73a87db491505b6f1675dfc7f71c69026efdce3996f59ce2d1b446fc00c13beff7fcfd428053a534".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 30663002,
+                    randomness: "2a231554933f6fd70314fa470152710fac3eba10d052cab996e8f30854fa7f55".into(),
+                    signature: "b9e7e1e3d7d9cf17a9f4703abfae4c137acfbef1fdb45715a98422c244a499ea381c7fd759851ed8eeb8a03d778959b3".into(),
+                    previous_signature: None,
+                },
             ],
         }
     }
 }
 
 struct Chain {
-    info: serde_json::Value,
-    rounds: HashMap<u64, serde_json::Value>,
+    info: ChainInfo<'static>,
+    rounds: HashMap<u64, BeaconEntryJson>,
 }
 
 type Chains = Arc<HashMap<String, Chain>>;
@@ -104,17 +163,16 @@ impl FakeDrandServer {
                     let rounds = chain
                         .entries
                         .into_iter()
-                        .map(|entry| {
-                            let round = entry
-                                .get("round")
-                                .and_then(serde_json::Value::as_u64)
-                                .expect("fake drand entry must carry a numeric `round`");
-                            (round, entry)
-                        })
+                        .map(|entry| (entry.round, entry))
                         .collect();
-                    let info =
-                        serde_json::to_value(&chain.info).expect("ChainInfo serializes to JSON");
-                    (chain.info.hash.to_string(), Chain { info, rounds })
+                    let hash = chain.info.hash.to_string();
+                    (
+                        hash,
+                        Chain {
+                            info: chain.info,
+                            rounds,
+                        },
+                    )
                 })
                 .collect(),
         );
@@ -204,18 +262,19 @@ mod tests {
         }
     }
 
-    fn round_json(round: u64) -> serde_json::Value {
-        json!({
-            "round": round,
-            "randomness": format!("aa{round:02x}"),
-            "signature": format!("bb{round:02x}"),
-        })
+    fn round_entry(round: u64) -> BeaconEntryJson {
+        BeaconEntryJson {
+            round,
+            randomness: format!("aa{round:02x}"),
+            signature: format!("bb{round:02x}"),
+            previous_signature: None,
+        }
     }
 
     fn start() -> FakeDrandServer {
         FakeDrandServer::start(vec![FakeDrandChain {
             info: chain_info(),
-            entries: vec![round_json(1), round_json(2)],
+            entries: vec![round_entry(1), round_entry(2)],
         }])
     }
 
@@ -241,8 +300,8 @@ mod tests {
         let resp = get(&server, &format!("{HASH}/public/2")).await;
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(
-            resp.json::<serde_json::Value>().await.unwrap(),
-            round_json(2)
+            resp.json::<BeaconEntryJson>().await.unwrap(),
+            round_entry(2)
         );
     }
 
