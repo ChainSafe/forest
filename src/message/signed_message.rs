@@ -9,16 +9,37 @@ use crate::shim::{
     econ::TokenAmount,
     message::Message,
 };
-use crate::utils::encoding::calc_encoded_len;
-use fvm_ipld_encoding::tuple::*;
+use crate::utils::cid::{EncodedCbor, Memo};
 use get_size2::GetSize;
 
 /// Represents a wrapped message with signature bytes.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, GetSize, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, GetSize)]
 pub struct SignedMessage {
     message: Message,
     signature: Signature,
+    /// The memoized CID and length of the signed encoding. Cleared whenever the message or
+    /// signature is replaced, so it cannot outlive what it was derived from, and excluded from
+    /// the derived `PartialEq`/`Eq`/`Hash`/`Debug` by [`Memo`].
+    #[cfg_attr(test, arbitrary(gen(|_| Memo::default())))]
+    encoded: Memo,
+}
+
+impl serde::Serialize for SignedMessage {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        (&self.message, &self.signature).serialize(s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SignedMessage {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let (message, signature) = serde::Deserialize::deserialize(deserializer)?;
+        Ok(Self {
+            message,
+            signature,
+            encoded: Memo::default(),
+        })
+    }
 }
 
 impl SignedMessage {
@@ -32,7 +53,11 @@ impl SignedMessage {
     /// Generate a new signed message from fields.
     /// The signature will not be verified.
     pub fn new_unchecked(message: Message, signature: Signature) -> SignedMessage {
-        SignedMessage { message, signature }
+        SignedMessage {
+            message,
+            signature,
+            encoded: Memo::default(),
+        }
     }
 
     /// Returns reference to the unsigned message.
@@ -46,10 +71,13 @@ impl SignedMessage {
     }
 
     pub fn set_signature(&mut self, signature: Signature) {
+        self.encoded.clear();
         self.signature = signature;
     }
 
+    /// Drops the memo up front, since the caller may change anything the signed encoding is derived from.
     pub fn message_mut(&mut self) -> &mut Message {
+        self.encoded.clear();
         &mut self.message
     }
 
@@ -90,9 +118,28 @@ impl SignedMessage {
         if self.is_bls() {
             self.message.cid()
         } else {
-            use crate::utils::cid::CidCborExt;
-            cid::Cid::from_cbor_blake2b256(self).expect("message serialization is infallible")
+            self.encoded().cid()
         }
+    }
+
+    /// The CID of the signed encoding, which is what a block's `SECP` message root is built from.
+    /// Differs from [`SignedMessage::cid`] only for a BLS signature, which a `SECP` message list
+    /// may not carry.
+    pub fn signed_cid(&self) -> cid::Cid {
+        self.encoded().cid()
+    }
+
+    /// The length of the signed encoding, which is what a message's size on the wire is measured
+    /// against. Differs from [`MessageRead::chain_length`] for a BLS signature, which is excluded
+    /// from the chain length but not from the message itself.
+    pub fn signed_encoded_len(&self) -> usize {
+        self.encoded().byte_len()
+    }
+
+    fn encoded(&self) -> &EncodedCbor {
+        self.encoded.get_or_init(|| {
+            EncodedCbor::compute(self).expect("message serialization is infallible")
+        })
     }
 
     /// Creates a mock signed message for testing purposes. The signature check will fail if
@@ -111,9 +158,9 @@ impl MessageRead for SignedMessage {
     fn chain_length(&self) -> anyhow::Result<usize> {
         Ok(match self.signature.signature_type() {
             // BLS chain message length doesn't include the signature
-            SignatureType::Bls => calc_encoded_len(&self.message)?,
+            SignatureType::Bls => self.message.encoded_len(),
             // SECP and Delegated chain message length includes the signature
-            SignatureType::Secp256k1 | SignatureType::Delegated => calc_encoded_len(self)?,
+            SignatureType::Secp256k1 | SignatureType::Delegated => self.encoded().byte_len(),
         })
     }
     fn from(&self) -> Address {
@@ -170,6 +217,28 @@ mod tests {
     use fvm_ipld_encoding::to_vec;
     use quickcheck_macros::quickcheck;
 
+    fn hash_of<T: std::hash::Hash>(value: &T) -> u64 {
+        use std::hash::Hasher as _;
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// `Arbitrary` always yields cold memos, so both must be warmed here to reach the case the
+    /// derived `PartialEq`/`Hash`/`Debug` must stay blind to.
+    #[quickcheck]
+    fn computing_the_memos_is_invisible(msg: SignedMessage) -> bool {
+        let warm = msg.clone();
+        let (_, _) = (warm.cid(), warm.signed_cid());
+        warm == msg && hash_of(&warm) == hash_of(&msg) && format!("{warm:?}") == format!("{msg:?}")
+    }
+
+    #[quickcheck]
+    fn signed_cid_and_len_match_the_unmemoized_path(msg: SignedMessage) -> bool {
+        msg.signed_cid() == Cid::from_cbor_blake2b256(&msg).unwrap()
+            && msg.signed_encoded_len() == to_vec(&msg).unwrap().len()
+    }
+
     #[track_caller]
     fn assert_measures_and_hashes(signed: &SignedMessage, encoded: &[u8]) {
         assert_eq!(signed.chain_length().unwrap(), encoded.len());
@@ -200,6 +269,26 @@ mod tests {
             let signed = SignedMessage::new_unchecked(message.clone(), signature);
             assert_measures_and_hashes(&signed, &to_vec(&signed).unwrap());
         }
+    }
+
+    /// Pins the hand-written [`serde`] code to the `Serialize_tuple` derive it replaced, which
+    /// no round-trip test can do on its own.
+    #[quickcheck]
+    fn signed_encoding_matches_the_tuple_derive(msg: SignedMessage) -> bool {
+        use fvm_ipld_encoding::tuple::*;
+
+        #[derive(Serialize_tuple)]
+        struct Reference<'a> {
+            message: &'a Message,
+            signature: &'a Signature,
+        }
+
+        to_vec(&msg).unwrap()
+            == to_vec(&Reference {
+                message: msg.message(),
+                signature: msg.signature(),
+            })
+            .unwrap()
     }
 
     /// The signature type selects one encoding for both the CID and the chain length, so the two
