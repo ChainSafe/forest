@@ -765,10 +765,10 @@ pub mod tests {
         );
 
         // With no entry, the lookup falls back to the ancestor walk and resolves `full`.
-        let canonical = rand.get_chain_randomness_blocking(20, false).unwrap();
+        let canonical = rand.get_chain_randomness_blocking(20).unwrap();
 
         db.set_tipset_key_at_epoch(&partial).unwrap();
-        let poisoned = rand.get_chain_randomness_blocking(20, false).unwrap();
+        let poisoned = rand.get_chain_randomness_blocking(20).unwrap();
         assert_ne!(
             canonical, poisoned,
             "a poisoned lookup entry must be observable in derived randomness for this test to be meaningful",
@@ -776,7 +776,7 @@ pub mod tests {
 
         index.repair_tipset_lookup_window(&head, 900, 25).unwrap();
         assert_eq!(
-            rand.get_chain_randomness_blocking(20, false).unwrap(),
+            rand.get_chain_randomness_blocking(20).unwrap(),
             canonical,
             "repairing the lookup table must restore canonical randomness",
         );
