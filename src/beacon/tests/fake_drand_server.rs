@@ -91,6 +91,8 @@ type Chains = Arc<HashMap<String, Chain>>;
 /// localhost port. Unknown chains and rounds answer `404`, as the public relays do.
 pub struct FakeDrandServer {
     url: Url,
+    shutdown: Arc<tokio::sync::Notify>,
+    exited: flume::Receiver<()>,
 }
 
 impl FakeDrandServer {
@@ -128,7 +130,11 @@ impl FakeDrandServer {
             .expect("set fake drand listener non-blocking");
         let addr = listener.local_addr().expect("fake drand server address");
 
+        let shutdown = Arc::new(tokio::sync::Notify::new());
+        let (exited_tx, exited) = flume::bounded(0);
+        let server_shutdown = shutdown.clone();
         std::thread::spawn(move || {
+            let _exited_tx = exited_tx;
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -137,6 +143,7 @@ impl FakeDrandServer {
                     let listener = tokio::net::TcpListener::from_std(listener)
                         .expect("adopt fake drand listener");
                     axum::serve(listener, router)
+                        .with_graceful_shutdown(async move { server_shutdown.notified().await })
                         .await
                         .expect("fake drand server exited");
                 });
@@ -144,11 +151,20 @@ impl FakeDrandServer {
 
         Self {
             url: Url::parse(&format!("http://{addr}/")).expect("fake drand server url"),
+            shutdown,
+            exited,
         }
     }
 
     pub fn url(&self) -> &Url {
         &self.url
+    }
+}
+
+impl Drop for FakeDrandServer {
+    fn drop(&mut self) {
+        self.shutdown.notify_one();
+        let _ = self.exited.recv();
     }
 }
 
