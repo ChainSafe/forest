@@ -142,7 +142,7 @@ async fn fetch_verify_params(
         Err(e)
             if e.downcast_ref::<io::Error>()
                 .is_some_and(|e| e.kind() == ErrorKind::NotFound) => {}
-        Err(e) => warn!("Error checking file: {e:?}"),
+        Err(e) => warn!("Error checking file: {e:#}"),
     }
 
     let cid = info.cid.to_string();
@@ -163,7 +163,7 @@ async fn fetch_verify_params(
         match fetched {
             Ok(()) => return Ok(()),
             Err(e) => {
-                warn!("Failed to fetch param file from {url}: {e:?}");
+                warn!("Failed to fetch param file from {url}: {e:#}");
                 last_error = Some(e);
             }
         }

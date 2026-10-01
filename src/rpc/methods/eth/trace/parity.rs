@@ -291,14 +291,14 @@ fn trace_evm_call(
     let input = match decode_payload(&trace.msg.params, trace.msg.params_codec) {
         Ok(value) => value,
         Err(err) => {
-            debug!("failed to decode contract invocation payload: {err}");
+            debug!("failed to decode contract invocation payload: {err:#}");
             return Ok((trace_native_call(env, address, &trace)?, trace));
         }
     };
     let output = match decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec) {
         Ok(value) => value,
         Err(err) => {
-            debug!("failed to decode contract invocation return: {err}");
+            debug!("failed to decode contract invocation return: {err:#}");
             return Ok((trace_native_call(env, address, &trace)?, trace));
         }
     };
@@ -483,7 +483,7 @@ fn trace_eth_create(
             // fail, we just return no output.
             decode_payload(&sub_trace.msg_rct.r#return, sub_trace.msg_rct.return_codec)
                 .unwrap_or_else(|err| {
-                    debug!("failed to decode create revert payload: {err}");
+                    debug!("failed to decode create revert payload: {err:#}");
                     EthBytes::default()
                 })
         }

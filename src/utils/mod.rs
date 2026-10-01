@@ -128,14 +128,14 @@ pub async fn retry<F, T, E>(
 ) -> Result<T, RetryError>
 where
     F: Future<Output = Result<T, E>>,
-    E: std::fmt::Debug,
+    E: std::fmt::Display,
 {
     let max_retries = args.max_retries.unwrap_or(usize::MAX);
     let task = async {
         for _ in 0..max_retries {
             match make_fut().await {
                 Ok(ok) => return Ok(ok),
-                Err(err) => error!("retrying operation after {err:?}"),
+                Err(err) => error!("retrying operation after {err:#}"),
             }
             if let Some(delay) = args.delay {
                 sleep(delay).await;
@@ -222,19 +222,26 @@ mod tests {
 
     #[tokio::test]
     async fn timeout() {
-        let res = retry(RetryArgs::new_ms(1, None, None), pending::<Result<(), ()>>).await;
+        let res = retry(
+            RetryArgs::new_ms(1, None, None),
+            pending::<Result<(), &str>>,
+        )
+        .await;
         assert_eq!(Err(TimeoutExceeded), res);
     }
 
     #[tokio::test]
     async fn retries() {
-        let res = retry(RetryArgs::new_ms(None, 1, None), || ready(Err::<(), _>(()))).await;
+        let res = retry(RetryArgs::new_ms(None, 1, None), || {
+            ready(Err::<(), _>("failed"))
+        })
+        .await;
         assert_eq!(Err(RetriesExceeded), res);
     }
 
     #[tokio::test]
     async fn ok() {
-        let res = retry(RetryArgs::default(), || ready(Ok::<_, ()>(()))).await;
+        let res = retry(RetryArgs::default(), || ready(Ok::<_, &str>(()))).await;
         assert_eq!(Ok(()), res);
     }
 
@@ -245,7 +252,7 @@ mod tests {
         let res = retry(RetryArgs::new_ms(None, None, None), || async {
             match count.fetch_add(1, SeqCst) > 5 {
                 true => Ok(()),
-                false => Err(()),
+                false => Err("failed"),
             }
         })
         .await;

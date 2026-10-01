@@ -288,14 +288,14 @@ impl SyncNetworkContext {
                                     }
                                     Err(error) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
-                                        debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange response");
+                                        debug!(%peer_id, %request_len, %options, %n_peers, "Failed chain_exchange response: {error:#}");
                                         Err(error)
                                     }
                                 }
                             }
                             Err(error) => {
                                 network_failures.fetch_add(1, Ordering::Relaxed);
-                                debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange request to peer");
+                                debug!(%peer_id, %request_len, %options, %n_peers, "Failed chain_exchange request to peer: {error:#}");
                                 Err(error)
                             }
                         }
@@ -402,7 +402,7 @@ impl SyncNetworkContext {
                             .await;
                     }
                     RequestResponseError::ConnectionClosed | RequestResponseError::DialFailure => {
-                        peer_manager.mark_peer_bad(peer_id, format!("chain exchange error {e:?}"));
+                        peer_manager.mark_peer_bad(peer_id, format!("chain exchange error {e}"));
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
@@ -411,7 +411,7 @@ impl SyncNetworkContext {
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
-                anyhow::bail!("Internal libp2p error: {e:?}");
+                anyhow::bail!("Internal libp2p error: {e}");
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which

@@ -1487,7 +1487,7 @@ impl RpcMethod<2> for StateFetchRoot {
                 Ok(()) => *fetched += 1,
                 Err(msg) => {
                     *failures += 1;
-                    tracing::debug!("Request failed: {msg}");
+                    tracing::debug!("Request failed: {msg:#}");
                 }
             }
         }

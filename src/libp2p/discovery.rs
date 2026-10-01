@@ -561,7 +561,7 @@ async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multi
             match parse_dnsaddr_txt(chars) {
                 Err(e) => {
                     // Skip over seemingly invalid entries.
-                    tracing::debug!("Invalid TXT record: {:?}", e);
+                    tracing::debug!("Invalid TXT record: {e}");
                 }
                 Ok(mut addr) => {
                     if let Some(Protocol::P2p(peer_id)) = addr.pop() {

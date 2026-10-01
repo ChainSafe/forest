@@ -415,7 +415,7 @@ impl VM {
         }
 
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
-            tracing::error!("End of epoch cron failed to run: {}", e);
+            tracing::error!("End of epoch cron failed to run: {e:#}");
         }
 
         Ok((receipts, events, events_roots))

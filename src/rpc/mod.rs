@@ -635,7 +635,7 @@ pub async fn start_rpc(
                 stream
               }
               Err(e) => {
-                tracing::error!("failed to accept v4 connection: {:?}", e);
+                tracing::error!("failed to accept v4 connection: {e}");
                 continue;
               }
             }
@@ -695,7 +695,7 @@ pub async fn start_rpc(
                             // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
                             // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
                             // as workaround.
-                            svc.call(req).await.map_err(|e| anyhow::anyhow!("{e:?}"))
+                            svc.call(req).await.map_err(anyhow::Error::from_boxed)
                         }
                         Either::Right(result) => result,
                     }
