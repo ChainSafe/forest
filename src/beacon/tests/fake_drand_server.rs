@@ -21,58 +21,6 @@ pub struct FakeDrandChain {
 }
 
 impl FakeDrandChain {
-    /// `mainnet` chain info and the rounds the beacon tests use.
-    pub fn mainnet() -> Self {
-        Self {
-            // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
-            info: ChainInfo {
-                public_key: Cow::Borrowed(
-                    "868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31",
-                ),
-                period: 30,
-                genesis_time: 1595431050,
-                hash: Cow::Borrowed(
-                    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce",
-                ),
-                group_hash: Cow::Borrowed(
-                    "176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a",
-                ),
-            },
-            entries: vec![
-                BeaconEntryJson {
-                    round: 1,
-                    randomness: "101297f1ca7dc44ef6088d94ad5fb7ba03455dc33d53ddb412bbc4564ed986ec".into(),
-                    signature: "8d61d9100567de44682506aea1a7a6fa6e5491cd27a0a0ed349ef6910ac5ac20ff7bc3e09d7c046566c9f7f3c6f3b10104990e7cb424998203d8f7de586fb7fa5f60045417a432684f85093b06ca91c769f0e7ca19268375e659c2a2352b4655".into(),
-                    previous_signature: None,
-                },
-                BeaconEntryJson {
-                    round: 2,
-                    randomness: "e8fee7dac6eb2b89df97d631cfccedbada7d5d05495bb546eef462e4145fdf8f".into(),
-                    signature: "aa18facd2d51b616511d542de6f9af8a3b920121401dad1434ed1db4a565f10e04fad8d9b2b4e3e0094364374caafe9b10478bf75650124831509c638b5a36a7a232ec70289f8751a2adb47fc32eb70b57dc81c39d48cbcac9fec46cdfc31663".into(),
-                    previous_signature: None,
-                },
-                BeaconEntryJson {
-                    round: 3,
-                    randomness: "5e0c316703de0d11cc63439a26a5082ce966f4f1e4068cd64b35fee906a0f84b".into(),
-                    signature: "a7b0877eaea7a0222f4c39a2c03434c34f5fe3ea47c533d24b88e5c3053b84775ccb78e984addcb55173f40428513f280cc6e0fccc3c89bb1625c7c0b477deb6faae43fc6ec036f09233bf38da16586b3042dd01a7e9ed97c8bafa343cc6071e".into(),
-                    previous_signature: None,
-                },
-                BeaconEntryJson {
-                    round: 3907446,
-                    randomness: "4958332b0b624013aa168807c7fee10abc13d032a2d50ea6d846ecd54e75e605".into(),
-                    signature: "934d1eb250fec0e5234c11a7e30a8c428a975b500df0deb91a6f6ca57dace8d90705812673e517ad163731f7a2861d1d18cfd60dcca4c93bf01f8ad38279e09cf991d7babe0bd81329daec2702bfb8c6b870fb381e35216528e2e2c0b742c2ba".into(),
-                    previous_signature: None,
-                },
-                BeaconEntryJson {
-                    round: 3907447,
-                    randomness: "77076fd6f14c136e5f6fd54489320cdeffd90318691bc0f4badc654562434aed".into(),
-                    signature: "ac7ad5153605b6a3ec082640989b49e34f554ada33a9d944268213fb2a030cbaf0262c916cfaad866bde80682edeb223129465ae9540cdffd7d85b0180eeba125b16fd1b938c2bbc9bf2597fe20be688b58a615a209f2c6701363228c0682755".into(),
-                    previous_signature: None,
-                },
-            ],
-        }
-    }
-
     /// `quicknet` chain info and the rounds the beacon tests use.
     pub fn quicknet() -> Self {
         Self {
@@ -150,8 +98,6 @@ type Chains = Arc<HashMap<String, Chain>>;
 /// localhost port. Unknown chains and rounds answer `404`, as the public relays do.
 pub struct FakeDrandServer {
     url: Url,
-    shutdown: Arc<tokio::sync::Notify>,
-    exited: flume::Receiver<()>,
 }
 
 impl FakeDrandServer {
@@ -188,11 +134,7 @@ impl FakeDrandServer {
             .expect("set fake drand listener non-blocking");
         let addr = listener.local_addr().expect("fake drand server address");
 
-        let shutdown = Arc::new(tokio::sync::Notify::new());
-        let (exited_tx, exited) = flume::bounded(0);
-        let server_shutdown = shutdown.clone();
         std::thread::spawn(move || {
-            let _exited_tx = exited_tx;
             tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -201,7 +143,6 @@ impl FakeDrandServer {
                     let listener = tokio::net::TcpListener::from_std(listener)
                         .expect("adopt fake drand listener");
                     axum::serve(listener, router)
-                        .with_graceful_shutdown(async move { server_shutdown.notified().await })
                         .await
                         .expect("fake drand server exited");
                 });
@@ -209,20 +150,11 @@ impl FakeDrandServer {
 
         Self {
             url: Url::parse(&format!("http://{addr}/")).expect("fake drand server url"),
-            shutdown,
-            exited,
         }
     }
 
     pub fn url(&self) -> &Url {
         &self.url
-    }
-}
-
-impl Drop for FakeDrandServer {
-    fn drop(&mut self) {
-        self.shutdown.notify_one();
-        let _ = self.exited.recv();
     }
 }
 
@@ -246,9 +178,7 @@ async fn public_round(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::beacon::ChainInfo;
     use crate::utils::net::global_http_client;
-    use reqwest::StatusCode;
 
     const HASH: &str = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
 
@@ -271,7 +201,7 @@ mod tests {
         }
     }
 
-    fn start() -> FakeDrandServer {
+    fn start_drand_server() -> FakeDrandServer {
         FakeDrandServer::start(vec![FakeDrandChain {
             info: chain_info(),
             entries: vec![round_entry(1), round_entry(2)],
@@ -288,7 +218,7 @@ mod tests {
 
     #[tokio::test]
     async fn serves_chain_info() {
-        let server: FakeDrandServer = start();
+        let server = start_drand_server();
         let resp = get(&server, &format!("{HASH}/info")).await;
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(resp.json::<ChainInfo>().await.unwrap(), chain_info());
@@ -296,7 +226,7 @@ mod tests {
 
     #[tokio::test]
     async fn serves_recorded_round_verbatim() {
-        let server = start();
+        let server = start_drand_server();
         let resp = get(&server, &format!("{HASH}/public/2")).await;
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(
@@ -307,7 +237,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_is_not_found() {
-        let server = start();
+        let server = start_drand_server();
         let resp = get(&server, &format!("{HASH}/public/3")).await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let resp = get(&server, "deadbeef/public/1").await;

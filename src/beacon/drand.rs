@@ -237,10 +237,10 @@ pub struct ChainInfo<'a> {
 /// JSON beacon entry format. This matches the `drand` round JSON serialization
 /// API reference: <https://drand.love/developer/http-api/#public-round>.
 pub struct BeaconEntryJson {
-    pub(crate) round: u64,
-    pub(crate) randomness: String,
-    pub(crate) signature: String,
-    pub(crate) previous_signature: Option<String>,
+    pub(in crate::beacon) round: u64,
+    pub(in crate::beacon) randomness: String,
+    pub(in crate::beacon) signature: String,
+    pub(in crate::beacon) previous_signature: Option<String>,
 }
 
 /// `Drand` randomness beacon that can be used to generate randomness for the
