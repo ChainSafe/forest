@@ -510,8 +510,7 @@ pub async fn download_http(
                 Ok(path) => Ok(path),
                 Err(e) => {
                     tracing::warn!(
-                        "Parallel download failed ({}), falling back to single connection",
-                        e
+                        "Parallel download failed ({e:#}), falling back to single connection"
                     );
                     download_http_single(
                         url,

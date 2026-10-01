@@ -888,7 +888,7 @@ fn warmup_in_background(ctx: &AppContext) {
                 "Successfully verified tipset lookup table, {n_repaired} entries repaired, took {}.",
                 humantime::format_duration(start.elapsed()),
             ),
-            Err(e) => warn!("failed to verify tipset lookup table: {e:#?}"),
+            Err(e) => warn!("failed to verify tipset lookup table: {e:#}"),
         }
     });
 }

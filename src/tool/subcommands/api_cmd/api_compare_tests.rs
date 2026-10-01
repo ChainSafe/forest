@@ -359,7 +359,7 @@ impl RpcTest {
                 match crate::rpc::json_validator::from_value_rejecting_unknown_fields::<T>(it) {
                     Ok(_) => true,
                     Err(e) => {
-                        debug!(?e);
+                        debug!(%e);
                         false
                     }
                 }
