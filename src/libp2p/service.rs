@@ -869,7 +869,7 @@ async fn handle_chain_exchange_event(
                             ))
                             .await
                         {
-                            debug!("Failed to send ChainExchangeResponse: {e:?}");
+                            debug!("Failed to send ChainExchangeResponse: {e}");
                         }
                     },
                 ));
@@ -894,10 +894,7 @@ async fn handle_chain_exchange_event(
             chain_exchange.on_outbound_error(&request_id, error);
         }
         request_response::Event::InboundFailure { peer, error, .. } => {
-            debug!(
-                "ChainExchange inbound error (peer: {:?}): {:?}",
-                peer, error
-            );
+            debug!("ChainExchange inbound error (peer: {peer:?}): {error}");
         }
         request_response::Event::ResponseSent { .. } => {
             emit_event(

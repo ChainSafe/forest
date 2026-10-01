@@ -242,11 +242,11 @@ impl ChainStore {
             .chain_index
             .update_tipset_lookup_for_finalized_head(&head, finalized_epoch)
         {
-            error!("failed to update tipset lookup table: {e:#?}");
+            error!("failed to update tipset lookup table: {e:#}");
         }
         // Fix stale lookups at null rounds which could be caused by chain reorg.
         if let Err(e) = self.chain_index.cleanup_stale_lookup_at_new_head(&head) {
-            error!("failed to cleanup stale null round lookups: {e:#?}");
+            error!("failed to cleanup stale null round lookups: {e:#}");
         }
 
         let old_head = self.heaviest_tipset.swap(head.shallow_clone().into());
@@ -558,7 +558,7 @@ impl ChainStore {
                 heaviest_tipset.clone(),
                 ResolveNullTipset::TakeNewer,
             )
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
@@ -570,7 +570,7 @@ impl ChainStore {
         }
         let lbts = chain_index
             .load_required_tipset(next_ts.parents())
-            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
 

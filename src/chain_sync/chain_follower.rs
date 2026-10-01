@@ -555,7 +555,7 @@ async fn handle_peer_connected_event(
         let (peer_id, moment_sent, response) = match network.hello_request(peer_id, request).await {
             Ok(response) => response,
             Err(e) => {
-                debug!("Hello request failed: {}", e);
+                debug!("Hello request failed: {e:#}");
                 return;
             }
         };
@@ -615,7 +615,7 @@ fn spawn_tipset_fetch(
                     Ok(tipset) => {
                         let _ = tipset_sender.send_async(tipset).await;
                     }
-                    Err(e) => debug!("Querying full tipset failed: {e}"),
+                    Err(e) => debug!("Querying full tipset failed: {e:#}"),
                 }
             })
             .await;
