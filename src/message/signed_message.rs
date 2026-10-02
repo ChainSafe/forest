@@ -3,7 +3,6 @@
 
 use super::{MessageRead, MessageReadWrite};
 use crate::eth::EthChainId;
-use crate::shim::message::MethodNum;
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -11,16 +10,15 @@ use crate::shim::{
     message::Message,
 };
 use crate::utils::encoding::calc_encoded_len;
-use fvm_ipld_encoding::RawBytes;
 use fvm_ipld_encoding::tuple::*;
 use get_size2::GetSize;
 
 /// Represents a wrapped message with signature bytes.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq, GetSize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, GetSize, Serialize_tuple, Deserialize_tuple)]
 pub struct SignedMessage {
-    pub message: Message,
-    pub signature: Signature,
+    message: Message,
+    signature: Signature,
 }
 
 impl SignedMessage {
@@ -28,7 +26,7 @@ impl SignedMessage {
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
         signature.verify(&message.cid().to_bytes(), &message.from())?;
-        Ok(SignedMessage { message, signature })
+        Ok(SignedMessage::new_unchecked(message, signature))
     }
 
     /// Generate a new signed message from fields.
@@ -47,9 +45,21 @@ impl SignedMessage {
         &self.signature
     }
 
+    pub fn set_signature(&mut self, signature: Signature) {
+        self.signature = signature;
+    }
+
+    pub fn message_mut(&mut self) -> &mut Message {
+        &mut self.message
+    }
+
     /// Consumes self and returns it's unsigned message.
     pub fn into_message(self) -> Message {
         self.message
+    }
+
+    pub fn into_parts(self) -> (Message, Signature) {
+        (self.message, self.signature)
     }
 
     /// Checks if the signed message is a BLS message.
@@ -115,14 +125,8 @@ impl MessageRead for SignedMessage {
     fn sequence(&self) -> u64 {
         self.message.sequence()
     }
-    fn value(&self) -> TokenAmount {
+    fn value(&self) -> &TokenAmount {
         self.message.value()
-    }
-    fn method_num(&self) -> MethodNum {
-        self.message.method_num
-    }
-    fn params(&self) -> &RawBytes {
-        self.message.params()
     }
     fn gas_limit(&self) -> u64 {
         self.message.gas_limit()
@@ -130,26 +134,26 @@ impl MessageRead for SignedMessage {
     fn required_funds(&self) -> TokenAmount {
         self.message.required_funds()
     }
-    fn gas_fee_cap(&self) -> TokenAmount {
+    fn gas_fee_cap(&self) -> &TokenAmount {
         self.message.gas_fee_cap()
     }
-    fn gas_premium(&self) -> TokenAmount {
+    fn gas_premium(&self) -> &TokenAmount {
         self.message.gas_premium()
     }
 }
 
 impl MessageReadWrite for SignedMessage {
     fn set_gas_limit(&mut self, token_amount: u64) {
-        self.message.set_gas_limit(token_amount);
+        self.message_mut().set_gas_limit(token_amount);
     }
     fn set_sequence(&mut self, new_sequence: u64) {
-        self.message.set_sequence(new_sequence);
+        self.message_mut().set_sequence(new_sequence);
     }
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.message.set_gas_fee_cap(cap)
+        self.message_mut().set_gas_fee_cap(cap)
     }
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.message.set_gas_premium(prem)
+        self.message_mut().set_gas_premium(prem)
     }
 }
 
@@ -179,11 +183,10 @@ mod tests {
     /// implementation cannot do.
     #[test]
     fn chain_length_and_cid_follow_signature_type() {
-        let message = Message {
-            to: Address::new_id(1),
-            from: Address::new_id(2),
-            ..Message::default()
-        };
+        let message = Message::builder()
+            .to(Address::new_id(1))
+            .from(Address::new_id(2))
+            .build();
 
         // BLS signatures are aggregated into the block header, so they count for neither value.
         let bls =
@@ -213,11 +216,10 @@ mod tests {
     /// being invalidated when the message or the signature type changes.
     #[test]
     fn chain_length_and_cid_track_mutation() {
-        let message = Message {
-            to: Address::new_id(1),
-            from: Address::new_id(2),
-            ..Message::default()
-        };
+        let message = Message::builder()
+            .to(Address::new_id(1))
+            .from(Address::new_id(2))
+            .build();
         let secp = || {
             SignedMessage::new_unchecked(
                 message.clone(),
@@ -233,7 +235,7 @@ mod tests {
 
         let mut signed = secp();
         let secp_length = signed.chain_length().unwrap();
-        signed.signature = Signature::new_bls(vec![0; BLS_SIG_LEN]);
+        signed.set_signature(Signature::new_bls(vec![0; BLS_SIG_LEN]));
         assert_ne!(signed.chain_length().unwrap(), secp_length);
         assert_eq!(
             signed.chain_length().unwrap(),

@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::message::MessageReadWrite as _;
 use std::str::FromStr;
 
 use crate::{
@@ -66,8 +67,8 @@ pub fn construct_eth_messages(sequence: u64) -> (Message, SignedMessage) {
         ..Message_v3::default()
     }
     .into();
-    eth_message.method_num = EVMMethod::InvokeContract as u64;
-    eth_message.sequence = sequence;
+    eth_message.set_method_num(EVMMethod::InvokeContract as u64);
+    eth_message.set_sequence(sequence);
 
     let secp_message = SignedMessage::new_unchecked(
         eth_message.clone(),

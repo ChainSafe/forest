@@ -404,15 +404,14 @@ impl TryFrom<EthCallMessage> for Message {
                 EAMMethod::CreateExternal as MethodNum,
             )
         };
-        Ok(Message {
-            from,
-            to,
-            value: tx.value.unwrap_or_default().into(),
-            method_num,
-            params,
-            gas_limit: BLOCK_GAS_LIMIT,
-            ..Default::default()
-        })
+        Ok(Message::builder()
+            .from(from)
+            .to(to)
+            .value(tx.value.unwrap_or_default().into())
+            .method_num(method_num)
+            .params(params)
+            .gas_limit(BLOCK_GAS_LIMIT)
+            .build())
     }
 }
 

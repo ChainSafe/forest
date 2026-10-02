@@ -66,12 +66,12 @@ impl ChainListCommand {
                     let mut premium_sum = TokenAmount::zero();
                     let mut premium_avg = BigInt::zero();
                     for m in &msgs.bls_msg {
-                        limit_sum += m.gas_limit;
-                        premium_sum += m.gas_premium.clone();
+                        limit_sum += m.gas_limit();
+                        premium_sum += m.gas_premium();
                     }
                     for m in &msgs.secp_msg {
-                        limit_sum += m.message().gas_limit;
-                        premium_sum += m.message().gas_premium.clone();
+                        limit_sum += m.message().gas_limit();
+                        premium_sum += m.message().gas_premium();
                     }
 
                     if len > 0 {
@@ -90,7 +90,7 @@ impl ChainListCommand {
                         (*child_ts.block_headers().first().cid(),),
                     )
                     .await?;
-                    let limit_sum: u64 = msgs.iter().map(|m| m.message.gas_limit).sum();
+                    let limit_sum: u64 = msgs.iter().map(|m| m.message.gas_limit()).sum();
                     let gas_used: u64 = {
                         let receipts = ChainGetParentReceipts::call(
                             &client,
