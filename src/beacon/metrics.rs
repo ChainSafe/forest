@@ -9,7 +9,7 @@ use std::sync::LazyLock;
 pub static DRAND_HTTP_FETCH_TOTAL: LazyLock<Counter> = LazyLock::new(|| {
     let metric = Counter::default();
     crate::metrics::default_registry().register(
-        "drand_http_fetch_total",
+        "drand_http_fetch",
         "Total number of drand rounds fetched over HTTP",
         metric.clone(),
     );

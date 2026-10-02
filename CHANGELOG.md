@@ -31,6 +31,7 @@
 
 ### Added
 
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section. Peers listed there must be exclusivelly DRAND relay addresses and will be kept connected and protected.
 - [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the built block traces cached in front of it for `trace_block`, `trace_transaction` and `trace_filter`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
 
 ### Changed

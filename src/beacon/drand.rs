@@ -140,6 +140,13 @@ impl BeaconSchedule {
         }
     }
 
+    pub fn unchained_beacon(&self) -> Option<&BeaconImpl> {
+        self.0
+            .iter()
+            .map(|point| &point.beacon)
+            .find(|beacon| beacon.network().is_unchained())
+    }
+
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0

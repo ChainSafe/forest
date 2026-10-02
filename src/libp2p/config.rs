@@ -27,6 +27,11 @@ pub struct Libp2pConfig {
         |g| vec![Ipv4Addr::arbitrary(g).into()]
     )))]
     pub bootstrap_peers: Vec<Multiaddr>,
+    /// `drand` gossipsub relay peers. Dialed, kept connected and protected
+    #[cfg_attr(test, arbitrary(gen(
+        |g| vec![Ipv4Addr::arbitrary(g).into()]
+    )))]
+    pub drand_gossipsub_peers: Vec<Multiaddr>,
     /// MDNS discovery enabled.
     pub mdns: bool,
     /// Kademlia discovery enabled.
@@ -43,6 +48,7 @@ impl Default for Libp2pConfig {
                 "/ip4/0.0.0.0/udp/0/quic-v1".parse().expect("Infallible"),
             ],
             bootstrap_peers: vec![],
+            drand_gossipsub_peers: vec![],
             mdns: false,
             kademlia: true,
             target_peer_count: 75,
