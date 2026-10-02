@@ -21,8 +21,23 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 /// Serves recorded `quicknet` responses, so no test below reaches a public relay.
-static FAKE_DRAND: LazyLock<FakeDrandServer> =
+pub static FAKE_DRAND: LazyLock<FakeDrandServer> =
     LazyLock::new(|| FakeDrandServer::start(vec![FakeDrandChain::quicknet()]));
+
+/// Points the node's `quicknet` config at [`FAKE_DRAND`] through `FOREST_DRAND_QUICKNET_CONFIG`.
+pub fn use_fake_drand_quicknet() {
+    static INIT: LazyLock<()> = LazyLock::new(|| {
+        let config = DrandConfig {
+            servers: vec![FAKE_DRAND.url().clone()],
+            chain_info: FakeDrandChain::quicknet().info,
+            network_type: DrandNetwork::Quicknet,
+            register_metrics: false,
+        };
+        let config = serde_json::to_string(&config).expect("drand config serializes");
+        unsafe { std::env::set_var("FOREST_DRAND_QUICKNET_CONFIG", config) };
+    });
+    LazyLock::force(&INIT);
+}
 
 fn new_beacon_mainnet() -> DrandBeacon {
     DrandBeacon::new(

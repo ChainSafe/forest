@@ -372,6 +372,7 @@ pub mod state_compute {
 
         #[allow(dead_code)]
         async fn state_compute_test_run(chain: NetworkChain, epoch: ChainEpoch) {
+            crate::beacon::tests::drand::use_fake_drand_quicknet();
             let snapshot = get_state_compute_snapshot(&chain, epoch).await.unwrap();
             let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
             state_compute(&sm, ts, &ts_next).await.unwrap();
@@ -380,6 +381,7 @@ pub mod state_compute {
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_validate_mainnet_5688000() {
+            crate::beacon::tests::drand::use_fake_drand_quicknet();
             let chain = NetworkChain::Mainnet;
             let snapshot = get_state_validate_snapshot(&chain, 5688000).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
@@ -389,6 +391,7 @@ pub mod state_compute {
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_replay_uses_trace_cache_calibnet_3408952() {
+            crate::beacon::tests::drand::use_fake_drand_quicknet();
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_compute_snapshot(&chain, 3408952).await.unwrap();
             let (sm, ts, _) = prepare_state_compute(&chain, &snapshot).await.unwrap();
@@ -430,6 +433,7 @@ pub mod state_compute {
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_validate_calibnet_16802() {
+            crate::beacon::tests::drand::use_fake_drand_quicknet();
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 16802).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
@@ -440,6 +444,7 @@ pub mod state_compute {
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_state_validate_calibnet_322356() {
+            crate::beacon::tests::drand::use_fake_drand_quicknet();
             let chain = NetworkChain::Calibnet;
             let snapshot = get_state_validate_snapshot(&chain, 322356).await.unwrap();
             let (sm, fts) = prepare_state_validate(&chain, &snapshot).await.unwrap();
