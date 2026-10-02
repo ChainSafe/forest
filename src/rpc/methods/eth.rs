@@ -56,9 +56,10 @@ use crate::shim::actors::{eam, is_evm_actor, system};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
-use crate::shim::executor::Receipt;
+use crate::shim::executor::{ApplyRet, Receipt};
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
+use crate::shim::fvm_shared_latest::error::ExitCode;
 use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::{
@@ -1902,6 +1903,7 @@ async fn eth_estimate_gas(
     tx: EthCallMessage,
     tipset: Tipset,
 ) -> Result<EthUint64, ServerError> {
+    let gas_cap = tx.gas_cap();
     let mut msg = Message::try_from(tx)?;
     // Set the gas limit to the zero sentinel value, which makes
     // gas estimation actually run.
@@ -1911,7 +1913,7 @@ async fn eth_estimate_gas(
         ctx.state_manager
             .get_actor(&msg.from, *tipset.parent_state()),
     ) {
-        return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
+        return eth_estimate_gas_skip_sender(ctx, msg, &tipset, gas_cap).await;
     }
 
     match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
@@ -1920,7 +1922,10 @@ async fn eth_estimate_gas(
                 err.downcast_ref(),
                 Some(StateManagerError::SenderValidationFailed(_))
             ) {
-                return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
+                return eth_estimate_gas_skip_sender(ctx, msg, &tipset, gas_cap).await;
+            }
+            if let Some(e) = exceeds_gas_cap(&err, gas_cap) {
+                return Err(e.into());
             }
 
             // Return reverts as-is to preserve the JSON-RPC error codec.
@@ -1934,7 +1939,8 @@ async fn eth_estimate_gas(
         }
         Ok(gassed_msg) => {
             let expected_gas =
-                eth_gas_search(ctx, gassed_msg, &tipset, SenderValidation::Enforce).await?;
+                eth_gas_search(ctx, gassed_msg, &tipset, SenderValidation::Enforce, gas_cap)
+                    .await?;
             Ok(expected_gas.into())
         }
     }
@@ -1949,6 +1955,7 @@ async fn eth_estimate_gas_skip_sender(
     ctx: &Ctx,
     mut msg: Message,
     tipset: &Tipset,
+    gas_cap: Option<u64>,
 ) -> Result<EthUint64, ServerError> {
     let gas_limit = match gas::GasEstimateGasLimit::estimate_gas_limit(
         ctx,
@@ -1960,6 +1967,9 @@ async fn eth_estimate_gas_skip_sender(
     {
         Ok(gas_limit) => gas_limit,
         Err(estimate_err) => {
+            if let Some(e) = exceeds_gas_cap(&estimate_err, gas_cap) {
+                return Err(e.into());
+            }
             return Err(recover_estimate_gas_error(ctx, msg, tipset, estimate_err).await);
         }
     };
@@ -1967,8 +1977,33 @@ async fn eth_estimate_gas_skip_sender(
     let gas_limit = (gas_limit as f64 * ctx.mpool.gas_limit_overestimation()) as u64;
     msg.set_gas_limit(gas_limit.min(BLOCK_GAS_LIMIT));
 
-    let expected_gas = eth_gas_search(ctx, msg, tipset, SenderValidation::Skip).await?;
+    let expected_gas = eth_gas_search(ctx, msg, tipset, SenderValidation::Skip, gas_cap).await?;
     Ok(expected_gas.into())
+}
+
+/// A call out of gas even at the block gas limit cannot fit in a caller's cap either.
+fn exceeds_gas_cap(err: &anyhow::Error, gas_cap: Option<u64>) -> Option<EthErrors> {
+    let gas_limit = gas_cap?;
+    matches!(err.downcast_ref(), Some(EthErrors::OutOfGas))
+        .then_some(EthErrors::InsufficientGasLimit { gas_limit })
+}
+
+/// The error for a message that failed within the caller's cap. Execution failures are blamed on the cap, since the estimate already succeeded under the block gas limit.
+fn gas_cap_error(apply_ret: &ApplyRet, gas_limit: u64) -> EthErrors {
+    let exit_code = apply_ret.exit_code();
+    // Preflight rejects without executing anything, so it charges no gas.
+    let preflight = apply_ret.gas_used() == 0;
+    if preflight && exit_code == ExitCode::SYS_OUT_OF_GAS {
+        EthErrors::GasRequiredExceedsAllowance { gas_limit }
+    } else if preflight {
+        EthErrors::execution_reverted_from_result(
+            exit_code,
+            apply_ret.return_data(),
+            &apply_ret.failure_info().unwrap_or_default(),
+        )
+    } else {
+        EthErrors::InsufficientGasLimit { gas_limit }
+    }
 }
 
 /// Re-execute to recover an `ExecutionReverted` from a failed gas estimate.
@@ -1996,7 +2031,7 @@ fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> b
         Ok((invoc_res, _)) => invoc_res
             .msg_rct
             .as_ref()
-            .is_some_and(|rct| rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID),
+            .is_some_and(|rct| rct.exit_code() == ExitCode::SYS_SENDER_INVALID),
     }
 }
 
@@ -2058,12 +2093,20 @@ async fn apply_message(
     Ok(invoc_res)
 }
 
+/// Searches for the gas limit `msg` needs, never exceeding `gas_cap` (the caller-supplied limit) when given.
 pub async fn eth_gas_search(
     data: &Ctx,
-    msg: Message,
+    mut msg: Message,
     curr_ts: &Tipset,
     sender_validation: SenderValidation,
+    gas_cap: Option<u64>,
 ) -> anyhow::Result<u64> {
+    if let Some(cap) = gas_cap {
+        msg.gas_limit = msg.gas_limit.min(cap);
+        // The call carries no gas price, so like the measurement under the block gas limit, judge gas alone and not the sender's funds.
+        msg.set_gas_fee_cap(TokenAmount::from_atto(0));
+        msg.set_gas_premium(TokenAmount::from_atto(0));
+    }
     // Probe the message as the caller specified it: the question is whether *its* limit
     // suffices, which the block maximum would always answer yes to.
     let (apply_ret, prior_messages, ts, from) = gas::GasEstimateGasLimit::probe_as_specified(
@@ -2078,33 +2121,43 @@ pub async fn eth_gas_search(
         return Ok(msg.gas_limit());
     }
 
-    // Only the trace tells "needs a higher limit" from "fails at any limit", and it is worth one
-    // re-execution here against the ~30 the search below would spend. The statement keeps the
-    // trace, one event per gas charge, from outliving the check.
-    let out_of_gas = data
-        .state_manager
-        .call_with_gas(
-            ChainMessage::for_gas_estimation(msg.clone(), from.protocol()),
-            prior_messages.shallow_clone(),
-            Some(ts.shallow_clone()),
-            VMFlush::Skip,
-            VMTrace::Traced,
-            sender_validation,
-        )
-        .await?
-        .0
-        .trace_has_call_return_exit_code(fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS);
-    if !out_of_gas {
-        // Match Lotus: a code-3 `ExecutionReverted` with the decoded revert data, so eth tooling
-        // gets the code and can ABI-decode the reason.
-        let vm_error = apply_ret.failure_info().unwrap_or_default();
-        return Err(EthErrors::execution_reverted_from_result(
-            apply_ret.exit_code(),
-            apply_ret.return_data(),
-            &vm_error,
-        )
-        .with_message_prefix("gas search failed")
-        .into());
+    match gas_cap {
+        Some(cap) => {
+            let err = gas_cap_error(&apply_ret, cap);
+            // Below the cap, only a failure more gas cannot fix ends the search early.
+            if msg.gas_limit == cap || matches!(err, EthErrors::ExecutionReverted { .. }) {
+                return Err(err.into());
+            }
+        }
+        None => {
+            // Only the trace tells "needs a higher limit" from "fails at any limit", and it is worth one
+            // re-execution here against the ~30 the search below would spend. The statement keeps the
+            // trace, one event per gas charge, from outliving the check.
+            let out_of_gas = data
+                .state_manager
+                .call_with_gas(
+                    ChainMessage::for_gas_estimation(msg.clone(), from.protocol()),
+                    prior_messages.shallow_clone(),
+                    Some(ts.shallow_clone()),
+                    VMFlush::Skip,
+                    VMTrace::Traced,
+                    sender_validation,
+                )
+                .await?
+                .0
+                .trace_has_call_return_exit_code(ExitCode::SYS_OUT_OF_GAS);
+            if !out_of_gas {
+                // Match Lotus: a code-3 `ExecutionReverted` with the decoded revert data, so eth tooling
+                // gets the code and can ABI-decode the reason.
+                let vm_error = apply_ret.failure_info().unwrap_or_default();
+                return Err(EthErrors::execution_reverted_from_result(
+                    apply_ret.exit_code(),
+                    apply_ret.return_data(),
+                    &vm_error,
+                )
+                .into());
+            }
+        }
     }
 
     let ret = gas_search(
@@ -2114,9 +2167,11 @@ pub async fn eth_gas_search(
         prior_messages,
         ts,
         sender_validation,
+        gas_cap,
     )
     .await?;
-    Ok((ret as f64 * data.mpool.gas_limit_overestimation()) as u64)
+    let estimate = (ret as f64 * data.mpool.gas_limit_overestimation()) as u64;
+    Ok(gas_cap.map_or(estimate, |cap| estimate.min(cap)))
 }
 
 /// `gas_search` does an exponential search to find a gas value to execute the
@@ -2130,12 +2185,14 @@ async fn gas_search(
     prior_messages: Arc<Vec<ChainMessage>>,
     ts: Tipset,
     sender_validation: SenderValidation,
+    gas_cap: Option<u64>,
 ) -> anyhow::Result<u64> {
+    let max_gas = gas_cap.unwrap_or(BLOCK_GAS_LIMIT);
     // `max(1)` keeps the doubling below able to make progress.
     let mut high = msg.gas_limit.max(1);
     let mut low = high;
 
-    let can_succeed = async |limit: u64| {
+    let apply = async |limit: u64| {
         let mut msg = msg.clone();
         msg.gas_limit = limit;
         let (apply_ret, ..) = data
@@ -2149,15 +2206,25 @@ async fn gas_search(
                 sender_validation,
             )
             .await?;
-        anyhow::Ok(apply_ret.exit_code().is_success())
+        anyhow::Ok(apply_ret)
     };
+    let can_succeed = async |limit: u64| anyhow::Ok(apply(limit).await?.exit_code().is_success());
 
-    while high < BLOCK_GAS_LIMIT {
+    while high < max_gas {
         if can_succeed(high).await? {
             break;
         }
         low = high;
-        high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
+        high = high.saturating_mul(2).min(max_gas);
+    }
+    // Unlike the block gas limit, which the estimate already ran under, a caller's cap is unproven.
+    if let Some(cap) = gas_cap
+        && high == cap
+    {
+        let apply_ret = apply(cap).await?;
+        if !apply_ret.exit_code().is_success() {
+            return Err(gas_cap_error(&apply_ret, cap).into());
+        }
     }
 
     let mut check_threshold = high / 100;
