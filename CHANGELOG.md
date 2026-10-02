@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section. Peers listed there must be exclusivelly DRAND relay addresses and will be kept connected and protected.
+
 ### Changed
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.

@@ -212,6 +212,7 @@ pub enum NetRPCMethods {
 pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
+    drand_gossipsub_peers: HashMap<PeerId, Multiaddr>,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -305,18 +306,25 @@ impl Libp2pService {
             anyhow::bail!("p2p peer failed to listen on any network endpoints");
         }
 
-        let bootstrap_peers = config
-            .bootstrap_peers
-            .iter()
-            .filter_map(|ma| match ma.iter().last() {
-                Some(Protocol::P2p(peer)) => Some((peer, ma.clone())),
-                _ => None,
-            })
-            .collect();
+        fn peer_addr_map(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
+            addrs
+                .iter()
+                .filter_map(|ma| match ma.iter().last() {
+                    Some(Protocol::P2p(peer)) => Some((peer, ma.clone())),
+                    _ => None,
+                })
+                .collect()
+        }
+        let bootstrap_peers = peer_addr_map(&config.bootstrap_peers);
+        let drand_gossipsub_peers = peer_addr_map(&config.drand_gossipsub_peers);
+        for peer in drand_gossipsub_peers.keys() {
+            peer_manager.protect_peer(*peer);
+        }
 
         Ok(Libp2pService {
             swarm,
             bootstrap_peers,
+            drand_gossipsub_peers,
             cs,
             peer_manager,
             network_receiver_in,
@@ -337,6 +345,10 @@ impl Libp2pService {
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
             warn!("Failed to bootstrap with Kademlia: {e:#}");
         }
+
+        // Dial the drand relays right away instead of waiting for the first re-dial tick,
+        // so beacon entries arrive over gossipsub from startup rather than the HTTP fallback.
+        dial_to_bootstrap_peers_if_needed(&mut self.swarm, &self.drand_gossipsub_peers);
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
@@ -431,11 +443,12 @@ impl Libp2pService {
                 }
                 peer_ops_opt = peer_ops_rx_stream.next() => {
                     if let Some(peer_ops) = peer_ops_opt {
-                        handle_peer_ops(swarm_stream.get_mut(), peer_ops, &self.bootstrap_peers);
+                        handle_peer_ops(swarm_stream.get_mut(), peer_ops, &self.bootstrap_peers, &self.drand_gossipsub_peers);
                     }
                 },
                 _ = bootstrap_peer_dialer_interval_stream.next() => {
                     dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers);
+                    dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.drand_gossipsub_peers);
                 }
             };
         }
@@ -475,6 +488,7 @@ fn handle_peer_ops(
     swarm: &mut Swarm<ForestBehaviour>,
     peer_ops: PeerOperation,
     bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+    drand_gossipsub_peers: &HashMap<PeerId, Multiaddr>,
 ) {
     use PeerOperation::*;
     match peer_ops {
@@ -483,8 +497,8 @@ fn handle_peer_ops(
             user_agent,
             reason,
         } => {
-            // Do not ban bootstrap nodes
-            if !bootstrap_peers.contains_key(&peer) {
+            // Do not ban bootstrap nodes or drand relays
+            if !bootstrap_peers.contains_key(&peer) && !drand_gossipsub_peers.contains_key(&peer) {
                 let user_agent = user_agent.unwrap_or_default();
                 debug!(%peer, %user_agent, %reason, "Banning peer");
                 swarm.behaviour_mut().blocked_peers.block_peer(peer);

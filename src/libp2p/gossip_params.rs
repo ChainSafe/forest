@@ -78,6 +78,38 @@ fn build_block_topic_config() -> TopicScoreParams {
     }
 }
 
+// https://github.com/filecoin-project/lotus/blob/d5e6eb3c28aa1630b3fe97b06dbf3cc9f30772a1/node/modules/lp2p/pubsub.go#L119
+fn build_drand_topic_config() -> TopicScoreParams {
+    TopicScoreParams {
+        // one beacon every 3 seconds; keep the topic's influence small
+        topic_weight: 0.5,
+
+        time_in_mesh_weight: 0.00027,
+        time_in_mesh_quantum: Duration::from_secs(1),
+        time_in_mesh_cap: 1.0,
+
+        first_message_deliveries_weight: 5.0,
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_hours(1)),
+        first_message_deliveries_cap: 25.0,
+
+        // Disabled on purpose, as Lotus does for beacons: the default
+        // `TopicScoreParams` keep this penalty active, and on calibnet it made
+        // us prune every subscribed peer that had no beacon source of its own,
+        // collapsing our mesh instead of letting us feed those peers.
+        mesh_message_deliveries_weight: 0.0,
+        mesh_message_deliveries_decay: 0.0,
+        mesh_message_deliveries_cap: 0.0,
+        mesh_message_deliveries_threshold: 0.0,
+        mesh_message_deliveries_window: Duration::from_millis(0),
+        mesh_message_deliveries_activation: Duration::from_millis(0),
+        mesh_failure_penalty_weight: 0.0,
+        mesh_failure_penalty_decay: 0.0,
+
+        invalid_message_deliveries_weight: -1000.0,
+        invalid_message_deliveries_decay: score_parameter_decay(Duration::from_hours(1)),
+    }
+}
+
 pub(in crate::libp2p) fn build_peer_score_params(cfg: PubsubTopicCfg<'_>) -> PeerScoreParams {
     #[allow(clippy::disallowed_types)]
     let mut psp_topics = std::collections::HashMap::new();
@@ -86,7 +118,7 @@ pub(in crate::libp2p) fn build_peer_score_params(cfg: PubsubTopicCfg<'_>) -> Pee
         let params = match variant {
             PubsubTopic::Blocks => build_block_topic_config(),
             PubsubTopic::Messages => build_msg_topic_config(),
-            PubsubTopic::Drand => Default::default(),
+            PubsubTopic::Drand => build_drand_topic_config(),
         };
         psp_topics.insert(topic.hash(), params);
     }
