@@ -410,7 +410,10 @@ impl TryFrom<EthCallMessage> for Message {
             value: tx.value.unwrap_or_default().into(),
             method_num,
             params,
-            gas_limit: BLOCK_GAS_LIMIT,
+            gas_limit: match tx.gas {
+                Some(EthUint64(gas)) if gas > 0 => gas.min(BLOCK_GAS_LIMIT),
+                _ => BLOCK_GAS_LIMIT,
+            },
             ..Default::default()
         })
     }
@@ -644,6 +647,24 @@ mod tests {
         let data = EthBytes(BASE64_STANDARD.decode("RHt4g0E=").unwrap());
         let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
         assert_eq!(BASE64_STANDARD.encode(&*params).as_str(), "RUR7eINB");
+    }
+
+    #[test]
+    fn eth_call_message_gas_limit() {
+        let gas_limit = |gas: Option<u64>| {
+            Message::try_from(EthCallMessage {
+                gas: gas.map(EthUint64),
+                ..Default::default()
+            })
+            .unwrap()
+            .gas_limit
+        };
+        assert_eq!(gas_limit(None), BLOCK_GAS_LIMIT);
+        assert_eq!(gas_limit(Some(0)), BLOCK_GAS_LIMIT);
+        assert_eq!(gas_limit(Some(1000)), 1000);
+        assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT)), BLOCK_GAS_LIMIT);
+        assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT + 1)), BLOCK_GAS_LIMIT);
+        assert_eq!(gas_limit(Some(u64::MAX)), BLOCK_GAS_LIMIT);
     }
 
     #[test]
