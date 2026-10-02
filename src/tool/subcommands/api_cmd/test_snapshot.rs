@@ -320,6 +320,7 @@ mod tests {
     #[allow(dead_code)]
     async fn rpc_regression_test_run(name: &str) {
         LazyLock::force(&INIT_RNG_SEED);
+        crate::beacon::tests::drand::use_fake_drand_quicknet();
         tokio::time::timeout(RPC_REGRESSION_TEST_TIMEOUT, async {
             crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
                 &crate::cli_shared::default_data_dir(),
