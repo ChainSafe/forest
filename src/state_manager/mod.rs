@@ -64,7 +64,7 @@ use tracing::warn;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~150MiB on mainnet
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~0.7MiB on mainnet
-const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // maximum ~70MiB on mainnet
+const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // 1.4 to 7.7 MiB per entry measured, so ~20 to 120 MiB
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
@@ -261,7 +261,13 @@ impl StateManager {
         Ok(Self {
             cs,
             cache: ForestCache::new("tipset_state_executed_tipset"), // For StateOutput
-            trace_cache: ForestCache::with_size("tipset_trace", DEFAULT_TRACE_CACHE_SIZE),
+            trace_cache: ForestCache::with_size(
+                "tipset_trace",
+                crate::utils::misc::env::env_or_default_logged(
+                    "FOREST_TIPSET_TRACE_CACHE_SIZE",
+                    DEFAULT_TRACE_CACHE_SIZE,
+                ),
+            ),
             beacon,
             engine,
             genesis_info,

@@ -362,3 +362,44 @@ mod export_stuckness {
         );
     }
 }
+
+#[rstest]
+#[case::a_outside_depth(RootKind::StateRoot, false)]
+#[case::a_missing_messages(RootKind::Messages, true)]
+#[case::a_missing_state_root(RootKind::StateRoot, true)]
+#[tokio::test]
+async fn ensure_recent_roots_present_checks_oldest_walked_tipset(
+    #[case] pruned_kind: RootKind,
+    #[case] depth_covers_a: bool,
+) {
+    use crate::blocks::HeaderBuilder;
+    use crate::utils::rand::random_cid;
+
+    let pruned = random_cid();
+    let mut a_header = HeaderBuilder::new();
+    match pruned_kind {
+        RootKind::Messages => a_header.with_messages(pruned),
+        RootKind::StateRoot => a_header.with_state_root(pruned),
+    };
+    let db = Arc::new(MemoryDB::default());
+    let c4u = Chain4U::with_blockstore(db.clone());
+    chain4u! {
+        in c4u;
+        [_genesis] -> [a = &a_header] -> [_b] -> head @ [_c]
+    };
+
+    let limit = if depth_covers_a { a.epoch - 1 } else { a.epoch };
+    let result = ensure_recent_roots_present(&db, head, limit).await;
+    let expected = depth_covers_a.then_some(MissingRecentRoot {
+        kind: pruned_kind,
+        cid: pruned,
+        epoch: a.epoch,
+        depth: head.epoch() - limit,
+    });
+    assert_eq!(
+        result
+            .err()
+            .map(|e| e.downcast::<MissingRecentRoot>().unwrap()),
+        expected
+    );
+}

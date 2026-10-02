@@ -32,8 +32,7 @@ impl StateManager {
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree =
-            StateTree::new_from_root(self.db(), ts.parent_state()).map_err(|e| format!("{e:?}"))?;
+        let state_tree = StateTree::new_from_root(self.db(), ts.parent_state())?;
         Ok(state_tree
             .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?

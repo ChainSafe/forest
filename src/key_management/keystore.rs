@@ -219,7 +219,9 @@ impl KeyStore {
 
                             let key_info = from_slice_with_fallback(&decrypted_data)
                                 .inspect_err(|error| {
-                                    error!(%error, "Failed to deserialize keyfile, initializing new");
+                                    error!(
+                                        "Failed to deserialize keyfile, initializing new: {error:#}"
+                                    );
                                 })
                                 .unwrap_or_default();
 

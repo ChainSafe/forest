@@ -31,6 +31,8 @@ Low-traffic is considered under 100 requests per minute. Ultimately, the CPU and
 | Memory     | 16 GiB      | 32 GiB       | Network upgrades can require more memory. |
 | Disk Space | 500 GiB     | 500 GiB      | SSD (high IOPS/NVMe recommended)          |
 
+Nodes serving the trace methods or `Filecoin.StateReplay` should budget another 0.1 to 0.5 GiB of memory if they raise the trace cache sizes, see [fine-tuning an RPC node](../knowledge_base/rpc/fine_tuning.md).
+
 ## Bootstrap Node (stateless)
 
 |            | Minimum | Recommended | Notes                                              |

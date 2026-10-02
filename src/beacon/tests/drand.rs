@@ -4,6 +4,8 @@
 use itertools::Itertools;
 
 use crate::beacon::drand::beacon_round_wait;
+use crate::beacon::tests::fake_drand_server::{FakeDrandChain, FakeDrandServer};
+use crate::utils::encoding::hex;
 use crate::{
     beacon::mock_beacon::MockBeacon,
     beacon::{
@@ -18,19 +20,16 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use std::time::Duration;
 
+/// Serves recorded `quicknet` responses, so no test below reaches a public relay.
+static FAKE_DRAND: LazyLock<FakeDrandServer> =
+    LazyLock::new(|| FakeDrandServer::start(vec![FakeDrandChain::quicknet()]));
+
 fn new_beacon_mainnet() -> DrandBeacon {
     DrandBeacon::new(
         1598306400,
         30,
         &DrandConfig {
-            // https://drand.love/developer/http-api/#public-endpoints
-            servers: vec![
-                "https://api.drand.sh".try_into().unwrap(),
-                "https://api2.drand.sh".try_into().unwrap(),
-                "https://api3.drand.sh".try_into().unwrap(),
-                "https://drand.cloudflare.com".try_into().unwrap(),
-                "https://api.drand.secureweb3.com:6875".try_into().unwrap(),
-            ],
+            servers: vec![],
             // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
             chain_info: ChainInfo {
                 public_key: Cow::Borrowed(
@@ -56,14 +55,7 @@ pub fn new_beacon_quicknet() -> DrandBeacon {
         1598306400,
         30,
         &DrandConfig {
-            // https://drand.love/developer/http-api/#public-endpoints
-            servers: vec![
-                "https://api.drand.sh".try_into().unwrap(),
-                "https://api2.drand.sh".try_into().unwrap(),
-                "https://api3.drand.sh".try_into().unwrap(),
-                "https://drand.cloudflare.com".try_into().unwrap(),
-                "https://api.drand.secureweb3.com:6875".try_into().unwrap(),
-            ],
+            servers: vec![FAKE_DRAND.url().clone()],
             // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
             chain_info: ChainInfo {
                 public_key: Cow::Borrowed(
@@ -144,37 +136,24 @@ fn beacon_round_wait_no_panic(round_ts: u64, now: i64) {
     let _ = beacon_round_wait(round_ts, now);
 }
 
-#[tokio::test]
-async fn ask_and_verify_mainnet_beacon_entry_success() {
-    let beacon = new_beacon_mainnet();
-
-    let e1 = beacon.entry(1).await.unwrap();
-    let e2 = beacon.entry(2).await.unwrap();
-    let e3 = beacon.entry(3).await.unwrap();
-    assert!(beacon.verify_entries(&[e2, e3], &e1).unwrap());
-}
-
 // This is a regression test for cases when a block header contains
 // duplicate beacon entries.
 // For details, see <https://github.com/ChainSafe/forest/pull/4163>
-#[tokio::test]
-async fn ask_and_verify_mainnet_beacon_entry_success_issue_4163() {
+#[test]
+fn verify_mainnet_beacon_entry_success_issue_4163() {
     let beacon = new_beacon_mainnet();
+    let entry = |round, signature| BeaconEntry::new(round, hex::decode(signature).unwrap());
 
-    let e1 = beacon.entry(3907446).await.unwrap();
-    let e2 = beacon.entry(3907447).await.unwrap();
-    let e3 = beacon.entry(3907447).await.unwrap();
+    let e1 = entry(
+        3907446,
+        "934d1eb250fec0e5234c11a7e30a8c428a975b500df0deb91a6f6ca57dace8d90705812673e517ad163731f7a2861d1d18cfd60dcca4c93bf01f8ad38279e09cf991d7babe0bd81329daec2702bfb8c6b870fb381e35216528e2e2c0b742c2ba",
+    );
+    let e2 = entry(
+        3907447,
+        "ac7ad5153605b6a3ec082640989b49e34f554ada33a9d944268213fb2a030cbaf0262c916cfaad866bde80682edeb223129465ae9540cdffd7d85b0180eeba125b16fd1b938c2bbc9bf2597fe20be688b58a615a209f2c6701363228c0682755",
+    );
+    let e3 = e2.clone();
     assert!(beacon.verify_entries(&[e2, e3], &e1).unwrap());
-}
-
-#[tokio::test]
-async fn ask_and_verify_mainnet_beacon_entry_fail() {
-    let beacon = new_beacon_mainnet();
-
-    let e1 = beacon.entry(1).await.unwrap();
-    let e2 = beacon.entry(2).await.unwrap();
-    let e3 = beacon.entry(3).await.unwrap();
-    assert!(!beacon.verify_entries(&[e3, e2], &e1).unwrap());
 }
 
 #[tokio::test]
@@ -226,7 +205,7 @@ fn max_beacon_round_for_epoch_mainnet(
 // First epoch at or after quicknet genesis, then the next: 10 drand rounds per 30s epoch.
 #[case(3149900, 2)]
 #[case(3149901, 12)]
-// Also asserted against the live network by `beacon_entries_for_block_covers_null_rounds_quicknet`.
+// Also exercised end-to-end by `beacon_entries_for_block_covers_null_rounds_quicknet`.
 #[case(6216200, 30663002)]
 // https://github.com/filecoin-project/FIPs/pull/914/files#diff-fa537e813e7b41bd21980a06cf452f13e1b40e8a74f47a9f4bc4dd47c1df43b0L76
 #[case(3547000, 3971002)]

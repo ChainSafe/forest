@@ -1,9 +1,17 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{borrow::Cow, fmt::Debug, hash::Hash, num::NonZeroUsize, sync::atomic::Ordering};
+use std::{
+    borrow::Cow,
+    fmt::Debug,
+    hash::Hash,
+    num::NonZeroUsize,
+    sync::atomic::Ordering,
+    time::{Duration, Instant},
+};
 
 use get_size2::GetSize;
+use parking_lot::Mutex;
 use prometheus_client::{
     collector::Collector,
     encoding::{DescriptorEncoder, EncodeMetric},
@@ -13,6 +21,12 @@ use prometheus_client::{
 use quick_cache::sync::Cache;
 
 use crate::prelude::*;
+
+/// [`SizeTrackingCache::size_in_bytes`] clones every entry and deep-walks it, which for caches of
+/// large values costs more than a scrape should. The gauge is an observability aid, so a stale
+/// reading is preferable to making every scrape pay that. Kept well above a typical 15-30s scrape
+/// interval, or the memo expires before every scrape and buys nothing.
+const SIZE_GAUGE_MAX_STALENESS: Duration = Duration::from_secs(300);
 
 pub trait CacheKeyConstraints:
     GetSize + Debug + Send + Sync + Hash + PartialEq + Eq + Clone + 'static
@@ -42,6 +56,7 @@ where
     cache_name: Cow<'static, str>,
     #[deref]
     cache: Arc<Cache<K, V>>,
+    size_in_bytes_memo: Arc<Mutex<Option<(Instant, usize)>>>,
 }
 
 impl<K, V> ShallowClone for SizeTrackingCache<K, V>
@@ -53,6 +68,7 @@ where
         Self {
             cache_name: self.cache_name.clone(),
             cache: self.cache.shallow_clone(),
+            size_in_bytes_memo: self.size_in_bytes_memo.shallow_clone(),
         }
     }
 }
@@ -70,6 +86,7 @@ where
         Self {
             cache_name: cache_name.into(),
             cache: Arc::new(Cache::new(capacity.get())),
+            size_in_bytes_memo: Default::default(),
         }
     }
 
@@ -103,12 +120,24 @@ where
     }
 
     pub(crate) fn size_in_bytes(&self) -> usize {
+        let mut memo = self.size_in_bytes_memo.lock();
+        // Covers `clear` and any other drain: an emptied cache must not keep reporting its old total.
+        if self.cache.is_empty() {
+            *memo = None;
+            return 0;
+        }
+        if let Some((measured_at, size)) = *memo
+            && measured_at.elapsed() < SIZE_GAUGE_MAX_STALENESS
+        {
+            return size;
+        }
         let mut size = 0_usize;
         for (k, v) in self.cache.iter() {
             size = size
                 .saturating_add(k.get_size())
                 .saturating_add(v.get_size());
         }
+        *memo = Some((Instant::now(), size));
         size
     }
 }
@@ -189,5 +218,28 @@ where
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nonzero_ext::nonzero;
+
+    #[test]
+    fn size_gauge_is_memoized_until_cleared() {
+        let cache: SizeTrackingCache<u64, Vec<u8>> =
+            SizeTrackingCache::new_without_metrics_registry("test_size_memo", nonzero!(64usize));
+        cache.insert(1, vec![0; 1024]);
+        let first = cache.size_in_bytes();
+        assert!(first >= 1024);
+
+        // Within the staleness window the walk is skipped, so growth is not reflected yet.
+        cache.insert(2, vec![0; 1024]);
+        assert_eq!(cache.size_in_bytes(), first);
+
+        // `clear` drops the memo, so the gauge does not keep reporting a pre-clear total.
+        cache.clear();
+        assert_eq!(cache.size_in_bytes(), 0);
     }
 }

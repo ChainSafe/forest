@@ -18,4 +18,5 @@ pub mod tests {
     // tests in other modules.
     pub mod drand;
     pub mod fake_drand;
+    pub mod fake_drand_server;
 }

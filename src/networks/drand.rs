@@ -122,27 +122,7 @@ fn parse_drand_config_from_env_var<'a>(key: &str) -> Option<DrandConfig<'a>> {
 
 #[cfg(test)]
 mod tests {
-    use url::Url;
-
     use super::*;
-    use crate::utils::{RetryArgs, net::global_http_client, retry};
-    use std::time::Duration;
-
-    #[tokio::test]
-    async fn test_drand_mainnet() {
-        test_drand(&DRAND_MAINNET).await
-    }
-
-    #[tokio::test]
-    async fn test_drand_quicknet() {
-        test_drand(&DRAND_QUICKNET).await
-    }
-
-    #[tokio::test]
-    #[ignore = "server url is no longer valid"]
-    async fn test_drand_incentinet() {
-        test_drand(&DRAND_INCENTINET).await
-    }
 
     #[test]
     fn test_parse_drand_config_from_env_var() {
@@ -154,44 +134,5 @@ mod tests {
         unsafe { std::env::set_var(env_key, config_json) };
         let parsed = parse_drand_config_from_env_var(env_key);
         assert_eq!(parsed, Some(config));
-    }
-
-    async fn test_drand<'a>(config: &'a DrandConfig<'a>) {
-        let get_remote_chain_info = |server: &'a Url| async move {
-            retry(
-                RetryArgs {
-                    timeout: Some(Duration::from_secs(15)),
-                    ..Default::default()
-                },
-                || async {
-                    let remote_chain_info: ChainInfo = global_http_client()
-                        .get(server.join(&format!("{}/info", config.chain_info.hash))?)
-                        .send()
-                        .await?
-                        .error_for_status()?
-                        .json()
-                        .await?;
-                    anyhow::Ok(remote_chain_info)
-                },
-            )
-            .await
-        };
-
-        let mut remote_chain_info_list = vec![];
-        for server in &config.servers {
-            if let Ok(remote_chain_info) = get_remote_chain_info(server).await {
-                remote_chain_info_list.push(remote_chain_info);
-            }
-        }
-        assert!(
-            !remote_chain_info_list.is_empty(),
-            "all drand servers on the list are down"
-        );
-        assert!(
-            remote_chain_info_list
-                .iter()
-                .all(|i| i == &config.chain_info),
-            "some servers on the list serve different networks"
-        );
     }
 }
