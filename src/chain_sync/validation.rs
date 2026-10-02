@@ -8,11 +8,12 @@ use crate::chain::ChainStore;
 use crate::message::SignedMessage;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
-use crate::utils::{cid::CidCborExt, db::CborStoreExt};
+use crate::utils::db::CborStoreExt;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as EncodingError;
+use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::chain_sync::bad_block_cache::{BadBlockCache, SeenBlockCache};
@@ -140,15 +141,11 @@ impl TipsetValidator<'_> {
         bls_msgs: &[Message],
         secp_msgs: &[SignedMessage],
     ) -> Result<Cid, TipsetValidationError> {
-        // Generate message CIDs
-        let bls_cids = bls_msgs
-            .iter()
-            .map(Cid::from_cbor_blake2b256)
-            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
+        let bls_cids = bls_msgs.iter().map(Message::cid).collect_vec();
         let secp_cids = secp_msgs
             .iter()
-            .map(Cid::from_cbor_blake2b256)
-            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
+            .map(SignedMessage::signed_cid)
+            .collect_vec();
 
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;
