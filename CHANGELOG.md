@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
+
 ### Added
 
 - [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section. Peers listed there must be exclusivelly DRAND relay addresses and will be kept connected and protected.
