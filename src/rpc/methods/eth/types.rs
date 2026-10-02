@@ -359,6 +359,14 @@ impl EthCallMessage {
         self.input.as_ref().or(self.data.as_ref())
     }
 
+    /// Returns the caller-supplied gas limit capped at the block gas limit, treating `0` as unset like Lotus.
+    pub fn gas_cap(&self) -> Option<u64> {
+        match self.gas {
+            Some(EthUint64(gas)) if gas > 0 => Some(gas.min(BLOCK_GAS_LIMIT)),
+            _ => None,
+        }
+    }
+
     pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
         if data.0.is_empty() {
             Ok(RawBytes::new(data.0))
@@ -410,10 +418,7 @@ impl TryFrom<EthCallMessage> for Message {
             value: tx.value.unwrap_or_default().into(),
             method_num,
             params,
-            gas_limit: match tx.gas {
-                Some(EthUint64(gas)) if gas > 0 => gas.min(BLOCK_GAS_LIMIT),
-                _ => BLOCK_GAS_LIMIT,
-            },
+            gas_limit: tx.gas_cap().unwrap_or(BLOCK_GAS_LIMIT),
             ..Default::default()
         })
     }

@@ -37,6 +37,8 @@
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
 
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` now uses the `gas` field of the call (capped at the block gas limit) as the upper bound of the estimate. A call that does not fit fails with `out of gas: gas required exceeds: <gas>` (code `-32003`), or with `gas required exceeds allowance (<gas>)` (code `-32000`) when `gas` is below the message inclusion cost. Omitting `gas` keeps the previous estimate.
+
 ### Removed
 
 ### Fixed

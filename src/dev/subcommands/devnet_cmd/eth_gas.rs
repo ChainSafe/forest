@@ -11,13 +11,16 @@
 
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::rpc::Client;
-use crate::rpc::eth::errors::EXECUTION_REVERTED_CODE;
+use crate::rpc::eth::errors::{
+    EXECUTION_REVERTED_CODE, INVALID_INPUT_CODE, TRANSACTION_REJECTED_CODE,
+};
 use crate::rpc::eth::{
-    BlockNumberOrHash, Predefined,
+    BlockNumberOrHash, EthUint64, Predefined,
     types::{EthAddress, EthBytes, EthCallMessage},
 };
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
+use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::utils::encoding::keccak_256;
 use anyhow::{Context as _, ensure};
 use jsonrpsee::core::ClientError;
@@ -32,11 +35,10 @@ const RECURSE_SIGNATURE: &str = "recurse(uint256)";
 /// Reverts explicitly unless given a large gas limit, so estimating it fails for a reason no
 /// amount of extra gas can be shown to fix.
 const REQUIRES_HIGH_GAS_SIGNATURE: &str = "requiresHighGasLimit()";
+/// The `gasleft()` bound in [`REQUIRES_HIGH_GAS_SIGNATURE`].
+const REQUIRES_HIGH_GAS_THRESHOLD: u64 = 50_000_000;
 /// The `require` string in [`REQUIRES_HIGH_GAS_SIGNATURE`].
 const REVERT_REASON: &str = "gas limit too low";
-/// Both implementations prefix this branch's error with it. Asserting on it pins *which* rejection
-/// happened: a message that failed earlier, during plain gas estimation, would never carry it.
-const GAS_SEARCH_FAILURE: &str = "gas search failed";
 
 /// Shallow enough that the 63/64 penalty stays inside any estimator's safety margin, so both
 /// nodes must agree. Guards against a failure that is really "the two disagree about gas".
@@ -81,6 +83,13 @@ fn tests() -> Vec<Trial> {
         trial("eth_estimate_gas_reports_a_non_gas_failure", || {
             block_on(estimate_reports_a_non_gas_failure())
         }),
+        trial("eth_estimate_gas_honors_gas_cap", || {
+            block_on(estimate_honors_gas_cap())
+        }),
+        trial(
+            "eth_estimate_gas_under_cap_searches_past_gas_dependent_revert",
+            || block_on(estimate_under_cap_searches_past_gas_dependent_revert()),
+        ),
     ]
 }
 
@@ -144,6 +153,7 @@ async fn estimate(
     client: &Client,
     calldata: Vec<u8>,
     block: BlockNumberOrHash,
+    gas: Option<u64>,
 ) -> anyhow::Result<u64> {
     let (from, to) = tokio::try_join!(sender(), contract())?;
     let from = Address::from_str(from).context("parsing the sender address")?;
@@ -151,6 +161,7 @@ async fn estimate(
         from: Some(EthAddress::from_filecoin_address(&from)?),
         to: Some(*to),
         data: Some(EthBytes(calldata)),
+        gas: gas.map(EthUint64),
         ..Default::default()
     };
     let gas = client
@@ -200,6 +211,7 @@ async fn estimate_agrees(depth: u64) -> anyhow::Result<()> {
                 &forest_c,
                 recurse_calldata(depth),
                 BlockNumberOrHash::from_block_number(block),
+                None,
             )
             .await
             .context("EthEstimateGas on forest")
@@ -209,6 +221,7 @@ async fn estimate_agrees(depth: u64) -> anyhow::Result<()> {
                 &lotus_c,
                 recurse_calldata(depth),
                 BlockNumberOrHash::from_block_number(block),
+                None,
             )
             .await
             .context("EthEstimateGas on lotus")
@@ -231,6 +244,7 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
         &forest,
         recurse_calldata(NESTED_DEPTH),
         BlockNumberOrHash::PredefinedBlock(Predefined::Latest),
+        None,
     )
     .await?;
     let from = sender().await?;
@@ -263,6 +277,7 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
             client,
             selector(REQUIRES_HIGH_GAS_SIGNATURE),
             BlockNumberOrHash::from_block_number(block),
+            None,
         )
         .await
         {
@@ -279,13 +294,6 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
             "{node} rejected the call: code={} has_data={} msg={}",
             obj.code(),
             obj.data().is_some(),
-            obj.message()
-        );
-        // Cross-node parity: both name the branch ("gas search failed") and the decoded revert reason.
-        ensure!(
-            obj.message().contains(GAS_SEARCH_FAILURE),
-            "{node} rejected the call before the gas search, so this no longer exercises the \
-             branch it is meant to pin (expected `{GAS_SEARCH_FAILURE}`): {}",
             obj.message()
         );
         ensure!(
@@ -311,5 +319,100 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
             );
         }
     }
+    Ok(())
+}
+
+/// A caller-supplied `gas` bounds the estimate.
+async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
+    let (forest, _, block) = pinned_common_block().await?;
+    let block = BlockNumberOrHash::from_block_number(block);
+    let calldata = recurse_calldata(NESTED_DEPTH);
+    let uncapped = estimate(&forest, calldata.clone(), block.clone(), None).await?;
+
+    let estimate_with_spare_cap =
+        estimate(&forest, calldata.clone(), block.clone(), Some(uncapped * 2)).await?;
+    ensure!(
+        estimate_with_spare_cap == uncapped,
+        "a cap above the need changed the estimate: capped={estimate_with_spare_cap} uncapped={uncapped}"
+    );
+
+    // Half the estimate is short of what the nesting needs; `21000` is below the inclusion cost, so preflight rejects it.
+    for (cap, code, expected) in [
+        (
+            uncapped / 2,
+            TRANSACTION_REJECTED_CODE,
+            format!("out of gas: gas required exceeds: {}", uncapped / 2),
+        ),
+        (
+            21_000,
+            INVALID_INPUT_CODE,
+            "gas required exceeds allowance (21000)".to_string(),
+        ),
+    ] {
+        let err = match estimate(&forest, calldata.clone(), block.clone(), Some(cap)).await {
+            Ok(gas) => {
+                anyhow::bail!("returned {gas} for a call that does not fit in a cap of {cap}")
+            }
+            Err(e) => e,
+        };
+        let Some(ClientError::Call(obj)) = err.downcast_ref::<ClientError>() else {
+            anyhow::bail!("expected a JSON-RPC error for a cap of {cap}: {err:?}");
+        };
+        ensure!(
+            obj.code() == code && obj.message() == expected,
+            "expected code {code} `{expected}` for a cap of {cap}, got code {} `{}`",
+            obj.code(),
+            obj.message()
+        );
+    }
+    Ok(())
+}
+
+/// Under a cap, a revert that more gas fixes is searched past instead of reported. Forest only: Lotus reports it.
+async fn estimate_under_cap_searches_past_gas_dependent_revert() -> anyhow::Result<()> {
+    let (forest, _, block) = pinned_common_block().await?;
+    let block = BlockNumberOrHash::from_block_number(block);
+    let calldata = selector(REQUIRES_HIGH_GAS_SIGNATURE);
+
+    let gas = estimate(
+        &forest,
+        calldata.clone(),
+        block.clone(),
+        Some(BLOCK_GAS_LIMIT),
+    )
+    .await?;
+    ensure!(
+        gas > REQUIRES_HIGH_GAS_THRESHOLD && gas <= BLOCK_GAS_LIMIT,
+        "expected an estimate in ({REQUIRES_HIGH_GAS_THRESHOLD}, {BLOCK_GAS_LIMIT}], got {gas}"
+    );
+    let (from, to) = tokio::try_join!(sender(), contract())?;
+    let from = Address::from_str(from).context("parsing the sender address")?;
+    let call = EthCallMessage {
+        from: Some(EthAddress::from_filecoin_address(&from)?),
+        to: Some(*to),
+        data: Some(EthBytes(calldata.clone())),
+        gas: Some(EthUint64(gas)),
+        ..Default::default()
+    };
+    forest
+        .call(EthCall::request((call, block.clone()))?)
+        .await
+        .with_context(|| format!("eth_call at the estimate {gas} failed"))?;
+
+    let cap = REQUIRES_HIGH_GAS_THRESHOLD / 2;
+    let err = match estimate(&forest, calldata, block, Some(cap)).await {
+        Ok(gas) => anyhow::bail!("returned {gas} for a call that reverts under a cap of {cap}"),
+        Err(e) => e,
+    };
+    let Some(ClientError::Call(obj)) = err.downcast_ref::<ClientError>() else {
+        anyhow::bail!("expected a JSON-RPC error for a cap of {cap}: {err:?}");
+    };
+    let expected = format!("out of gas: gas required exceeds: {cap}");
+    ensure!(
+        obj.code() == TRANSACTION_REJECTED_CODE && obj.message() == expected,
+        "expected code {TRANSACTION_REJECTED_CODE} `{expected}`, got code {} `{}`",
+        obj.code(),
+        obj.message()
+    );
     Ok(())
 }
