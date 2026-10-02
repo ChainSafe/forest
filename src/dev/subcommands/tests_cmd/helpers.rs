@@ -450,6 +450,14 @@ pub async fn poll_until_state_search_msg(msg_cid: &str) -> anyhow::Result<()> {
     .await
 }
 
+/// The JSON-RPC error object behind `err`, if the node answered with one.
+pub fn rpc_call_err(err: &anyhow::Error) -> Option<&jsonrpsee::types::ErrorObjectOwned> {
+    match err.downcast_ref::<ClientError>() {
+        Some(ClientError::Call(obj)) => Some(obj),
+        _ => None,
+    }
+}
+
 /// Forest and Lotus both refuse a wait for a message they have never seen, rather than waiting
 /// for one to arrive.
 fn is_unseen_message_error(e: &ClientError) -> bool {

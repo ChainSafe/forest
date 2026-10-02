@@ -47,6 +47,8 @@
 
 - [#7700](https://github.com/ChainSafe/forest/issues/7700): Fixed `eth_call` and `trace_call` ignoring the `gas` field of the call. The given gas limit is now honored (capped at the block gas limit), so calls with insufficient gas fail as they would on-chain.
 
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): Fixed `eth_estimateGas` ignoring the `gas` field of the call. The given gas limit (capped at the block gas limit) is now the upper bound of the estimate; a call that does not fit fails with `out of gas: gas required exceeds: <gas>` (code `-32003`), or with `gas required exceeds allowance (<gas>)` (code `-32000`) when `gas` is below the message inclusion cost. Omitting `gas` keeps the previous estimate.
+
 ## Forest v0.37.0 "Sharad Sampat"
 
 Mandatory release for calibnet node operators. It includes support for the NV29 _Solstice_ network upgrade for calibnet, which is set to activate at epoch `4109133` (2026-09-28T12:59:30Z). There are also additional (breaking) changes and improvements; see below.
