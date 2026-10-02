@@ -57,6 +57,7 @@ impl StateManager {
     pub fn clear_tipset_state_caches(&self) {
         self.cache.clear();
         self.trace_cache.clear();
+        self.eth_trace_cache.clear();
     }
 
     /// Verifies and repairs the tipset lookup table (see `ChainStore::repair_tipset_lookup`)
