@@ -33,6 +33,7 @@ use crate::lotus_json::{LotusJson, lotus_json_with_self};
 use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
 use crate::prelude::*;
+use crate::rpc::eth::trace::types::EthTxTraces;
 use crate::rpc::state::ApiInvocResult;
 use crate::rpc::types::SectorOnChainInfo;
 use crate::shim::actors::init::{self, State};
@@ -65,6 +66,7 @@ use tracing::warn;
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~150MiB on mainnet
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~0.7MiB on mainnet
 const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // 1.4 to 7.7 MiB per entry measured, so ~20 to 120 MiB
+const DEFAULT_ETH_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(64usize); // 0.03 to 0.12 MiB per entry measured, so ~2 to 8 MiB
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
@@ -197,6 +199,8 @@ pub struct StateManager {
     cache: ForestCache<TipsetKey, ExecutedTipset>,
     /// This is a cache which indexes tipsets to their traces.
     trace_cache: ForestCache<TipsetKey, (CidWrapper, Vec<Arc<ApiInvocResult>>)>,
+    /// This is a cache which indexes tipsets to their per-transaction Ethereum traces.
+    eth_trace_cache: ForestCache<TipsetKey, Arc<Vec<EthTxTraces>>>,
     /// `None` disables caching of ID -> deterministic-address resolution.
     /// Used by the RPC test-snapshot generator and replay harness so every
     /// `(id, tipset)` pair resolves independently, making recorded snapshots
@@ -215,6 +219,7 @@ impl ShallowClone for StateManager {
             cs: self.cs.shallow_clone(),
             cache: self.cache.shallow_clone(),
             trace_cache: self.trace_cache.shallow_clone(),
+            eth_trace_cache: self.eth_trace_cache.shallow_clone(),
             id_to_deterministic_address_cache: self
                 .id_to_deterministic_address_cache
                 .as_ref()
@@ -268,6 +273,13 @@ impl StateManager {
                     DEFAULT_TRACE_CACHE_SIZE,
                 ),
             ),
+            eth_trace_cache: ForestCache::with_size(
+                "eth_trace_block",
+                crate::utils::misc::env::env_or_default_logged(
+                    "FOREST_ETH_TRACE_BLOCK_CACHE_SIZE",
+                    DEFAULT_ETH_TRACE_CACHE_SIZE,
+                ),
+            ),
             beacon,
             engine,
             genesis_info,
@@ -318,6 +330,11 @@ impl StateManager {
     #[cfg(test)]
     pub(crate) fn id_to_deterministic_address_cache(&self) -> Option<&IdToAddressCache> {
         self.id_to_deterministic_address_cache.as_ref()
+    }
+
+    /// Cache of per-transaction Ethereum traces, keyed by tipset.
+    pub(crate) fn eth_trace_cache(&self) -> &ForestCache<TipsetKey, Arc<Vec<EthTxTraces>>> {
+        &self.eth_trace_cache
     }
 
     /// Returns the currently tracked heaviest tipset.

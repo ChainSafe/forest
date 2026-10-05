@@ -3,6 +3,7 @@
 
 use crate::eth::EthChainId;
 use crate::key_management::{Key, sign_message};
+use crate::message::MessageReadWrite as _;
 use crate::message_pool::MessagePool;
 use crate::message_pool::msgpool::provider::Provider;
 use crate::shim::message::Message;
@@ -33,8 +34,8 @@ impl NonceTracker {
     ) -> anyhow::Result<crate::message::SignedMessage> {
         let _guard = self.lock.lock().await;
 
-        let nonce = mpool.get_sequence(&message.from).await?;
-        message.sequence = nonce;
+        let nonce = mpool.get_sequence(&message.from()).await?;
+        message.set_sequence(nonce);
 
         let smsg = sign_message(key, &message, eth_chain_id)?;
         mpool.push(smsg.clone()).await?;
@@ -80,17 +81,16 @@ mod tests {
     }
 
     fn make_message(from: Address) -> Message {
-        Message {
-            from,
-            to: Address::new_id(99),
-            value: TokenAmount::from_atto(1),
-            method_num: 0,
-            sequence: 0,
-            gas_limit: 10_000_000,
-            gas_fee_cap: TokenAmount::from_atto(10_000),
-            gas_premium: TokenAmount::from_atto(100),
-            ..Default::default()
-        }
+        Message::builder()
+            .from(from)
+            .to(Address::new_id(99))
+            .value(TokenAmount::from_atto(1))
+            .method_num(0)
+            .sequence(0)
+            .gas_limit(10_000_000)
+            .gas_fee_cap(TokenAmount::from_atto(10_000))
+            .gas_premium(TokenAmount::from_atto(100))
+            .build()
     }
 
     #[tokio::test]
@@ -106,14 +106,14 @@ mod tests {
             .sign_and_push(&mpool, msg1, &key, eth_chain_id)
             .await
             .unwrap();
-        assert_eq!(smsg1.message().sequence, 0);
+        assert_eq!(smsg1.message().sequence(), 0);
 
         let msg2 = make_message(sender);
         let smsg2 = tracker
             .sign_and_push(&mpool, msg2, &key, eth_chain_id)
             .await
             .unwrap();
-        assert_eq!(smsg2.message().sequence, 1);
+        assert_eq!(smsg2.message().sequence(), 1);
     }
 
     #[tokio::test]
@@ -133,7 +133,7 @@ mod tests {
                     .await
                     .unwrap()
                     .message()
-                    .sequence
+                    .sequence()
             });
         }
 

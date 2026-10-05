@@ -5,7 +5,7 @@ Forest's cache sizes are chosen for a node serving general RPC traffic. If your 
 | Variable                               | Default | Suggested | Extra resident memory |
 | -------------------------------------- | ------- | --------- | --------------------- |
 | `FOREST_TIPSET_TRACE_CACHE_SIZE`       | 16      | 64        | 70-450 MiB            |
-| `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`    | 64      | 512       | 20-215 MiB            |
+| `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`    | 64      | 2048      | 60-240 MiB            |
 | `FOREST_ETH_BLOCK_CACHE_SIZE`          | 500     | 2000      | 35-95 MiB             |
 | `FOREST_MESSAGES_IN_TIPSET_CACHE_SIZE` | 8192    | 16384     | 40-80 MiB             |
 
@@ -15,9 +15,9 @@ Entry sizes vary by several times with how busy the tipsets are, hence the wide 
 
 `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction` share one cache of traced tipset executions. A miss re-executes the whole tipset with tracing enabled, typically a few hundred milliseconds of CPU. `trace_call` does not use the cache, since it applies a single synthetic message instead. Nor does `debug_traceTransaction` with `prestateTracer`, which replays the tipset up to the target message and is never cached.
 
-Start with `FOREST_TIPSET_TRACE_CACHE_SIZE`, the cache all of those methods share. `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE` sits in front of it for `trace_block`, `trace_transaction` and `trace_filter` only, and typically already runs above 90%, but its entries are far smaller, which makes it the cheaper of the two per MiB.
+`FOREST_ETH_TRACE_BLOCK_CACHE_SIZE` sits in front of it for `trace_block`, `trace_transaction`, `trace_filter` and `trace_replayBlockTransactions`. Its entries are far smaller, so raise it first for those four; raise `FOREST_TIPSET_TRACE_CACHE_SIZE` for `Filecoin.StateReplay` and `debug_traceTransaction`.
 
-Check `cache_tipset_trace_hits_total` against `cache_tipset_trace_misses_total` afterwards, bearing in mind that concurrent requests for the same tipset share a single execution yet each still counts as a miss. `cache_tipset_trace_size_bytes` shows what it is costing you, though that gauge is recomputed at most once every five minutes and can lag by that much.
+Check `cache_eth_trace_block_hits_total` and `cache_tipset_trace_hits_total` against their `_misses_total` afterwards. Concurrent requests for the same tipset are coalesced into one execution but each counts as a miss, so the real hit rate is better than the counters suggest. The `_size_bytes` gauges show what it is costing you; they refresh at most every five minutes.
 
 ## Ethereum block methods
 

@@ -193,9 +193,9 @@ impl EthTx {
         );
 
         ensure!(
-            msg.message().version == 0,
+            msg.message().version() == 0,
             "unsupported msg version: {}",
-            msg.message().version
+            msg.message().version()
         );
 
         EthAddress::from_filecoin_address(&msg.from())?;
@@ -246,7 +246,11 @@ pub fn get_eth_params_and_recipient(
     let mut to = None;
     let mut params = vec![];
 
-    ensure!(msg.version == 0, "unsupported msg version: {}", msg.version);
+    ensure!(
+        msg.version() == 0,
+        "unsupported msg version: {}",
+        msg.version()
+    );
 
     if !msg.params().bytes().is_empty() {
         let mut reader = SliceReader::new(msg.params().bytes());
@@ -256,12 +260,12 @@ pub fn get_eth_params_and_recipient(
         }
     }
 
-    if msg.to == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+    if msg.to() == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
         if msg.method_num() != EAMMethod::CreateExternal as u64 {
             bail!("unsupported EAM method");
         }
     } else if msg.method_num() == EVMMethod::InvokeContract as u64 {
-        let addr = EthAddress::from_filecoin_address(&msg.to)?;
+        let addr = EthAddress::from_filecoin_address(&msg.to())?;
         to = Some(addr);
     } else {
         bail!(
@@ -531,28 +535,28 @@ pub(crate) mod tests {
             .unwrap();
 
         let to = Address::new_id(1);
-        Message {
-            version: 0,
-            to,
-            from,
-            value: TokenAmount::from_atto(10),
-            gas_fee_cap: TokenAmount::from_atto(11),
-            gas_premium: TokenAmount::from_atto(12),
-            gas_limit: 13,
-            sequence: 14,
-            method_num: EVMMethod::InvokeContract as u64,
-            params: Default::default(),
-        }
+        Message::builder()
+            .version(0)
+            .to(to)
+            .from(from)
+            .value(TokenAmount::from_atto(10))
+            .gas_fee_cap(TokenAmount::from_atto(11))
+            .gas_premium(TokenAmount::from_atto(12))
+            .gas_limit(13)
+            .sequence(14)
+            .method_num(EVMMethod::InvokeContract as u64)
+            .params(Default::default())
+            .build()
     }
 
     pub fn create_eip_1559_signed_message() -> SignedMessage {
         let mut eip_1559_sig = vec![0u8; EIP_1559_SIG_LEN];
         eip_1559_sig[0] = EIP_155_SIG_PREFIX;
 
-        SignedMessage {
-            message: create_message(),
-            signature: Signature::new(SignatureType::Delegated, eip_1559_sig),
-        }
+        SignedMessage::new_unchecked(
+            create_message(),
+            Signature::new(SignatureType::Delegated, eip_1559_sig),
+        )
     }
 
     pub fn create_homestead_signed_message() -> SignedMessage {
@@ -560,17 +564,19 @@ pub(crate) mod tests {
         homestead_sig[0] = HOMESTEAD_SIG_PREFIX;
         homestead_sig[HOMESTEAD_SIG_LEN - 1] = 27;
 
-        SignedMessage {
-            message: create_message(),
-            signature: Signature::new(SignatureType::Delegated, homestead_sig),
-        }
+        SignedMessage::new_unchecked(
+            create_message(),
+            Signature::new(SignatureType::Delegated, homestead_sig),
+        )
     }
 
     #[test]
     fn test_ensure_signed_message_valid() {
-        let create_empty_delegated_message = || SignedMessage {
-            message: create_message(),
-            signature: Signature::new(SignatureType::Delegated, vec![]),
+        let create_empty_delegated_message = || {
+            SignedMessage::new_unchecked(
+                create_message(),
+                Signature::new(SignatureType::Delegated, vec![]),
+            )
         };
         // ok
         let msg = create_empty_delegated_message();
@@ -578,17 +584,18 @@ pub(crate) mod tests {
 
         // wrong signature type
         let mut msg = create_empty_delegated_message();
-        msg.signature = Signature::new(SignatureType::Bls, vec![]);
+        msg.set_signature(Signature::new(SignatureType::Bls, vec![]));
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
 
         // unsupported version
         let mut msg = create_empty_delegated_message();
-        msg.message.version = 1;
+        msg.message_mut().set_version(1);
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
 
         // invalid delegated address namespace
         let mut msg = create_empty_delegated_message();
-        msg.message.from = Address::new_delegated(0x42, &[0xff; ETH_ADDR_LEN]).unwrap();
+        msg.message_mut()
+            .set_from(Address::new_delegated(0x42, &[0xff; ETH_ADDR_LEN]).unwrap());
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
     }
 
@@ -599,14 +606,17 @@ pub(crate) mod tests {
         let tx = EthTx::from_signed_message(mainnet::ETH_CHAIN_ID, &msg).unwrap();
         if let EthTx::Eip1559(tx) = tx {
             assert_eq!(tx.chain_id, mainnet::ETH_CHAIN_ID);
-            assert_eq!(tx.value, msg.message.value.into());
-            assert_eq!(tx.max_fee_per_gas, msg.message.gas_fee_cap.into());
-            assert_eq!(tx.max_priority_fee_per_gas, msg.message.gas_premium.into());
-            assert_eq!(tx.gas_limit, msg.message.gas_limit);
-            assert_eq!(tx.nonce, msg.message.sequence);
+            assert_eq!(&tx.value, msg.message().value().atto());
+            assert_eq!(&tx.max_fee_per_gas, msg.message().gas_fee_cap().atto());
+            assert_eq!(
+                &tx.max_priority_fee_per_gas,
+                msg.message().gas_premium().atto()
+            );
+            assert_eq!(tx.gas_limit, msg.message().gas_limit());
+            assert_eq!(tx.nonce, msg.message().sequence());
             assert_eq!(
                 tx.to.unwrap(),
-                EthAddress::from_filecoin_address(&msg.message.to).unwrap()
+                EthAddress::from_filecoin_address(&msg.message().to()).unwrap()
             );
             assert!(tx.input.is_empty());
         } else {
@@ -619,14 +629,14 @@ pub(crate) mod tests {
         let msg = create_homestead_signed_message();
         let tx = EthTx::from_signed_message(mainnet::ETH_CHAIN_ID, &msg).unwrap();
         if let EthTx::Homestead(tx) = tx {
-            assert_eq!(tx.value, msg.message.value.into());
-            assert_eq!(tx.gas_limit, msg.message.gas_limit);
-            assert_eq!(tx.nonce, msg.message.sequence);
+            assert_eq!(&tx.value, msg.message().value().atto());
+            assert_eq!(tx.gas_limit, msg.message().gas_limit());
+            assert_eq!(tx.nonce, msg.message().sequence());
             assert_eq!(
                 tx.to.unwrap(),
-                EthAddress::from_filecoin_address(&msg.message.to).unwrap()
+                EthAddress::from_filecoin_address(&msg.message().to()).unwrap()
             );
-            assert_eq!(tx.gas_price, msg.message.gas_fee_cap.into());
+            assert_eq!(&tx.gas_price, msg.message().gas_fee_cap().atto());
             assert!(tx.input.is_empty());
         } else {
             panic!("invalid transaction type");
@@ -645,21 +655,21 @@ pub(crate) mod tests {
         eip_155_sig[0] = EIP_155_SIG_PREFIX;
         eip_155_sig.extend(v);
 
-        let msg = SignedMessage {
-            message: create_message(),
-            signature: Signature::new(SignatureType::Delegated, eip_155_sig),
-        };
+        let msg = SignedMessage::new_unchecked(
+            create_message(),
+            Signature::new(SignatureType::Delegated, eip_155_sig),
+        );
 
         let tx = EthTx::from_signed_message(mainnet::ETH_CHAIN_ID, &msg).unwrap();
         if let EthTx::Eip155(tx) = tx {
-            assert_eq!(tx.value, msg.message.value.into());
-            assert_eq!(tx.gas_limit, msg.message.gas_limit);
-            assert_eq!(tx.nonce, msg.message.sequence);
+            assert_eq!(&tx.value, msg.message().value().atto());
+            assert_eq!(tx.gas_limit, msg.message().gas_limit());
+            assert_eq!(tx.nonce, msg.message().sequence());
             assert_eq!(
                 tx.to.unwrap(),
-                EthAddress::from_filecoin_address(&msg.message.to).unwrap()
+                EthAddress::from_filecoin_address(&msg.message().to()).unwrap()
             );
-            assert_eq!(tx.gas_price, msg.message.gas_fee_cap.into());
+            assert_eq!(&tx.gas_price, msg.message().gas_fee_cap().atto());
             assert!(tx.input.is_empty());
         } else {
             panic!("invalid transaction type");
@@ -668,23 +678,23 @@ pub(crate) mod tests {
 
     #[test]
     fn test_eth_transaction_from_signed_filecoin_message_empty_signature() {
-        let msg = SignedMessage {
-            message: create_message(),
-            signature: Signature::new(SignatureType::Delegated, vec![]),
-        };
+        let msg = SignedMessage::new_unchecked(
+            create_message(),
+            Signature::new(SignatureType::Delegated, vec![]),
+        );
 
         assert!(EthTx::from_signed_message(mainnet::ETH_CHAIN_ID, &msg).is_err());
     }
 
     #[test]
     fn test_eth_transaction_from_signed_filecoin_message_invalid_signature() {
-        let msg = SignedMessage {
-            message: create_message(),
-            signature: Signature::new(
+        let msg = SignedMessage::new_unchecked(
+            create_message(),
+            Signature::new(
                 SignatureType::Delegated,
                 b"Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".to_vec(),
             ),
-        };
+        );
 
         assert!(EthTx::from_signed_message(mainnet::ETH_CHAIN_ID, &msg).is_err());
     }
@@ -728,10 +738,7 @@ pub(crate) mod tests {
     #[test]
     fn test_is_valid_eth_tx_for_sending_invalid_non_delegated() {
         let msg = create_message();
-        let msg = SignedMessage {
-            message: msg,
-            signature: Signature::new_secp256k1(vec![]),
-        };
+        let msg = SignedMessage::new_unchecked(msg, Signature::new_secp256k1(vec![]));
         assert!(!is_valid_eth_tx_for_sending(
             mainnet::ETH_CHAIN_ID,
             NetworkVersion::V22,

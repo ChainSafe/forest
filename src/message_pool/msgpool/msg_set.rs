@@ -114,9 +114,8 @@ impl MsgSet {
                 return Err(Error::NonceGap);
             }
             if m.cid() != exms.cid() {
-                let premium = &exms.message().gas_premium;
-                let min_price = compute_rbf_min_premium(premium);
-                if m.message().gas_premium < min_price {
+                let min_price = compute_rbf_min_premium(exms.message().gas_premium());
+                if m.message().gas_premium() < &min_price {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
@@ -130,7 +129,7 @@ impl MsgSet {
         // Only check the limit when adding a new message, not when replacing an existing one (RBF)
         if !has_existing && self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
-                m.message.from().to_string(),
+                m.message().from().to_string(),
                 trusted,
             ));
         }
@@ -200,13 +199,14 @@ mod tests {
     use crate::shim::message::Message as ShimMessage;
 
     fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
-        SignedMessage::mock_bls_signed_message(ShimMessage {
-            from,
-            sequence: seq,
-            gas_premium: TokenAmount::from_atto(premium),
-            gas_limit: 1_000_000,
-            ..ShimMessage::default()
-        })
+        SignedMessage::mock_bls_signed_message(
+            ShimMessage::builder()
+                .from(from)
+                .sequence(seq)
+                .gas_premium(TokenAmount::from_atto(premium))
+                .gas_limit(1_000_000)
+                .build(),
+        )
     }
 
     // Test that RBF (Replace By Fee) is allowed even when at max_actor_pending_messages capacity

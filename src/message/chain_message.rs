@@ -5,10 +5,8 @@ use super::*;
 use crate::message::signed_message::SignedMessage;
 use crate::shim::address::Protocol;
 use crate::shim::crypto::{SECP_SIG_LEN, Signature, SignatureType};
-use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use ambassador::Delegate;
-use fvm_ipld_encoding::RawBytes;
 use get_size2::GetSize;
 use serde::{Deserialize, Serialize};
 use spire_enum::prelude::delegated_enum;
@@ -49,6 +47,15 @@ impl ChainMessage {
 
     pub fn cid(&self) -> cid::Cid {
         delegate_chain_message!(self.cid())
+    }
+
+    /// The length of this message's own encoding, signature included. Not
+    /// [`MessageRead::chain_length`], which drops a BLS signature.
+    pub fn encoded_len(&self) -> usize {
+        match self {
+            Self::Unsigned(msg) => msg.encoded_len(),
+            Self::Signed(msg) => msg.signed_encoded_len(),
+        }
     }
 
     /// Tests if a message is equivalent to another replacing message.
@@ -104,13 +111,52 @@ impl MessageReadWrite for ChainMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shim::crypto::BLS_SIG_LEN;
+    use crate::utils::encoding::calc_encoded_len;
+    use quickcheck_macros::quickcheck;
+
+    /// The memo travels with the `Arc`, so the derived `PartialEq`/`Hash` must stay blind to it
+    /// here too.
+    #[quickcheck]
+    fn computing_the_memo_is_invisible(msg: SignedMessage) -> bool {
+        use std::hash::Hasher as _;
+        let hash_of = |value: &ChainMessage| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(value, &mut hasher);
+            hasher.finish()
+        };
+        // Two independent `Arc`s: cloning a `ChainMessage` would alias one memo and warm both.
+        let cold: ChainMessage = msg.clone().into();
+        let warm: ChainMessage = msg.into();
+        let _ = warm.encoded_len();
+        warm == cold && hash_of(&warm) == hash_of(&cold)
+    }
+
+    /// `encoded_len` must measure the bytes this value serializes to, for every variant: the
+    /// `#[serde(untagged)]` encoding is the inner message's, signature included.
+    #[quickcheck]
+    fn encoded_len_measures_the_serialized_bytes(msg: Message, sig_bytes: Vec<u8>) -> bool {
+        let signatures = [
+            Signature::new_secp256k1(sig_bytes.clone()),
+            Signature::new(SignatureType::Delegated, sig_bytes),
+            Signature::new_bls(vec![0; BLS_SIG_LEN]),
+        ];
+        let unsigned: ChainMessage = msg.clone().into();
+        let mut candidates = std::iter::once(unsigned).chain(
+            signatures
+                .into_iter()
+                .map(|sig| SignedMessage::new_unchecked(msg.clone(), sig).into()),
+        );
+        candidates.all(|chain_msg: ChainMessage| {
+            chain_msg.encoded_len() == calc_encoded_len(&chain_msg).unwrap()
+        })
+    }
 
     fn dummy_msg() -> Message {
-        Message {
-            from: Address::new_id(2),
-            to: Address::new_id(1),
-            ..Default::default()
-        }
+        Message::builder()
+            .from(Address::new_id(2))
+            .to(Address::new_id(1))
+            .build()
     }
 
     #[track_caller]

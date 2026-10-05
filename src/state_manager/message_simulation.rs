@@ -115,7 +115,7 @@ impl StateManager {
         msg.set_sequence(from_actor.sequence);
 
         // Implicit messages need to set a special gas limit
-        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
+        msg.set_gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64);
 
         let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
 
@@ -153,9 +153,9 @@ impl StateManager {
         let ts = tipset.map_or_else(|| self.heaviest_tipset(), Tipset::shallow_clone);
 
         let from_protocol = match sender_validation {
-            SenderValidation::Skip => msg.from.protocol(),
+            SenderValidation::Skip => msg.from().protocol(),
             SenderValidation::Enforce => self
-                .resolve_to_deterministic_address(msg.from, &ts)
+                .resolve_to_deterministic_address(msg.from(), &ts)
                 .await
                 .context("could not resolve key")?
                 .protocol(),
@@ -314,11 +314,10 @@ fn sender_for_simulation(
 }
 
 fn placeholder_send(to: Address) -> Message {
-    Message {
-        from: Address::SYSTEM_ACTOR,
-        to,
-        method_num: METHOD_SEND,
-        gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
-        ..Default::default()
-    }
+    Message::builder()
+        .from(Address::SYSTEM_ACTOR)
+        .to(to)
+        .method_num(METHOD_SEND)
+        .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
+        .build()
 }

@@ -4,7 +4,7 @@
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
-use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _};
+use crate::message::{ChainMessage, MessageReadWrite as _};
 use crate::prelude::*;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
@@ -125,7 +125,7 @@ pub async fn estimate_gas_premium(
             &mut msgs
                 .iter()
                 .map(|msg| GasMeta {
-                    price: msg.message().gas_premium(),
+                    price: msg.message().gas_premium().clone(),
                     limit: msg.message().gas_limit(),
                 })
                 .collect(),
@@ -232,15 +232,15 @@ impl GasEstimateGasLimit {
         sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
         let from_a = match sender_validation {
-            SenderValidation::Skip => msg.from,
+            SenderValidation::Skip => msg.from(),
             SenderValidation::Enforce => data
                 .state_manager
-                .resolve_to_deterministic_address(msg.from, curr_ts)
+                .resolve_to_deterministic_address(msg.from(), curr_ts)
                 .await
                 .map_err(|e| {
                     crate::state_manager::Error::SenderValidationFailed(format!(
                         "resolving sender {} ({e:#})",
-                        msg.from
+                        msg.from()
                     ))
                 })?,
         };
@@ -333,7 +333,7 @@ pub async fn estimate_message_gas(
     msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
 ) -> anyhow::Result<Message> {
-    if msg.gas_limit == 0 {
+    if msg.gas_limit() == 0 {
         let ApiTipsetKey(key) = &tsk;
         let ts = data.chain_store().load_required_tipset_or_heaviest(key)?;
         let gl = GasEstimateGasLimit::estimate_gas_limit(
@@ -346,11 +346,11 @@ pub async fn estimate_message_gas(
         let gl = (gl as f64 * data.mpool.gas_limit_overestimation()) as u64;
         msg.set_gas_limit(gl.min(BLOCK_GAS_LIMIT));
     }
-    if msg.gas_premium.is_zero() {
+    if msg.gas_premium().is_zero() {
         let gp = estimate_gas_premium(data, 10, &tsk).await?;
         msg.set_gas_premium(gp);
     }
-    if msg.gas_fee_cap.is_zero() {
+    if msg.gas_fee_cap().is_zero() {
         let gfp = estimate_fee_cap(data, &msg, 20, &tsk)?;
         msg.set_gas_fee_cap(gfp);
     }
@@ -388,7 +388,7 @@ pub(crate) fn cap_gas_fee(
     }
 
     // cap premium at FeeCap
-    msg.set_gas_premium(msg.gas_fee_cap().min(msg.gas_premium()));
+    msg.set_gas_premium(msg.gas_fee_cap().min(msg.gas_premium()).clone());
     Ok(())
 }
 
@@ -557,14 +557,13 @@ mod tests {
 
     // Helper function to create a test message with gas parameters
     fn create_test_message(gas_limit: u64, gas_fee_cap: u64, gas_premium: u64) -> Message {
-        Message {
-            from: Address::new_id(1000),
-            to: Address::new_id(1001),
-            gas_limit,
-            gas_fee_cap: TokenAmount::from_atto(gas_fee_cap),
-            gas_premium: TokenAmount::from_atto(gas_premium),
-            ..Default::default()
-        }
+        Message::builder()
+            .from(Address::new_id(1000))
+            .to(Address::new_id(1001))
+            .gas_limit(gas_limit)
+            .gas_fee_cap(TokenAmount::from_atto(gas_fee_cap))
+            .gas_premium(TokenAmount::from_atto(gas_premium))
+            .build()
     }
 
     #[test]
@@ -575,8 +574,8 @@ mod tests {
 
         cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
 
-        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(500));
-        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(100));
+        assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(500));
+        assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(100));
     }
 
     #[test]
@@ -587,8 +586,8 @@ mod tests {
 
         cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
 
-        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(500));
-        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(200));
+        assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(500));
+        assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(200));
     }
 
     #[test]
@@ -599,8 +598,8 @@ mod tests {
 
         cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
 
-        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(300));
-        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(300));
+        assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(300));
+        assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(300));
     }
 
     #[test]
@@ -617,8 +616,8 @@ mod tests {
 
         cap_gas_fee(&default_max_fee, &mut msg, Some(spec)).unwrap();
 
-        assert_eq!(msg.gas_fee_cap(), TokenAmount::from_atto(1000));
-        assert_eq!(msg.gas_premium(), TokenAmount::from_atto(100));
+        assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(1000));
+        assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(100));
     }
 
     #[test]

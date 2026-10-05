@@ -279,14 +279,13 @@ async fn invoke_contract(client: &rpc::Client, tx: &TestTransaction) -> anyhow::
     )
     .context("failed to encode params")?;
     let nonce = client.call(MpoolGetNonce::request((tx.from,))?).await?;
-    let message = Message {
-        to: tx.to,
-        from: tx.from,
-        sequence: nonce,
-        method_num: EVMMethod::InvokeContract as u64,
-        params: encoded_params.into(),
-        ..Default::default()
-    };
+    let message = Message::builder()
+        .to(tx.to)
+        .from(tx.from)
+        .sequence(nonce)
+        .method_num(EVMMethod::InvokeContract as u64)
+        .params(encoded_params.into())
+        .build();
     let unsigned_msg = client
         .call(GasEstimateMessageGas::request((
             message,
