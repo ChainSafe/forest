@@ -27,10 +27,13 @@
 
 ### Breaking
 
+- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
+
 ### Added
 
 - [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section. Peers listed there must be exclusivelly DRAND relay addresses and will be kept connected and protected.
-- [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the built block traces cached in front of it for `trace_block`, `trace_transaction` and `trace_filter`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
+
+- [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the Ethereum trace cache in front of it, used by `trace_block`, `trace_transaction`, `trace_filter` and `trace_replayBlockTransactions`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
 
 ### Changed
 
@@ -43,6 +46,8 @@
 - [#7661](https://github.com/ChainSafe/forest/pull/7661): Fixed snapshot GC occasionally leaving a gap in the chain right above the exported snapshot.
 
 - [#7677](https://github.com/ChainSafe/forest/pull/7677): Fixed the same state migration running several times in parallel when multiple tipsets at the upgrade epoch share a parent, which is redundant.
+
+- [#7700](https://github.com/ChainSafe/forest/issues/7700): Fixed `eth_call` and `trace_call` ignoring the `gas` field of the call. The given gas limit is now honored (capped at the block gas limit), so calls with insufficient gas fail as they would on-chain.
 
 ## Forest v0.37.0 "Sharad Sampat"
 

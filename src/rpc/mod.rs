@@ -35,7 +35,7 @@ use eth::filter::EthEventHandler;
 use filter_layer::FilterLayer;
 pub use filter_list::FilterList;
 use futures::future::Either;
-use jsonrpsee::server::ServerConfig;
+use jsonrpsee::server::{BatchRequestConfig, ServerConfig};
 use log_layer::LogLayer;
 pub use metrics_layer::MetricsMode;
 use parallel_batch_layer::ParallelBatchLayer;
@@ -447,7 +447,7 @@ use crate::rpc::metrics_layer::MetricsLayer;
 use crate::{chain_sync::network_context::SyncNetworkContext, key_management::KeyStore};
 
 use crate::blocks::FullTipset;
-use crate::utils::misc::env::env_or_default;
+use crate::utils::misc::env::{env_or_default, env_or_default_logged};
 use jsonrpsee::{
     Methods,
     core::middleware::RpcServiceBuilder,
@@ -455,6 +455,7 @@ use jsonrpsee::{
 };
 use parking_lot::RwLock;
 use std::env;
+use std::num::NonZeroU32;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -486,6 +487,22 @@ pub fn default_max_connections() -> u32 {
             .unwrap_or(1000)
     });
     *VALUE
+}
+
+const MAX_BATCH_LEN_ENV: &str = "FOREST_RPC_MAX_BATCH_LEN";
+const DEFAULT_MAX_BATCH_LEN: NonZeroU32 = NonZeroU32::new(100).expect("non-zero");
+
+/// Maximum number of entries accepted in a single JSON-RPC batch request.
+///
+/// Configurable via `FOREST_RPC_MAX_BATCH_LEN`. Defaults to 100. Zero or
+/// unparsable values fall back to the default, so the limit cannot be disabled.
+fn max_batch_len() -> NonZeroU32 {
+    static VALUE: LazyLock<NonZeroU32> = LazyLock::new(read_max_batch_len);
+    *VALUE
+}
+
+fn read_max_batch_len() -> NonZeroU32 {
+    env_or_default_logged(MAX_BATCH_LEN_ENV, DEFAULT_MAX_BATCH_LEN)
 }
 
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
@@ -606,6 +623,7 @@ pub async fn start_rpc(
         // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
         .max_response_body_size(*MAX_RESPONSE_BODY_SIZE)
         .max_connections(default_max_connections())
+        .set_batch_request_config(BatchRequestConfig::Limit(max_batch_len().get()))
         .set_id_provider(RandomHexStringIdProvider::new())
         .build();
     let max_response_body_size = *MAX_RESPONSE_BODY_SIZE as usize;
@@ -1181,6 +1199,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(good_token.status(), reqwest::StatusCode::OK);
+
+        let oversized_batch = vec![jsonrpc_body.clone(); max_batch_len().get() as usize + 1];
+        let response: serde_json::Value = http
+            .post(&rpc_url)
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt_read}"))
+            .json(&oversized_batch)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(
+            response["error"]["code"],
+            jsonrpsee::types::error::TOO_BIG_BATCH_REQUEST_CODE,
+            "{response}"
+        );
 
         println!("sending a few websocket requests");
 
