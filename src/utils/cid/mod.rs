@@ -81,10 +81,6 @@ impl Memo {
     pub(crate) fn get_or_init(&self, compute: impl FnOnce() -> EncodedCbor) -> &EncodedCbor {
         self.0.get_or_init(compute)
     }
-
-    pub(crate) fn clear(&mut self) {
-        self.0.take();
-    }
 }
 
 impl std::fmt::Debug for Memo {
@@ -132,12 +128,6 @@ mod tests {
     use crate::message::SignedMessage;
     use quickcheck_macros::quickcheck;
 
-    fn warm(payload: &[u8]) -> Memo {
-        let memo = Memo::default();
-        memo.get_or_init(|| EncodedCbor::compute(&payload).unwrap());
-        memo
-    }
-
     #[quickcheck]
     fn cid_matches_the_unmemoized_builder(payload: Vec<u8>) -> bool {
         EncodedCbor::compute(&payload).unwrap().cid()
@@ -148,14 +138,6 @@ mod tests {
     fn byte_len_counts_every_encoded_byte(payload: Vec<u8>) -> bool {
         EncodedCbor::compute(&payload).unwrap().byte_len()
             == fvm_ipld_encoding::to_vec(&payload).unwrap().len()
-    }
-
-    #[quickcheck]
-    fn clear_drops_a_computed_value(payload: Vec<u8>, replacement: Vec<u8>) -> bool {
-        let mut memo = warm(&payload);
-        memo.clear();
-        let after = *memo.get_or_init(|| EncodedCbor::compute(&replacement).unwrap());
-        after == EncodedCbor::compute(&replacement).unwrap()
     }
 
     /// `to_writer` may hand the hasher one chunk or many, and never calls `flush`.

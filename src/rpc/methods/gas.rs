@@ -4,7 +4,7 @@
 use crate::blocks::Tipset;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::interpreter::VMTrace;
-use crate::message::{ChainMessage, MessageReadWrite as _};
+use crate::message::ChainMessage;
 use crate::prelude::*;
 use crate::rpc::eth::errors::EthErrors;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types::*};
@@ -43,13 +43,13 @@ impl RpcMethod<3> for GasEstimateFeeCap {
         (msg, max_queue_blks, tsk): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_fee_cap(&ctx, &msg, max_queue_blks, &tsk)
+        estimate_fee_cap(&ctx, msg.gas_premium(), max_queue_blks, &tsk)
     }
 }
 
 fn estimate_fee_cap(
     data: &Ctx,
-    msg: &Message,
+    gas_premium: &TokenAmount,
     max_queue_blks: i64,
     ApiTipsetKey(ts_key): &ApiTipsetKey,
 ) -> Result<TokenAmount, ServerError> {
@@ -64,7 +64,7 @@ fn estimate_fee_cap(
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * f64::from(1_i32 << 8))
             .context("failed to convert fee_in_future f64 to bigint")?;
-    let out = fee_in_future.div_floor(1 << 8).add(msg.gas_premium());
+    let out = fee_in_future.div_floor(1 << 8).add(gas_premium);
     Ok(out)
 }
 
@@ -210,13 +210,16 @@ impl GasEstimateGasLimit {
     /// Runs `msg` at the block gas limit with the fees zeroed, to measure what it uses.
     pub async fn measure_gas_used(
         data: &Ctx,
-        mut msg: Message,
+        msg: Message,
         curr_ts: &Tipset,
         sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
-        msg.set_gas_limit(BLOCK_GAS_LIMIT);
-        msg.set_gas_fee_cap(TokenAmount::from_atto(0));
-        msg.set_gas_premium(TokenAmount::from_atto(0));
+        let msg = msg
+            .into_builder()
+            .gas_limit(BLOCK_GAS_LIMIT)
+            .gas_fee_cap(TokenAmount::from_atto(0))
+            .gas_premium(TokenAmount::from_atto(0))
+            .build();
         Self::probe_as_specified(data, msg, curr_ts, VMTrace::NotTraced, sender_validation).await
     }
 
@@ -252,13 +255,11 @@ impl GasEstimateGasLimit {
             .into();
 
         let ts = data.mpool.current_tipset();
-        // A zeroed signature, because its length changes the inclusion cost.
-        let chain_msg = ChainMessage::for_gas_estimation(msg, from_a.protocol());
-
         let (apply_ret, ..) = data
             .state_manager
             .call_with_gas(
-                chain_msg,
+                msg,
+                from_a.protocol(),
                 prior_messages.shallow_clone(),
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,
@@ -329,11 +330,11 @@ impl RpcMethod<3> for GasEstimateMessageGas {
 
 pub async fn estimate_message_gas(
     data: &Ctx,
-    mut msg: Message,
+    msg: Message,
     msg_spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
 ) -> anyhow::Result<Message> {
-    if msg.gas_limit() == 0 {
+    let msg = if msg.gas_limit() == 0 {
         let ApiTipsetKey(key) = &tsk;
         let ts = data.chain_store().load_required_tipset_or_heaviest(key)?;
         let gl = GasEstimateGasLimit::estimate_gas_limit(
@@ -344,29 +345,35 @@ pub async fn estimate_message_gas(
         )
         .await?;
         let gl = (gl as f64 * data.mpool.gas_limit_overestimation()) as u64;
-        msg.set_gas_limit(gl.min(BLOCK_GAS_LIMIT));
-    }
-    if msg.gas_premium().is_zero() {
+        msg.into_builder()
+            .gas_limit(gl.min(BLOCK_GAS_LIMIT))
+            .build()
+    } else {
+        msg
+    };
+    let msg = if msg.gas_premium().is_zero() {
         let gp = estimate_gas_premium(data, 10, &tsk).await?;
-        msg.set_gas_premium(gp);
-    }
-    if msg.gas_fee_cap().is_zero() {
-        let gfp = estimate_fee_cap(data, &msg, 20, &tsk)?;
-        msg.set_gas_fee_cap(gfp);
-    }
+        msg.into_builder().gas_premium(gp).build()
+    } else {
+        msg
+    };
+    let msg = if msg.gas_fee_cap().is_zero() {
+        let gfp = estimate_fee_cap(data, msg.gas_premium(), 20, &tsk)?;
+        msg.into_builder().gas_fee_cap(gfp).build()
+    } else {
+        msg
+    };
 
-    cap_gas_fee(&data.chain_config().default_max_fee, &mut msg, msg_spec)?;
-
-    Ok(msg)
+    cap_gas_fee(&data.chain_config().default_max_fee, msg, msg_spec)
 }
 
 /// Caps the gas fee to ensure it doesn't exceed the maximum allowed fee.
 /// Returns an error if the msg `gas_limit` is zero
 pub(crate) fn cap_gas_fee(
     default_max_fee: &TokenAmount,
-    msg: &mut Message,
+    msg: Message,
     msg_spec: Option<MessageSendSpec>,
-) -> Result<()> {
+) -> Result<Message> {
     let gas_limit = msg.gas_limit();
     anyhow::ensure!(gas_limit > 0, "gas limit must be positive for fee capping");
 
@@ -383,13 +390,20 @@ pub(crate) fn cap_gas_fee(
     };
 
     let total_fee = msg.gas_fee_cap() * gas_limit;
-    if !max_fee.is_zero() && (maximize_fee_cap || total_fee > *max_fee) {
-        msg.set_gas_fee_cap(max_fee.div_floor(gas_limit));
-    }
+    let msg = if !max_fee.is_zero() && (maximize_fee_cap || total_fee > *max_fee) {
+        msg.into_builder()
+            .gas_fee_cap(max_fee.div_floor(gas_limit))
+            .build()
+    } else {
+        msg
+    };
 
     // cap premium at FeeCap
-    msg.set_gas_premium(msg.gas_fee_cap().min(msg.gas_premium()).clone());
-    Ok(())
+    if msg.gas_premium() <= msg.gas_fee_cap() {
+        return Ok(msg);
+    }
+    let gas_premium = msg.gas_fee_cap().clone();
+    Ok(msg.into_builder().gas_premium(gas_premium).build())
 }
 
 #[cfg(test)]
@@ -570,9 +584,9 @@ mod tests {
     fn test_cap_gas_fee_within_limit() {
         // Normal case: total fee is within default max fee
         let default_max_fee = TokenAmount::from_atto(1_000_000);
-        let mut msg = create_test_message(1000, 500, 100);
+        let msg = create_test_message(1000, 500, 100);
 
-        cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
+        let msg = cap_gas_fee(&default_max_fee, msg, None).unwrap();
 
         assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(500));
         assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(100));
@@ -582,9 +596,9 @@ mod tests {
     fn test_cap_gas_fee_exceeds_limit() {
         // Fee exceeds max: should cap gas_fee_cap
         let default_max_fee = TokenAmount::from_atto(500_000);
-        let mut msg = create_test_message(1000, 1000, 200);
+        let msg = create_test_message(1000, 1000, 200);
 
-        cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
+        let msg = cap_gas_fee(&default_max_fee, msg, None).unwrap();
 
         assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(500));
         assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(200));
@@ -594,9 +608,9 @@ mod tests {
     fn test_cap_gas_fee_premium_exceeds_fee_cap() {
         // Premium exceeds fee cap after capping: premium should be capped too
         let default_max_fee = TokenAmount::from_atto(300_000);
-        let mut msg = create_test_message(1000, 1000, 800);
+        let msg = create_test_message(1000, 1000, 800);
 
-        cap_gas_fee(&default_max_fee, &mut msg, None).unwrap();
+        let msg = cap_gas_fee(&default_max_fee, msg, None).unwrap();
 
         assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(300));
         assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(300));
@@ -606,7 +620,7 @@ mod tests {
     fn test_cap_gas_fee_maximize_flag() {
         // maximize_fee_cap flag: should set gas_fee_cap to max even if within limit
         let default_max_fee = TokenAmount::from_atto(1_000_000);
-        let mut msg = create_test_message(1000, 500, 100);
+        let msg = create_test_message(1000, 500, 100);
 
         let spec = MessageSendSpec {
             max_fee: TokenAmount::zero(),
@@ -614,7 +628,7 @@ mod tests {
             maximize_fee_cap: true,
         };
 
-        cap_gas_fee(&default_max_fee, &mut msg, Some(spec)).unwrap();
+        let msg = cap_gas_fee(&default_max_fee, msg, Some(spec)).unwrap();
 
         assert_eq!(msg.gas_fee_cap(), &TokenAmount::from_atto(1000));
         assert_eq!(msg.gas_premium(), &TokenAmount::from_atto(100));
@@ -624,9 +638,9 @@ mod tests {
     fn test_cap_gas_fee_zero_gas_limit() {
         // Edge case: zero gas_limit should return an error
         let default_max_fee = TokenAmount::from_atto(1_000_000);
-        let mut msg = create_test_message(0, 1000, 200);
+        let msg = create_test_message(0, 1000, 200);
 
-        let result = cap_gas_fee(&default_max_fee, &mut msg, None);
+        let result = cap_gas_fee(&default_max_fee, msg, None);
 
         assert!(result.is_err());
     }

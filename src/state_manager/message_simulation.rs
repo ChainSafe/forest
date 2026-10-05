@@ -4,8 +4,8 @@
 use super::utils::structured;
 use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
-use crate::message::{MessageRead as _, MessageReadWrite as _};
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
+use crate::shim::address::Protocol;
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::{METHOD_SEND, Message};
 use crate::state_migration::run_state_migrations;
@@ -20,7 +20,6 @@ impl StateManager {
         msg: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
-        let mut msg = msg.clone();
         let chain_config = self.chain_config();
 
         let tipset = if let Some(ts) = tipset {
@@ -112,10 +111,13 @@ impl StateManager {
         let from_actor = state
             .get_actor(&msg.from())?
             .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
-        msg.set_sequence(from_actor.sequence);
-
-        // Implicit messages need to set a special gas limit
-        msg.set_gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64);
+        // Implicit messages need a special gas limit.
+        let msg = msg
+            .clone()
+            .into_builder()
+            .sequence(from_actor.sequence)
+            .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
+            .build();
 
         let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
 
@@ -160,11 +162,10 @@ impl StateManager {
                 .context("could not resolve key")?
                 .protocol(),
         };
-        let chain_msg = ChainMessage::for_gas_estimation(msg.clone(), from_protocol);
-
         let (apply_ret, duration, state_root) = self
             .call_with_gas(
-                chain_msg,
+                msg.clone(),
+                from_protocol,
                 Default::default(),
                 Some(ts),
                 vm_flush,
@@ -192,9 +193,11 @@ impl StateManager {
 
     /// Computes message on the given [Tipset] state, after applying other
     /// messages and returns the values computed in the VM.
+    #[allow(clippy::too_many_arguments)]
     pub async fn call_with_gas(
         &self,
-        mut message: ChainMessage,
+        message: Message,
+        from_protocol: Protocol,
         prior_messages: Arc<Vec<ChainMessage>>,
         tipset: Option<Tipset>,
         vm_flush: VMFlush,
@@ -242,7 +245,11 @@ impl StateManager {
 
                 let (from_actor, apply) =
                     sender_for_simulation(&mut vm, message.from(), sender_validation)?;
-                message.set_sequence(from_actor.sequence);
+                // A zeroed signature, because its length changes the inclusion cost.
+                let message = ChainMessage::for_gas_estimation(
+                    message.into_builder().sequence(from_actor.sequence).build(),
+                    from_protocol,
+                );
                 let (ret, duration) = match apply {
                     // An existing non-account sender needs the implicit path, which skips the
                     // account-type, nonce and balance checks, and charges no inclusion cost.
