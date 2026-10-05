@@ -583,19 +583,30 @@ pub(crate) mod tests {
         EthTx::ensure_signed_message_valid(&msg).unwrap();
 
         // wrong signature type
-        let mut msg = create_empty_delegated_message();
-        msg.set_signature(Signature::new(SignatureType::Bls, vec![]));
+        let msg = create_empty_delegated_message();
+        let msg = SignedMessage::new_unchecked(
+            msg.into_message(),
+            Signature::new(SignatureType::Bls, vec![]),
+        );
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
 
         // unsupported version
-        let mut msg = create_empty_delegated_message();
-        msg.message_mut().set_version(1);
+        let msg = create_empty_delegated_message();
+        let (message, signature) = msg.into_parts();
+        let msg =
+            SignedMessage::new_unchecked(message.into_builder().version(1).build(), signature);
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
 
         // invalid delegated address namespace
-        let mut msg = create_empty_delegated_message();
-        msg.message_mut()
-            .set_from(Address::new_delegated(0x42, &[0xff; ETH_ADDR_LEN]).unwrap());
+        let msg = create_empty_delegated_message();
+        let (message, signature) = msg.into_parts();
+        let msg = SignedMessage::new_unchecked(
+            message
+                .into_builder()
+                .from(Address::new_delegated(0x42, &[0xff; ETH_ADDR_LEN]).unwrap())
+                .build(),
+            signature,
+        );
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
     }
 

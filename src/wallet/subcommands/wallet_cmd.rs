@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::message::MessageReadWrite as _;
 use crate::utils::encoding::hex;
 use std::{
     cell::RefCell,
@@ -563,7 +562,7 @@ impl WalletCommands {
 
                 let signed_msg = if let Some(keystore) = &backend.local {
                     let spec = None;
-                    let mut message = GasEstimateMessageGas::call(
+                    let message = GasEstimateMessageGas::call(
                         &backend.remote,
                         (message, spec, ApiTipsetKey(None)),
                     )
@@ -573,7 +572,10 @@ impl WalletCommands {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    message.set_sequence(MpoolGetNonce::call(&backend.remote, (from,)).await?);
+                    let message = message
+                        .into_builder()
+                        .sequence(MpoolGetNonce::call(&backend.remote, (from,)).await?)
+                        .build();
 
                     let key = crate::key_management::try_find_key(&from, keystore)?;
                     let eth_chain_id: u64 = crate::utils::encoding::hex::parse_prefixed_int(
