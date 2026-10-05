@@ -14,6 +14,7 @@ mod execution;
 mod message_search;
 mod message_simulation;
 mod mining;
+mod reward_distribution;
 mod state_computation;
 pub mod utils;
 
@@ -34,7 +35,7 @@ use crate::message::ChainMessage;
 use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::eth::trace::types::EthTxTraces;
-use crate::rpc::state::ApiInvocResult;
+use crate::rpc::state::{ApiInvocResult, RewardDistribution};
 use crate::rpc::types::SectorOnChainInfo;
 use crate::shim::actors::init::{self, State};
 use crate::shim::actors::*;
@@ -67,6 +68,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum 
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~0.7MiB on mainnet
 const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // 1.4 to 7.7 MiB per entry measured, so ~20 to 120 MiB
 const DEFAULT_ETH_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(64usize); // 0.03 to 0.12 MiB per entry measured, so ~2 to 8 MiB
+const DEFAULT_REWARD_DISTRIBUTION_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // 5.3 KiB per entry measured (4 blocks, 1 recipient), 0.13 KiB more per recipient and block, so ~5.3 MiB
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
@@ -201,6 +203,8 @@ pub struct StateManager {
     trace_cache: ForestCache<TipsetKey, (CidWrapper, Vec<Arc<ApiInvocResult>>)>,
     /// This is a cache which indexes tipsets to their per-transaction Ethereum traces.
     eth_trace_cache: ForestCache<TipsetKey, Arc<Vec<EthTxTraces>>>,
+    /// This is a cache which indexes tipsets to their reward distributions.
+    reward_distribution_cache: ForestCache<TipsetKey, Arc<RewardDistribution>>,
     /// `None` disables caching of ID -> deterministic-address resolution.
     /// Used by the RPC test-snapshot generator and replay harness so every
     /// `(id, tipset)` pair resolves independently, making recorded snapshots
@@ -220,6 +224,7 @@ impl ShallowClone for StateManager {
             cache: self.cache.shallow_clone(),
             trace_cache: self.trace_cache.shallow_clone(),
             eth_trace_cache: self.eth_trace_cache.shallow_clone(),
+            reward_distribution_cache: self.reward_distribution_cache.shallow_clone(),
             id_to_deterministic_address_cache: self
                 .id_to_deterministic_address_cache
                 .as_ref()
@@ -279,6 +284,10 @@ impl StateManager {
                     "FOREST_ETH_TRACE_BLOCK_CACHE_SIZE",
                     DEFAULT_ETH_TRACE_CACHE_SIZE,
                 ),
+            ),
+            reward_distribution_cache: ForestCache::with_size(
+                "reward_distribution",
+                DEFAULT_REWARD_DISTRIBUTION_CACHE_SIZE,
             ),
             beacon,
             engine,
