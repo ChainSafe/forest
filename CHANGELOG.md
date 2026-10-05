@@ -31,7 +31,7 @@
 
 ### Added
 
-- [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the built block traces cached in front of it for `trace_block`, `trace_transaction` and `trace_filter`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
+- [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the Ethereum trace cache in front of it, used by `trace_block`, `trace_transaction`, `trace_filter` and `trace_replayBlockTransactions`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
 
 ### Changed
 
