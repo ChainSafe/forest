@@ -34,7 +34,6 @@ use crate::shim::{
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
 use crate::utils::cache::SizeTrackingCache;
-use crate::utils::encoding::calc_encoded_len;
 use ahash::HashSet;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
@@ -444,7 +443,7 @@ where
             out.extend(
                 mset.msgs
                     .into_values()
-                    .sorted_unstable_by_key(|m| m.message().sequence),
+                    .sorted_unstable_by_key(|m| m.message().sequence()),
             );
         }
 
@@ -472,7 +471,7 @@ where
         Some(
             mset.msgs
                 .into_values()
-                .sorted_by_key(|v| v.message().sequence)
+                .sorted_by_key(|v| v.message().sequence())
                 .collect(),
         )
     }
@@ -584,7 +583,7 @@ where
 }
 
 fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
-    if calc_encoded_len(msg)? > MAX_MESSAGE_SIZE {
+    if msg.signed_encoded_len() > MAX_MESSAGE_SIZE {
         return Err(Error::MessageTooBig);
     }
     let to = msg.message().to();
@@ -624,7 +623,7 @@ fn validate_with_state(
     expected_sequence: u64,
     local: bool,
 ) -> Result<bool, Error> {
-    if expected_sequence > msg.message().sequence {
+    if expected_sequence > msg.message().sequence() {
         return Err(Error::SequenceTooLow);
     }
 
@@ -664,7 +663,7 @@ pub(in crate::message_pool) fn check_base_fee_floor(
 ) -> Result<bool, Error> {
     let base_fee = &cur_ts.block_headers().first().parent_base_fee;
     let lb = get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
-    if msg.gas_fee_cap() >= lb {
+    if *msg.gas_fee_cap() >= lb {
         return Ok(local);
     }
     if local {
@@ -701,13 +700,14 @@ mod tests {
     use tokio::task::JoinSet;
 
     fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
-        SignedMessage::mock_bls_signed_message(ShimMessage {
-            from,
-            sequence: seq,
-            gas_premium: TokenAmount::from_atto(premium),
-            gas_limit: 1_000_000,
-            ..ShimMessage::default()
-        })
+        SignedMessage::mock_bls_signed_message(
+            ShimMessage::builder()
+                .from(from)
+                .sequence(seq)
+                .gas_premium(TokenAmount::from_atto(premium))
+                .gas_limit(1_000_000)
+                .build(),
+        )
     }
 
     fn make_test_mpool(api: TestApi) -> (MessagePool<TestApi>, JoinSet<anyhow::Result<()>>) {
@@ -731,10 +731,7 @@ mod tests {
         let api = TestApi::default();
         let (mpool, _services) = make_test_mpool(api);
         let cur_ts = mpool.current_tipset();
-        let message = ShimMessage {
-            gas_limit: 666_666_666,
-            ..ShimMessage::default()
-        };
+        let message = ShimMessage::builder().gas_limit(666_666_666).build();
         let msg = SignedMessage::mock_bls_signed_message(message);
         let res = mpool
             .add_to_pool_unchecked(
@@ -797,11 +794,10 @@ mod tests {
         let (mpool, _services) = make_test_mpool(api);
         let cur_ts = mpool.current_tipset();
 
-        let message = ShimMessage {
-            from: id_addr,
-            gas_limit: 1_000_000,
-            ..ShimMessage::default()
-        };
+        let message = ShimMessage::builder()
+            .from(id_addr)
+            .gas_limit(1_000_000)
+            .build();
         let msg = SignedMessage::mock_bls_signed_message(message);
 
         mpool
@@ -837,12 +833,11 @@ mod tests {
 
         // Add two messages from the ID address
         for seq in 0..2 {
-            let message = ShimMessage {
-                from: id_addr,
-                sequence: seq,
-                gas_limit: 1_000_000,
-                ..ShimMessage::default()
-            };
+            let message = ShimMessage::builder()
+                .from(id_addr)
+                .sequence(seq)
+                .gas_limit(1_000_000)
+                .build();
             let msg = SignedMessage::mock_bls_signed_message(message);
             mpool
                 .add_to_pool_unchecked(

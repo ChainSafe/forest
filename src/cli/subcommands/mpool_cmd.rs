@@ -5,7 +5,7 @@ use crate::blocks::Tipset;
 use crate::cli::humantoken;
 use crate::cli_shared::cli::FeeConfig;
 use crate::lotus_json::{HasLotusJson as _, NotNullVec};
-use crate::message::{MessageRead as _, SignedMessage};
+use crate::message::{MessageRead as _, MessageReadWrite as _, SignedMessage};
 use crate::message_pool::compute_rbf;
 use crate::rpc::gas::cap_gas_fee;
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey, types::MessageSendSpec};
@@ -166,15 +166,15 @@ fn find_pending_message(
 
 fn auto_compute_replacement_gas(
     mut estimated_msg: Message,
-    original_premium: TokenAmount,
+    original_premium: &TokenAmount,
     replace_by_fee_ratio: Percent,
 ) -> anyhow::Result<Message> {
-    let min_premium = compute_rbf(&original_premium, replace_by_fee_ratio);
-    if estimated_msg.gas_premium < min_premium {
-        estimated_msg.gas_premium = min_premium;
+    let min_premium = compute_rbf(original_premium, replace_by_fee_ratio);
+    if estimated_msg.gas_premium() < &min_premium {
+        estimated_msg.set_gas_premium(min_premium);
     }
-    if estimated_msg.gas_fee_cap < estimated_msg.gas_premium {
-        estimated_msg.gas_fee_cap = estimated_msg.gas_premium.clone();
+    if estimated_msg.gas_fee_cap() < estimated_msg.gas_premium() {
+        estimated_msg.set_gas_fee_cap(estimated_msg.gas_premium().clone());
     }
     Ok(estimated_msg)
 }
@@ -185,10 +185,10 @@ fn manual_compute_replacement_gas(
     gas_limit: Option<u64>,
     mut original_msg: Message,
 ) -> anyhow::Result<Message> {
-    original_msg.gas_premium = gas_premium;
-    original_msg.gas_fee_cap = gas_feecap;
+    original_msg.set_gas_premium(gas_premium);
+    original_msg.set_gas_fee_cap(gas_feecap);
     if let Some(limit) = gas_limit {
-        original_msg.gas_limit = limit;
+        original_msg.set_gas_limit(limit);
     }
     Ok(original_msg)
 }
@@ -198,7 +198,7 @@ async fn get_actor_sequence(
     tipset: &Tipset,
     client: &rpc::Client,
 ) -> Option<u64> {
-    let address = message.from;
+    let address = message.from();
     let get_actor_result = StateGetActor::call(client, (address, tipset.key().into())).await;
     let actor_state = match get_actor_result {
         Ok(maybe_actor) => {
@@ -240,9 +240,9 @@ fn compute_stats(
     let mut buckets = HashMap::<Address, StatBucket>::default();
     for msg in messages {
         buckets
-            .entry(msg.from)
+            .entry(msg.from())
             .or_insert_with(StatBucket::default)
-            .insert(msg.sequence, msg.to_owned());
+            .insert(msg.sequence(), msg.to_owned());
     }
 
     let mut stats: Vec<MpStat> = Vec::with_capacity(buckets.len());
@@ -261,22 +261,22 @@ fn compute_stats(
         };
 
         for (_, msg) in bucket {
-            if msg.sequence < actor_sequence {
+            if msg.sequence() < actor_sequence {
                 stat.past += 1;
-            } else if msg.sequence > curr_sequence {
+            } else if msg.sequence() > curr_sequence {
                 stat.future += 1;
             } else {
                 stat.current += 1;
             }
 
-            if msg.gas_fee_cap < curr_base_fee {
+            if msg.gas_fee_cap() < &curr_base_fee {
                 stat.below_current += 1;
             }
-            if msg.gas_fee_cap < min_base_fee {
+            if msg.gas_fee_cap() < &min_base_fee {
                 stat.below_past += 1;
             }
 
-            stat.gas_limit += msg.gas_limit;
+            stat.gas_limit += msg.gas_limit();
         }
 
         stats.push(stat);
@@ -377,13 +377,13 @@ impl MpoolCommands {
 
                 let messages: Vec<Message> = filter_messages(messages, local_addrs, None, None)?
                     .into_iter()
-                    .map(|it| it.message)
+                    .map(SignedMessage::into_message)
                     .collect();
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
                     if let Some(sequence) = get_actor_sequence(msg, &tipset, &client).await {
-                        actor_sequences.insert(msg.from, sequence);
+                        actor_sequences.insert(msg.from(), sequence);
                     }
                 }
 
@@ -436,18 +436,18 @@ impl MpoolCommands {
                 );
 
                 for sequence in fill_range {
-                    let msg = Message {
-                        version: 0,
-                        from: addr,
-                        to: addr,
-                        sequence,
-                        value: TokenAmount::default(),
-                        method_num: METHOD_SEND,
-                        params: RawBytes::new(vec![]),
-                        gas_limit: 1_000_000,
-                        gas_fee_cap: fee_cap.clone(),
-                        gas_premium: TokenAmount::from_atto(5u64),
-                    };
+                    let msg = Message::builder()
+                        .version(0)
+                        .from(addr)
+                        .to(addr)
+                        .sequence(sequence)
+                        .value(TokenAmount::default())
+                        .method_num(METHOD_SEND)
+                        .params(RawBytes::new(vec![]))
+                        .gas_limit(1_000_000)
+                        .gas_fee_cap(fee_cap.clone())
+                        .gas_premium(TokenAmount::from_atto(5u64))
+                        .build();
                     let smsg = WalletSignMessage::call(&client, (addr, msg)).await?;
                     MpoolPush::call(&client, (smsg,)).await?;
                 }
@@ -466,7 +466,7 @@ impl MpoolCommands {
             } => {
                 let (sender, sequence) = if let Some(msg_cid) = cid {
                     let api_msg = ChainGetMessage::call(&client, (msg_cid,)).await?;
-                    (api_msg.from, api_msg.sequence)
+                    (api_msg.from(), api_msg.sequence())
                 } else {
                     let sender: Address = from
                         .context("--from is required when --cid is not provided")?
@@ -495,8 +495,8 @@ impl MpoolCommands {
                     // Keep the original gas limit when replacing a pending message.
                     // Re-estimating it would simulate against the message being replaced.
                     // See <https://github.com/filecoin-project/lotus/blob/797feebc63bfbd4fdfb742b674c97bfb7846cccb/cli/mpool.go#L482>
-                    msg_for_estimate.gas_fee_cap = TokenAmount::default();
-                    msg_for_estimate.gas_premium = TokenAmount::default();
+                    msg_for_estimate.set_gas_fee_cap(TokenAmount::default());
+                    msg_for_estimate.set_gas_premium(TokenAmount::default());
 
                     let estimated_msg = GasEstimateMessageGas::call(
                         &client,
@@ -506,7 +506,7 @@ impl MpoolCommands {
 
                     let mut replacement = auto_compute_replacement_gas(
                         estimated_msg,
-                        original_msg.gas_premium,
+                        original_msg.gas_premium(),
                         cfg.replace_by_fee_ratio,
                     )?;
                     cap_gas_fee(
@@ -725,18 +725,15 @@ mod tests {
         gas_premium: u64,
         gas_fee_cap: u64,
     ) -> Message {
-        Message {
-            version: 0,
-            from,
-            to,
-            sequence: nonce,
-            value: TokenAmount::default(),
-            method_num: METHOD_SEND,
-            params: RawBytes::new(vec![]),
-            gas_limit,
-            gas_fee_cap: TokenAmount::from_atto(gas_fee_cap),
-            gas_premium: TokenAmount::from_atto(gas_premium),
-        }
+        Message::builder()
+            .from(from)
+            .to(to)
+            .sequence(nonce)
+            .method_num(METHOD_SEND)
+            .gas_limit(gas_limit)
+            .gas_fee_cap(TokenAmount::from_atto(gas_fee_cap))
+            .gas_premium(TokenAmount::from_atto(gas_premium))
+            .build()
     }
 
     #[rstest]
@@ -808,42 +805,42 @@ mod tests {
         let addr0 = Address::from_str("t3urxivigpzih5f6ih3oq3lr2jlunw3m5oehbe5efts4ub5wy2oi4fbo5cw7333a4rrffo5535tjdq24wkc2aa").unwrap();
         let addr1 = Address::from_str("t410fot3vkzzorqg4alowvghvxx4mhofhtazixbm6z2i").unwrap();
         let messages = [
-            Message {
-                version: 0,
-                from: addr0,
-                to: Address::default(),
-                sequence: 1210,
-                value: TokenAmount::default(),
-                method_num: 5,
-                params: RawBytes::new(vec![]),
-                gas_limit: 25201703,
-                gas_fee_cap: TokenAmount::from_atto(101774),
-                gas_premium: TokenAmount::from_atto(100720),
-            },
-            Message {
-                version: 0,
-                from: addr1,
-                to: Address::default(),
-                sequence: 190,
-                value: TokenAmount::default(),
-                method_num: 5,
-                params: RawBytes::new(vec![]),
-                gas_limit: 21148671,
-                gas_fee_cap: TokenAmount::from_atto(101774),
-                gas_premium: TokenAmount::from_atto(100720),
-            },
-            Message {
-                version: 0,
-                from: addr1,
-                to: Address::default(),
-                sequence: 191,
-                value: TokenAmount::default(),
-                method_num: 5,
-                params: RawBytes::new(vec![]),
-                gas_limit: 112795625,
-                gas_fee_cap: TokenAmount::from_atto(101774),
-                gas_premium: TokenAmount::from_atto(100720),
-            },
+            Message::builder()
+                .version(0)
+                .from(addr0)
+                .to(Address::default())
+                .sequence(1210)
+                .value(TokenAmount::default())
+                .method_num(5)
+                .params(RawBytes::new(vec![]))
+                .gas_limit(25201703)
+                .gas_fee_cap(TokenAmount::from_atto(101774))
+                .gas_premium(TokenAmount::from_atto(100720))
+                .build(),
+            Message::builder()
+                .version(0)
+                .from(addr1)
+                .to(Address::default())
+                .sequence(190)
+                .value(TokenAmount::default())
+                .method_num(5)
+                .params(RawBytes::new(vec![]))
+                .gas_limit(21148671)
+                .gas_fee_cap(TokenAmount::from_atto(101774))
+                .gas_premium(TokenAmount::from_atto(100720))
+                .build(),
+            Message::builder()
+                .version(0)
+                .from(addr1)
+                .to(Address::default())
+                .sequence(191)
+                .value(TokenAmount::default())
+                .method_num(5)
+                .params(RawBytes::new(vec![]))
+                .gas_limit(112795625)
+                .gas_fee_cap(TokenAmount::from_atto(101774))
+                .gas_premium(TokenAmount::from_atto(100720))
+                .build(),
         ];
         let actor_sequences = HashMap::from_iter([(addr0, 1210), (addr1, 195)]);
         let curr_base_fee = TokenAmount::from_atto(100);
@@ -908,61 +905,73 @@ mod tests {
         let original_premium = TokenAmount::from_atto(100u64);
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 200, 500);
-        assert!(estimated.gas_premium > floor);
+        assert!(estimated.gas_premium() > &floor);
         let result = auto_compute_replacement_gas(
             estimated.clone(),
-            original_premium,
+            &original_premium,
             REPLACE_BY_FEE_RATIO_DEFAULT,
         )
         .unwrap();
-        assert_eq!(result.gas_premium, estimated.gas_premium);
+        assert_eq!(result.gas_premium(), estimated.gas_premium());
 
         // Below RBF floor: premium bumped, fee cap >= premium.
         let original_premium = TokenAmount::from_atto(1000u64);
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let estimated = make_test_message(addr, target, 5, 2_000_000, 50, 500);
-        assert!(estimated.gas_premium < floor);
-        let result =
-            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
-                .unwrap();
-        assert_eq!(result.gas_premium, floor);
-        assert!(result.gas_fee_cap >= result.gas_premium);
+        assert!(estimated.gas_premium() < &floor);
+        let result = auto_compute_replacement_gas(
+            estimated,
+            &original_premium,
+            REPLACE_BY_FEE_RATIO_DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(result.gas_premium(), &floor);
+        assert!(result.gas_fee_cap() >= result.gas_premium());
 
         // Exactly at floor: unchanged.
         let original_premium = TokenAmount::from_atto(100u64);
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 0, 500);
-        estimated.gas_premium = floor.clone();
-        estimated.gas_fee_cap = floor.clone();
-        let result =
-            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
-                .unwrap();
-        assert_eq!(result.gas_premium, floor);
-        assert_eq!(result.gas_fee_cap, floor);
+        estimated.set_gas_premium(floor.clone());
+        estimated.set_gas_fee_cap(floor.clone());
+        let result = auto_compute_replacement_gas(
+            estimated,
+            &original_premium,
+            REPLACE_BY_FEE_RATIO_DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(result.gas_premium(), &floor);
+        assert_eq!(result.gas_fee_cap(), &floor);
 
         // Fee cap raised when below bumped premium.
         let original_premium = TokenAmount::from_atto(1000u64);
         let floor = compute_rbf(&original_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10);
-        estimated.gas_premium = floor.clone();
-        let result =
-            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
-                .unwrap();
-        assert_eq!(result.gas_premium, floor);
-        assert_eq!(result.gas_fee_cap, floor);
+        estimated.set_gas_premium(floor.clone());
+        let result = auto_compute_replacement_gas(
+            estimated,
+            &original_premium,
+            REPLACE_BY_FEE_RATIO_DEFAULT,
+        )
+        .unwrap();
+        assert_eq!(result.gas_premium(), &floor);
+        assert_eq!(result.gas_fee_cap(), &floor);
 
         // cap_gas_fee after RBF bump.
         let original_premium = TokenAmount::from_atto(1_000_000u64);
         let mut estimated = make_test_message(addr, target, 5, 2_000_000, 50, 10_000_000_000);
-        estimated.gas_premium = TokenAmount::from_atto(50u64);
-        let mut replacement =
-            auto_compute_replacement_gas(estimated, original_premium, REPLACE_BY_FEE_RATIO_DEFAULT)
-                .unwrap();
+        estimated.set_gas_premium(TokenAmount::from_atto(50u64));
+        let mut replacement = auto_compute_replacement_gas(
+            estimated,
+            &original_premium,
+            REPLACE_BY_FEE_RATIO_DEFAULT,
+        )
+        .unwrap();
         let max_fee = TokenAmount::from_atto(1_000_000u64);
         cap_gas_fee(&max_fee, &mut replacement, None).unwrap();
-        let total_fee = replacement.gas_fee_cap.clone() * replacement.gas_limit;
+        let total_fee = replacement.gas_fee_cap() * replacement.gas_limit();
         assert!(total_fee <= max_fee);
-        assert!(replacement.gas_premium <= replacement.gas_fee_cap);
+        assert!(replacement.gas_premium() <= replacement.gas_fee_cap());
     }
 
     #[test]
@@ -979,12 +988,12 @@ mod tests {
             original.clone(),
         )
         .unwrap();
-        assert_eq!(result.gas_premium, TokenAmount::from_atto(200u64));
-        assert_eq!(result.gas_fee_cap, TokenAmount::from_atto(600u64));
-        assert_eq!(result.gas_limit, original.gas_limit);
+        assert_eq!(result.gas_premium(), &TokenAmount::from_atto(200u64));
+        assert_eq!(result.gas_fee_cap(), &TokenAmount::from_atto(600u64));
+        assert_eq!(result.gas_limit(), original.gas_limit());
 
         let original = make_test_message(addr, target, 5, 1_000_000, 100, 300);
-        let min_premium = compute_rbf(&original.gas_premium, REPLACE_BY_FEE_RATIO_DEFAULT);
+        let min_premium = compute_rbf(original.gas_premium(), REPLACE_BY_FEE_RATIO_DEFAULT);
         let result = manual_compute_replacement_gas(
             min_premium,
             TokenAmount::from_atto(300u64),
@@ -992,6 +1001,6 @@ mod tests {
             original,
         )
         .unwrap();
-        assert_eq!(result.gas_limit, 5_000_000);
+        assert_eq!(result.gas_limit(), 5_000_000);
     }
 }
