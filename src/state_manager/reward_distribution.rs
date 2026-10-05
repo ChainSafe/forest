@@ -97,7 +97,7 @@ fn block_reward(
     header: &CachingBlockHeader,
     ctx: &MessageCallbackCtx<'_>,
 ) -> anyhow::Result<BlockReward> {
-    let params: AwardBlockRewardParams = ctx.message.message().params.deserialize()?;
+    let params: AwardBlockRewardParams = ctx.message.message().params().deserialize()?;
     let miner = Address::from(params.miner);
     ensure!(
         miner == header.miner_address,
