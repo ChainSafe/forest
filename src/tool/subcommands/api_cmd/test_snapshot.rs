@@ -171,7 +171,12 @@ pub async fn run_test_from_snapshot(path: &Path) -> anyhow::Result<()> {
     }
     // backfill db with index data
     backfill_index_data(db.writer(), index).context("failed to backfill db from index data")?;
-    let chain_config = Arc::new(ChainConfig::from_chain(&chain));
+    let chain_config = ChainConfig::from_chain(&chain);
+    #[cfg(test)]
+    let chain_config = chain_config
+        .with_custom_server_urls(vec![crate::beacon::tests::drand::FAKE_DRAND.url().clone()]);
+    let chain_config = Arc::new(chain_config);
+
     let (ctx, _, _) = ctx(db, chain_config)
         .await
         .context("failed to create RPC context")?;
@@ -320,7 +325,6 @@ mod tests {
     #[allow(dead_code)]
     async fn rpc_regression_test_run(name: &str) {
         LazyLock::force(&INIT_RNG_SEED);
-        crate::beacon::tests::drand::use_fake_drand_quicknet();
         tokio::time::timeout(RPC_REGRESSION_TEST_TIMEOUT, async {
             crate::utils::proofs_api::maybe_set_proofs_parameter_cache_dir_env(
                 &crate::cli_shared::default_data_dir(),
