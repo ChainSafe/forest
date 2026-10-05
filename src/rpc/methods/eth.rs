@@ -35,7 +35,7 @@ use crate::eth::{
 };
 use crate::interpreter::VMTrace;
 use crate::lotus_json::{HasLotusJson, NotNullVec, lotus_json_with_self};
-use crate::message::{ChainMessage, MessageRead as _, MessageReadWrite as _, SignedMessage};
+use crate::message::{ChainMessage, MessageRead as _, SignedMessage};
 use crate::networks::Height;
 use crate::prelude::*;
 use crate::rpc::{
@@ -1902,10 +1902,10 @@ async fn eth_estimate_gas(
     tx: EthCallMessage,
     tipset: Tipset,
 ) -> Result<EthUint64, ServerError> {
-    let mut msg = Message::try_from(tx)?;
+    let msg = Message::try_from(tx)?;
     // Set the gas limit to the zero sentinel value, which makes
     // gas estimation actually run.
-    msg.set_gas_limit(0);
+    let msg = msg.into_builder().gas_limit(0).build();
 
     if sender_is_evm_contract(
         ctx.state_manager
@@ -1947,7 +1947,7 @@ fn sender_is_evm_contract(actor: anyhow::Result<Option<ActorState>>) -> bool {
 /// Estimates gas for a sender that is a contract or doesn't exist on chain.
 async fn eth_estimate_gas_skip_sender(
     ctx: &Ctx,
-    mut msg: Message,
+    msg: Message,
     tipset: &Tipset,
 ) -> Result<EthUint64, ServerError> {
     let gas_limit = match gas::GasEstimateGasLimit::estimate_gas_limit(
@@ -1965,7 +1965,10 @@ async fn eth_estimate_gas_skip_sender(
     };
 
     let gas_limit = (gas_limit as f64 * ctx.mpool.gas_limit_overestimation()) as u64;
-    msg.set_gas_limit(gas_limit.min(BLOCK_GAS_LIMIT));
+    let msg = msg
+        .into_builder()
+        .gas_limit(gas_limit.min(BLOCK_GAS_LIMIT))
+        .build();
 
     let expected_gas = eth_gas_search(ctx, msg, tipset, SenderValidation::Skip).await?;
     Ok(expected_gas.into())
@@ -1974,11 +1977,11 @@ async fn eth_estimate_gas_skip_sender(
 /// Re-execute to recover an `ExecutionReverted` from a failed gas estimate.
 async fn recover_estimate_gas_error(
     ctx: &Ctx,
-    mut msg: Message,
+    msg: Message,
     tipset: &Tipset,
     estimate_err: anyhow::Error,
 ) -> ServerError {
-    msg.set_gas_limit(BLOCK_GAS_LIMIT);
+    let msg = msg.into_builder().gas_limit(BLOCK_GAS_LIMIT).build();
     if let Err(e) = apply_message(ctx, Some(tipset), &msg).await
         && matches!(e.downcast_ref(), Some(EthErrors::ExecutionReverted { .. }))
     {
@@ -2084,7 +2087,8 @@ pub async fn eth_gas_search(
     let out_of_gas = data
         .state_manager
         .call_with_gas(
-            ChainMessage::for_gas_estimation(msg.clone(), from.protocol()),
+            msg.clone(),
+            from.protocol(),
             prior_messages.shallow_clone(),
             Some(ts.shallow_clone()),
             VMFlush::Skip,
@@ -2136,12 +2140,13 @@ async fn gas_search(
     let mut low = high;
 
     let can_succeed = async |limit: u64| {
-        let mut msg = msg.clone();
-        msg.set_gas_limit(limit);
+        let msg = msg.clone();
+        let msg = msg.into_builder().gas_limit(limit).build();
         let (apply_ret, ..) = data
             .state_manager
             .call_with_gas(
-                ChainMessage::for_gas_estimation(msg, from_protocol),
+                msg,
+                from_protocol,
                 prior_messages.shallow_clone(),
                 Some(ts.shallow_clone()),
                 VMFlush::Skip,

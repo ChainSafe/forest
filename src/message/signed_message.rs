@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{MessageRead, MessageReadWrite};
+use super::MessageRead;
 use crate::eth::EthChainId;
 use crate::shim::{
     address::Address,
@@ -18,9 +18,9 @@ use get_size2::GetSize;
 pub struct SignedMessage {
     message: Message,
     signature: Signature,
-    /// The memoized CID and length of the signed encoding. Cleared whenever the message or
-    /// signature is replaced, so it cannot outlive what it was derived from, and excluded from
-    /// the derived `PartialEq`/`Eq`/`Hash`/`Debug` by [`Memo`].
+    /// The memoized CID and length of the signed encoding. A `SignedMessage` is immutable, so
+    /// this cannot outlive what it was derived from. Excluded from the derived
+    /// `PartialEq`/`Eq`/`Hash`/`Debug` by [`Memo`].
     #[cfg_attr(test, arbitrary(gen(|_| Memo::default())))]
     encoded: Memo,
 }
@@ -68,17 +68,6 @@ impl SignedMessage {
     /// Returns signature of the signed message.
     pub fn signature(&self) -> &Signature {
         &self.signature
-    }
-
-    pub fn set_signature(&mut self, signature: Signature) {
-        self.encoded.clear();
-        self.signature = signature;
-    }
-
-    /// Drops the memo up front, since the caller may change anything the signed encoding is derived from.
-    pub fn message_mut(&mut self) -> &mut Message {
-        self.encoded.clear();
-        &mut self.message
     }
 
     /// Consumes self and returns it's unsigned message.
@@ -189,21 +178,6 @@ impl MessageRead for SignedMessage {
     }
 }
 
-impl MessageReadWrite for SignedMessage {
-    fn set_gas_limit(&mut self, token_amount: u64) {
-        self.message_mut().set_gas_limit(token_amount);
-    }
-    fn set_sequence(&mut self, new_sequence: u64) {
-        self.message_mut().set_sequence(new_sequence);
-    }
-    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.message_mut().set_gas_fee_cap(cap)
-    }
-    fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.message_mut().set_gas_premium(prem)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,37 +273,5 @@ mod tests {
             .into_iter()
             .find(|bytes| Cid::from_cbor_encoded_raw_bytes_blake2b256(bytes) == msg.cid())
             .is_some_and(|bytes| msg.chain_length().unwrap() == bytes.len())
-    }
-
-    /// Both values are derived from an encoding of the message, so neither may be memoized without
-    /// being invalidated when the message or the signature type changes.
-    #[test]
-    fn chain_length_and_cid_track_mutation() {
-        let message = Message::builder()
-            .to(Address::new_id(1))
-            .from(Address::new_id(2))
-            .build();
-        let secp = || {
-            SignedMessage::new_unchecked(
-                message.clone(),
-                Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
-            )
-        };
-
-        let mut signed = secp();
-        let (length, cid) = (signed.chain_length().unwrap(), signed.cid());
-        signed.set_gas_limit(u64::from(u32::MAX));
-        assert_ne!(signed.chain_length().unwrap(), length);
-        assert_ne!(signed.cid(), cid);
-
-        let mut signed = secp();
-        let secp_length = signed.chain_length().unwrap();
-        signed.set_signature(Signature::new_bls(vec![0; BLS_SIG_LEN]));
-        assert_ne!(signed.chain_length().unwrap(), secp_length);
-        assert_eq!(
-            signed.chain_length().unwrap(),
-            to_vec(&message).unwrap().len()
-        );
-        assert_eq!(signed.cid(), message.cid());
     }
 }

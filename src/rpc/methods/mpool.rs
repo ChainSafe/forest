@@ -307,8 +307,7 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
 
-        let mut message =
-            estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
+        let message = estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
         if message.gas_premium() > message.gas_fee_cap() {
             return Err(anyhow::anyhow!(
                 "After estimation, gas premium is greater than gas fee cap"
@@ -316,9 +315,11 @@ impl RpcMethod<2> for MpoolPushMessage {
             .into());
         }
 
-        if from.protocol() == Protocol::ID {
-            message.set_from(key_addr);
-        }
+        let message = if from.protocol() == Protocol::ID {
+            message.into_builder().from(key_addr).build()
+        } else {
+            message
+        };
 
         let balance =
             super::wallet::WalletBalance::handle(ctx.clone(), (message.from(),), extensions)
