@@ -56,19 +56,6 @@ pub trait MessageRead {
     }
 }
 
-/// Message interface to interact with Signed and unsigned messages in a generic
-/// context.
-pub trait MessageReadWrite: MessageRead {
-    /// sets the gas limit for the message.
-    fn set_gas_limit(&mut self, amount: u64);
-    /// sets a new sequence to the message.
-    fn set_sequence(&mut self, sequence: u64);
-    /// sets the gas fee cap.
-    fn set_gas_fee_cap(&mut self, cap: TokenAmount);
-    /// sets the gas premium.
-    fn set_gas_premium(&mut self, prem: TokenAmount);
-}
-
 /// Semantic validation and validates the message has enough gas.
 pub fn valid_for_block_inclusion(
     msg: &Message,
@@ -164,8 +151,12 @@ mod tests {
             "signature bytes must raise the floor, got {signed_floor} and {unsigned_floor}"
         );
 
-        let mut underpaying = signed.message().clone();
-        underpaying.set_gas_limit(unsigned_floor.round_up());
+        let underpaying = signed
+            .message()
+            .clone()
+            .into_builder()
+            .gas_limit(unsigned_floor.round_up())
+            .build();
         assert!(
             valid_for_block_inclusion(&underpaying, unsigned_floor, network_version).is_ok(),
             "this is the message the unsigned floor used to accept"
@@ -175,8 +166,12 @@ mod tests {
             "a gas limit covering only the unsigned encoding must be rejected"
         );
 
-        let mut paying = signed.message().clone();
-        paying.set_gas_limit(signed_floor.round_up());
+        let paying = signed
+            .message()
+            .clone()
+            .into_builder()
+            .gas_limit(signed_floor.round_up())
+            .build();
         valid_for_block_inclusion(&paying, signed_floor, network_version)
             .expect("a gas limit covering the signed encoding must be accepted");
     }
