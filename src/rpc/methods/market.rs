@@ -31,14 +31,13 @@ impl RpcMethod<3> for MarketAddBalance {
         let bytes = fvm_ipld_encoding::to_vec(&address)?;
         let params = RawBytes::new(bytes);
 
-        let message = Message {
-            to: Address::MARKET_ACTOR,
-            from: wallet,
-            value: amount.into(),
-            method_num: METHOD_ADD_BALANCE,
-            params,
-            ..Default::default()
-        };
+        let message = Message::builder()
+            .to(Address::MARKET_ACTOR)
+            .from(wallet)
+            .value(amount.into())
+            .method_num(METHOD_ADD_BALANCE)
+            .params(params)
+            .build();
 
         let smsg = MpoolPushMessage::handle(ctx, (message, None), ext).await?;
         Ok(smsg.cid())

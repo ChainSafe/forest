@@ -159,20 +159,20 @@ impl RpcMethod<1> for MinerCreateBlock {
         for msg in block_template.messages {
             match msg.signature().signature_type() {
                 SignatureType::Bls => {
-                    let cid = ctx.db().put_cbor_default(&msg.message)?;
-                    bls_msg_cids.push(cid);
-                    bls_sigs.push(msg.signature);
-                    bls_messages.push(msg.message);
+                    let (message, signature) = msg.into_parts();
+                    bls_msg_cids.push(ctx.db().put_cbor_default(&message)?);
+                    bls_sigs.push(signature);
+                    bls_messages.push(message);
                 }
                 SignatureType::Secp256k1 | SignatureType::Delegated => {
-                    if msg.signature.is_valid_secpk_sig_type(network_version) {
+                    if msg.signature().is_valid_secpk_sig_type(network_version) {
                         let cid = ctx.db().put_cbor_default(&msg)?;
                         secpk_msg_cids.push(cid);
                         secpk_messages.push(msg);
                     } else {
                         Err(anyhow::anyhow!(
                             "unknown sig type: {}",
-                            msg.signature.signature_type()
+                            msg.signature().signature_type()
                         ))?;
                     }
                 }

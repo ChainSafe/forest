@@ -227,7 +227,7 @@ impl EthLegacyEip155TxArgs {
     ) -> anyhow::Result<SignedMessage> {
         let message = self.get_unsigned_message(from, eth_chain_id)?;
         let signature = self.signature(eth_chain_id)?;
-        Ok(SignedMessage { message, signature })
+        Ok(SignedMessage::new_unchecked(message, signature))
     }
 
     /// Constructs an unsigned message using legacy EIP-155 transaction args
@@ -241,18 +241,18 @@ impl EthLegacyEip155TxArgs {
             "Failed to validate EIP155 chain Id"
         );
         let method_info = get_filecoin_method_info(self.to.as_ref(), &self.input)?;
-        Ok(Message {
-            version: 0,
-            from,
-            to: method_info.to,
-            sequence: self.nonce,
-            value: self.value.clone().into(),
-            method_num: method_info.method,
-            params: method_info.params.into(),
-            gas_limit: self.gas_limit,
-            gas_fee_cap: self.gas_price.clone().into(),
-            gas_premium: self.gas_price.clone().into(),
-        })
+        Ok(Message::builder()
+            .version(0)
+            .from(from)
+            .to(method_info.to)
+            .sequence(self.nonce)
+            .value(self.value.clone().into())
+            .method_num(method_info.method)
+            .params(method_info.params.into())
+            .gas_limit(self.gas_limit)
+            .gas_fee_cap(self.gas_price.clone().into())
+            .gas_premium(self.gas_price.clone().into())
+            .build())
     }
 }
 
@@ -260,10 +260,10 @@ impl EthLegacyEip155TxArgsBuilder {
     pub fn unsigned_message(&mut self, message: &Message) -> anyhow::Result<&mut Self> {
         let (params, to) = get_eth_params_and_recipient(message)?;
         Ok(self
-            .nonce(message.sequence)
-            .value(message.value.clone())
-            .gas_price(message.gas_fee_cap.clone())
-            .gas_limit(message.gas_limit)
+            .nonce(message.sequence())
+            .value(message.value().atto().clone())
+            .gas_price(message.gas_fee_cap().atto().clone())
+            .gas_limit(message.gas_limit())
             .to(to)
             .input(params))
     }

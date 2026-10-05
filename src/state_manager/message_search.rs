@@ -436,6 +436,7 @@ mod tests {
     };
     use crate::chain::ChainStore;
     use crate::db::MemoryDB;
+    use crate::message::MessageReadWrite as _;
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
@@ -518,21 +519,18 @@ mod tests {
     }
 
     fn message_with_nonce(sequence: u64) -> Message {
-        Message {
-            from: SENDER,
-            to: Address::new_id(101),
-            sequence,
-            ..Default::default()
-        }
+        Message::builder()
+            .from(SENDER)
+            .to(Address::new_id(101))
+            .sequence(sequence)
+            .build()
     }
 
     fn state_manager_with_replaced_message_at_head(db: &Arc<MemoryDB>) -> (StateManager, Cid) {
         let message = message_with_nonce(5);
         let msg_cid = db.put_cbor_default(&message).unwrap();
-        let replacement = Message {
-            gas_limit: 1,
-            ..message
-        };
+        let mut replacement = message;
+        replacement.set_gas_limit(1);
         let replacement_cid = db.put_cbor_default(&replacement).unwrap();
 
         let root_before = state_root_with_sender_nonce(db, 5);
