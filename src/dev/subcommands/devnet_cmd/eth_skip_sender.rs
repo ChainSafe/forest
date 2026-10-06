@@ -1,9 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Skip-sender `eth_call` and `eth_estimateGas` tests on the docker devnet
-//! (`scripts/devnet`). These cases need a private chain: deploy a contract, fund
-//! an address, submit a transaction, or assert Forest state after a skip-call.
+//! Skip-sender `eth_call`, `eth_estimateGas`, and `trace_call` tests on the docker
+//! devnet (`scripts/devnet`). These cases need a private chain: deploy a contract,
+//! fund an address, submit a transaction, or assert Forest state after a skip-call.
 //!
 //! Tests deploy `SimpleCoin`, `ContractA` / `ContractB`, `NestedGas`, or `Errors`
 //! as needed. They cover estimate-then-submit from an unfunded `from` (including
@@ -17,6 +17,7 @@ use crate::rpc::Client;
 use crate::rpc::eth::errors::{EXECUTION_REVERTED_CODE, OUT_OF_GAS_CODE};
 use crate::rpc::eth::{
     BlockNumberOrHash, EthBigInt, Predefined,
+    trace::types::{EthTraceResults, EthTraceType},
     types::{EthAddress, EthBytes, EthCallMessage},
 };
 use crate::rpc::prelude::*;
@@ -118,6 +119,9 @@ fn tests() -> Vec<Trial> {
         trial("call_skip_sender", || block_on(call_skip_sender())),
         trial("estimate_gas_skip_sender", || {
             block_on(estimate_gas_skip_sender())
+        }),
+        trial("trace_call_skip_sender", || {
+            block_on(trace_call_skip_sender())
         }),
         trial("funded_placeholder_sender", || {
             block_on(funded_placeholder_sender())
@@ -350,6 +354,82 @@ async fn eth_call_msg(
     block: BlockNumberOrHash,
 ) -> anyhow::Result<EthBytes> {
     Ok(client.call(EthCall::request((msg, block))?).await?)
+}
+
+async fn trace_call_msg(client: &Client, msg: EthCallMessage) -> anyhow::Result<EthTraceResults> {
+    Ok(client
+        .call(EthTraceCall::request((
+            msg,
+            nunny::vec![EthTraceType::Trace],
+            Some(latest()),
+        ))?)
+        .await?)
+}
+
+async fn trace_call_skip_sender() -> anyhow::Result<()> {
+    let forest = forest_client()?;
+    let env = table_env().await?;
+    for case in skip_sender_cases(env)? {
+        let Some(expect) = case.call else {
+            continue;
+        };
+        let label = format!("trace_call {}", case.name);
+        let result = trace_call_msg(&forest, case.msg).await;
+        match expect {
+            Expect::Success => {
+                let results =
+                    result.with_context(|| format!("{label}: expected a trace result"))?;
+                ensure!(
+                    !results.trace.is_empty()
+                        && results.trace.iter().all(|trace| trace.is_success()),
+                    "{label}: expected a successful trace, got {results:?}"
+                );
+            }
+            Expect::Reverted { .. } => {
+                let results =
+                    result.with_context(|| format!("{label}: expected a traced revert"))?;
+                ensure!(
+                    results.trace.iter().any(|trace| trace.is_reverted()),
+                    "{label}: expected a reverted trace, got {results:?}"
+                );
+            }
+            Expect::ErrContains(needle)
+            | Expect::ErrCode {
+                contains: needle, ..
+            } => {
+                let detail = match result {
+                    Ok(results) => {
+                        ensure!(
+                            results.trace.is_empty()
+                                || results.trace.iter().any(|trace| !trace.is_success()),
+                            "{label}: must not become a successful trace"
+                        );
+                        results
+                            .trace
+                            .iter()
+                            .filter_map(|trace| trace.error.as_ref().map(ToString::to_string))
+                            .collect()
+                    }
+                    Err(err) => {
+                        let text = format!("{err:#}");
+                        ensure!(
+                            text.to_ascii_lowercase()
+                                .contains(&needle.to_ascii_lowercase()),
+                            "{label}: expected an error containing `{needle}`, got {text}"
+                        );
+                        text
+                    }
+                };
+                let lower = detail.to_ascii_lowercase();
+                ensure!(
+                    !lower.contains("senderinvalid") && !lower.contains("sender validation failed"),
+                    "{label}: rejected as sender validation: {detail}"
+                );
+            }
+            Expect::SuccessGas => {}
+        }
+    }
+    Ok(())
 }
 
 async fn estimate_msg(client: &Client, msg: EthCallMessage) -> anyhow::Result<u64> {

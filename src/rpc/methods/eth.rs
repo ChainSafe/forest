@@ -2003,6 +2003,28 @@ fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> b
     }
 }
 
+async fn apply_on_state_maybe_skip_sender(
+    ctx: &Ctx,
+    tipset: Option<&Tipset>,
+    msg: &Message,
+    vm_flush: VMFlush,
+    vm_trace: VMTrace,
+) -> Result<(ApiInvocResult, Option<Cid>), Error> {
+    let result = ctx
+        .state_manager
+        .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Enforce)
+        .await;
+
+    if needs_skip_sender(&result) {
+        ctx.state_manager
+            .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Skip)
+            .await
+            .context("failed to apply on state with gas (skipping sender validation)")
+    } else {
+        result.context("failed to apply on state with gas")
+    }
+}
+
 async fn apply_message(
     ctx: &Ctx,
     tipset: Option<&Tipset>,
@@ -2017,31 +2039,9 @@ async fn apply_message(
         return Err(crate::state_manager::Error::ExpensiveFork { epoch: ts.epoch() }.into());
     }
 
-    let result = ctx
-        .state_manager
-        .apply_on_state_with_gas(
-            tipset,
-            msg,
-            VMFlush::Skip,
-            VMTrace::NotTraced,
-            SenderValidation::Enforce,
-        )
-        .await;
-
-    let (invoc_res, _) = if needs_skip_sender(&result) {
-        ctx.state_manager
-            .apply_on_state_with_gas(
-                tipset,
-                msg,
-                VMFlush::Skip,
-                VMTrace::NotTraced,
-                SenderValidation::Skip,
-            )
-            .await
-            .context("failed to apply on state with gas (skipping sender validation)")?
-    } else {
-        result.context("failed to apply on state with gas")?
-    };
+    let (invoc_res, _) =
+        apply_on_state_maybe_skip_sender(ctx, tipset, msg, VMFlush::Skip, VMTrace::NotTraced)
+            .await?;
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -3920,17 +3920,14 @@ impl RpcMethod<3> for EthTraceCall {
             .context("failed to get tipset state")?;
         let pre_state = StateTree::new_from_root(ctx.db(), &pre_state_root)?;
 
-        let (invoke_result, post_state_root) = ctx
-            .state_manager
-            .apply_on_state_with_gas(
-                Some(&ts),
-                &msg,
-                VMFlush::Flush,
-                VMTrace::Traced,
-                SenderValidation::Enforce,
-            )
-            .await
-            .context("failed to apply message")?;
+        let (invoke_result, post_state_root) = apply_on_state_maybe_skip_sender(
+            &ctx,
+            Some(&ts),
+            &msg,
+            VMFlush::Flush,
+            VMTrace::Traced,
+        )
+        .await?;
         let post_state_root =
             post_state_root.context("post-execution state root required for trace call")?;
         let post_state = StateTree::new_from_root(ctx.db(), &post_state_root)?;
