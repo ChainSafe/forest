@@ -475,6 +475,7 @@ mod test {
     use crate::db::{BlockstoreWriteOpsSubscribable, tests::db_utils::parity::TempParityDB};
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
+    use rstest::rstest;
     use std::ops::Deref;
 
     #[test]
@@ -537,31 +538,12 @@ mod test {
         assert_eq!(b"bloop", actual.as_bytes());
     }
 
-    #[test]
-    fn choose_column_test() {
-        let data = [0u8; 32];
-        let cases = [
-            (
-                Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&data)),
-                DbColumn::GraphDagCborBlake2b256,
-            ),
-            (
-                Cid::new_v1(
-                    fvm_ipld_encoding::CBOR,
-                    MultihashCode::Blake2b256.digest(&data),
-                ),
-                DbColumn::GraphFull,
-            ),
-            (
-                Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&data)),
-                DbColumn::GraphFull,
-            ),
-        ];
-
-        for (cid, expected) in cases {
-            let actual = ParityDb::choose_column(&cid);
-            assert_eq!(expected, actual);
-        }
+    #[rstest]
+    #[case::dag_cbor_blake2b256(Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(&[0; 32])), DbColumn::GraphDagCborBlake2b256)]
+    #[case::cbor_blake2b256(Cid::new_v1(fvm_ipld_encoding::CBOR, MultihashCode::Blake2b256.digest(&[0; 32])), DbColumn::GraphFull)]
+    #[case::dag_cbor_sha2_256(Cid::new_v1(DAG_CBOR, MultihashCode::Sha2_256.digest(&[0; 32])), DbColumn::GraphFull)]
+    fn choose_column_test(#[case] cid: Cid, #[case] expected: DbColumn) {
+        assert_eq!(expected, ParityDb::choose_column(&cid));
     }
 
     #[test]
