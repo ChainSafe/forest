@@ -240,6 +240,7 @@ mod tests {
     use crate::utils::rand::forest_rng;
     use quickcheck_macros::quickcheck;
     use rand::RngCore as _;
+    use rstest::rstest;
 
     #[quickcheck]
     fn checked_digest_bounds(data: Vec<u8>) -> bool {
@@ -250,27 +251,47 @@ mod tests {
         ok_sha && ok_identity
     }
 
+    fn random_bytes(len: usize) -> Vec<u8> {
+        let mut bytes = vec![0; len];
+        forest_rng().fill_bytes(&mut bytes);
+        bytes
+    }
+
+    #[rstest]
+    fn test_digest_byte_stream(
+        #[values(0, 1, 100, 1024, 10000)] len: usize,
+        #[values(
+            MultihashCode::Sha2_256,
+            MultihashCode::Sha2_512,
+            MultihashCode::Sha3_224,
+            MultihashCode::Sha3_256,
+            MultihashCode::Sha3_384,
+            MultihashCode::Sha3_512,
+            MultihashCode::Keccak224,
+            MultihashCode::Keccak256,
+            MultihashCode::Keccak384,
+            MultihashCode::Keccak512,
+            MultihashCode::Blake2b256,
+            MultihashCode::Blake2b512,
+            MultihashCode::Blake2s128,
+            MultihashCode::Blake2s256,
+            MultihashCode::Blake3_256,
+            MultihashCode::Ripemd160,
+            MultihashCode::Ripemd256,
+            MultihashCode::Ripemd320
+        )]
+        code: MultihashCode,
+    ) {
+        let bytes = random_bytes(len);
+        let mh1 = code.digest(&bytes);
+        let mh2 = code.digest_byte_stream(&mut Cursor::new(&bytes)).unwrap();
+        assert_eq!(mh1, mh2);
+    }
+
     #[test]
-    fn test_digest_byte_stream() {
-        use MultihashCode::*;
-
-        for len in [0, 1, 100, 1024, 10000] {
-            let mut bytes = vec![0; len];
-            forest_rng().fill_bytes(&mut bytes);
-            let mut cursor = Cursor::new(bytes.clone());
-            for code in [
-                Sha2_256, Sha2_512, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Keccak224, Keccak256,
-                Keccak384, Keccak512, Blake2b256, Blake2b512, Blake2s128, Blake2s256, Blake3_256,
-                Ripemd160, Ripemd256, Ripemd320,
-            ] {
-                cursor.set_position(0);
-                let mh1 = code.digest(&bytes);
-                let mh2 = code.digest_byte_stream(&mut cursor).unwrap();
-                assert_eq!(mh1, mh2);
-            }
-
-            cursor.set_position(0);
-            Identity.digest_byte_stream(&mut cursor).unwrap_err();
-        }
+    fn test_identity_digest_byte_stream_fails() {
+        MultihashCode::Identity
+            .digest_byte_stream(&mut Cursor::new(random_bytes(100)))
+            .unwrap_err();
     }
 }

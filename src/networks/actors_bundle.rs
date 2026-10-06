@@ -237,6 +237,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 mod tests {
     use http::StatusCode;
     use reqwest::Response;
+    use rstest::rstest;
     use std::time::Duration;
 
     use crate::utils::net::global_http_client;
@@ -328,43 +329,40 @@ mod tests {
             .await?)
     }
 
-    #[test]
-    fn test_actor_major_version_correct() {
-        let cases = [
-            ("8.0.0-rc.1", 8),
-            ("v9.0.3", 9),
-            ("v10.0.0-rc.1", 10),
-            ("v12.0.0", 12),
-            ("v13.0.0-rc.3", 13),
-            ("v13.0.0", 13),
-            ("v14.0.0-rc.1", 14),
-        ];
-
-        for (version, expected) in cases.iter() {
-            let metadata = ActorBundleMetadata {
-                network: NetworkChain::Mainnet,
-                version: version.to_string(),
-                bundle_cid: Default::default(),
-                manifest: Default::default(),
-            };
-
-            assert_eq!(metadata.actor_major_version().unwrap(), *expected);
+    fn metadata_with_version(version: &str) -> ActorBundleMetadata {
+        ActorBundleMetadata {
+            network: NetworkChain::Mainnet,
+            version: version.to_string(),
+            bundle_cid: Default::default(),
+            manifest: Default::default(),
         }
     }
 
-    #[test]
-    fn test_actor_major_version_invalid() {
-        let cases = ["cthulhu", "vscode", ".02", "-42"];
+    #[rstest]
+    #[case::v8_rc1_without_prefix("8.0.0-rc.1", 8)]
+    #[case::v9("v9.0.3", 9)]
+    #[case::v10_rc1("v10.0.0-rc.1", 10)]
+    #[case::v12("v12.0.0", 12)]
+    #[case::v13_rc3("v13.0.0-rc.3", 13)]
+    #[case::v13("v13.0.0", 13)]
+    #[case::v14_rc1("v14.0.0-rc.1", 14)]
+    fn test_actor_major_version_correct(#[case] version: &str, #[case] expected: u64) {
+        assert_eq!(
+            metadata_with_version(version)
+                .actor_major_version()
+                .unwrap(),
+            expected
+        );
+    }
 
-        for version in cases.iter() {
-            let metadata = ActorBundleMetadata {
-                network: NetworkChain::Mainnet,
-                version: version.to_string(),
-                bundle_cid: Default::default(),
-                manifest: Default::default(),
-            };
-
-            assert!(metadata.actor_major_version().is_err());
-        }
+    #[rstest]
+    fn test_actor_major_version_invalid(
+        #[values("cthulhu", "vscode", ".02", "-42")] version: &str,
+    ) {
+        assert!(
+            metadata_with_version(version)
+                .actor_major_version()
+                .is_err()
+        );
     }
 }
