@@ -18,7 +18,9 @@ impl StateManager {
     /// Returns the block rewards allocated while executing `tipset`.
     ///
     /// Results are cached by tipset key, and concurrent calls for the same tipset share one
-    /// traced execution.
+    /// traced execution. A tipset at epoch 0 is not executed, so it has no block rewards, as in
+    /// Lotus:
+    /// <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/chain/consensus/compute_state.go#L357-L363>
     ///
     /// # Errors
     /// Fails when `tipset` cannot be executed, or was executed by a reward actor older than v19.
@@ -75,12 +77,6 @@ impl StateManager {
             Some(callback),
             VMTrace::Traced,
         )?;
-        ensure!(
-            blocks.len() == tipset.len(),
-            "{} reward messages for {} blocks",
-            blocks.len(),
-            tipset.len()
-        );
 
         Ok(Arc::new(RewardDistribution {
             tipset_key: tipset.key().clone(),
@@ -1157,7 +1153,6 @@ pub(in crate::state_manager) mod tests {
         }
     }
 
-    /// As [`call_award_distribution`], for an award at `epoch`.
     fn call_award_distribution_at(
         epoch: ChainEpoch,
         streams: Vec<Stream>,

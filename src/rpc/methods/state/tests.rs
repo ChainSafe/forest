@@ -701,3 +701,25 @@ async fn reward_distribution_is_not_refused_after_the_solstice_epoch() {
     // The fixture chain has no parent tipset to execute on, so the call fails past the check.
     assert_ne!(error.message(), REWARD_DISTRIBUTION_REQUIRES_NV29);
 }
+
+/// A tipset at epoch 0 is not executed, so it has no block rewards. Lotus reports the same:
+/// <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/chain/consensus/compute_state.go#L357-L363>
+#[tokio::test]
+async fn reward_distribution_at_epoch_0_has_no_blocks() {
+    // A network that runs the v19 reward actor from its first epoch, as a devnet can.
+    let mut config = ChainConfig::calibnet();
+    config.genesis_network = NetworkVersion::V29;
+    let (ctx, genesis) = ctx_at(config, 0, &Default::default());
+    let selector = TipsetSelector {
+        key: genesis.key().into(),
+        ..Default::default()
+    };
+
+    let distribution = StateRewardDistribution::handle(ctx, (selector,), &Default::default())
+        .await
+        .unwrap();
+
+    assert_eq!(distribution.height, 0);
+    assert!(distribution.blocks.is_empty());
+    assert_eq!(distribution.totals, RewardAmounts::default());
+}
