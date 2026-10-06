@@ -69,7 +69,7 @@ impl DbColumn {
                     },
                     DbColumn::Settings => parity_db::ColumnOptions {
                         // explicitly disable preimage for settings column
-                        // othewise we are not able to overwrite entries
+                        // otherwise we are not able to overwrite entries
                         preimage: false,
                         // This is needed for key retrieval.
                         btree_index: true,
