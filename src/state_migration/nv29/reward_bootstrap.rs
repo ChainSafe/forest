@@ -162,6 +162,7 @@ mod tests {
     use crate::utils::cid::CidCborExt as _;
     use crate::utils::db::CborStoreExt as _;
     use cid::Cid;
+    use rstest::rstest;
     use std::sync::Arc;
 
     /// A state tree whose init actor maps each address to a fresh ID, returned in order.
@@ -278,23 +279,23 @@ mod tests {
         );
     }
 
-    #[test]
-    fn rejects_an_address_missing_from_the_state_tree() {
+    #[rstest]
+    #[case::swa_actor("SWA actor", contract(1), [contract(2), wallet(3)])]
+    #[case::sra_actor("SRA actor", contract(2), [contract(1), wallet(3)])]
+    #[case::initial_orchestrator("initial orchestrator", wallet(3), [contract(1), contract(2)])]
+    fn rejects_an_address_missing_from_the_state_tree(
+        #[case] name: &str,
+        #[case] missing: Address,
+        #[case] on_chain: [Address; 2],
+    ) {
         let (swa, sra, orchestrator) = (contract(1), contract(2), wallet(3));
-        let cases = [
-            ("SWA actor", swa, [sra, orchestrator]),
-            ("SRA actor", sra, [swa, orchestrator]),
-            ("initial orchestrator", orchestrator, [swa, sra]),
-        ];
-        for (name, missing, on_chain) in cases {
-            let (actors, _) = state_tree_with(&on_chain);
+        let (actors, _) = state_tree_with(&on_chain);
 
-            let error = params_with(Some(swa), Some(sra), Some(orchestrator))
-                .resolve(&actors)
-                .unwrap_err();
+        let error = params_with(Some(swa), Some(sra), Some(orchestrator))
+            .resolve(&actors)
+            .unwrap_err();
 
-            let expected = format!("Solstice bootstrap {name} {missing} is not on chain");
-            assert!(error.to_string().contains(&expected), "{error:#}");
-        }
+        let expected = format!("Solstice bootstrap {name} {missing} is not on chain");
+        assert!(error.to_string().contains(&expected), "{error:#}");
     }
 }
