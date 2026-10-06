@@ -12,6 +12,7 @@ use crate::message::MessageRead as _;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::prelude::*;
 use crate::shim::actors::{AwardBlockRewardParams, cron, reward};
+use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
@@ -25,7 +26,6 @@ use crate::shim::{
 use ahash::{HashMap, HashSet};
 use anyhow::bail;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared2::clock::ChainEpoch;
 use fvm2::{
     executor::{DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2},
     machine::{
@@ -554,17 +554,6 @@ pub enum CalledAt {
     Applied,
     Reward,
     Cron,
-}
-
-impl CalledAt {
-    /// Was [`VM::apply_message`] or [`VM::apply_implicit_message`] called?
-    pub fn apply_kind(&self) -> fvm3::executor::ApplyKind {
-        use fvm3::executor::ApplyKind;
-        match self {
-            CalledAt::Applied => ApplyKind::Explicit,
-            CalledAt::Reward | CalledAt::Cron => ApplyKind::Implicit,
-        }
-    }
 }
 
 /// Tracing a Filecoin VM has a performance penalty.

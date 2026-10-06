@@ -508,8 +508,8 @@ mod tests {
     }
 
     fn receipts_root(db: &impl Blockstore) -> Cid {
-        let receipt = fvm_shared4::receipt::Receipt {
-            exit_code: fvm_shared4::error::ExitCode::OK,
+        let receipt = crate::shim::fvm_shared_latest::receipt::Receipt {
+            exit_code: crate::shim::fvm_shared_latest::error::ExitCode::OK,
             return_data: Default::default(),
             gas_used: 0,
             events_root: None,

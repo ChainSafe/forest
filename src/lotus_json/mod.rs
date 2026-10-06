@@ -122,8 +122,8 @@
 //! - use a derive macro for simple compound structs
 
 use crate::shim::actors::miner::DeadlineInfo;
+use crate::shim::fvm_shared_latest::piece::PaddedPieceSize;
 use derive_more::From;
-use fvm_shared4::piece::PaddedPieceSize;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
@@ -222,19 +222,19 @@ decl_and_test!(
 mod actors;
 mod allocation;
 mod arc;
-mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
+mod beneficiary_term; // crate::shim::actors::miner::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod bytecode_hash;
 mod entry;
 mod filter_estimate;
 mod hash_map;
 mod ipld; // NaN != NaN
-mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
+mod miner_info; // crate::shim::actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod miner_power; // actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
 mod padded_piece_size;
-mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
+mod pending_beneficiary_change; // crate::shim::actors::miner::PendingBeneficiaryChange: !quickcheck::Arbitrary
 mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module

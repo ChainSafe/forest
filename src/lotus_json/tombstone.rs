@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::shim::actors::evm::TombstoneState;
-use fvm_shared4::ActorID;
+use crate::shim::state_tree::ActorID;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

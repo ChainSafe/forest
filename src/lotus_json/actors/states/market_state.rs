@@ -3,9 +3,8 @@
 
 use super::*;
 use crate::shim::actors::market::State;
-use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
+use crate::shim::{clock::ChainEpoch, deal::DealID, econ::TokenAmount};
 use ::cid::Cid;
-use fvm_shared4::deal::DealID;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::deal::DealID;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -13,7 +14,6 @@ use fil_actors_shared::fvm_ipld_bitfield::{BitField, UnvalidatedBitField};
 use fil_actors_shared::v16::reward::FilterEstimate;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_ipld_encoding::{BytesDe, RawBytes};
-use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::RegisteredUpdateProof;
 use itertools::Itertools as _;
 use num::BigInt;
@@ -300,7 +300,7 @@ pub struct PreCommitSectorParamsLotusJson {
     pub replace_capacity: bool,
     pub replace_sector_deadline: u64,
     pub replace_sector_partition: u64,
-    pub replace_sector_number: fvm_shared2::sector::SectorNumber,
+    pub replace_sector_number: crate::shim::sector::SectorNumber,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
@@ -733,7 +733,7 @@ macro_rules! impl_lotus_json_for_miner_constructor_params {
                                         owner: Address::new_id(1234).into(),
                                         worker: Address::new_id(1235).into(),
                                         control_addresses: vec![Address::new_id(1236).into(), Address::new_id(1237).into()],
-                                        window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
+                                        window_post_proof_type: RegisteredPoStProof::from(crate::shim::sector::RegisteredPoStProofV4::StackedDRGWindow2KiBV1P1).into(),
                                         peer_id: vec![1],
                                         multi_addresses: vec![
                                             BytesDe(b"/ip4/127.0.0.1/tcp/8080".to_vec()),

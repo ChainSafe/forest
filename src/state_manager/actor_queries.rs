@@ -4,10 +4,8 @@
 use super::*;
 use crate::shim::actors::miner::{MinerInfo, MinerPower, Partition};
 use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
-use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
+use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim, ClaimID, DataCap};
 use ahash::HashMap;
-use fil_actor_verifreg_state::v12::DataCap;
-use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 
 impl StateManager {

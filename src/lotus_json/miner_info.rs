@@ -3,12 +3,11 @@
 
 use super::*;
 
-use crate::shim::actors::miner::MinerInfo;
+use crate::shim::actors::miner::{BeneficiaryTerm, MinerInfo, PendingBeneficiaryChange};
 use crate::{
     rpc::types::AddressOrEmpty,
     shim::{address::Address, clock::ChainEpoch, sector::SectorSize},
 };
-use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fvm_ipld_encoding::BytesDe;
 use libp2p::PeerId;
 
@@ -35,7 +34,7 @@ pub struct MinerInfoLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub multiaddrs: Vec<Vec<u8>>,
     #[schemars(with = "String")]
-    pub window_po_st_proof_type: fvm_shared2::sector::RegisteredPoStProof,
+    pub window_po_st_proof_type: crate::shim::sector::RegisteredPoStProofV2,
     #[schemars(with = "LotusJson<SectorSize>")]
     #[serde(with = "crate::lotus_json")]
     pub sector_size: SectorSize,
@@ -90,7 +89,7 @@ impl HasLotusJson for MinerInfo {
                 peer_id: Default::default(),
                 multiaddrs: Default::default(),
                 window_post_proof_type:
-                    fvm_shared2::sector::RegisteredPoStProof::StackedDRGWinning2KiBV1,
+                    crate::shim::sector::RegisteredPoStProofV2::StackedDRGWinning2KiBV1,
                 sector_size: crate::shim::sector::SectorSize::_2KiB,
                 window_post_partition_sectors: Default::default(),
                 consensus_fault_elapsed: Default::default(),

@@ -6,8 +6,8 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use crate::shim::sector::RegisteredPoStProof;
+use crate::shim::state_tree::ActorID;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
-use fvm_shared4::ActorID;
 use num::BigInt;
 use pastey::paste;
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,7 @@ macro_rules! impl_lotus_json_for_power_create_miner_params {
                                     Self {
                                         owner: Address::new_id(1234).into(),
                                         worker: Address::new_id(1235).into(),
-                                        window_post_proof_type: RegisteredPoStProof::from(fvm_shared4::sector::RegisteredPoStProof::StackedDRGWindow2KiBV1P1).into(),
+                                        window_post_proof_type: RegisteredPoStProof::from(crate::shim::sector::RegisteredPoStProofV4::StackedDRGWindow2KiBV1P1).into(),
                                         peer: vec![1],
                                         multiaddrs: vec![
                                             BytesDe(b"/ip4/127.0.0.1/tcp/8080".to_vec()),
