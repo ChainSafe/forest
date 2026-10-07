@@ -468,3 +468,36 @@ pub struct RecipientReward {
     #[schemars(with = "LotusJson<TokenAmount>")]
     pub earned_amount: TokenAmount,
 }
+
+/// Asserts the sums that hold for every award.
+///
+/// Minted = miner + explicit + burn. Weights + burn weight = 100%. For an explicit stream,
+/// shares + burn share = 100% and portion = earned + burned + rounding adjustment.
+#[cfg(test)]
+pub fn assert_award_conserved(streams: &[StreamReward], burn_weight: u64, amounts: &RewardAmounts) {
+    use fil_actor_reward_state::v19::DENOM;
+
+    assert_eq!(
+        amounts.minted_reward,
+        &amounts.miner_reward + &amounts.explicit_reward + &amounts.burn_allocation
+    );
+    let weights: u64 = streams.iter().map(|stream| stream.weight).sum();
+    assert_eq!(weights + burn_weight, DENOM);
+
+    for stream in streams {
+        let Some(distribution) = &stream.distribution else {
+            continue;
+        };
+        let mut shares = 0;
+        let mut earned = TokenAmount::zero();
+        for recipient in &distribution.recipients {
+            shares += recipient.share;
+            earned += recipient.earned_amount.clone();
+        }
+        assert_eq!(shares + distribution.burn_share, DENOM);
+        assert_eq!(
+            stream.amount,
+            earned + &distribution.burn_amount + &distribution.rounding_adjustment
+        );
+    }
+}

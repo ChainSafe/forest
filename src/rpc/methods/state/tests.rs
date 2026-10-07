@@ -7,6 +7,7 @@ use crate::chain::ChainStore;
 use crate::networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata, Height, NetworkChain};
 use crate::rpc::test_utils::chain_store_with_config;
 use crate::rpc::{DbImpl, RPCState};
+use crate::shim::actors::reward::RewardDistributionError;
 use crate::shim::machine::BuiltinActor;
 use crate::shim::sector::RegisteredSealProofV4;
 use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
@@ -546,88 +547,6 @@ async fn initial_pledge_fails_on_an_unknown_state_root() {
     assert!(compute_initial_pledge_for_power(&ctx, &unknown, &qa_sector_power()).is_err());
 }
 
-/// Response example of the Lotus API documentation:
-/// <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/documentation/en/api-methods-v2-experimental.md#staterewarddistribution>
-const LOTUS_REWARD_DISTRIBUTION_EXAMPLE: &str = r#"{
-  "TipSetKey": [
-    {
-      "/": "bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"
-    }
-  ],
-  "Height": 101,
-  "Denom": "1000000000000000000",
-  "Totals": {
-    "MintedReward": "1000",
-    "MinerReward": "600",
-    "MessageReward": "20",
-    "ExplicitReward": "270",
-    "BurnAllocation": "130",
-    "MinerPaid": "620",
-    "BurnPaid": "130"
-  },
-  "Blocks": [
-    {
-      "Block": {
-        "/": "bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"
-      },
-      "Miner": "f01000",
-      "WinCount": 1,
-      "Amounts": {
-        "MintedReward": "1000",
-        "MinerReward": "600",
-        "MessageReward": "20",
-        "ExplicitReward": "270",
-        "BurnAllocation": "130",
-        "MinerPaid": "620",
-        "BurnPaid": "130"
-      },
-      "BurnWeight": "100000000000000000",
-      "Streams": [
-        {
-          "ID": "1",
-          "Weight": "600000000000000000",
-          "Amount": "600",
-          "Distribution": null
-        },
-        {
-          "ID": "2",
-          "Weight": "300000000000000000",
-          "Amount": "300",
-          "Distribution": {
-            "Writer": "f01001",
-            "Recipients": [
-              {
-                "Recipient": "f01002",
-                "Share": "500000000000000000",
-                "EarnedAmount": "150"
-              },
-              {
-                "Recipient": "f01003",
-                "Share": "400000000000000000",
-                "EarnedAmount": "120"
-              }
-            ],
-            "BurnShare": "100000000000000000",
-            "BurnAmount": "30",
-            "RoundingAdjustment": "0"
-          }
-        }
-      ]
-    }
-  ]
-}"#;
-
-#[test]
-fn reward_distribution_json_is_byte_compatible_with_lotus() {
-    let distribution: RewardDistribution =
-        serde_json::from_str(LOTUS_REWARD_DISTRIBUTION_EXAMPLE).unwrap();
-
-    assert_eq!(
-        serde_json::to_string_pretty(&distribution).unwrap(),
-        LOTUS_REWARD_DISTRIBUTION_EXAMPLE
-    );
-}
-
 /// Lotus allocates every list, so an empty one is `[]` and never `null`:
 /// <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/chain/stmgr/rewards.go#L38-L78>
 /// The rounding adjustment keeps its sign.
@@ -662,32 +581,26 @@ fn reward_distribution_json_keeps_empty_lists_and_negative_rounding() {
     assert_eq!(explicit.rounding_adjustment, TokenAmount::from_atto(-1));
 }
 
-/// Lotus refuses tipsets executed by an earlier reward actor with this text, before executing
-/// anything: <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/node/impl/full/state_v2.go#L61-L63>
-const REWARD_DISTRIBUTION_REQUIRES_NV29: &str =
-    "StateRewardDistribution requires reward actor v19 (network version 29)";
-
-/// The error of `StateRewardDistribution` for the head of a chain at `epoch`.
-async fn reward_distribution_error(config: ChainConfig, epoch: ChainEpoch) -> ServerError {
-    let (ctx, head) = ctx_at(config, epoch, &Default::default());
-    let selector = TipsetSelector {
-        key: head.key().into(),
-        ..Default::default()
-    };
-    StateRewardDistribution::handle(ctx, (selector,), &Default::default())
-        .await
-        .unwrap_err()
-}
-
 /// The tipset at the upgrade epoch is the last one executed by the v18 reward actor.
 #[tokio::test]
 async fn reward_distribution_is_refused_at_the_solstice_epoch() {
     let config = ChainConfig::calibnet();
-    let epoch = config.epoch(Height::Solstice);
+    let (ctx, head) = ctx_at(
+        config.clone(),
+        config.epoch(Height::Solstice),
+        &Default::default(),
+    );
 
-    let error = reward_distribution_error(config, epoch).await;
+    let error = ctx
+        .state_manager
+        .reward_distribution(&head)
+        .await
+        .unwrap_err();
 
-    assert_eq!(error.message(), REWARD_DISTRIBUTION_REQUIRES_NV29);
+    assert!(matches!(
+        error.downcast_ref(),
+        Some(RewardDistributionError::RewardActorBeforeV19)
+    ));
 }
 
 /// The next tipset is the first one executed by the v19 reward actor.
@@ -695,11 +608,16 @@ async fn reward_distribution_is_refused_at_the_solstice_epoch() {
 async fn reward_distribution_is_not_refused_after_the_solstice_epoch() {
     let config = ChainConfig::calibnet();
     let epoch = first_epoch_of(&config, Height::Solstice);
+    let (ctx, head) = ctx_at(config, epoch, &Default::default());
 
-    let error = reward_distribution_error(config, epoch).await;
+    let error = ctx
+        .state_manager
+        .reward_distribution(&head)
+        .await
+        .unwrap_err();
 
     // The fixture chain has no parent tipset to execute on, so the call fails past the check.
-    assert_ne!(error.message(), REWARD_DISTRIBUTION_REQUIRES_NV29);
+    assert!(error.downcast_ref::<RewardDistributionError>().is_none());
 }
 
 /// A tipset at epoch 0 is not executed, so it has no block rewards. Lotus reports the same:

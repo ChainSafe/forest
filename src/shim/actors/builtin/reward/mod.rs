@@ -24,6 +24,9 @@ use fil_actor_miner_state::v16::initial_pledge_for_power as initial_pledge_for_p
 use fil_actor_miner_state::v17::initial_pledge_for_power as initial_pledge_for_power_v17;
 use fil_actor_miner_state::v18::initial_pledge_for_power as initial_pledge_for_power_v18;
 use fil_actor_miner_state::v19::initial_pledge_for_power as initial_pledge_for_power_v19;
+
+mod award_distribution;
+pub use award_distribution::{RewardDistributionError, award_distribution};
 use fvm_shared2::TOTAL_FILECOIN;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::smooth::FilterEstimate;
@@ -554,37 +557,5 @@ impl State {
                 Ok(pledge.into())
             }
         }
-    }
-
-    /// Returns the v19 state, the first actors version with reward streams.
-    ///
-    /// # Errors
-    /// Fails before actors v19.
-    pub fn as_v19(&self) -> anyhow::Result<&fil_actor_reward_state::v19::State> {
-        match self {
-            State::V19(st) => Ok(st),
-            State::V8(_)
-            | State::V9(_)
-            | State::V10(_)
-            | State::V11(_)
-            | State::V12(_)
-            | State::V13(_)
-            | State::V14(_)
-            | State::V15(_)
-            | State::V16(_)
-            | State::V17(_)
-            | State::V18(_) => anyhow::bail!("reward streams are unimplemented before actors v19"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn reward_streams_need_actors_v19() {
-        assert!(State::V18(Default::default()).as_v19().is_err());
-        assert!(State::V19(Default::default()).as_v19().is_ok());
     }
 }

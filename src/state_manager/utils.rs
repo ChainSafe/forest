@@ -431,10 +431,9 @@ pub mod state_compute {
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
         async fn cargo_test_reward_distribution_calibnet_4109134() {
-            use crate::rpc::state::RewardAmounts;
+            use crate::rpc::state::{RewardAmounts, assert_award_conserved};
             use crate::shim::actors::reward;
             use crate::shim::econ::TokenAmount;
-            use crate::state_manager::reward_distribution::tests::assert_award_conserved;
             use fil_actor_reward_state::v19::DENOM;
 
             let chain = NetworkChain::Calibnet;
@@ -545,8 +544,10 @@ pub mod state_compute {
                 .get_actor_state::<reward::State>(&ts)
                 .unwrap()
                 .into_total_storage_power_reward();
-            let after = sm.get_actor_state::<reward::State>(&ts_next).unwrap();
-            let after = after.as_v19().unwrap();
+            let reward::State::V19(after) = sm.get_actor_state::<reward::State>(&ts_next).unwrap()
+            else {
+                panic!("the reward actor is at v19 from the Solstice upgrade on");
+            };
             assert_eq!(
                 totals.minted_reward,
                 TokenAmount::from(&after.total_minted_reward) - minted_before

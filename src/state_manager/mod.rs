@@ -68,7 +68,9 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum 
 const DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE: NonZeroUsize = nonzero!(8192usize); // maximum ~0.7MiB on mainnet
 const DEFAULT_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(16usize); // 1.4 to 7.7 MiB per entry measured, so ~20 to 120 MiB
 const DEFAULT_ETH_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(64usize); // 0.03 to 0.12 MiB per entry measured, so ~2 to 8 MiB
-const DEFAULT_REWARD_DISTRIBUTION_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize); // 5.3 KiB per entry measured (4 blocks, 1 recipient), 0.13 KiB more per recipient and block, so ~5.3 MiB
+// 5 to 6.3 KiB per entry measured (4 to 5 blocks, 2 streams, 1 recipient), ~66 KiB per block at the
+// reward actor's limits (8 streams of 64 recipients), so ~1.5 MiB, ~83 MiB with 5 blocks per tipset
+const DEFAULT_REWARD_DISTRIBUTION_CACHE_SIZE: NonZeroUsize = nonzero!(256usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 

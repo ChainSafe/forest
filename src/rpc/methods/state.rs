@@ -395,12 +395,6 @@ impl RpcMethod<1> for StateRewardDistribution {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ChainGetTipSetV2::get_tipset(&ctx, &selector).await?;
-        if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V29 {
-            return Err(anyhow::anyhow!(
-                "StateRewardDistribution requires reward actor v19 (network version 29)"
-            )
-            .into());
-        }
         Ok(ctx.state_manager.reward_distribution(&ts).await?)
     }
 }
