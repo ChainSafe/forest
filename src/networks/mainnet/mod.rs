@@ -16,7 +16,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use super::{
-    DrandPoint, Height, HeightInfo, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED,
+    DrandPoint, Height, HeightInfo, NetworkChain,
     actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
     parse_bootstrap_peers,
