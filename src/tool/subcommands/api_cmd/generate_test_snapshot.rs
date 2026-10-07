@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::address::Network;
 use crate::{
     KeyStore, KeyStoreConfig,
     blocks::TipsetKey,
@@ -24,7 +25,6 @@ use crate::{
 };
 use api_compare_tests::TestDump;
 use arc_swap::ArcSwap;
-use fvm_shared4::address::Network;
 use openrpc_types::ParamStructure;
 use parking_lot::RwLock;
 use rpc::{RPCState, RpcMethod as _, eth::filter::EthEventHandler};

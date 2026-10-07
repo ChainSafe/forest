@@ -283,11 +283,11 @@ impl GasEstimateGasLimit {
         if exit_code.is_success() {
             return Ok(apply_ret.gas_used() as i64);
         }
-        if exit_code == fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS {
+        if exit_code == crate::shim::fvm_shared_latest::error::ExitCode::SYS_OUT_OF_GAS {
             return Err(EthErrors::OutOfGas.into());
         }
         if sender_validation == SenderValidation::Enforce
-            && exit_code == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID
+            && exit_code == crate::shim::fvm_shared_latest::error::ExitCode::SYS_SENDER_INVALID
         {
             let exit_code = crate::shim::error::ExitCode::from(exit_code);
             return Err(crate::state_manager::Error::SenderValidationFailed(format!(

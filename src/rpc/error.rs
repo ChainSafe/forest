@@ -177,7 +177,7 @@ from2internal! {
     fil_actors_shared::fvm_ipld_amt::Error,
     futures::channel::oneshot::Canceled,
     fvm_ipld_encoding::Error,
-    fvm_shared4::address::Error,
+    crate::shim::address::Error,
     jsonwebtoken::errors::Error,
     std::io::Error,
     std::time::SystemTimeError,

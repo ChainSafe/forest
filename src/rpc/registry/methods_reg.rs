@@ -8,7 +8,6 @@ use crate::shim::machine::BuiltinActor;
 use crate::shim::message::MethodNum;
 use ahash::HashMap;
 use anyhow::{Result, bail};
-use fil_actors_shared::v11::runtime::builtins::Type;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::LazyLock;
@@ -101,7 +100,7 @@ impl MethodRegistry {
                     payment_channel::register_actor_methods(self, cid, version)
                 }
                 BuiltinActor::EAM => eam::register_actor_methods(self, cid, version),
-                Type::Placeholder => {}
+                BuiltinActor::Placeholder => {}
             }
         }
     }

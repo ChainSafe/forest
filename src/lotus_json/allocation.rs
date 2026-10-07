@@ -3,10 +3,10 @@
 
 use super::*;
 use crate::shim::actors::verifreg::Allocation;
+use crate::shim::clock::ChainEpoch;
+use crate::shim::fvm_shared_latest::piece::PaddedPieceSize;
+use crate::shim::state_tree::ActorID;
 use ::cid::Cid;
-use fvm_shared4::ActorID;
-use fvm_shared4::clock::ChainEpoch;
-use fvm_shared4::piece::PaddedPieceSize;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

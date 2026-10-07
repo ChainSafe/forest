@@ -5,10 +5,10 @@ use crate::shim::version::NetworkVersion;
 use anyhow::bail;
 use cid::Cid;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
+pub use fvm_shared2::sector::RegisteredPoStProof as RegisteredPoStProofV2;
 use fvm_shared2::sector::{
-    PoStProof as PoStProofV2, RegisteredPoStProof as RegisteredPoStProofV2,
-    RegisteredSealProof as RegisteredSealProofV2, SectorInfo as SectorInfoV2,
-    SectorSize as SectorSizeV2,
+    PoStProof as PoStProofV2, RegisteredSealProof as RegisteredSealProofV2,
+    SectorInfo as SectorInfoV2, SectorSize as SectorSizeV2,
 };
 pub use fvm_shared3::sector::{
     RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,

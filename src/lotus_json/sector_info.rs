@@ -32,7 +32,7 @@ impl HasLotusJson for SectorInfo {
                 }
             }),
             Self::new(
-                fvm_shared4::sector::RegisteredSealProof::StackedDRG2KiBV1,
+                crate::shim::sector::RegisteredSealProofV4::StackedDRG2KiBV1,
                 0,
                 ::cid::Cid::default(),
             ),
@@ -40,7 +40,7 @@ impl HasLotusJson for SectorInfo {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let fvm_shared4::sector::SectorInfo {
+        let crate::shim::sector::SectorInfoV4 {
             proof,
             sector_number,
             sealed_cid,

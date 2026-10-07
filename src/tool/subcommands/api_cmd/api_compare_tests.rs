@@ -29,6 +29,7 @@ use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::crypto::DomainSeparationTag;
 use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
@@ -50,7 +51,6 @@ use bls_signatures::Serialize as _;
 use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
