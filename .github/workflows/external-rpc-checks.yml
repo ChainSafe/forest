@@ -72,7 +72,7 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - name: Install Forest
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
