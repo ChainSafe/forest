@@ -2,7 +2,7 @@
 description = "Installs all Forest binaries with a specified profile."
 usage = '''
 arg "<profile>" help="Installation profile (quick, release, etc.)" default="release" {
-   choices "quick" "quick-test" "release" "release-lto-fat" "dev" "debugging" "profiling"
+   choices "quick" "quick-test" "release" "release-checked" "release-lto-fat" "dev" "debugging" "profiling"
 }
 flag "--slim" help="Install a slim version"
 flag "--native" help="Enable native CPU optimizations (-C target-cpu=native). Produced binaries are not portable across CPUs."
@@ -190,7 +190,7 @@ cargo test --doc --no-default-features --features "test doctest-private" --no-fa
 description = "Run Rust unit and integration tests except the `cargo_test_` group with nextest."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
-   choices "quick" "quick-test" "release" "dev"
+   choices "quick" "quick-test" "release" "release-checked" "dev"
 }
 '''
 run = '''
@@ -202,7 +202,7 @@ cargo nextest run --cargo-profile ${usage_profile?} --workspace --no-default-fea
 description = "Run the `cargo_test_` group (snapshot tests that share one process) with cargo test."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
-   choices "quick" "quick-test" "release" "dev"
+   choices "quick" "quick-test" "release" "release-checked" "dev"
 }
 '''
 run = '''
@@ -214,7 +214,7 @@ cargo test --lib --workspace --profile ${usage_profile?} --no-default-features -
 description = "Run nextest and `cargo_test_` groups (doctests run via `test:docs`)."
 usage = '''
 arg "<profile>" help="Build profile (quick-test, dev, etc.)" default="quick-test" {
-   choices "quick" "quick-test" "release" "dev"
+   choices "quick" "quick-test" "release" "release-checked" "dev"
 }
 '''
 run = '''

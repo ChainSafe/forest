@@ -328,6 +328,10 @@ strip = true
 panic = "abort"
 lto = "thin"
 
+[profile.release-checked]
+inherits = "release"
+overflow-checks = true
+
 [profile.release-lto-fat]
 inherits = "release"
 lto = "fat"
