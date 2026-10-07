@@ -516,7 +516,7 @@ mod test {
     }
 }
 
-/// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
+/// Parsed tree of [`ExecutionEvent`](crate::shim::trace::ExecutionEvent)s
 pub mod structured {
     use crate::{
         rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace, TraceIpld},
@@ -554,7 +554,7 @@ pub mod structured {
         UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
     }
 
-    /// Construct a single [`ExecutionTrace`]s from a linear array of [`ExecutionEvent`](fvm4::trace::ExecutionEvent)s.
+    /// Construct a single [`ExecutionTrace`]s from a linear array of [`ExecutionEvent`]s.
     ///
     /// This function is so-called because it similar to the parse step in a traditional compiler:
     /// ```text
@@ -562,7 +562,7 @@ pub mod structured {
     ///               ExecutionEvent --parse--> ExecutionTrace
     /// ```
     ///
-    /// This function is notable in that [`GasCharge`](fvm4::gas::GasCharge)s which precede a [`ExecutionTrace`] at the root level
+    /// This function is notable in that [`GasCharge`]s which precede a [`ExecutionTrace`] at the root level
     /// are attributed to that node.
     ///
     /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)

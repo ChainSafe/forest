@@ -5,7 +5,8 @@ pub mod ext;
 use crate::shim::address::{Address, Protocol};
 use anyhow::anyhow;
 use cid::Cid;
-use fil_actor_verifreg_state::v13::ClaimID;
+pub use fil_actor_verifreg_state::v12::DataCap;
+pub use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actor_verifreg_state::{
     v9::state::get_claim as get_claim_v9, v10::state::get_claim as get_claim_v10,
     v11::state::get_claim as get_claim_v11, v12::state::get_claim as get_claim_v12,

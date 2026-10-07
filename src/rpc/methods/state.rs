@@ -22,9 +22,10 @@ use crate::rpc::registry::actors_reg::load_and_serialize_actor_state;
 use crate::shim::actors::market::DealState;
 use crate::shim::actors::market::ext::MarketStateExt as _;
 use crate::shim::actors::miner::ext::DeadlineExt;
+use crate::shim::actors::miner::{qa_power_for_weight, qa_power_max};
 use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
-use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim};
+use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim, ClaimID};
 use crate::shim::actors::{init, system};
 use crate::shim::actors::{
     market, miner,
@@ -38,6 +39,7 @@ use crate::shim::actors::{
 use crate::shim::address::Payload;
 use crate::shim::machine::BuiltinActorManifest;
 use crate::shim::message::{Message, MethodNum};
+pub use crate::shim::sector::StoragePower;
 use crate::shim::sector::{SectorNumber, SectorSize};
 use crate::shim::state_tree::{ActorID, StateTree};
 use crate::shim::{
@@ -54,14 +56,11 @@ use crate::{
 use ahash::{HashMap, HashSet};
 use anyhow::Result;
 use enumflags2::{BitFlags, make_bitflags};
-use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
-use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::stream::FuturesOrdered;
 use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
-pub use fvm_shared3::sector::StoragePower;
 use ipld_core::ipld::Ipld;
 use jsonrpsee::types::error::ErrorObject;
 use num_bigint::BigInt;
@@ -2737,7 +2736,7 @@ impl RpcMethod<3> for StateSectorExpiration {
         let mut early = 0;
         let mut on_time = 0;
         if !partition.terminated().get(sector_number) {
-            let expirations: Amt<fil_actor_miner_state::v16::ExpirationSet, _> =
+            let expirations: Amt<crate::shim::actors::miner::ExpirationSet, _> =
                 Amt::load(&partition.expirations_epochs(), store)?;
             expirations.for_each(|epoch, expiration| {
                 if expiration.early_sectors.get(sector_number) {
@@ -3230,7 +3229,7 @@ impl RpcMethod<2> for StateGetAllocationForPendingDeal {
         let allocation_id =
             StateGetAllocationIdForPendingDeal::handle(ctx.clone(), (deal_id, tsk.clone()), ext)
                 .await?;
-        if allocation_id == fil_actor_market_state::v14::NO_ALLOCATION_ID {
+        if allocation_id == crate::shim::actors::market::NO_ALLOCATION_ID {
             return Ok(None);
         }
         let deal = StateMarketStorageDeal::handle(ctx.clone(), (deal_id, tsk.clone()), ext).await?;

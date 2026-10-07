@@ -112,7 +112,7 @@ fn test_events_same_content_same_cid() {
 fn test_events_empty_list() {
     let db = MemoryDB::default();
 
-    let events: Vec<fvm_shared4::event::StampedEvent> = vec![];
+    let events: Vec<crate::shim::fvm_shared_latest::event::StampedEvent> = vec![];
     let events_root =
         Amt::new_from_iter_with_bit_width(&db, EVENTS_AMT_BITWIDTH, events.iter()).unwrap();
 

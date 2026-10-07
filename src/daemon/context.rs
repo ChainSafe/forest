@@ -18,6 +18,7 @@ use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::address::CurrentNetwork;
+use crate::shim::address::Network;
 use crate::state_manager::StateManager;
 use crate::{
     Config, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, JWT_IDENTIFIER, KeyStore,
@@ -25,7 +26,6 @@ use crate::{
 };
 use anyhow::Context;
 use dialoguer::console::Term;
-use fvm_shared4::address::Network;
 use parking_lot::RwLock;
 use std::cell::RefCell;
 use std::path::PathBuf;

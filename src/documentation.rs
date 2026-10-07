@@ -109,7 +109,7 @@
 ///
 /// `Message`s describe/represent mutations in the [`StateTree`](crate::shim::state_tree::StateTree),
 /// which is a representation of all Filecoin state at a point in time.
-/// For each actor, the `StateTree` holds the CID for its state: [`ActorState.state`](fvm4::state_tree::ActorState::state).
+/// For each actor, the `StateTree` holds the CID for its state: [`ActorState.state`](crate::shim::fvm_latest::state_tree::ActorState::state).
 ///
 /// Actor state is serialized and stored as  [`Ipld`](ipld_core::ipld::Ipld).
 /// Think of this as "JSON with links ([`Cid`](cid::Cid)s)".

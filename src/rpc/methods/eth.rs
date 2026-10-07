@@ -59,6 +59,7 @@ use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use crate::shim::executor::Receipt;
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
+use crate::shim::fvm_shared_latest::error::ExitCode;
 use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
 use crate::shim::{
@@ -1999,7 +2000,7 @@ fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> b
         Ok((invoc_res, _)) => invoc_res
             .msg_rct
             .as_ref()
-            .is_some_and(|rct| rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID),
+            .is_some_and(|rct| rct.exit_code() == ExitCode::SYS_SENDER_INVALID),
     }
 }
 
@@ -2097,7 +2098,7 @@ pub async fn eth_gas_search(
         )
         .await?
         .0
-        .trace_has_call_return_exit_code(fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS);
+        .trace_has_call_return_exit_code(ExitCode::SYS_OUT_OF_GAS);
     if !out_of_gas {
         // Match Lotus: a code-3 `ExecutionReverted` with the decoded revert data, so eth tooling
         // gets the code and can ABI-decode the reason.
@@ -4233,12 +4234,12 @@ mod test {
     use super::*;
     use crate::rpc::eth::EventEntry;
     use crate::rpc::state::{ExecutionTrace, MessageTrace, ReturnTrace};
+    use crate::shim::fvm_shared_latest::event::Flags;
     use crate::shim::{econ::TokenAmount, error::ExitCode};
     use crate::{
         db::MemoryDB,
         test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
     };
-    use fvm_shared4::event::Flags;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use rstest::rstest;
@@ -4610,8 +4611,8 @@ mod test {
 
         let mut init_state =
             fil_actor_init_state::v18::State::new(db, "calibrationnet".to_string()).unwrap();
-        let robust_addr = fvm_shared4::address::Address::new_actor(b"eth-send-raw-tx-test");
-        let delegated_addr = fvm_shared4::address::Address::from(sender);
+        let robust_addr = VmAddress::new_actor(b"eth-send-raw-tx-test");
+        let delegated_addr = VmAddress::from(sender);
         let (sender_id, _) = init_state
             .map_addresses_to_id(db, &robust_addr, Some(&delegated_addr))
             .unwrap();

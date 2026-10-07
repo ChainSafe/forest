@@ -909,9 +909,9 @@ impl Matcher for EventFilter {
 mod tests {
     use super::*;
     use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
+    use crate::shim::fvm_shared_latest::event::Flags;
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_shared4::event::Flags;
     use rstest::rstest;
     use std::str::FromStr;
 
