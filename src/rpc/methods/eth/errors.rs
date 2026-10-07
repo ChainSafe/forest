@@ -5,6 +5,7 @@ use super::utils::decode_revert_reason;
 use crate::rpc::error::RpcErrorData;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
+use crate::shim::executor::ApplyRet;
 use crate::utils::encoding::hex;
 use fvm_ipld_encoding::RawBytes;
 use serde::Serialize;
@@ -20,6 +21,10 @@ pub const EXECUTION_REVERTED_CODE: i32 = 3;
 pub const LIMIT_EXCEEDED_CODE: i32 = -32005;
 /// Matches Lotus's `ENullRound` (`jsonrpc.FirstUserCode + 10` = `12`).
 pub const NULL_ROUND_CODE: i32 = 12;
+/// "Invalid input" in [EIP-1474](https://github.com/ethereum/EIPs/blob/ac912ca6a9685590345dd8e5736cda75976d0131/EIPS/eip-1474.md#L43).
+pub const INVALID_INPUT_CODE: i32 = -32000;
+/// "Transaction rejected" in [EIP-1474](https://github.com/ethereum/EIPs/blob/ac912ca6a9685590345dd8e5736cda75976d0131/EIPS/eip-1474.md#L46).
+pub const TRANSACTION_REJECTED_CODE: i32 = -32003;
 
 #[derive(Clone, Debug, Error, Serialize)]
 pub enum EthErrors {
@@ -37,6 +42,12 @@ pub enum EthErrors {
     EventsNotYetAvailable,
     #[error("requested epoch was a null round ({epoch})")]
     NullRound { epoch: ChainEpoch },
+    /// The caller-supplied gas limit is below the message inclusion cost.
+    #[error("gas required exceeds allowance ({gas_limit})")]
+    GasRequiredExceedsAllowance { gas_limit: u64 },
+    /// The call runs out of gas, or fails, within the caller-supplied gas limit but succeeds with more.
+    #[error("out of gas: gas required exceeds: {gas_limit}")]
+    InsufficientGasLimit { gas_limit: u64 },
 }
 
 impl EthErrors {
@@ -67,17 +78,13 @@ impl EthErrors {
         Self::execution_reverted(exit_code.into(), &reason, vm_error, &data)
     }
 
-    /// Prepends `prefix` to the message, keeping the code and data. Needed because the RPC layer
-    /// rebuilds the wire message from the typed error alone, dropping any `anyhow` context.
-    #[must_use]
-    pub fn with_message_prefix(mut self, prefix: &str) -> Self {
-        match &mut self {
-            Self::ExecutionReverted { message, .. } | Self::BlockRangeExceeded { message, .. } => {
-                *message = format!("{prefix}: {message}");
-            }
-            Self::OutOfGas | Self::EventsNotYetAvailable | Self::NullRound { .. } => {}
-        }
-        self
+    /// [`Self::execution_reverted_from_result`] for a failed [`ApplyRet`].
+    pub fn execution_reverted_from_apply_ret(apply_ret: &ApplyRet) -> Self {
+        Self::execution_reverted_from_result(
+            apply_ret.exit_code(),
+            apply_ret.return_data(),
+            &apply_ret.failure_info().unwrap_or_default(),
+        )
     }
 
     pub fn limit_exceeded(max_block_range: i64, given: i64) -> Self {
@@ -102,6 +109,8 @@ impl RpcErrorData for EthErrors {
             EthErrors::BlockRangeExceeded { .. } => Some(LIMIT_EXCEEDED_CODE),
             EthErrors::EventsNotYetAvailable => None,
             EthErrors::NullRound { .. } => Some(NULL_ROUND_CODE),
+            EthErrors::GasRequiredExceedsAllowance { .. } => Some(INVALID_INPUT_CODE),
+            EthErrors::InsufficientGasLimit { .. } => Some(TRANSACTION_REJECTED_CODE),
         }
     }
 
@@ -112,6 +121,8 @@ impl RpcErrorData for EthErrors {
             EthErrors::BlockRangeExceeded { message, .. } => Some(message.clone()),
             EthErrors::EventsNotYetAvailable => Some(self.to_string()),
             EthErrors::NullRound { .. } => Some(self.to_string()),
+            EthErrors::GasRequiredExceedsAllowance { .. }
+            | EthErrors::InsufficientGasLimit { .. } => Some(self.to_string()),
         }
     }
 
@@ -122,7 +133,9 @@ impl RpcErrorData for EthErrors {
             }
             EthErrors::OutOfGas
             | EthErrors::BlockRangeExceeded { .. }
-            | EthErrors::EventsNotYetAvailable => None,
+            | EthErrors::EventsNotYetAvailable
+            | EthErrors::GasRequiredExceedsAllowance { .. }
+            | EthErrors::InsufficientGasLimit { .. } => None,
             // Lotus sends the epoch as a bare JSON number.
             EthErrors::NullRound { epoch } => Some(serde_json::Value::from(*epoch)),
         }
@@ -201,39 +214,36 @@ mod tests {
     }
 
     #[test]
-    fn test_with_message_prefix_prepends_and_preserves_code_and_data() {
-        let err = EthErrors::execution_reverted(
-            ExitCode::from(33u32),
-            "boom",
-            "backtrace",
-            &[0xde, 0xad],
-        )
-        .with_message_prefix("gas search failed");
-        let server_err: ServerError = err.into();
-
-        assert_eq!(server_err.code(), EXECUTION_REVERTED_CODE);
-        assert_eq!(
-            server_err.message(),
-            "gas search failed: message execution failed (exit=[33], revert reason=[boom], vm error=[backtrace])"
-        );
-        assert_eq!(
-            server_err.data().map(|d| d.to_string()),
-            Some("\"0xdead\"".to_string())
-        );
-    }
-
-    #[test]
-    fn test_with_message_prefix_is_a_noop_for_messageless_variants() {
-        let err = EthErrors::null_round(7).with_message_prefix("ignored");
-        assert_eq!(err.to_string(), "requested epoch was a null round (7)");
-    }
-
-    #[test]
     fn test_out_of_gas_converts_to_server_error_matching_lotus() {
         let err = EthErrors::OutOfGas;
         let server_err: ServerError = err.into();
 
         assert_eq!(server_err.code(), OUT_OF_GAS_CODE);
         assert_eq!(server_err.message(), "call ran out of gas");
+    }
+
+    #[test]
+    fn test_gas_required_exceeds_allowance_converts_to_server_error() {
+        let server_err: ServerError =
+            EthErrors::GasRequiredExceedsAllowance { gas_limit: 1000 }.into();
+
+        assert_eq!(server_err.code(), INVALID_INPUT_CODE);
+        assert_eq!(
+            server_err.message(),
+            "gas required exceeds allowance (1000)"
+        );
+        assert!(server_err.data().is_none());
+    }
+
+    #[test]
+    fn test_insufficient_gas_limit_converts_to_server_error() {
+        let server_err: ServerError = EthErrors::InsufficientGasLimit { gas_limit: 25000 }.into();
+
+        assert_eq!(server_err.code(), TRANSACTION_REJECTED_CODE);
+        assert_eq!(
+            server_err.message(),
+            "out of gas: gas required exceeds: 25000"
+        );
+        assert!(server_err.data().is_none());
     }
 }
