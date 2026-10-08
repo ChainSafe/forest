@@ -328,7 +328,7 @@ strip = true
 panic = "abort"
 lto = "thin"
 
-[profile.release-checked]
+[profile.release-overflow-checks]
 inherits = "release"
 overflow-checks = true
 
