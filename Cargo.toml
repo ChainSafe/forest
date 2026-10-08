@@ -310,6 +310,7 @@ opt-level = 1
 lto = "off"
 incremental = true
 codegen-units = 256
+overflow-checks = true
 
 [profile.quick-test]
 inherits = "quick"
@@ -327,10 +328,6 @@ panic = "abort"
 strip = true
 panic = "abort"
 lto = "thin"
-
-[profile.release-overflow-checks]
-inherits = "release"
-overflow-checks = true
 
 [profile.release-lto-fat]
 inherits = "release"
