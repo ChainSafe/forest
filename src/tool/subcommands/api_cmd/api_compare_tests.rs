@@ -930,6 +930,12 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 ..Default::default()
             },
         ))?),
+        // Both nodes reject a tipset executed before NV29 with the same error.
+        RpcTest::identity(StateRewardDistribution::request((TipsetSelector {
+            key: tipset.key().into(),
+            ..Default::default()
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(StateGetRandomnessFromTickets::request((
             DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),

@@ -35,6 +35,8 @@
 
 - [#7550](https://github.com/ChainSafe/forest/issues/7550): Set the mainnet NV29 _Solstice_ network upgrade epoch to `6470279` which corresponds to `Mon Oct 19 12:59:30 PM UTC 2026`.
 
+- [#7658](https://github.com/ChainSafe/forest/issues/7658): Implemented `Filecoin.StateRewardDistribution` for API v2. For each block of the selected tipset and in total, it reports how the block reward was split between the miner, the reward stream recipients and burn, and what was actually paid. It is available from NV29.
+
 ### Changed
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
