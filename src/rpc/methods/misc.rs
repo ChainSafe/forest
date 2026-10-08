@@ -32,14 +32,16 @@ impl RpcMethod<1> for GetActorEventsRaw {
         (filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let Some(filter) = filter else {
-            return Ok(vec![]);
-        };
-        let Some(parsed_filter) = ParsedFilter::from_actor_event_filter(
-            ctx.chain_store().heaviest_tipset().epoch(),
-            ctx.eth_event_handler.max_filter_height_range,
-            filter,
-        )?
+        let Some(parsed_filter) = filter
+            .map(|filter| {
+                ParsedFilter::from_actor_event_filter(
+                    ctx.chain_store().heaviest_tipset().epoch(),
+                    ctx.eth_event_handler.max_filter_height_range,
+                    filter,
+                )
+            })
+            .transpose()?
+            .flatten()
         else {
             return Ok(vec![]);
         };
