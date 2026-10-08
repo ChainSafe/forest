@@ -47,7 +47,6 @@ async fn gossip_rounds_are_verified_and_cached() {
     let mut kinds = ahash::HashMap::default();
     kinds.insert(topic.hash(), PubsubTopic::Drand);
 
-    // `PubsubTopicCfg` borrows, so these have to outlive the swarm construction.
     // The whitelist must carry the *fake* chain hash, otherwise the node refuses
     // to subscribe to the topic the relay publishes on.
     let network_name: GenesisNetworkName = "testdrandgossipsub".into();
@@ -75,11 +74,12 @@ async fn gossip_rounds_are_verified_and_cached() {
 
     wait_until_meshed(&mut node, &mut relay, &topic).await;
 
+    let test_rounds = 5;
     let (events_tx, events_rx) = flume::unbounded();
     let (network_send, verdicts) = flume::unbounded();
     let limiter = Arc::new(Semaphore::new(1));
 
-    for round in 1..=5u64 {
+    for round in 1..=test_rounds {
         relay
             .behaviour_mut()
             .publish(topic.clone(), drand.to_protobuf(round))
@@ -144,7 +144,7 @@ async fn gossip_rounds_are_verified_and_cached() {
     }
 
     // The beacon has no HTTP servers: every round is served from the gossip-filled cache.
-    for round in 1..=5u64 {
+    for round in 1..=test_rounds {
         assert_eq!(beacon.entry(round).await.unwrap(), drand.entry(round));
     }
 }
