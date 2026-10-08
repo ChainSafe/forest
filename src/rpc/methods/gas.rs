@@ -214,12 +214,7 @@ impl GasEstimateGasLimit {
         curr_ts: &Tipset,
         sender_validation: SenderValidation,
     ) -> anyhow::Result<(ApplyRet, Arc<Vec<ChainMessage>>, Tipset, Address)> {
-        let msg = msg
-            .into_builder()
-            .gas_limit(BLOCK_GAS_LIMIT)
-            .gas_fee_cap(TokenAmount::from_atto(0))
-            .gas_premium(TokenAmount::from_atto(0))
-            .build();
+        let msg = without_fees(msg, BLOCK_GAS_LIMIT);
         Self::probe_as_specified(data, msg, curr_ts, VMTrace::NotTraced, sender_validation).await
     }
 
@@ -296,14 +291,17 @@ impl GasEstimateGasLimit {
             ))
             .into());
         }
-        let vm_error = apply_ret.failure_info().unwrap_or_default();
-        Err(EthErrors::execution_reverted_from_result(
-            exit_code,
-            apply_ret.return_data(),
-            &vm_error,
-        )
-        .into())
+        Err(EthErrors::execution_reverted_from_apply_ret(&apply_ret).into())
     }
+}
+
+/// `msg` at `gas_limit` with zero fees, so a run judges gas alone and not the sender's funds.
+pub fn without_fees(msg: Message, gas_limit: u64) -> Message {
+    msg.into_builder()
+        .gas_limit(gas_limit)
+        .gas_fee_cap(TokenAmount::from_atto(0))
+        .gas_premium(TokenAmount::from_atto(0))
+        .build()
 }
 
 /// Estimates the gas parameters for a given message

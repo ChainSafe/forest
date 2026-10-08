@@ -25,7 +25,6 @@ use crate::shim::econ::TokenAmount;
 use crate::shim::state_tree::ActorState;
 use crate::utils::encoding::{hex, keccak_256};
 use anyhow::{Context as _, ensure};
-use jsonrpsee::core::ClientError;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::str::FromStr as _;
 use tokio::sync::OnceCell;
@@ -357,13 +356,6 @@ async fn estimate_msg(client: &Client, msg: EthCallMessage) -> anyhow::Result<u6
         .call(EthEstimateGas::request((msg, Some(latest())))?)
         .await?
         .0)
-}
-
-fn rpc_call_err(err: &anyhow::Error) -> Option<&jsonrpsee::types::ErrorObjectOwned> {
-    match err.downcast_ref::<ClientError>() {
-        Some(ClientError::Call(obj)) => Some(obj),
-        _ => None,
-    }
 }
 
 fn rpc_data(obj: &jsonrpsee::types::ErrorObjectOwned) -> Option<String> {
