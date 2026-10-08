@@ -5,11 +5,10 @@ use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
 use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
 use crate::rpc::eth::ApiEthTx;
 use crate::shim::crypto::Signature;
-use crate::shim::fvm_shared_latest;
+use crate::shim::fvm_shared_latest::{self, METHOD_CONSTRUCTOR};
 use anyhow::{Context, bail, ensure};
 use bytes::Bytes;
 use cbor4ii::core::{Value, dec::Decode as _, utils::SliceReader};
-use fvm_shared4::METHOD_CONSTRUCTOR;
 use num::{BigInt, Signed as _, bigint::Sign};
 use num_derive::FromPrimitive;
 use num_traits::cast::ToPrimitive;
@@ -583,19 +582,30 @@ pub(crate) mod tests {
         EthTx::ensure_signed_message_valid(&msg).unwrap();
 
         // wrong signature type
-        let mut msg = create_empty_delegated_message();
-        msg.set_signature(Signature::new(SignatureType::Bls, vec![]));
+        let msg = create_empty_delegated_message();
+        let msg = SignedMessage::new_unchecked(
+            msg.into_message(),
+            Signature::new(SignatureType::Bls, vec![]),
+        );
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
 
         // unsupported version
-        let mut msg = create_empty_delegated_message();
-        msg.message_mut().set_version(1);
+        let msg = create_empty_delegated_message();
+        let (message, signature) = msg.into_parts();
+        let msg =
+            SignedMessage::new_unchecked(message.into_builder().version(1).build(), signature);
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
 
         // invalid delegated address namespace
-        let mut msg = create_empty_delegated_message();
-        msg.message_mut()
-            .set_from(Address::new_delegated(0x42, &[0xff; ETH_ADDR_LEN]).unwrap());
+        let msg = create_empty_delegated_message();
+        let (message, signature) = msg.into_parts();
+        let msg = SignedMessage::new_unchecked(
+            message
+                .into_builder()
+                .from(Address::new_delegated(0x42, &[0xff; ETH_ADDR_LEN]).unwrap())
+                .build(),
+            signature,
+        );
         assert!(EthTx::ensure_signed_message_valid(&msg).is_err());
     }
 

@@ -9,7 +9,8 @@ use crate::rpc::eth::{
 };
 use crate::rpc::types::MessageLookup;
 use crate::rpc::{self, prelude::*};
-use crate::shim::actors::eam;
+use crate::shim::actors::eam::{self, CreateExternalParams};
+use crate::shim::actors::evm::InvokeContractReturn;
 use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::Message;
@@ -19,8 +20,6 @@ use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use cid::Cid;
 use clap::Subcommand;
-use fil_actor_eam_state::v16::CreateExternalParams;
-use fil_actor_evm_state::v16::InvokeContractReturn;
 use fvm_ipld_encoding::RawBytes;
 use std::path::PathBuf;
 use std::str::FromStr as _;

@@ -47,7 +47,10 @@ use crate::{
     utils::db::CborStoreExt as _,
 };
 use cid::Cid;
-use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+pub use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
+pub use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+pub use fil_actor_miner_state::v13::SectorOnChainInfoFlags;
+pub use fil_actor_miner_state::v16::ExpirationSet;
 use fil_actor_miner_state::v19::VestingFunds as VestingFundsV19;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;

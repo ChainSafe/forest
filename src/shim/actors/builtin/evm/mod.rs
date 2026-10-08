@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::HasLotusJson;
+use crate::shim::error::ExitCode;
 use ::cid::Cid;
-use fil_actor_evm_state::v19::{BytecodeHash, TransientData};
+use fil_actor_evm_state::v19::{self as evm_latest, BytecodeHash, TransientData};
 use fvm_shared2::address::Address;
 use serde::Serialize;
 use spire_enum::prelude::delegated_enum;
@@ -13,6 +14,25 @@ pub use fil_actor_evm_state::v19::Tombstone;
 
 /// EVM actor method.
 pub type Method = fil_actor_evm_state::v10::Method;
+
+pub use fil_actor_evm_state::v15::DelegateCallParams;
+pub use fil_actor_evm_state::v16::InvokeContractReturn;
+
+pub const EVM_CONTRACT_REVERTED: ExitCode = ExitCode::new(evm_latest::EVM_CONTRACT_REVERTED);
+pub const EVM_CONTRACT_INVALID_INSTRUCTION: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_INVALID_INSTRUCTION);
+pub const EVM_CONTRACT_UNDEFINED_INSTRUCTION: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_UNDEFINED_INSTRUCTION);
+pub const EVM_CONTRACT_STACK_UNDERFLOW: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_STACK_UNDERFLOW);
+pub const EVM_CONTRACT_STACK_OVERFLOW: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_STACK_OVERFLOW);
+pub const EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS);
+pub const EVM_CONTRACT_BAD_JUMPDEST: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_BAD_JUMPDEST);
+pub const EVM_CONTRACT_SELFDESTRUCT_FAILED: ExitCode =
+    ExitCode::new(evm_latest::EVM_CONTRACT_SELFDESTRUCT_FAILED);
 
 /// EVM actor state.
 #[delegated_enum(impl_conversions)]

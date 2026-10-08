@@ -356,6 +356,7 @@ mod tests {
     use crate::utils::encoding::from_slice_with_fallback;
     use base64::{Engine, prelude::BASE64_STANDARD};
     use cid::Cid;
+    use rstest::rstest;
 
     use super::{GossipBlockRejectReason, GossipBlockValidator, TipsetValidator};
 
@@ -603,28 +604,27 @@ mod tests {
     /// A genesis timestamp ahead of the local clock makes `max_allowed_epoch` fall back to
     /// `ChainEpoch::MAX`, so the epoch range check no longer bounds what reaches the timestamp
     /// arithmetic.
-    #[test]
-    fn timestamp_check_survives_extreme_epoch_when_clock_is_behind_genesis() {
+    #[rstest]
+    fn timestamp_check_survives_extreme_epoch_when_clock_is_behind_genesis(
+        // `u64::MAX` is the timestamp that saturating arithmetic would have computed as the expected one, so saturating would have accepted it.
+        #[values(0, u64::MAX)] timestamp: u64,
+    ) {
         let genesis = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             timestamp: u64::MAX,
             ..Default::default()
         }));
 
-        // The second block claims the timestamp that saturating arithmetic would have computed
-        // as the expected one, so saturating would have accepted it.
-        for timestamp in [0, u64::MAX] {
-            let block = make_gossip_block_with(|h| {
-                h.epoch = i64::MAX;
-                h.timestamp = timestamp;
-            });
-            let err = GossipBlockValidator::new(&block)
-                .validate_pre_fetch(&genesis, 30, 0, None, &SeenBlockCache::default())
-                .unwrap_err();
-            assert!(
-                matches!(err, GossipBlockRejectReason::EpochTooFarAhead(_)),
-                "timestamp {timestamp}: {err}"
-            );
-        }
+        let block = make_gossip_block_with(|h| {
+            h.epoch = i64::MAX;
+            h.timestamp = timestamp;
+        });
+        let err = GossipBlockValidator::new(&block)
+            .validate_pre_fetch(&genesis, 30, 0, None, &SeenBlockCache::default())
+            .unwrap_err();
+        assert!(
+            matches!(err, GossipBlockRejectReason::EpochTooFarAhead(_)),
+            "{err}"
+        );
     }
 
     #[test]

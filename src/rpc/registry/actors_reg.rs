@@ -132,6 +132,7 @@ mod test {
     use crate::utils::multihash::MultihashCode;
     use fvm_ipld_encoding::{DAG_CBOR, to_vec};
     use multihash_derive::MultihashDigest;
+    use rstest::rstest;
     use std::sync::Arc;
 
     fn get_real_actor_cid(target_actor: BuiltinActor) -> Option<Cid> {
@@ -154,30 +155,19 @@ mod test {
         assert_eq!(builtin_actor_type, BuiltinActor::Account);
     }
 
-    #[test]
-    fn test_get_actor_details_from_code_multiple_actors() {
-        let test_cases = vec![
-            (BuiltinActor::Account, "Account"),
-            (BuiltinActor::System, "System"),
-            (BuiltinActor::Cron, "Cron"),
-            (BuiltinActor::Miner, "Miner"),
-        ];
-
-        for (expected_actor, actor_name) in test_cases {
-            if let Some(cid) = get_real_actor_cid(expected_actor) {
-                let result = ActorRegistry::get_actor_details_from_code(&cid);
-                assert!(
-                    result.is_ok(),
-                    "Failed to get details for {actor_name} actor"
-                );
-
-                let (builtin_actor_type, _) = result.unwrap();
-                assert_eq!(
-                    builtin_actor_type, expected_actor,
-                    "Wrong actor type returned for {actor_name} actor"
-                );
-            }
-        }
+    #[rstest]
+    fn test_get_actor_details_from_code_multiple_actors(
+        #[values(
+            BuiltinActor::Account,
+            BuiltinActor::System,
+            BuiltinActor::Cron,
+            BuiltinActor::Miner
+        )]
+        expected_actor: BuiltinActor,
+    ) {
+        let cid = get_real_actor_cid(expected_actor).expect("actor should be in bundle metadata");
+        let (builtin_actor_type, _) = ActorRegistry::get_actor_details_from_code(&cid).unwrap();
+        assert_eq!(builtin_actor_type, expected_actor);
     }
 
     #[test]

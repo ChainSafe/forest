@@ -40,8 +40,8 @@ pub struct Message {
     gas_fee_cap: TokenAmount,
     gas_premium: TokenAmount,
     /// The memoized [`Message::cid`] and encoded length, which validation asks for repeatedly
-    /// for the same message. Cleared by every setter, so it cannot outlive the fields it was
-    /// derived from, and excluded from the derived `PartialEq`/`Eq`/`Hash`/`Debug` by [`Memo`].
+    /// for the same message. A `Message` is immutable, so this cannot outlive the fields it was
+    /// derived from. Excluded from the derived `PartialEq`/`Eq`/`Hash`/`Debug` by [`Memo`].
     #[builder(setter(skip))]
     #[cfg_attr(test, arbitrary(gen(|_| Memo::default())))]
     encoded: Memo,
@@ -80,25 +80,6 @@ impl crate::message::MessageRead for Message {
     }
 }
 
-impl crate::message::MessageReadWrite for Message {
-    fn set_gas_limit(&mut self, gas_limit: u64) {
-        self.encoded.clear();
-        self.gas_limit = gas_limit;
-    }
-    fn set_sequence(&mut self, sequence: u64) {
-        self.encoded.clear();
-        self.sequence = sequence;
-    }
-    fn set_gas_fee_cap(&mut self, gas_fee_cap: TokenAmount) {
-        self.encoded.clear();
-        self.gas_fee_cap = gas_fee_cap;
-    }
-    fn set_gas_premium(&mut self, gas_premium: TokenAmount) {
-        self.encoded.clear();
-        self.gas_premium = gas_premium;
-    }
-}
-
 impl MessageBuilder {
     /// Every field has a default, so the generated `Result` cannot be an error.
     pub fn build(self) -> Message {
@@ -108,8 +89,38 @@ impl MessageBuilder {
 }
 
 impl Message {
+    /// See [`Message::into_builder`] to start from an existing message.
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
+    }
+
+    /// Reopens the message for editing. A `Message` has no setters, so changing a field means
+    /// building a new one, which is what keeps [`Message::cid`] from going stale.
+    pub fn into_builder(self) -> MessageBuilder {
+        let Self {
+            version,
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+            encoded: _,
+        } = self;
+        MessageBuilder::default()
+            .version(version)
+            .from(from)
+            .to(to)
+            .sequence(sequence)
+            .value(value)
+            .method_num(method_num)
+            .params(params)
+            .gas_limit(gas_limit)
+            .gas_fee_cap(gas_fee_cap)
+            .gas_premium(gas_premium)
     }
 
     pub fn version(&self) -> u64 {
@@ -150,21 +161,6 @@ impl Message {
 
     pub fn gas_premium(&self) -> &TokenAmount {
         &self.gas_premium
-    }
-
-    pub fn set_method_num(&mut self, method_num: MethodNum) {
-        self.encoded.clear();
-        self.method_num = method_num;
-    }
-
-    pub fn set_version(&mut self, version: u64) {
-        self.encoded.clear();
-        self.version = version;
-    }
-
-    pub fn set_from(&mut self, from: Address) {
-        self.encoded.clear();
-        self.from = from;
     }
 }
 
@@ -374,7 +370,6 @@ impl<'de> Deserialize<'de> for Message {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::{MessageRead as _, MessageReadWrite as _};
     use crate::utils::cid::CidCborExt as _;
     use fvm_ipld_encoding::to_vec;
     use quickcheck_macros::quickcheck;
@@ -399,40 +394,6 @@ mod tests {
     fn cid_and_len_match_the_unmemoized_path(msg: Message) -> bool {
         msg.cid() == cid::Cid::from_cbor_blake2b256(&msg).unwrap()
             && msg.encoded_len() == to_vec(&msg).unwrap().len()
-    }
-
-    #[track_caller]
-    fn assert_invalidates(field: &str, mutate: impl FnOnce(&mut Message)) {
-        let mut msg = Message::builder()
-            .to(Address::new_id(1))
-            .from(Address::new_id(2))
-            .build();
-        let before = msg.cid();
-        mutate(&mut msg);
-        assert_ne!(msg.cid(), before, "set_{field} left the CID unchanged");
-        assert_eq!(msg.cid(), cid::Cid::from_cbor_blake2b256(&msg).unwrap());
-        assert_eq!(
-            msg.chain_length().unwrap(),
-            to_vec(&msg).unwrap().len(),
-            "set_{field} left a stale length"
-        );
-    }
-
-    /// Both the CID and the chain length are derived from the fields, so no setter may leave
-    /// either describing the bytes the message used to encode to.
-    #[test]
-    fn every_setter_invalidates_both_derived_values() {
-        assert_invalidates("version", |m| m.set_version(1));
-        assert_invalidates("from", |m| m.set_from(Address::new_id(99)));
-        assert_invalidates("method_num", |m| m.set_method_num(7));
-        assert_invalidates("sequence", |m| m.set_sequence(5));
-        assert_invalidates("gas_limit", |m| m.set_gas_limit(1234));
-        assert_invalidates("gas_fee_cap", |m| {
-            m.set_gas_fee_cap(TokenAmount::from_atto(11))
-        });
-        assert_invalidates("gas_premium", |m| {
-            m.set_gas_premium(TokenAmount::from_atto(13))
-        });
     }
 
     #[quickcheck]

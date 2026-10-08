@@ -359,6 +359,14 @@ impl EthCallMessage {
         self.input.as_ref().or(self.data.as_ref())
     }
 
+    /// Returns the caller-supplied gas limit capped at the block gas limit, treating `0` as unset like Lotus.
+    pub fn gas_cap(&self) -> Option<u64> {
+        match self.gas {
+            Some(EthUint64(gas)) if gas > 0 => Some(gas.min(BLOCK_GAS_LIMIT)),
+            _ => None,
+        }
+    }
+
     pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
         if data.0.is_empty() {
             Ok(RawBytes::new(data.0))
@@ -404,17 +412,13 @@ impl TryFrom<EthCallMessage> for Message {
                 EAMMethod::CreateExternal as MethodNum,
             )
         };
-        let gas_limit = match tx.gas {
-            Some(EthUint64(gas)) if gas > 0 => gas.min(BLOCK_GAS_LIMIT),
-            _ => BLOCK_GAS_LIMIT,
-        };
         Ok(Message::builder()
             .from(from)
             .to(to)
             .value(tx.value.unwrap_or_default().into())
             .method_num(method_num)
             .params(params)
-            .gas_limit(gas_limit)
+            .gas_limit(tx.gas_cap().unwrap_or(BLOCK_GAS_LIMIT))
             .build())
     }
 }
@@ -665,6 +669,20 @@ mod tests {
         assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT)), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT + 1)), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(u64::MAX)), BLOCK_GAS_LIMIT);
+    }
+
+    #[rstest::rstest]
+    #[case(None, None)]
+    #[case(Some(0), None)]
+    #[case(Some(1000), Some(1000))]
+    #[case(Some(BLOCK_GAS_LIMIT + 1), Some(BLOCK_GAS_LIMIT))]
+    #[case(Some(u64::MAX), Some(BLOCK_GAS_LIMIT))]
+    fn eth_call_message_gas_cap(#[case] gas: Option<u64>, #[case] expected: Option<u64>) {
+        let msg = EthCallMessage {
+            gas: gas.map(EthUint64),
+            ..Default::default()
+        };
+        assert_eq!(msg.gas_cap(), expected);
     }
 
     #[test]

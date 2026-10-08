@@ -436,7 +436,6 @@ mod tests {
     };
     use crate::chain::ChainStore;
     use crate::db::MemoryDB;
-    use crate::message::MessageReadWrite as _;
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
@@ -509,8 +508,8 @@ mod tests {
     }
 
     fn receipts_root(db: &impl Blockstore) -> Cid {
-        let receipt = fvm_shared4::receipt::Receipt {
-            exit_code: fvm_shared4::error::ExitCode::OK,
+        let receipt = crate::shim::fvm_shared_latest::receipt::Receipt {
+            exit_code: crate::shim::fvm_shared_latest::error::ExitCode::OK,
             return_data: Default::default(),
             gas_used: 0,
             events_root: None,
@@ -529,8 +528,7 @@ mod tests {
     fn state_manager_with_replaced_message_at_head(db: &Arc<MemoryDB>) -> (StateManager, Cid) {
         let message = message_with_nonce(5);
         let msg_cid = db.put_cbor_default(&message).unwrap();
-        let mut replacement = message;
-        replacement.set_gas_limit(1);
+        let replacement = message.into_builder().gas_limit(1).build();
         let replacement_cid = db.put_cbor_default(&replacement).unwrap();
 
         let root_before = state_root_with_sender_nonce(db, 5);

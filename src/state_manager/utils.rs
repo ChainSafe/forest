@@ -426,6 +426,146 @@ pub mod state_compute {
             assert_eq!(sm.trace_cache.misses(), misses);
         }
 
+        /// The first tipset executed by the v19 reward actor. Its four blocks are awarded under
+        /// the bootstrap schedule: 95% to the miner, 5% to a single recipient.
+        #[tokio::test(flavor = "multi_thread")]
+        #[fickle::fickle]
+        async fn cargo_test_reward_distribution_calibnet_4109134() {
+            use crate::rpc::state::{RewardAmounts, assert_award_conserved};
+            use crate::shim::actors::reward;
+            use crate::shim::econ::TokenAmount;
+            use fil_actor_reward_state::v19::DENOM;
+
+            let chain = NetworkChain::Calibnet;
+            let snapshot = get_state_compute_snapshot(&chain, 4109134).await.unwrap();
+            let (sm, ts, ts_next) = prepare_state_compute(&chain, &snapshot).await.unwrap();
+            // The fixture lacks the state this tipset produces, so finding it afterwards shows
+            // that the execution ended in the canonical state root.
+            assert!(!sm.db().has(ts_next.parent_state()).unwrap());
+
+            let distribution = sm.reward_distribution(&ts).await.unwrap();
+
+            assert!(sm.db().has(ts_next.parent_state()).unwrap());
+            assert_eq!(distribution.tipset_key, *ts.key());
+            assert_eq!(distribution.height, 4109134);
+            assert_eq!(distribution.denom, 1_000_000_000_000_000_000);
+
+            // Every block is reported in header order, awarded under the bootstrap schedule.
+            assert_eq!(distribution.blocks.len(), 4);
+            for (block, header) in distribution.blocks.iter().zip(ts.block_headers().iter()) {
+                assert_eq!(block.block, *header.cid());
+                assert_eq!(block.miner, header.miner_address);
+                assert_eq!(
+                    block.win_count,
+                    header.election_proof.as_ref().unwrap().win_count
+                );
+
+                assert_eq!(block.burn_weight, 0);
+                let [consensus, service] = block.streams.as_slice() else {
+                    panic!("expected two streams, got {:?}", block.streams);
+                };
+                assert_eq!(
+                    (consensus.id, consensus.weight),
+                    (1, 950_000_000_000_000_000)
+                );
+                assert!(consensus.distribution.is_none());
+                assert_eq!((service.id, service.weight), (2, 50_000_000_000_000_000));
+                let recipients = &service.distribution.as_ref().unwrap().recipients;
+                assert_eq!(recipients.iter().map(|r| r.share).collect_vec(), [DENOM]);
+
+                assert_award_conserved(&block.streams, block.burn_weight, &block.amounts);
+            }
+
+            // Known amounts per block: (win count, minted, explicit, miner paid). Flooring the
+            // two portions leaves 1 attoFIL of every award to burn.
+            let known: [(i64, u64, u64, u64); 4] = [
+                (
+                    1,
+                    4618275832326857781,
+                    230913791616342889,
+                    4388134696423905688,
+                ),
+                (
+                    3,
+                    13854827496980573345,
+                    692741374849028667,
+                    13162086122131544677,
+                ),
+                (
+                    1,
+                    4618275832326857781,
+                    230913791616342889,
+                    4387362040710514891,
+                ),
+                (
+                    1,
+                    4618275832326857781,
+                    230913791616342889,
+                    4387362040710514891,
+                ),
+            ];
+            for (block, (win_count, minted, explicit, miner_paid)) in
+                distribution.blocks.iter().zip(known)
+            {
+                let amounts = &block.amounts;
+                assert_eq!(block.win_count, win_count);
+                assert_eq!(amounts.minted_reward, TokenAmount::from_atto(minted));
+                assert_eq!(amounts.explicit_reward, TokenAmount::from_atto(explicit));
+                assert_eq!(amounts.burn_allocation, TokenAmount::from_atto(1));
+                assert_eq!(amounts.miner_paid, TokenAmount::from_atto(miner_paid));
+                assert_eq!(
+                    amounts.miner_paid,
+                    &amounts.miner_reward + &amounts.message_reward
+                );
+                assert_eq!(amounts.burn_paid, TokenAmount::from_atto(1));
+            }
+
+            // The totals are the block sums.
+            let sum_of = |field: fn(&RewardAmounts) -> &TokenAmount| {
+                let mut total = TokenAmount::default();
+                for block in &distribution.blocks {
+                    total += field(&block.amounts).clone();
+                }
+                total
+            };
+            let totals = &distribution.totals;
+            assert_eq!(totals.minted_reward, sum_of(|a| &a.minted_reward));
+            assert_eq!(totals.miner_reward, sum_of(|a| &a.miner_reward));
+            assert_eq!(totals.message_reward, sum_of(|a| &a.message_reward));
+            assert_eq!(totals.explicit_reward, sum_of(|a| &a.explicit_reward));
+            assert_eq!(totals.burn_allocation, sum_of(|a| &a.burn_allocation));
+            assert_eq!(totals.miner_paid, sum_of(|a| &a.miner_paid));
+            assert_eq!(totals.burn_paid, sum_of(|a| &a.burn_paid));
+
+            // Oracle: the counters of the reward actor in the state this tipset produces. The
+            // migration ran just before this tipset, carrying the minted total over and
+            // starting the other two counters at zero.
+            let minted_before = sm
+                .get_actor_state::<reward::State>(&ts)
+                .unwrap()
+                .into_total_storage_power_reward();
+            let reward::State::V19(after) = sm.get_actor_state::<reward::State>(&ts_next).unwrap()
+            else {
+                panic!("the reward actor is at v19 from the Solstice upgrade on");
+            };
+            assert_eq!(
+                totals.minted_reward,
+                TokenAmount::from(&after.total_minted_reward) - minted_before
+            );
+            assert_eq!(
+                totals.explicit_reward,
+                TokenAmount::from(&after.total_explicit_minted)
+            );
+            assert_eq!(
+                totals.burn_allocation,
+                TokenAmount::from(&after.total_burn_minted)
+            );
+
+            // A second call does not execute the tipset again.
+            let cached = sm.reward_distribution(&ts).await.unwrap();
+            assert!(Arc::ptr_eq(&distribution, &cached));
+        }
+
         // Shark state migration
         #[tokio::test(flavor = "multi_thread")]
         #[fickle::fickle]
@@ -516,7 +656,7 @@ mod test {
     }
 }
 
-/// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
+/// Parsed tree of [`ExecutionEvent`](crate::shim::trace::ExecutionEvent)s
 pub mod structured {
     use crate::{
         rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace, TraceIpld},
@@ -554,7 +694,7 @@ pub mod structured {
         UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
     }
 
-    /// Construct a single [`ExecutionTrace`]s from a linear array of [`ExecutionEvent`](fvm4::trace::ExecutionEvent)s.
+    /// Construct a single [`ExecutionTrace`]s from a linear array of [`ExecutionEvent`]s.
     ///
     /// This function is so-called because it similar to the parse step in a traditional compiler:
     /// ```text
@@ -562,7 +702,7 @@ pub mod structured {
     ///               ExecutionEvent --parse--> ExecutionTrace
     /// ```
     ///
-    /// This function is notable in that [`GasCharge`](fvm4::gas::GasCharge)s which precede a [`ExecutionTrace`] at the root level
+    /// This function is notable in that [`GasCharge`]s which precede a [`ExecutionTrace`] at the root level
     /// are attributed to that node.
     ///
     /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)

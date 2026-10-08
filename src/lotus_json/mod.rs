@@ -122,8 +122,8 @@
 //! - use a derive macro for simple compound structs
 
 use crate::shim::actors::miner::DeadlineInfo;
+use crate::shim::fvm_shared_latest::piece::PaddedPieceSize;
 use derive_more::From;
-use fvm_shared4::piece::PaddedPieceSize;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 use schemars::{JsonSchema, Schema, SchemaGenerator};
@@ -222,19 +222,19 @@ decl_and_test!(
 mod actors;
 mod allocation;
 mod arc;
-mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
+mod beneficiary_term; // crate::shim::actors::miner::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod bytecode_hash;
 mod entry;
 mod filter_estimate;
 mod hash_map;
 mod ipld; // NaN != NaN
-mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
+mod miner_info; // crate::shim::actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod miner_power; // actors::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
 mod padded_piece_size;
-mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
+mod pending_beneficiary_change; // crate::shim::actors::miner::PendingBeneficiaryChange: !quickcheck::Arbitrary
 mod power_claim; // actors::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
@@ -655,6 +655,7 @@ mod tests {
     use super::*;
     use ipld_core::serde::SerdeError;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
     use serde::de::{IntoDeserializer, value::StringDeserializer};
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -678,20 +679,30 @@ mod tests {
         arr
     }
 
-    #[test]
-    fn test_hexify_deserialize() {
-        fn de(input: &str) -> Result<u64, SerdeError> {
-            let deserializer: StringDeserializer<SerdeError> =
-                String::from_str(input).unwrap().into_deserializer();
-            hexify::deserialize(deserializer)
-        }
+    fn hexify_de(input: &str) -> Result<u64, SerdeError> {
+        let deserializer: StringDeserializer<SerdeError> =
+            String::from_str(input).unwrap().into_deserializer();
+        hexify::deserialize(deserializer)
+    }
 
-        self::assert_eq!(de("0x2a").unwrap(), 42);
-        self::assert_eq!(de("0x0").unwrap(), 0);
-        // "0é" is 3 bytes, so slicing a byte-length-checked prefix would panic here.
-        for invalid in ["", "0x", "2a", "0xzz", "cthulhu", "0é", "0x-1"] {
-            assert!(de(invalid).is_err(), "{invalid:?} should be rejected");
-        }
+    #[rstest]
+    #[case::nonzero("0x2a", 42)]
+    #[case::zero("0x0", 0)]
+    fn test_hexify_deserialize(#[case] input: &str, #[case] expected: u64) {
+        self::assert_eq!(hexify_de(input).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::empty("")]
+    #[case::bare_prefix("0x")]
+    #[case::missing_prefix("2a")]
+    #[case::non_hex_digits("0xzz")]
+    #[case::garbage("cthulhu")]
+    // "0é" is 3 bytes, so slicing a byte-length-checked prefix would panic here.
+    #[case::multibyte_char("0é")]
+    #[case::negative("0x-1")]
+    fn test_hexify_deserialize_invalid(#[case] input: &str) {
+        assert!(hexify_de(input).is_err());
     }
 
     #[quickcheck]
@@ -709,41 +720,37 @@ mod tests {
         matches_legacy_lowerhex(ethereum_types::Bloom::from(filled::<256>(bytes)))
     }
 
-    #[test]
-    fn test_hexify_vec_bytes_serialize() {
-        let cases = [(vec![], "0x"), (vec![0], "0x00"), (vec![42, 66], "0x2a42")];
-
-        for (input, expected) in cases.into_iter() {
-            let hexify = HexifyVecBytesTest { value: input };
-            let serialized = serde_json::to_string(&hexify).unwrap();
-            self::assert_eq!(serialized, format!("{{\"value\":\"{}\"}}", expected));
-        }
+    #[rstest]
+    #[case::empty(vec![], "0x")]
+    #[case::zero(vec![0], "0x00")]
+    #[case::two_bytes(vec![42, 66], "0x2a42")]
+    fn test_hexify_vec_bytes_serialize(#[case] input: Vec<u8>, #[case] expected: &str) {
+        let hexify = HexifyVecBytesTest { value: input };
+        let serialized = serde_json::to_string(&hexify).unwrap();
+        self::assert_eq!(serialized, format!("{{\"value\":\"{}\"}}", expected));
     }
 
-    #[test]
-    fn test_hexify_vec_bytes_deserialize() {
-        let cases = [
-            ("0x", vec![]),
-            ("0x0", vec![0]),
-            ("0xF", vec![15]),
-            ("0x2a42", vec![42, 66]),
-            ("0x2A42", vec![42, 66]),
-            ("0X2a42", vec![42, 66]),
-        ];
+    fn hexify_vec_bytes_de(input: &str) -> Result<Vec<u8>, SerdeError> {
+        let deserializer: StringDeserializer<SerdeError> =
+            String::from_str(input).unwrap().into_deserializer();
+        hexify_vec_bytes::deserialize(deserializer)
+    }
 
-        for (input, expected) in cases.into_iter() {
-            let deserializer: StringDeserializer<SerdeError> =
-                String::from_str(input).unwrap().into_deserializer();
-            let deserialized = hexify_vec_bytes::deserialize(deserializer).unwrap();
-            self::assert_eq!(deserialized, expected);
-        }
+    #[rstest]
+    #[case::empty("0x", vec![])]
+    #[case::single_nibble("0x0", vec![0])]
+    #[case::uppercase_nibble("0xF", vec![15])]
+    #[case::lowercase("0x2a42", vec![42, 66])]
+    #[case::uppercase_digits("0x2A42", vec![42, 66])]
+    #[case::uppercase_prefix("0X2a42", vec![42, 66])]
+    fn test_hexify_vec_bytes_deserialize(#[case] input: &str, #[case] expected: Vec<u8>) {
+        self::assert_eq!(hexify_vec_bytes_de(input).unwrap(), expected);
+    }
 
-        let fail_cases = ["cthulhu", "x", "0xazathoth"];
-        for input in fail_cases.into_iter() {
-            let deserializer: StringDeserializer<SerdeError> =
-                String::from_str(input).unwrap().into_deserializer();
-            let deserialized = hexify_vec_bytes::deserialize(deserializer);
-            assert!(deserialized.is_err());
-        }
+    #[rstest]
+    fn test_hexify_vec_bytes_deserialize_invalid(
+        #[values("cthulhu", "x", "0xazathoth")] input: &str,
+    ) {
+        assert!(hexify_vec_bytes_de(input).is_err());
     }
 }

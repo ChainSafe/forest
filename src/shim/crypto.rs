@@ -9,6 +9,7 @@ use crate::message::{MessageRead as _, SignedMessage};
 use anyhow::{Context, ensure};
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
+pub use fil_actors_shared::v19::runtime::DomainSeparationTag;
 use fvm_ipld_encoding::{
     de,
     repr::{Deserialize_repr, Serialize_repr},

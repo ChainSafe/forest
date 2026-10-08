@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::message::MessageReadWrite as _;
 use std::str::FromStr;
 
 use crate::{
@@ -57,18 +56,18 @@ pub fn construct_bls_messages() -> (Message, SignedMessage) {
 
 /// Returns a tuple of unsigned and signed messages used for testing the Ethereum mapping
 pub fn construct_eth_messages(sequence: u64) -> (Message, SignedMessage) {
-    let mut eth_message: Message = Message_v3 {
+    let eth_message: Message = Message_v3 {
         to: Address::from_str("t410foy6ucbmuujaequ3zsdo6nsubyogp6vtk23t4odq")
             .unwrap()
             .into(),
         from: Address::from_str("t410fse4uvumo6ko46igb6lshg3peztqs3h6755vommy")
             .unwrap()
             .into(),
+        method_num: EVMMethod::InvokeContract as u64,
+        sequence,
         ..Message_v3::default()
     }
     .into();
-    eth_message.set_method_num(EVMMethod::InvokeContract as u64);
-    eth_message.set_sequence(sequence);
 
     let secp_message = SignedMessage::new_unchecked(
         eth_message.clone(),

@@ -27,7 +27,21 @@
 
 ### Breaking
 
-- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.38.0 "Ayanant"
+
+Mandatory release for mainnet node operators. It includes support for the NV29 _Solstice_ network upgrade for mainnet, which is set to activate at epoch `6470279` (2026-10-19T12:59:30Z). Note the breaking change below: JSON-RPC batch requests are now limited to 100 entries by default. There are also other changes and improvements; see below.
+
+### Breaking
+
+- [#7697](https://github.com/ChainSafe/forest/pull/7697): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
 
 ### Added
 
@@ -35,11 +49,13 @@
 
 - [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the Ethereum trace cache in front of it, used by `trace_block`, `trace_transaction`, `trace_filter` and `trace_replayBlockTransactions`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
 
+- [#7550](https://github.com/ChainSafe/forest/issues/7550): Set the mainnet NV29 _Solstice_ network upgrade epoch to `6470279` which corresponds to `Mon Oct 19 12:59:30 PM UTC 2026`.
+
+- [#7658](https://github.com/ChainSafe/forest/issues/7658): Implemented `Filecoin.StateRewardDistribution` for API v2. For each block of the selected tipset and in total, it reports how the block reward was split between the miner, the reward stream recipients and burn, and what was actually paid. It is available from NV29.
+
 ### Changed
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
-
-### Removed
 
 ### Fixed
 
@@ -50,6 +66,8 @@
 - [#7677](https://github.com/ChainSafe/forest/pull/7677): Fixed the same state migration running several times in parallel when multiple tipsets at the upgrade epoch share a parent, which is redundant.
 
 - [#7700](https://github.com/ChainSafe/forest/issues/7700): Fixed `eth_call` and `trace_call` ignoring the `gas` field of the call. The given gas limit is now honored (capped at the block gas limit), so calls with insufficient gas fail as they would on-chain.
+
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): Fixed `eth_estimateGas` ignoring the `gas` field of the call. The given gas limit (capped at the block gas limit) is now the upper bound of the estimate; a call that does not fit fails with `out of gas: gas required exceeds: <gas>` (code `-32003`), or with `gas required exceeds allowance (<gas>)` (code `-32000`) when `gas` is below the message inclusion cost. Omitting `gas` keeps the previous estimate.
 
 ## Forest v0.37.0 "Sharad Sampat"
 
