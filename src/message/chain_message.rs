@@ -90,24 +90,6 @@ impl ChainMessage {
     }
 }
 
-impl MessageReadWrite for ChainMessage {
-    fn set_gas_limit(&mut self, amount: u64) {
-        delegate_chain_message!(self => |i| Arc::make_mut(i).set_gas_limit(amount))
-    }
-
-    fn set_sequence(&mut self, sequence: u64) {
-        delegate_chain_message!(self => |i| Arc::make_mut(i).set_sequence(sequence))
-    }
-
-    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        delegate_chain_message!(self => |i| Arc::make_mut(i).set_gas_fee_cap(cap))
-    }
-
-    fn set_gas_premium(&mut self, prem: TokenAmount) {
-        delegate_chain_message!(self => |i| Arc::make_mut(i).set_gas_premium(prem))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

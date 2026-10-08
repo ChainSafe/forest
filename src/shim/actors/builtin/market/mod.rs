@@ -23,6 +23,7 @@ use fil_actor_market_state::v13::DealMetaArray as V13DealMetaArray;
 use fil_actor_market_state::v13::balance_table::BalanceTable as V13BalanceTable;
 use fil_actor_market_state::v14::DealArray as V14DealArray;
 use fil_actor_market_state::v14::DealMetaArray as V14DealMetaArray;
+pub use fil_actor_market_state::v14::NO_ALLOCATION_ID;
 use fil_actor_market_state::v14::balance_table::BalanceTable as V14BalanceTable;
 use fil_actor_market_state::v15::DealArray as V15DealArray;
 use fil_actor_market_state::v15::DealMetaArray as V15DealMetaArray;

@@ -29,6 +29,7 @@ use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::crypto::DomainSeparationTag;
 use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
@@ -50,7 +51,6 @@ use bls_signatures::Serialize as _;
 use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
@@ -930,6 +930,12 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 ..Default::default()
             },
         ))?),
+        // Both nodes reject a tipset executed before NV29 with the same error.
+        RpcTest::identity(StateRewardDistribution::request((TipsetSelector {
+            key: tipset.key().into(),
+            ..Default::default()
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(StateGetRandomnessFromTickets::request((
             DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),

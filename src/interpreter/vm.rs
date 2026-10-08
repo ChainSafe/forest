@@ -12,6 +12,7 @@ use crate::message::MessageRead as _;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::prelude::*;
 use crate::shim::actors::{AwardBlockRewardParams, cron, reward};
+use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address,
     econ::TokenAmount,
@@ -25,7 +26,6 @@ use crate::shim::{
 use ahash::{HashMap, HashSet};
 use anyhow::bail;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared2::clock::ChainEpoch;
 use fvm2::{
     executor::{DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2},
     machine::{
@@ -324,6 +324,7 @@ impl VM {
                 apply_ret: &ret,
                 at: CalledAt::Cron,
                 duration,
+                state: VMStateView(self),
             })?;
         }
         Ok(())
@@ -361,6 +362,7 @@ impl VM {
                         apply_ret: &ret,
                         at: CalledAt::Applied,
                         duration,
+                        state: VMStateView(self),
                     })?;
                 }
 
@@ -408,6 +410,7 @@ impl VM {
                         apply_ret: &ret,
                         at: CalledAt::Reward,
                         duration,
+                        state: VMStateView(self),
                     })?
                 }
             }
@@ -547,6 +550,30 @@ pub struct MessageCallbackCtx<'a> {
     pub apply_ret: &'a ApplyRet,
     pub at: CalledAt,
     pub duration: Duration,
+    /// State of the VM after `message` was applied.
+    pub state: VMStateView<'a>,
+}
+
+/// Read-only view of a [`VM`]'s state, including the changes it has not flushed.
+#[derive(Clone, Copy, derive_more::Debug)]
+pub struct VMStateView<'a>(#[debug(skip)] &'a VM);
+
+impl VMStateView<'_> {
+    /// Returns the state of the actor at `addr`, or `None` when there is no such actor.
+    pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
+        self.0.get_actor(addr)
+    }
+}
+
+impl Blockstore for VMStateView<'_> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        delegate_vm!(self.0 => |executor| executor.state_tree().store().get(k))
+    }
+
+    /// Not supported, the view is read-only.
+    fn put_keyed(&self, _: &Cid, _: &[u8]) -> anyhow::Result<()> {
+        bail!("VMStateView is read-only");
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -554,17 +581,6 @@ pub enum CalledAt {
     Applied,
     Reward,
     Cron,
-}
-
-impl CalledAt {
-    /// Was [`VM::apply_message`] or [`VM::apply_implicit_message`] called?
-    pub fn apply_kind(&self) -> fvm3::executor::ApplyKind {
-        use fvm3::executor::ApplyKind;
-        match self {
-            CalledAt::Applied => ApplyKind::Explicit,
-            CalledAt::Reward | CalledAt::Cron => ApplyKind::Implicit,
-        }
-    }
 }
 
 /// Tracing a Filecoin VM has a performance penalty.

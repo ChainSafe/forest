@@ -3,7 +3,6 @@
 
 use crate::eth::EthChainId;
 use crate::key_management::{Key, sign_message};
-use crate::message::MessageReadWrite as _;
 use crate::message_pool::MessagePool;
 use crate::message_pool::msgpool::provider::Provider;
 use crate::shim::message::Message;
@@ -28,14 +27,14 @@ impl NonceTracker {
     pub async fn sign_and_push<T: Provider + Send + Sync + 'static>(
         &self,
         mpool: &MessagePool<T>,
-        mut message: Message,
+        message: Message,
         key: &Key,
         eth_chain_id: EthChainId,
     ) -> anyhow::Result<crate::message::SignedMessage> {
         let _guard = self.lock.lock().await;
 
         let nonce = mpool.get_sequence(&message.from()).await?;
-        message.set_sequence(nonce);
+        let message = message.into_builder().sequence(nonce).build();
 
         let smsg = sign_message(key, &message, eth_chain_id)?;
         mpool.push(smsg.clone()).await?;

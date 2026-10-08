@@ -32,7 +32,7 @@ const SYNCED_EPOCH_THRESHOLD: u64 = 2;
 pub enum NodeSyncStatus {
     /// Node is initializing, status not yet determined.
     #[default]
-    #[strum(to_string = "Intializing")]
+    #[strum(to_string = "Initializing")]
     Initializing,
     /// Node is significantly behind the network head and actively downloading/validating.
     #[strum(to_string = "Syncing")]

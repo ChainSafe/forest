@@ -54,7 +54,7 @@ updates:
     directory: "/docs" # Location of package manifests
     open-pull-requests-limit: 1
     cooldown:
-      default-days: 5
+      default-days: 7
     schedule:
       interval: "weekly"
     # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups

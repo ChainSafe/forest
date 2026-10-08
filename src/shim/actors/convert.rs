@@ -568,6 +568,7 @@ from_policy_v13_no_fil_plus! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     /// The conversion preserves which proof types are enabled, by id. Regression
     /// for the bug that inserted the boolean value (0/1) instead of the enabled index.
@@ -595,31 +596,36 @@ mod tests {
         assert!(!v18.valid_pre_commit_proof_type.contains(1));
     }
 
-    #[test]
-    fn reg_seal_proof_conversions_preserve_id() {
-        for proof in [
+    #[rstest]
+    fn reg_seal_proof_v3_to_v2_preserves_id(
+        #[values(
             RegisteredSealProofV3::StackedDRG2KiBV1,
             RegisteredSealProofV3::StackedDRG512MiBV1,
             RegisteredSealProofV3::StackedDRG32GiBV1,
-            RegisteredSealProofV3::StackedDRG64GiBV1,
-        ] {
-            let id: i64 = proof.into();
-            assert_eq!(
-                from_reg_seal_proof_v3_to_v2(proof),
-                RegisteredSealProofV2::from(id)
-            );
-        }
+            RegisteredSealProofV3::StackedDRG64GiBV1
+        )]
+        proof: RegisteredSealProofV3,
+    ) {
+        let id: i64 = proof.into();
+        assert_eq!(
+            from_reg_seal_proof_v3_to_v2(proof),
+            RegisteredSealProofV2::from(id)
+        );
+    }
 
-        for proof in [
+    #[rstest]
+    fn reg_seal_proof_v4_to_v2_preserves_id(
+        #[values(
             RegisteredSealProofV4::StackedDRG2KiBV1,
-            RegisteredSealProofV4::StackedDRG32GiBV1,
-        ] {
-            let id: i64 = proof.into();
-            assert_eq!(
-                from_reg_seal_proof_v4_to_v2(proof),
-                RegisteredSealProofV2::from(id)
-            );
-        }
+            RegisteredSealProofV4::StackedDRG32GiBV1
+        )]
+        proof: RegisteredSealProofV4,
+    ) {
+        let id: i64 = proof.into();
+        assert_eq!(
+            from_reg_seal_proof_v4_to_v2(proof),
+            RegisteredSealProofV2::from(id)
+        );
     }
 
     #[test]
@@ -674,29 +680,30 @@ mod tests {
         );
     }
 
-    #[test]
-    fn sector_size_conversions_cover_all_variants() {
-        let cases_v3 = [
-            (SectorSizeV3::_2KiB, SectorSizeV2::_2KiB),
-            (SectorSizeV3::_8MiB, SectorSizeV2::_8MiB),
-            (SectorSizeV3::_512MiB, SectorSizeV2::_512MiB),
-            (SectorSizeV3::_32GiB, SectorSizeV2::_32GiB),
-            (SectorSizeV3::_64GiB, SectorSizeV2::_64GiB),
-        ];
-        for (input, expected) in cases_v3 {
-            assert_eq!(from_sector_size_v3_to_v2(input), expected);
-        }
+    #[rstest]
+    #[case::size_2kib(SectorSizeV3::_2KiB, SectorSizeV2::_2KiB)]
+    #[case::size_8mib(SectorSizeV3::_8MiB, SectorSizeV2::_8MiB)]
+    #[case::size_512mib(SectorSizeV3::_512MiB, SectorSizeV2::_512MiB)]
+    #[case::size_32gib(SectorSizeV3::_32GiB, SectorSizeV2::_32GiB)]
+    #[case::size_64gib(SectorSizeV3::_64GiB, SectorSizeV2::_64GiB)]
+    fn sector_size_v3_to_v2_covers_all_variants(
+        #[case] input: SectorSizeV3,
+        #[case] expected: SectorSizeV2,
+    ) {
+        assert_eq!(from_sector_size_v3_to_v2(input), expected);
+    }
 
-        let cases_v4 = [
-            (SectorSizeV4::_2KiB, SectorSizeV2::_2KiB),
-            (SectorSizeV4::_8MiB, SectorSizeV2::_8MiB),
-            (SectorSizeV4::_512MiB, SectorSizeV2::_512MiB),
-            (SectorSizeV4::_32GiB, SectorSizeV2::_32GiB),
-            (SectorSizeV4::_64GiB, SectorSizeV2::_64GiB),
-        ];
-        for (input, expected) in cases_v4 {
-            assert_eq!(from_sector_size_v4_to_v2(input), expected);
-        }
+    #[rstest]
+    #[case::size_2kib(SectorSizeV4::_2KiB, SectorSizeV2::_2KiB)]
+    #[case::size_8mib(SectorSizeV4::_8MiB, SectorSizeV2::_8MiB)]
+    #[case::size_512mib(SectorSizeV4::_512MiB, SectorSizeV2::_512MiB)]
+    #[case::size_32gib(SectorSizeV4::_32GiB, SectorSizeV2::_32GiB)]
+    #[case::size_64gib(SectorSizeV4::_64GiB, SectorSizeV2::_64GiB)]
+    fn sector_size_v4_to_v2_covers_all_variants(
+        #[case] input: SectorSizeV4,
+        #[case] expected: SectorSizeV2,
+    ) {
+        assert_eq!(from_sector_size_v4_to_v2(input), expected);
     }
 
     #[test]

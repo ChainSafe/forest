@@ -256,6 +256,7 @@ mod tests {
     use crate::shim::address::Address as FilecoinAddress;
     use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::StateTreeVersion;
+    use rstest::rstest;
 
     #[test]
     fn test_build_state_diff_empty_touched_addresses() {
@@ -280,11 +281,53 @@ mod tests {
         assert!(state_diff.0.is_empty());
     }
 
-    #[test]
-    fn test_build_state_diff_balance_increase() {
+    #[rstest]
+    #[case::balance_increase(
+        create_test_actor(1000, 5),
+        create_test_actor(2000, 5),
+        Delta::Changed(ChangedType {
+            from: EthBigInt::from(1000),
+            to: EthBigInt::from(2000),
+        }),
+        Delta::Unchanged
+    )]
+    #[case::balance_decrease(
+        create_test_actor(5000, 10),
+        create_test_actor(3000, 10),
+        Delta::Changed(ChangedType {
+            from: EthBigInt::from(5000),
+            to: EthBigInt::from(3000),
+        }),
+        Delta::Unchanged
+    )]
+    #[case::nonce_increment(
+        create_test_actor(1000, 5),
+        create_test_actor(1000, 6),
+        Delta::Unchanged,
+        Delta::Changed(ChangedType {
+            from: EthUint64(5),
+            to: EthUint64(6),
+        })
+    )]
+    #[case::both_balance_and_nonce_change(
+        create_test_actor(10000, 100),
+        create_test_actor(9000, 101),
+        Delta::Changed(ChangedType {
+            from: EthBigInt::from(10000),
+            to: EthBigInt::from(9000),
+        }),
+        Delta::Changed(ChangedType {
+            from: EthUint64(100),
+            to: EthUint64(101),
+        })
+    )]
+    fn test_build_state_diff_changed_actor(
+        #[case] pre_actor: ActorState,
+        #[case] post_actor: ActorState,
+        #[case] expected_balance: Delta<EthBigInt>,
+        #[case] expected_nonce: Delta<EthUint64>,
+    ) {
         let actor_id = 1001u64;
-        let pre_actor = create_test_actor(1000, 5);
-        let post_actor = create_test_actor(2000, 5);
         let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
 
         let mut touched_addresses = HashSet::new();
@@ -295,92 +338,8 @@ mod tests {
         assert_eq!(state_diff.0.len(), 1);
         let eth_addr = create_masked_id_eth_address(actor_id);
         let diff = state_diff.0.get(&eth_addr).unwrap();
-        match &diff.balance {
-            Delta::Changed(change) => {
-                assert_eq!(change.from, EthBigInt::from(1000));
-                assert_eq!(change.to, EthBigInt::from(2000));
-            }
-            _ => panic!("Expected Delta::Changed for balance"),
-        }
-        assert!(diff.nonce.is_unchanged());
-    }
-
-    #[test]
-    fn test_build_state_diff_balance_decrease() {
-        let actor_id = 1002u64;
-        let pre_actor = create_test_actor(5000, 10);
-        let post_actor = create_test_actor(3000, 10);
-        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
-
-        let mut touched_addresses = HashSet::new();
-        touched_addresses.insert(create_masked_id_eth_address(actor_id));
-
-        let state_diff = trees.build_diff(&touched_addresses).unwrap();
-
-        let eth_addr = create_masked_id_eth_address(actor_id);
-        let diff = state_diff.0.get(&eth_addr).unwrap();
-        match &diff.balance {
-            Delta::Changed(change) => {
-                assert_eq!(change.from, EthBigInt::from(5000));
-                assert_eq!(change.to, EthBigInt::from(3000));
-            }
-            _ => panic!("Expected Delta::Changed for balance"),
-        }
-        assert!(diff.nonce.is_unchanged());
-    }
-
-    #[test]
-    fn test_build_state_diff_nonce_increment() {
-        let actor_id = 1003u64;
-        let pre_actor = create_test_actor(1000, 5);
-        let post_actor = create_test_actor(1000, 6);
-        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
-
-        let mut touched_addresses = HashSet::new();
-        touched_addresses.insert(create_masked_id_eth_address(actor_id));
-
-        let state_diff = trees.build_diff(&touched_addresses).unwrap();
-
-        let eth_addr = create_masked_id_eth_address(actor_id);
-        let diff = state_diff.0.get(&eth_addr).unwrap();
-        assert!(diff.balance.is_unchanged());
-        match &diff.nonce {
-            Delta::Changed(change) => {
-                assert_eq!(change.from.0, 5);
-                assert_eq!(change.to.0, 6);
-            }
-            _ => panic!("Expected Delta::Changed for nonce"),
-        }
-    }
-
-    #[test]
-    fn test_build_state_diff_both_balance_and_nonce_change() {
-        let actor_id = 1004u64;
-        let pre_actor = create_test_actor(10000, 100);
-        let post_actor = create_test_actor(9000, 101);
-        let trees = TestStateTrees::with_changed_actor(actor_id, pre_actor, post_actor).unwrap();
-
-        let mut touched_addresses = HashSet::new();
-        touched_addresses.insert(create_masked_id_eth_address(actor_id));
-
-        let state_diff = trees.build_diff(&touched_addresses).unwrap();
-
-        let eth_addr = create_masked_id_eth_address(actor_id);
-        let diff = state_diff.0.get(&eth_addr).unwrap();
-        match &diff.balance {
-            Delta::Changed(change) => {
-                assert_eq!(change.from, EthBigInt::from(10000));
-                assert_eq!(change.to, EthBigInt::from(9000));
-            }
-            _ => panic!("Expected Delta::Changed for balance"),
-        }
-        match &diff.nonce {
-            Delta::Changed(change) => {
-                assert_eq!(change.from.0, 100);
-                assert_eq!(change.to.0, 101);
-            }
-            _ => panic!("Expected Delta::Changed for nonce"),
-        }
+        assert_eq!(diff.balance, expected_balance);
+        assert_eq!(diff.nonce, expected_nonce);
     }
 
     #[test]
@@ -496,154 +455,120 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_build_state_diff_evm_actor_scenarios() {
-        struct TestCase {
-            name: &'static str,
-            pre: Option<(u64, u64, Option<&'static [u8]>)>, // balance, nonce, bytecode
-            post: Option<(u64, u64, Option<&'static [u8]>)>,
-            expected_balance: Delta<EthBigInt>,
-            expected_nonce: Delta<EthUint64>,
-            expected_code: Delta<EthBytes>,
+    const BYTECODE1: &[u8] = &[0x60, 0x80, 0x60, 0x40, 0x52];
+    const BYTECODE2: &[u8] = &[0x60, 0x80, 0x60, 0x40, 0x52, 0x00];
+
+    #[rstest]
+    #[case::no_change(
+        Some((1000, 5, BYTECODE1)),
+        Some((1000, 5, BYTECODE1)),
+        Delta::Unchanged,
+        Delta::Unchanged,
+        Delta::Unchanged
+    )]
+    #[case::balance_increase(
+        Some((1000, 5, BYTECODE1)),
+        Some((2000, 5, BYTECODE1)),
+        Delta::Changed(ChangedType {
+            from: EthBigInt::from(1000),
+            to: EthBigInt::from(2000),
+        }),
+        Delta::Unchanged,
+        Delta::Unchanged
+    )]
+    #[case::nonce_increment(
+        Some((1000, 5, BYTECODE1)),
+        Some((1000, 6, BYTECODE1)),
+        Delta::Unchanged,
+        Delta::Changed(ChangedType {
+            from: EthUint64(5),
+            to: EthUint64(6),
+        }),
+        Delta::Unchanged
+    )]
+    #[case::bytecode_change(
+        Some((1000, 5, BYTECODE1)),
+        Some((1000, 5, BYTECODE2)),
+        Delta::Unchanged,
+        Delta::Unchanged,
+        Delta::Changed(ChangedType {
+            from: EthBytes(BYTECODE1.to_vec()),
+            to: EthBytes(BYTECODE2.to_vec()),
+        })
+    )]
+    #[case::balance_and_nonce_change(
+        Some((1000, 5, BYTECODE1)),
+        Some((2000, 6, BYTECODE1)),
+        Delta::Changed(ChangedType {
+            from: EthBigInt::from(1000),
+            to: EthBigInt::from(2000),
+        }),
+        Delta::Changed(ChangedType {
+            from: EthUint64(5),
+            to: EthUint64(6),
+        }),
+        Delta::Unchanged
+    )]
+    #[case::creation(
+        None,
+        Some((5000, 0, BYTECODE1)),
+        Delta::Added(EthBigInt::from(5000)),
+        Delta::Added(EthUint64(0)),
+        Delta::Added(EthBytes(BYTECODE1.to_vec()))
+    )]
+    #[case::deletion(
+        Some((3000, 10, BYTECODE1)),
+        None,
+        Delta::Removed(EthBigInt::from(3000)),
+        Delta::Removed(EthUint64(10)),
+        Delta::Removed(EthBytes(BYTECODE1.to_vec()))
+    )]
+    fn test_build_state_diff_evm_actor_scenarios(
+        #[case] pre: Option<(u64, u64, &'static [u8])>, // balance, nonce, bytecode
+        #[case] post: Option<(u64, u64, &'static [u8])>,
+        #[case] expected_balance: Delta<EthBigInt>,
+        #[case] expected_nonce: Delta<EthUint64>,
+        #[case] expected_code: Delta<EthBytes>,
+    ) {
+        let store = Arc::new(MemoryDB::default());
+        let actor_id = 10000u64; // arbitrary ID
+
+        let pre_actor = pre.and_then(|(bal, nonce, code)| {
+            create_evm_actor_with_bytecode(&store, bal, 0, nonce, Some(code))
+        });
+        let post_actor = post.and_then(|(bal, nonce, code)| {
+            create_evm_actor_with_bytecode(&store, bal, 0, nonce, Some(code))
+        });
+
+        let mut pre_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
+        let mut post_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
+        let addr = FilecoinAddress::new_id(actor_id);
+
+        if let Some(actor) = pre_actor {
+            pre_state.set_actor(&addr, actor).unwrap();
+        }
+        if let Some(actor) = post_actor {
+            post_state.set_actor(&addr, actor).unwrap();
         }
 
-        let bytecode1: &[u8] = &[0x60, 0x80, 0x60, 0x40, 0x52];
-        let bytecode2: &[u8] = &[0x60, 0x80, 0x60, 0x40, 0x52, 0x00];
+        let mut touched_addresses = HashSet::new();
+        touched_addresses.insert(create_masked_id_eth_address(actor_id));
 
-        let cases = vec![
-            TestCase {
-                name: "No change",
-                pre: Some((1000, 5, Some(bytecode1))),
-                post: Some((1000, 5, Some(bytecode1))),
-                expected_balance: Delta::Unchanged,
-                expected_nonce: Delta::Unchanged,
-                expected_code: Delta::Unchanged,
-            },
-            TestCase {
-                name: "Balance increase",
-                pre: Some((1000, 5, Some(bytecode1))),
-                post: Some((2000, 5, Some(bytecode1))),
-                expected_balance: Delta::Changed(ChangedType {
-                    from: EthBigInt::from(1000),
-                    to: EthBigInt::from(2000),
-                }),
-                expected_nonce: Delta::Unchanged,
-                expected_code: Delta::Unchanged,
-            },
-            TestCase {
-                name: "Nonce increment",
-                pre: Some((1000, 5, Some(bytecode1))),
-                post: Some((1000, 6, Some(bytecode1))),
-                expected_balance: Delta::Unchanged,
-                expected_nonce: Delta::Changed(ChangedType {
-                    from: EthUint64(5),
-                    to: EthUint64(6),
-                }),
-                expected_code: Delta::Unchanged,
-            },
-            TestCase {
-                name: "Bytecode change",
-                pre: Some((1000, 5, Some(bytecode1))),
-                post: Some((1000, 5, Some(bytecode2))),
-                expected_balance: Delta::Unchanged,
-                expected_nonce: Delta::Unchanged,
-                expected_code: Delta::Changed(ChangedType {
-                    from: EthBytes(bytecode1.to_vec()),
-                    to: EthBytes(bytecode2.to_vec()),
-                }),
-            },
-            TestCase {
-                name: "Balance and Nonce change",
-                pre: Some((1000, 5, Some(bytecode1))),
-                post: Some((2000, 6, Some(bytecode1))),
-                expected_balance: Delta::Changed(ChangedType {
-                    from: EthBigInt::from(1000),
-                    to: EthBigInt::from(2000),
-                }),
-                expected_nonce: Delta::Changed(ChangedType {
-                    from: EthUint64(5),
-                    to: EthUint64(6),
-                }),
-                expected_code: Delta::Unchanged,
-            },
-            TestCase {
-                name: "Creation",
-                pre: None,
-                post: Some((5000, 0, Some(bytecode1))),
-                expected_balance: Delta::Added(EthBigInt::from(5000)),
-                expected_nonce: Delta::Added(EthUint64(0)),
-                expected_code: Delta::Added(EthBytes(bytecode1.to_vec())),
-            },
-            TestCase {
-                name: "Deletion",
-                pre: Some((3000, 10, Some(bytecode1))),
-                post: None,
-                expected_balance: Delta::Removed(EthBigInt::from(3000)),
-                expected_nonce: Delta::Removed(EthUint64(10)),
-                expected_code: Delta::Removed(EthBytes(bytecode1.to_vec())),
-            },
-        ];
+        let state_diff =
+            build_state_diff(store.as_ref(), &pre_state, &post_state, &touched_addresses).unwrap();
 
-        for case in cases {
-            let store = Arc::new(MemoryDB::default());
-            let actor_id = 10000u64; // arbitrary ID
+        if expected_balance == Delta::Unchanged
+            && expected_nonce == Delta::Unchanged
+            && expected_code == Delta::Unchanged
+        {
+            assert!(state_diff.0.is_empty(), "expected empty diff");
+        } else {
+            let eth_addr = create_masked_id_eth_address(actor_id);
+            let diff = state_diff.0.get(&eth_addr).expect("missing diff entry");
 
-            let pre_actor = case.pre.and_then(|(bal, nonce, code)| {
-                create_evm_actor_with_bytecode(&store, bal, 0, nonce, code)
-            });
-            let post_actor = case.post.and_then(|(bal, nonce, code)| {
-                create_evm_actor_with_bytecode(&store, bal, 0, nonce, code)
-            });
-
-            let mut pre_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
-            let mut post_state = StateTree::new(&store, StateTreeVersion::V5).unwrap();
-            let addr = FilecoinAddress::new_id(actor_id);
-
-            if let Some(actor) = pre_actor {
-                pre_state.set_actor(&addr, actor).unwrap();
-            }
-            if let Some(actor) = post_actor {
-                post_state.set_actor(&addr, actor).unwrap();
-            }
-
-            let mut touched_addresses = HashSet::new();
-            touched_addresses.insert(create_masked_id_eth_address(actor_id));
-
-            let state_diff =
-                build_state_diff(store.as_ref(), &pre_state, &post_state, &touched_addresses)
-                    .unwrap();
-
-            if case.expected_balance == Delta::Unchanged
-                && case.expected_nonce == Delta::Unchanged
-                && case.expected_code == Delta::Unchanged
-            {
-                assert!(
-                    state_diff.0.is_empty(),
-                    "Test case '{}' failed: expected empty diff",
-                    case.name
-                );
-            } else {
-                let eth_addr = create_masked_id_eth_address(actor_id);
-                let diff = state_diff.0.get(&eth_addr).unwrap_or_else(|| {
-                    panic!("Test case '{}' failed: missing diff entry", case.name)
-                });
-
-                assert_eq!(
-                    diff.balance, case.expected_balance,
-                    "Test case '{}' failed: balance mismatch",
-                    case.name
-                );
-                assert_eq!(
-                    diff.nonce, case.expected_nonce,
-                    "Test case '{}' failed: nonce mismatch",
-                    case.name
-                );
-                assert_eq!(
-                    diff.code, case.expected_code,
-                    "Test case '{}' failed: code mismatch",
-                    case.name
-                );
-            }
+            assert_eq!(diff.balance, expected_balance, "balance mismatch");
+            assert_eq!(diff.nonce, expected_nonce, "nonce mismatch");
+            assert_eq!(diff.code, expected_code, "code mismatch");
         }
     }
 
