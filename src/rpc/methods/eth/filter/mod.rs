@@ -819,20 +819,33 @@ impl ParsedFilter {
         }
     }
 
+    /// Returns [`None`] when the filter has no lower height bound, as there is no
+    /// history to look up.
     pub fn from_actor_event_filter(
         chain_height: ChainEpoch,
-        _max_filter_height_range: ChainEpoch,
+        max_filter_height_range: ChainEpoch,
         filter: ActorEventFilter,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Option<Self>> {
         let tipsets = if let Some(tsk) = &filter.tipset_key {
             if filter.from_height.is_some() || filter.to_height.is_some() {
                 bail!("must not specify block hash and from/to block");
             }
             ParsedFilterTipsets::Key(tsk.0.clone())
         } else {
-            let min = filter.from_height.unwrap_or(0);
-            let max = filter.to_height.unwrap_or(chain_height);
-            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
+            validate_height_range(
+                chain_height,
+                filter.from_height,
+                filter.to_height,
+                max_filter_height_range,
+            )?;
+            let Some(min) = filter.from_height else {
+                return Ok(None);
+            };
+            ensure!(
+                min <= chain_height,
+                "range end is in the future, highest epoch: {chain_height}"
+            );
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, filter.to_height.unwrap_or(-1)))
         };
 
         let addresses = filter.addresses.iter().map(|addr| addr.0).collect_vec();
@@ -849,13 +862,54 @@ impl ParsedFilter {
             keys.insert(k, data);
         }
 
-        Ok(ParsedFilter {
+        Ok(Some(ParsedFilter {
             tipsets,
             addresses,
             keys,
             msg_cid: None,
-        })
+        }))
     }
+}
+
+/// Validates an actor event height range against the node's maximum filter range.
+///
+/// Reference: <https://github.com/filecoin-project/lotus/blob/0065aa70bb20bf87801b6e96ecb7e7fe707566bd/node/impl/full/actor_events.go#L168>
+fn validate_height_range(
+    heaviest: ChainEpoch,
+    from_height: Option<ChainEpoch>,
+    to_height: Option<ChainEpoch>,
+    max_range: ChainEpoch,
+) -> anyhow::Result<()> {
+    ensure!(
+        from_height.is_none_or(|h| h >= 0),
+        "range 'from' must be greater than or equal to 0"
+    );
+    ensure!(
+        to_height.is_none_or(|h| h >= 0),
+        "range 'to' must be greater than or equal to 0"
+    );
+    match (from_height, to_height) {
+        (None, Some(to)) => ensure!(
+            to - heaviest <= max_range,
+            "invalid epoch range: 'to' height is too far in the future (maximum: {max_range})"
+        ),
+        (Some(from), None) => ensure!(
+            heaviest - from <= max_range,
+            "invalid epoch range: 'from' height is too far in the past (maximum: {max_range})"
+        ),
+        (Some(from), Some(to)) => {
+            ensure!(
+                from <= to,
+                "invalid epoch range: 'to' height ({to}) must be after 'from' height ({from})"
+            );
+            ensure!(
+                to - from <= max_range,
+                "invalid epoch range: range between to and 'from' heights is too large (maximum: {max_range})"
+            );
+        }
+        (None, None) => {}
+    }
+    Ok(())
 }
 
 impl Matcher for ParsedFilter {
@@ -908,12 +962,95 @@ impl Matcher for EventFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lotus_json::LotusJson;
     use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
     use crate::shim::fvm_shared_latest::event::Flags;
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
+    use nunny::vec as nonempty;
     use rstest::rstest;
     use std::str::FromStr;
+
+    #[rstest]
+    #[case::open_range(None, None, true)]
+    #[case::from_at_range_limit(Some(900), None, true)]
+    #[case::from_too_far_in_past(Some(899), None, false)]
+    #[case::from_zero(Some(0), Some(50), true)]
+    #[case::to_at_range_limit(None, Some(1100), true)]
+    #[case::to_too_far_in_future(None, Some(1101), false)]
+    #[case::single_epoch(Some(10), Some(10), true)]
+    #[case::bounded_at_range_limit(Some(10), Some(110), true)]
+    #[case::bounded_too_large(Some(10), Some(111), false)]
+    #[case::bounded_inverted(Some(20), Some(10), false)]
+    #[case::negative_from(Some(-1), Some(10), false)]
+    #[case::negative_to(Some(10), Some(-1), false)]
+    fn test_validate_height_range(
+        #[case] from_height: Option<ChainEpoch>,
+        #[case] to_height: Option<ChainEpoch>,
+        #[case] valid: bool,
+    ) {
+        assert_eq!(
+            validate_height_range(1000, from_height, to_height, 100).is_ok(),
+            valid
+        );
+    }
+
+    fn actor_event_filter(
+        from_height: Option<ChainEpoch>,
+        to_height: Option<ChainEpoch>,
+        tipset_key: Option<TipsetKey>,
+    ) -> ActorEventFilter {
+        ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height,
+            to_height,
+            tipset_key: tipset_key.map(LotusJson),
+        }
+    }
+
+    #[rstest]
+    #[case::no_lower_bound(None, Some(1000), None)]
+    #[case::bounded(Some(950), Some(999), Some(ParsedFilterTipsets::Range(950..=999)))]
+    #[case::from_only(Some(950), None, Some(ParsedFilterTipsets::Range(RangeInclusive::new(950, -1))))]
+    #[case::from_at_head(Some(1000), None, Some(ParsedFilterTipsets::Range(RangeInclusive::new(1000, -1))))]
+    fn test_from_actor_event_filter(
+        #[case] from_height: Option<ChainEpoch>,
+        #[case] to_height: Option<ChainEpoch>,
+        #[case] expected: Option<ParsedFilterTipsets>,
+    ) {
+        let parsed = ParsedFilter::from_actor_event_filter(
+            1000,
+            100,
+            actor_event_filter(from_height, to_height, None),
+        )
+        .unwrap();
+        assert_eq!(parsed.map(|f| f.tipsets), expected);
+    }
+
+    #[rstest]
+    #[case::from_genesis_exceeds_range(Some(0), None, None)]
+    #[case::from_in_future(Some(1001), None, None)]
+    #[case::tipset_key_with_from(Some(950), None, Some(TipsetKey::from(nonempty![Cid::default()])))]
+    #[case::tipset_key_with_to(None, Some(950), Some(TipsetKey::from(nonempty![Cid::default()])))]
+    fn test_from_actor_event_filter_rejects(
+        #[case] from_height: Option<ChainEpoch>,
+        #[case] to_height: Option<ChainEpoch>,
+        #[case] tipset_key: Option<TipsetKey>,
+    ) {
+        let filter = actor_event_filter(from_height, to_height, tipset_key);
+        assert!(ParsedFilter::from_actor_event_filter(1000, 100, filter).is_err());
+    }
+
+    #[test]
+    fn test_from_actor_event_filter_tipset_key() {
+        let tsk = TipsetKey::from(nonempty![Cid::default()]);
+        let filter = actor_event_filter(None, None, Some(tsk.clone()));
+        let parsed = ParsedFilter::from_actor_event_filter(1000, 100, filter)
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.tipsets, ParsedFilterTipsets::Key(tsk));
+    }
 
     #[test]
     fn test_parse_eth_filter_spec() {
