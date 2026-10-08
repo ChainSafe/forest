@@ -26,8 +26,9 @@ use ahash::{HashMap, HashSet};
 use libp2p::{
     Multiaddr, allow_block_list, connection_limits,
     gossipsub::{
-        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAuthenticity, MessageId,
-        PublishError, SubscriptionError, ValidationMode, WhitelistSubscriptionFilter,
+        self, IdentTopic as Topic, MaxCountSubscriptionFilter, MessageAcceptance,
+        MessageAuthenticity, MessageId, PublishError, SubscriptionError, ValidationMode,
+        WhitelistSubscriptionFilter,
     },
     identity::{Keypair, PeerId},
     kad::QueryId,
@@ -102,6 +103,9 @@ pub(in crate::libp2p) fn build_gossipsub(
     let mut gs_config_builder = gossipsub::ConfigBuilder::default();
     gs_config_builder.max_transmit_size(1 << 20);
     gs_config_builder.validation_mode(ValidationMode::Strict);
+    // Messages are forwarded only once the application reports a verdict, so peers
+    // never receive (and penalise us for) payloads we have not checked.
+    gs_config_builder.validate_messages();
     gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
         let s = blake2b_256(&msg.data);
         MessageId::from(s)
@@ -233,6 +237,18 @@ impl ForestBehaviour {
     /// Returns a set of peer ids
     pub fn peers(&self) -> &HashSet<PeerId> {
         self.discovery.peers()
+    }
+
+    /// Reports the validation verdict for a `gossipsub` message, which decides whether
+    /// it is forwarded and how the propagation source is scored.
+    pub fn report_message_validation_result(
+        &mut self,
+        message_id: &MessageId,
+        source: &PeerId,
+        acceptance: MessageAcceptance,
+    ) {
+        self.gossipsub
+            .report_message_validation_result(message_id, source, acceptance);
     }
 
     /// Returns a map of peer ids and their multi-addresses

@@ -1,7 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::slice::Iter;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -492,7 +491,7 @@ impl ChainConfig {
         0
     }
 
-    fn drand_points(&self) -> Iter<'_, DrandPoint<'static>> {
+    fn drand_points(&self) -> impl Iterator<Item = &DrandPoint<'static>> {
         match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
@@ -504,6 +503,7 @@ impl ChainConfig {
     pub fn drand_gossip_chain_hashes(&self) -> Vec<String> {
         self.drand_points()
             .filter(|p| p.config.network_type.is_unchained())
+            .take(1)
             .map(|p| p.config.chain_info.hash.to_string())
             .collect()
     }

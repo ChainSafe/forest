@@ -1,3 +1,6 @@
+// Copyright 2019-2026 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::beacon::{Beacon, BeaconEntry, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork};
 use blstrs::{G1Projective, G2Projective, Scalar};
 use group::{Curve, Group};

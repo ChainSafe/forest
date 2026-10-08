@@ -4,6 +4,7 @@
 use std::time::{Duration, UNIX_EPOCH};
 
 use crate::beacon::{BeaconEntry, PublicRandResponse};
+use crate::libp2p::discovery::resolve_libp2p_dnsaddr;
 use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
@@ -16,8 +17,8 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
-use libp2p::gossipsub::TopicHash;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+use libp2p::gossipsub::{MessageAcceptance, MessageId, TopicHash};
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
     autonat::NatStatus,
@@ -162,8 +163,14 @@ pub enum PubsubMessage {
     Block(GossipBlock),
     /// Messages that come over the message topic
     Message(SignedMessage),
-    /// Messages that come over the `drand` topic
-    DrandEntry(BeaconEntry),
+    /// Messages that come over the `drand` topic. The entry is forwarded to other
+    /// peers only after the receiver reports a verdict for `message_id` via
+    /// [`NetworkMessage::ReportValidation`].
+    DrandEntry {
+        entry: BeaconEntry,
+        message_id: MessageId,
+        source: PeerId,
+    },
 }
 
 /// Messages into the service to handle.
@@ -189,6 +196,12 @@ pub enum NetworkMessage {
     },
     JSONRPCRequest {
         method: NetRPCMethods,
+    },
+    /// Verdict for a `gossipsub` message whose validation was deferred to the receiver.
+    ReportValidation {
+        message_id: MessageId,
+        source: PeerId,
+        acceptance: MessageAcceptance,
     },
 }
 
@@ -306,17 +319,16 @@ impl Libp2pService {
             anyhow::bail!("p2p peer failed to listen on any network endpoints");
         }
 
-        fn peer_addr_map(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
-            addrs
-                .iter()
-                .filter_map(|ma| match ma.iter().last() {
-                    Some(Protocol::P2p(peer)) => Some((peer, ma.clone())),
-                    _ => None,
-                })
-                .collect()
-        }
-        let bootstrap_peers = peer_addr_map(&config.bootstrap_peers);
-        let drand_gossipsub_peers = peer_addr_map(&config.drand_gossipsub_peers);
+        let bootstrap_peers = config
+            .bootstrap_peers
+            .iter()
+            .filter_map(|ma| match ma.iter().last() {
+                Some(Protocol::P2p(peer)) => Some((peer, ma.clone())),
+                _ => None,
+            })
+            .collect();
+        let drand_gossipsub_peers =
+            resolve_drand_gossipsub_peers(&config.drand_gossipsub_peers).await;
         for peer in drand_gossipsub_peers.keys() {
             peer_manager.protect_peer(*peer);
         }
@@ -348,7 +360,7 @@ impl Libp2pService {
 
         // Dial the drand relays right away instead of waiting for the first re-dial tick,
         // so beacon entries arrive over gossipsub from startup rather than the HTTP fallback.
-        dial_to_bootstrap_peers_if_needed(&mut self.swarm, &self.drand_gossipsub_peers);
+        dial_peers_if_needed(&mut self.swarm, &self.drand_gossipsub_peers, "drand relay");
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
@@ -443,12 +455,12 @@ impl Libp2pService {
                 }
                 peer_ops_opt = peer_ops_rx_stream.next() => {
                     if let Some(peer_ops) = peer_ops_opt {
-                        handle_peer_ops(swarm_stream.get_mut(), peer_ops, &self.bootstrap_peers, &self.drand_gossipsub_peers);
+                        handle_peer_ops(swarm_stream.get_mut(), peer_ops, &self.bootstrap_peers);
                     }
                 },
                 _ = bootstrap_peer_dialer_interval_stream.next() => {
-                    dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers);
-                    dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.drand_gossipsub_peers);
+                    dial_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers, "bootstrap");
+                    dial_peers_if_needed(swarm_stream.get_mut(), &self.drand_gossipsub_peers, "drand relay");
                 }
             };
         }
@@ -470,13 +482,41 @@ impl Libp2pService {
     }
 }
 
-fn dial_to_bootstrap_peers_if_needed(
+/// Resolves the configured `drand` relay addresses into addresses to dial, keyed by
+/// peer id. Accepts `/.../p2p/<peer-id>` addresses and `/dnsaddr/<name>` anything else
+/// is reported and skipped, since a relay can only be protected by its peer id.
+async fn resolve_drand_gossipsub_peers(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
+    let mut peers = HashMap::default();
+    for ma in addrs {
+        match (ma.iter().next(), ma.iter().last()) {
+            (_, Some(Protocol::P2p(peer))) => {
+                peers.insert(peer, ma.clone());
+            }
+            (Some(Protocol::Dnsaddr(name)), _) => match resolve_libp2p_dnsaddr(&name).await {
+                Ok(resolved) if !resolved.is_empty() => {
+                    for (peer, addr) in resolved {
+                        peers.insert(peer, addr.with(Protocol::P2p(peer)));
+                    }
+                }
+                Ok(_) => warn!("drand relay address {ma} resolved to no peers"),
+                Err(e) => warn!("failed to resolve drand relay address {ma}: {e:#}"),
+            },
+            _ => warn!(
+                "ignoring drand relay address {ma}: expected a `/p2p/<peer-id>` suffix or a `/dnsaddr/<name>` address"
+            ),
+        }
+    }
+    peers
+}
+
+fn dial_peers_if_needed(
     swarm: &mut Swarm<ForestBehaviour>,
-    bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+    peers: &HashMap<PeerId, Multiaddr>,
+    kind: &str,
 ) {
-    for (peer, ma) in bootstrap_peers {
+    for (peer, ma) in peers {
         if !swarm.behaviour().peers().contains(peer) {
-            info!("Re-dialing to bootstrap peer at {ma}");
+            info!("Re-dialing to {kind} peer at {ma}");
             if let Err(e) = swarm.dial(ma.clone()) {
                 warn!("{e}");
             }
@@ -488,7 +528,6 @@ fn handle_peer_ops(
     swarm: &mut Swarm<ForestBehaviour>,
     peer_ops: PeerOperation,
     bootstrap_peers: &HashMap<PeerId, Multiaddr>,
-    drand_gossipsub_peers: &HashMap<PeerId, Multiaddr>,
 ) {
     use PeerOperation::*;
     match peer_ops {
@@ -497,8 +536,9 @@ fn handle_peer_ops(
             user_agent,
             reason,
         } => {
-            // Do not ban bootstrap nodes or drand relays
-            if !bootstrap_peers.contains_key(&peer) && !drand_gossipsub_peers.contains_key(&peer) {
+            // Do not ban bootstrap nodes. drand relays need no check here: they are
+            // protected, and `PeerManager::ban_peer` returns early for protected peers.
+            if !bootstrap_peers.contains_key(&peer) {
                 let user_agent = user_agent.unwrap_or_default();
                 debug!(%peer, %user_agent, %reason, "Banning peer");
                 swarm.behaviour_mut().blocked_peers.block_peer(peer);
@@ -532,6 +572,17 @@ async fn handle_network_message(
                     warn!("Failed to send gossipsub message: {e:#}");
                 }
             }
+        }
+        NetworkMessage::ReportValidation {
+            message_id,
+            source,
+            acceptance,
+        } => {
+            swarm.behaviour_mut().report_message_validation_result(
+                &message_id,
+                &source,
+                acceptance,
+            );
         }
         NetworkMessage::HelloRequest {
             peer_id,
@@ -706,83 +757,96 @@ async fn handle_discovery_event(
     }
 }
 
+/// Decodes a `gossipsub` message and emits it to the service's consumers.
+///
+/// Returns the validation verdict when it can be decided here; `None` means the
+/// receiver reports it later via [`NetworkMessage::ReportValidation`] (`drand`
+/// entries, which are only forwarded once their signature is verified).
 pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_topic_kinds: &HashMap<TopicHash, PubsubTopic>,
-) {
-    if let gossipsub::Event::Message {
+) -> Option<(MessageId, PeerId, MessageAcceptance)> {
+    let gossipsub::Event::Message {
         propagation_source: source,
+        message_id,
         message,
-        ..
     } = e
-    {
-        let topic = message.topic;
-        let message = message.data;
-        trace!("Got a Gossip Message from {:?}", source);
+    else {
+        return None;
+    };
 
-        match pubsub_topic_kinds.get(&topic) {
-            Some(PubsubTopic::Blocks) => match from_slice_with_fallback::<GossipBlock>(&message) {
-                Ok(b) => {
+    let topic = message.topic;
+    let message = message.data;
+    trace!("Got a Gossip Message from {:?}", source);
+
+    let acceptance = match pubsub_topic_kinds.get(&topic) {
+        Some(PubsubTopic::Blocks) => match from_slice_with_fallback::<GossipBlock>(&message) {
+            Ok(b) => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::PubsubMessage {
+                        message: PubsubMessage::Block(b),
+                    },
+                )
+                .await;
+                MessageAcceptance::Accept
+            }
+            Err(e) => {
+                warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
+                MessageAcceptance::Ignore
+            }
+        },
+        Some(PubsubTopic::Messages) => match from_slice_with_fallback::<SignedMessage>(&message) {
+            Ok(m) => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::PubsubMessage {
+                        message: PubsubMessage::Message(m),
+                    },
+                )
+                .await;
+                MessageAcceptance::Accept
+            }
+            Err(e) => {
+                warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
+                MessageAcceptance::Ignore
+            }
+        },
+        Some(PubsubTopic::Drand) => {
+            let mut reader = BytesReader::from_bytes(&message);
+            match PublicRandResponse::from_reader(&mut reader, &message) {
+                Ok(r) => {
+                    trace!(
+                        "Received drand round {} from peer {source:?} on {topic}",
+                        r.round
+                    );
                     emit_event(
                         network_sender_out,
                         NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Block(b),
+                            message: PubsubMessage::DrandEntry {
+                                entry: BeaconEntry::new(r.round, r.signature),
+                                message_id,
+                                source,
+                            },
                         },
                     )
                     .await;
+                    return None;
                 }
                 Err(e) => {
-                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
-                }
-            },
-            Some(PubsubTopic::Messages) => {
-                match from_slice_with_fallback::<SignedMessage>(&message) {
-                    Ok(m) => {
-                        emit_event(
-                            network_sender_out,
-                            NetworkEvent::PubsubMessage {
-                                message: PubsubMessage::Message(m),
-                            },
-                        )
-                        .await;
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Gossip Message from peer {source:?} could not be deserialized: {e:#}"
-                        );
-                    }
+                    // Same verdict as `drand`'s own gossip validator for undecodable payloads.
+                    debug!("Gossip drand entry from peer {source:?} could not be decoded: {e:#}");
+                    MessageAcceptance::Reject
                 }
             }
-            Some(PubsubTopic::Drand) => {
-                let mut reader = BytesReader::from_bytes(&message);
-                match PublicRandResponse::from_reader(&mut reader, &message) {
-                    Ok(r) => {
-                        info!(
-                            "Received drand round {} from peer {source:?} on {topic}",
-                            r.round
-                        );
-                        emit_event(
-                            network_sender_out,
-                            NetworkEvent::PubsubMessage {
-                                message: PubsubMessage::DrandEntry(BeaconEntry::new(
-                                    r.round,
-                                    r.signature,
-                                )),
-                            },
-                        )
-                        .await;
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Gossip drand entry from peer {source:?} could not be decoded: {e:#}"
-                        );
-                    }
-                }
-            }
-            None => warn!("Getting gossip messages from unknown topic: {topic}"),
         }
-    }
+        None => {
+            warn!("Getting gossip messages from unknown topic: {topic}");
+            MessageAcceptance::Ignore
+        }
+    };
+    Some((message_id, source, acceptance))
 }
 
 /// Saturating: these timestamps only feed peer latency estimates, so a skewed clock should degrade
@@ -1016,7 +1080,15 @@ async fn handle_forest_behaviour_event(
             .await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
-            handle_gossip_event(e, network_sender_out, pubsub_topic_kinds).await
+            if let Some((message_id, source, acceptance)) =
+                handle_gossip_event(e, network_sender_out, pubsub_topic_kinds).await
+            {
+                swarm.behaviour_mut().report_message_validation_result(
+                    &message_id,
+                    &source,
+                    acceptance,
+                );
+            }
         }
         ForestBehaviourEvent::Hello(rr_event) => {
             let behaviour_mut = swarm.behaviour_mut();

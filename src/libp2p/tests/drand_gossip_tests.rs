@@ -1,3 +1,6 @@
+// Copyright 2019-2026 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt as _;
@@ -7,16 +10,16 @@ use libp2p::{
     swarm::SwarmEvent,
 };
 use libp2p_swarm_test::SwarmExt as _;
-use quick_protobuf::{BytesReader, MessageRead};
 
+use crate::chain_sync::handle_drand_entry;
 use crate::libp2p::{
-    NetworkEvent, PUBSUB_DRAND_STR, PubsubMessage, PubsubTopic, build_gossipsub,
+    NetworkEvent, NetworkMessage, PUBSUB_DRAND_STR, PubsubMessage, PubsubTopic, build_gossipsub,
     service::handle_gossip_event,
 };
 use crate::networks::GenesisNetworkName;
 use crate::{
     beacon::{
-        Beacon, BeaconEntry, PublicRandResponse,
+        Beacon, BeaconPoint, BeaconSchedule,
         tests::fake_drand::{
             FAKE_DRAND_GENESIS_TIME, FAKE_DRAND_PERIOD, FakeDrand, TEST_FIL_BLOCK_DELAY,
             TEST_FIL_GENESIS_TIME,
@@ -24,15 +27,25 @@ use crate::{
     },
     libp2p::{Gossipsub, PubsubTopicCfg},
 };
+use libp2p::gossipsub::MessageAcceptance;
+use tokio::sync::Semaphore;
 
+/// End to end: a relay publishes rounds, the node's `gossipsub` delivers them,
+/// `handle_gossip_event` decodes them and defers the verdict, and `handle_drand_entry`
+/// verifies, caches and accepts them.
 #[tokio::test]
 async fn gossip_rounds_are_verified_and_cached() {
     let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
-
-    let beacon = drand.beacon(TEST_FIL_GENESIS_TIME, TEST_FIL_BLOCK_DELAY);
     let hash = drand.chain_info_hash();
+    let schedule = Arc::new(BeaconSchedule(vec![BeaconPoint::new(
+        0,
+        drand.beacon(TEST_FIL_GENESIS_TIME, TEST_FIL_BLOCK_DELAY),
+    )]));
+    let beacon = schedule.unchained_beacon().expect("unchained beacon");
 
     let topic = IdentTopic::new(format!("{PUBSUB_DRAND_STR}/{hash}"));
+    let mut kinds = ahash::HashMap::default();
+    kinds.insert(topic.hash(), PubsubTopic::Drand);
 
     // `PubsubTopicCfg` borrows, so these have to outlive the swarm construction.
     // The whitelist must carry the *fake* chain hash, otherwise the node refuses
@@ -62,40 +75,77 @@ async fn gossip_rounds_are_verified_and_cached() {
 
     wait_until_meshed(&mut node, &mut relay, &topic).await;
 
-    let mut received = Vec::new();
+    let (events_tx, events_rx) = flume::unbounded();
+    let (network_send, verdicts) = flume::unbounded();
+    let limiter = Arc::new(Semaphore::new(1));
+
     for round in 1..=5u64 {
         relay
             .behaviour_mut()
             .publish(topic.clone(), drand.to_protobuf(round))
             .unwrap();
-        let data = tokio::time::timeout(Duration::from_secs(5), async {
+        let event = tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 tokio::select! {
                     _ = relay.select_next_some() => {},
                     ev = node.select_next_some() => {
-                        if let SwarmEvent::Behaviour(gossipsub::Event::Message { message, .. }) = ev {
-                            break message.data;
+                        if let SwarmEvent::Behaviour(ev @ gossipsub::Event::Message { .. }) = ev {
+                            break ev;
                         }
                     }
                 }
             }
-        }).await.expect("no gossip message");
+        })
+        .await
+        .expect("no gossip message");
 
-        let mut reader = BytesReader::from_bytes(&data);
-        let decoded = PublicRandResponse::from_reader(&mut reader, &data).unwrap();
-        received.push(BeaconEntry::new(decoded.round, decoded.signature));
+        assert!(
+            handle_gossip_event(event, &events_tx, &kinds)
+                .await
+                .is_none(),
+            "drand verdicts are deferred to the chain follower"
+        );
+        let Ok(NetworkEvent::PubsubMessage {
+            message:
+                PubsubMessage::DrandEntry {
+                    entry,
+                    message_id,
+                    source,
+                },
+        }) = events_rx.try_recv()
+        else {
+            panic!("no drand entry emitted for round {round}");
+        };
+        assert_eq!(entry.round(), round);
+
+        let now = beacon.beacon_round_timestamp(round).unwrap() + 1;
+        handle_drand_entry(
+            entry,
+            message_id,
+            source,
+            &limiter,
+            &schedule,
+            &network_send,
+            now,
+        );
+        match tokio::time::timeout(Duration::from_secs(5), verdicts.recv_async())
+            .await
+            .expect("no verdict reported")
+            .unwrap()
+        {
+            NetworkMessage::ReportValidation { acceptance, .. } => {
+                assert!(
+                    matches!(acceptance, MessageAcceptance::Accept),
+                    "round {round}"
+                );
+            }
+            other => panic!("unexpected network message: {other:?}"),
+        }
     }
 
-    assert_eq!(received.len(), 5);
-    assert!(
-        beacon
-            .verify_entries(&received, &BeaconEntry::default())
-            .unwrap()
-    );
-
-    // verify every round is now served from cache.
+    // The beacon has no HTTP servers: every round is served from the gossip-filled cache.
     for round in 1..=5u64 {
-        assert_eq!(beacon.entry(round).await.unwrap().round(), round);
+        assert_eq!(beacon.entry(round).await.unwrap(), drand.entry(round));
     }
 }
 
@@ -124,7 +174,7 @@ async fn wait_until_meshed(
 }
 
 #[tokio::test]
-async fn silence_past_deadline_fallback_to_http() {
+async fn cache_miss_falls_back_to_http_once() {
     use axum::{Json, Router, extract::Path, routing::get};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -209,16 +259,20 @@ async fn gossip_drand_message_is_decoded_and_emitted() {
 
     // The payload is a bare `PublicRandResponse`, no length prefix (regression:
     // decoding used to assume a prefix and reject every live relay message).
-    handle_gossip_event(
+    let verdict = handle_gossip_event(
         gossip_message_event(drand.to_protobuf(42), topic.hash()),
         &tx,
         &kinds,
     )
     .await;
+    assert!(
+        verdict.is_none(),
+        "drand verdicts are deferred to the chain follower"
+    );
 
     match rx.try_recv().expect("no event emitted") {
         NetworkEvent::PubsubMessage {
-            message: PubsubMessage::DrandEntry(entry),
+            message: PubsubMessage::DrandEntry { entry, .. },
         } => {
             assert_eq!(entry.round(), 42);
             assert_eq!(entry.signature(), drand.entry(42).signature());
@@ -233,12 +287,13 @@ async fn gossip_drand_malformed_payload_is_dropped() {
     let (topic, kinds) = drand_topic_kinds(&drand);
     let (tx, rx) = flume::unbounded();
 
-    handle_gossip_event(
+    let verdict = handle_gossip_event(
         gossip_message_event(vec![0xff, 0xff, 0xff], topic.hash()),
         &tx,
         &kinds,
     )
     .await;
+    assert!(matches!(verdict, Some((_, _, MessageAcceptance::Reject))));
 
     assert!(
         rx.try_recv().is_err(),
@@ -252,7 +307,7 @@ async fn gossip_message_on_unknown_topic_is_dropped() {
     let (_, kinds) = drand_topic_kinds(&drand);
     let (tx, rx) = flume::unbounded();
 
-    handle_gossip_event(
+    let verdict = handle_gossip_event(
         gossip_message_event(
             drand.to_protobuf(1),
             gossipsub::TopicHash::from_raw("/unknown/topic"),
@@ -261,6 +316,7 @@ async fn gossip_message_on_unknown_topic_is_dropped() {
         &kinds,
     )
     .await;
+    assert!(matches!(verdict, Some((_, _, MessageAcceptance::Ignore))));
 
     assert!(rx.try_recv().is_err(), "unknown topic must emit nothing");
 }
