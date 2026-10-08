@@ -377,6 +377,28 @@ impl RpcMethod<2> for StateGetID {
     }
 }
 
+pub enum StateRewardDistribution {}
+
+impl RpcMethod<1> for StateRewardDistribution {
+    const NAME: &'static str = "Filecoin.StateRewardDistribution";
+    const PARAM_NAMES: [&'static str; 1] = ["tipsetSelector"];
+    const API_PATHS: BitFlags<ApiPaths> = make_bitflags!(ApiPaths::{ V2 });
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the block rewards allocated while executing the selected tipset, for each block and in total: the stream weights and recipient shares used by each award, the resulting amounts in attoFIL, and the payments to the miner and to the burnt funds actor. The selected tipset is executed, so it needs no child tipset. Requires reward actor v19 (network version 29). A block with a positive WinCount and zero MintedReward received only its gas reward.";
+
+    type Params = (TipsetSelector,);
+    type Ok = Arc<RewardDistribution>;
+
+    async fn handle(
+        ctx: Ctx,
+        (selector,): Self::Params,
+        _: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ChainGetTipSetV2::get_tipset(&ctx, &selector).await?;
+        Ok(ctx.state_manager.reward_distribution(&ts).await?)
+    }
+}
+
 pub enum StateLookupRobustAddress {}
 
 macro_rules! get_robust_address {
