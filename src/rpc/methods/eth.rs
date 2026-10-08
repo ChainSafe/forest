@@ -1123,7 +1123,7 @@ pub fn eth_tx_from_signed_eth_message(
     chain_id: EthChainIdType,
 ) -> Result<(EthAddress, EthTx)> {
     // The from address is always an f410f address, never an ID or other address.
-    let from = smsg.message().from;
+    let from = smsg.message().from();
     if !is_eth_address(&from) {
         bail!("sender must be an eth account, was {from}");
     }
@@ -1259,13 +1259,13 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         to,
         from,
         input,
-        nonce: EthUint64(msg.sequence),
+        nonce: EthUint64(msg.sequence()),
         chain_id: EthUint64(chain_id),
-        value: msg.value.clone().into(),
+        value: msg.value().into(),
         r#type: EthUint64(EIP_1559_TX_TYPE.into()),
-        gas: EthUint64(msg.gas_limit),
-        max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
-        max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
+        gas: EthUint64(msg.gas_limit()),
+        max_fee_per_gas: Some(msg.gas_fee_cap().into()),
+        max_priority_fee_per_gas: Some(msg.gas_premium().into()),
         access_list: Some(NotNullVec(vec![])),
         ..ApiEthTx::default()
     })
@@ -1905,11 +1905,11 @@ async fn eth_estimate_gas(
     let mut msg = Message::try_from(tx)?;
     // Set the gas limit to the zero sentinel value, which makes
     // gas estimation actually run.
-    msg.gas_limit = 0;
+    msg.set_gas_limit(0);
 
     if sender_is_evm_contract(
         ctx.state_manager
-            .get_actor(&msg.from, *tipset.parent_state()),
+            .get_actor(&msg.from(), *tipset.parent_state()),
     ) {
         return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
     }
@@ -2132,12 +2132,12 @@ async fn gas_search(
     sender_validation: SenderValidation,
 ) -> anyhow::Result<u64> {
     // `max(1)` keeps the doubling below able to make progress.
-    let mut high = msg.gas_limit.max(1);
+    let mut high = msg.gas_limit().max(1);
     let mut low = high;
 
     let can_succeed = async |limit: u64| {
         let mut msg = msg.clone();
-        msg.gas_limit = limit;
+        msg.set_gas_limit(limit);
         let (apply_ret, ..) = data
             .state_manager
             .call_with_gas(
@@ -3668,7 +3668,7 @@ fn non_system_traces_with_positions(
 ) -> impl Iterator<Item = (i64, Arc<ApiInvocResult>)> {
     raw_traces
         .into_iter()
-        .filter(|ir| ir.msg.from != system::ADDRESS.into())
+        .filter(|ir| ir.msg.from() != system::ADDRESS.into())
         .enumerate()
         .map(|(idx, ir)| (idx as i64, ir))
 }
@@ -3840,7 +3840,7 @@ async fn debug_trace_transaction(
         .clone()
         .context("no execution trace for transaction")?;
 
-    let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from).map_err(|e| {
+    let mut env = trace::base_environment(&state, &entry.invoc_result.msg.from()).map_err(|e| {
         anyhow::anyhow!(
             "when processing message {}: {e}",
             entry.invoc_result.msg_cid
@@ -4696,7 +4696,7 @@ mod test {
         // What it returned before the fix.
         let wrong_hash: EthHash = smsg.cid().into();
         let from = smsg.message().from();
-        let sequence = smsg.message().sequence;
+        let sequence = smsg.message().sequence();
 
         let (trusted_ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
         let sent_hash = EthSendRawTransaction::handle(

@@ -3,7 +3,7 @@
 
 use super::gas::estimate_message_gas;
 use crate::lotus_json::{LotusJson, NotNullVec, lotus_json_with_self};
-use crate::message::SignedMessage;
+use crate::message::{MessageRead as _, SignedMessage};
 use crate::prelude::*;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
@@ -290,7 +290,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         (message, send_spec): Self::Params,
         extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        let from = message.from;
+        let from = message.from();
 
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
@@ -298,7 +298,7 @@ impl RpcMethod<2> for MpoolPushMessage {
             .resolve_to_deterministic_address(from, &heaviest_tipset)
             .await?;
 
-        if message.sequence != 0 {
+        if message.sequence() != 0 {
             return Err(anyhow::anyhow!(
                 "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
             )
@@ -309,7 +309,7 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let mut message =
             estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
-        if message.gas_premium > message.gas_fee_cap {
+        if message.gas_premium() > message.gas_fee_cap() {
             return Err(anyhow::anyhow!(
                 "After estimation, gas premium is greater than gas fee cap"
             )
@@ -317,12 +317,13 @@ impl RpcMethod<2> for MpoolPushMessage {
         }
 
         if from.protocol() == Protocol::ID {
-            message.from = key_addr;
+            message.set_from(key_addr);
         }
 
         let balance =
-            super::wallet::WalletBalance::handle(ctx.clone(), (message.from,), extensions).await?;
-        let required_funds = &message.value + &message.gas_fee_cap * message.gas_limit;
+            super::wallet::WalletBalance::handle(ctx.clone(), (message.from(),), extensions)
+                .await?;
+        let required_funds = message.value() + message.required_funds();
         if balance < required_funds {
             return Err(anyhow::anyhow!(
                 "mpool push: not enough funds: {balance} < {required_funds}",
@@ -360,12 +361,11 @@ mod tests {
     /// A secp message, unique per `sequence`.
     fn secp_message(sequence: u64) -> SignedMessage {
         SignedMessage::new_unchecked(
-            Message {
-                from: Address::new_id(100),
-                to: Address::new_id(101),
-                sequence,
-                ..Default::default()
-            },
+            Message::builder()
+                .from(Address::new_id(100))
+                .to(Address::new_id(101))
+                .sequence(sequence)
+                .build(),
             Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
         )
     }
@@ -517,11 +517,10 @@ mod tests {
             &genesis,
             2,
             // A BLS message whose signature the pool never cached.
-            &[Message {
-                from: Address::new_id(200),
-                to: Address::new_id(201),
-                ..Default::default()
-            }],
+            &[Message::builder()
+                .from(Address::new_id(200))
+                .to(Address::new_id(201))
+                .build()],
             std::slice::from_ref(&only_in_fork),
         );
 
