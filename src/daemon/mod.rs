@@ -16,7 +16,10 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
     delete_chain_data,
 };
-use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
+use crate::daemon::{
+    context::AppContext,
+    db_util::{import_chain_as_forest_car, maybe_import_extended_snapshots},
+};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
@@ -156,6 +159,15 @@ async fn maybe_import_snapshot(
         .await?;
         ctx.db
             .read_only_files(std::iter::once(car_db_path.clone()))?;
+        if let Ok(snapshot_url) = url::Url::parse(&path.display().to_string()) {
+            maybe_import_extended_snapshots(
+                &ctx.db,
+                &snapshot_url,
+                &ts,
+                &ctx.db_meta_data.get_forest_car_db_dir(),
+            )
+            .await;
+        }
         let ts_epoch = ts.epoch();
         // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
         // in the current setting store
