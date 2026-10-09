@@ -14,7 +14,9 @@
 
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::rpc::Client;
-use crate::rpc::eth::errors::{EXECUTION_REVERTED_CODE, OUT_OF_GAS_CODE};
+use crate::rpc::eth::errors::{
+    EXECUTION_REVERTED_CODE, INVALID_INPUT_CODE, TRANSACTION_REJECTED_CODE,
+};
 use crate::rpc::eth::{
     BlockNumberOrHash, EthBigInt, Predefined,
     types::{EthAddress, EthBytes, EthCallMessage},
@@ -444,6 +446,14 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
         code: EXECUTION_REVERTED_CODE,
         contains: "SysErrOutOfGas",
     };
+    let oog_estimate = Expect::ErrCode {
+        code: TRANSACTION_REJECTED_CODE,
+        contains: "out of gas: gas required exceeds: ",
+    };
+    let no_allowance = Expect::ErrCode {
+        code: INVALID_INPUT_CODE,
+        contains: "gas required exceeds allowance (0)",
+    };
 
     let transfer = |from: Option<EthAddress>, to: Option<EthAddress>| EthCallMessage {
         from,
@@ -477,30 +487,30 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
                 ..Default::default()
             },
         ),
-        SkipSenderCase::revert_both(
-            "OutOfGasFromNonExistent",
-            oog_create(Some(missing))?,
-            oog_err.clone(),
-        ),
+        SkipSenderCase {
+            name: "OutOfGasFromNonExistent",
+            msg: oog_create(Some(missing))?,
+            call: Some(oog_err.clone()),
+            estimate: Some(oog_estimate.clone()),
+        },
         SkipSenderCase {
             name: "OutOfGasFromEoa",
             msg: oog_create(Some(env.eoa))?,
             call: Some(oog_err),
-            estimate: Some(Expect::ErrCode {
-                code: OUT_OF_GAS_CODE,
-                contains: "call ran out of gas",
-            }),
+            estimate: Some(oog_estimate),
         },
         SkipSenderCase::success("FromContract", transfer(Some(env.coin), Some(env.eoa))),
-        SkipSenderCase::success(
-            "FromContractWithGasPrice",
-            EthCallMessage {
+        SkipSenderCase {
+            name: "FromContractWithGasPrice",
+            msg: EthCallMessage {
                 from: Some(env.coin),
                 to: Some(env.eoa),
                 gas_price,
                 ..Default::default()
             },
-        ),
+            call: Some(Expect::Success),
+            estimate: Some(no_allowance.clone()),
+        },
         SkipSenderCase::success(
             "FromContractToSelf",
             EthCallMessage {
@@ -521,15 +531,17 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
             "insufficient",
         ),
         SkipSenderCase::success("FromNonExistent", transfer(Some(missing), Some(env.eoa))),
-        SkipSenderCase::success(
-            "FromNonExistentWithGasPrice",
-            EthCallMessage {
+        SkipSenderCase {
+            name: "FromNonExistentWithGasPrice",
+            msg: EthCallMessage {
                 from: Some(missing),
                 to: Some(env.eoa),
                 gas_price,
                 ..Default::default()
             },
-        ),
+            call: Some(Expect::Success),
+            estimate: Some(no_allowance),
+        },
         SkipSenderCase::revert_both(
             "FromNonExistentToContractWithData",
             EthCallMessage {
