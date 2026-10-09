@@ -828,7 +828,7 @@ impl ParsedFilter {
     ) -> anyhow::Result<Option<Self>> {
         let tipsets = if let Some(tsk) = &filter.tipset_key {
             if filter.from_height.is_some() || filter.to_height.is_some() {
-                bail!("must not specify block hash and from/to block");
+                bail!("must not specify tipset key and from/to height");
             }
             ParsedFilterTipsets::Key(tsk.0.clone())
         } else {
