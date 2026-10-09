@@ -40,9 +40,6 @@ use walkdir::WalkDir;
 use crate::rpc::eth::types::EthHash;
 
 #[cfg(doc)]
-use crate::blocks::TipsetKey;
-
-#[cfg(doc)]
 use cid::Cid;
 
 /// Loads all `.forest.car.zst` snapshots and cleanup stale `.forest.car.zst.tmp` files.
@@ -371,7 +368,7 @@ struct ExtendedSnapshotFile {
 /// Fetches the `.metadata.json` published next to `snapshot_url` and returns its extended
 /// snapshots, if any. A missing metadata file is not an error.
 async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<ExtendedSnapshots>> {
-    let metadata_url = Url::parse(&format!("{snapshot_url}{}", ".metadata.json"))?;
+    let metadata_url = Url::parse(&format!("{snapshot_url}.metadata.json"))?;
     let response = crate::utils::net::global_http_client()
         .get(metadata_url.clone())
         .send()
