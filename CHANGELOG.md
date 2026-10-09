@@ -35,6 +35,8 @@
 
 ### Changed
 
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` now ignores the sender's ability to pay gas fees unless `gasPrice` or `maxFeePerGas` is set, in which case the estimate is limited to what the sender can afford (`-32003` `insufficient funds for gas * price + value`, `-32000` `gas required exceeds allowance (0)`). It also searches past reverts that more gas fixes, never exceeds the block gas limit, reports running out of gas at the block gas limit as `-32003` `out of gas: gas required exceeds: <limit>`, and rejects a call with both `gasPrice` and `maxFeePerGas` (`-32602`), matching [lotus#13911](https://github.com/filecoin-project/lotus/pull/13911).
+
 ### Removed
 
 ### Fixed

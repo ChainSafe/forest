@@ -345,6 +345,8 @@ pub struct EthCallMessage {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_fee_per_gas: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub data: Option<EthBytes>,
@@ -365,6 +367,19 @@ impl EthCallMessage {
             Some(EthUint64(gas)) if gas > 0 => Some(gas.min(BLOCK_GAS_LIMIT)),
             _ => None,
         }
+    }
+
+    /// The most the caller pays per unit of gas: `maxFeePerGas` when present, else `gasPrice`. `None` when that is absent or zero.
+    pub fn max_gas_price(&self) -> Result<Option<TokenAmount>, errors::EthErrors> {
+        // Lotus clients always send `gasPrice`, so a zero one counts as absent.
+        if self.max_fee_per_gas.is_some() && self.gas_price.is_some_and(|price| !price.is_zero()) {
+            return Err(errors::EthErrors::ConflictingGasPrices);
+        }
+        Ok(self
+            .max_fee_per_gas
+            .or(self.gas_price)
+            .map(TokenAmount::from)
+            .filter(|price| !price.is_zero()))
     }
 
     pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
@@ -669,6 +684,33 @@ mod tests {
         assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT)), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT + 1)), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(u64::MAX)), BLOCK_GAS_LIMIT);
+    }
+
+    #[rstest::rstest]
+    #[case::neither(None, None, Ok(None))]
+    #[case::gas_price_only(Some(7), None, Ok(Some(7)))]
+    #[case::max_fee_only(None, Some(9), Ok(Some(9)))]
+    #[case::zero_gas_price_with_max_fee(Some(0), Some(9), Ok(Some(9)))]
+    #[case::zero_is_no_price(Some(0), None, Ok(None))]
+    #[case::both_prices(Some(7), Some(9), Err(()))]
+    #[case::both_prices_zero_max_fee(Some(7), Some(0), Err(()))]
+    fn eth_call_message_max_gas_price(
+        #[case] gas_price: Option<u64>,
+        #[case] max_fee_per_gas: Option<u64>,
+        #[case] expected: Result<Option<u64>, ()>,
+    ) {
+        let msg = EthCallMessage {
+            gas_price: gas_price.map(EthBigInt::from),
+            max_fee_per_gas: max_fee_per_gas.map(EthBigInt::from),
+            ..Default::default()
+        };
+        let price = msg.max_gas_price().map_err(|e| {
+            assert!(matches!(e, errors::EthErrors::ConflictingGasPrices), "{e}");
+        });
+        assert_eq!(
+            price,
+            expected.map(|price| price.map(TokenAmount::from_atto))
+        );
     }
 
     #[rstest::rstest]

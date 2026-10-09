@@ -16,14 +16,15 @@ use crate::rpc::eth::errors::{
     EXECUTION_REVERTED_CODE, INVALID_INPUT_CODE, TRANSACTION_REJECTED_CODE,
 };
 use crate::rpc::eth::{
-    BlockNumberOrHash, EthUint64, Predefined,
+    BlockNumberOrHash, EthBigInt, EthUint64, Predefined,
     types::{EthAddress, EthBytes, EthCallMessage},
 };
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
-use crate::shim::econ::BLOCK_GAS_LIMIT;
+use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
 use crate::utils::encoding::keccak_256;
 use anyhow::{Context as _, ensure};
+use jsonrpsee::types::error::INVALID_PARAMS_CODE;
 use libtest_mimic::{Arguments, Failed, Trial};
 use std::str::FromStr as _;
 use tokio::sync::OnceCell;
@@ -32,20 +33,23 @@ use tokio::sync::OnceCell;
 /// Regenerate with `contracts/compile.sh` after editing the source.
 const NESTED_GAS_HEX: &str = include_str!("contracts/nested_gas/nested_gas.hex");
 const RECURSE_SIGNATURE: &str = "recurse(uint256)";
-/// Reverts explicitly unless given a large gas limit, so estimating it without a `gas` cap fails
-/// for a reason no amount of extra gas can be shown to fix.
+/// Reverts explicitly unless given a large gas limit, so the estimator has to search past the revert.
 const REQUIRES_HIGH_GAS_SIGNATURE: &str = "requiresHighGasLimit()";
-/// The `require` string in [`REQUIRES_HIGH_GAS_SIGNATURE`].
-const REVERT_REASON: &str = "gas limit too low";
+/// The `gasleft()` bound in [`REQUIRES_HIGH_GAS_SIGNATURE`].
+const REQUIRES_HIGH_GAS_THRESHOLD: u64 = 50_000_000;
+const ALWAYS_REVERTS_SIGNATURE: &str = "alwaysReverts()";
+const ALWAYS_REVERTS_REASON: &str = "always reverts";
 
 /// Shallow enough that the 63/64 penalty stays inside any estimator's safety margin, so both
 /// nodes must agree. Guards against a failure that is really "the two disagree about gas".
 const CONTROL_DEPTH: u64 = 0;
 /// Deep enough that the penalty is ~1.9x, well clear of the crossover measured around 40-60.
 const NESTED_DEPTH: u64 = 100;
-/// The nested call needs a gas limit in the hundreds of millions, and a sender that cannot
-/// afford it makes the estimate saturate at the block gas limit instead of converging.
+/// The nested call needs a gas limit in the hundreds of millions, and the devnet Lotus estimates
+/// with fees, so a sender that cannot afford it makes its estimate saturate instead of converging.
 const SENDER_FUND_AMT: &str = "10 FIL";
+/// Enough for the sender to exist, far too little to pay for the nested call's gas.
+const POOR_SENDER_FUND_AMT: &str = "1 nanoFIL";
 
 /// `eth_estimateGas` parity and gas cap tests
 #[derive(Debug, clap::Args)]
@@ -88,6 +92,17 @@ fn tests() -> Vec<Trial> {
             "eth_estimate_gas_under_cap_searches_past_gas_dependent_revert",
             || block_on(estimate_under_cap_searches_past_gas_dependent_revert()),
         ),
+        trial(
+            "eth_estimate_gas_without_cap_searches_past_gas_dependent_revert",
+            || block_on(estimate_without_cap_searches_past_gas_dependent_revert()),
+        ),
+        trial(
+            "eth_estimate_gas_ignores_sender_funds_without_price",
+            || block_on(estimate_ignores_sender_funds_without_price()),
+        ),
+        trial("eth_estimate_gas_honors_gas_price", || {
+            block_on(estimate_honors_gas_price())
+        }),
     ]
 }
 
@@ -128,23 +143,29 @@ async fn sender() -> anyhow::Result<&'static str> {
     static SENDER: OnceCell<String> = OnceCell::const_new();
     Ok(SENDER
         .get_or_try_init(|| async {
-            let addr = lotus_exec(&["wallet", "new", "delegated"])?;
-            let msg = send_from(
-                &FOREST_TEST_PRELOADED_ADDRESS,
-                &addr,
-                SENDER_FUND_AMT,
-                Backend::Local,
-            )?;
-            eprintln!("funding sender {addr} with {SENDER_FUND_AMT}, msg: {msg}");
-            let balance = poll_until_funded(&addr, Backend::Local).await?;
-            eprintln!("sender {addr} funded balance: {balance}");
-            let parsed = Address::from_str(&addr).context("parsing the sender address")?;
-            poll_until_actor_on("lotus", parsed, lotus_client).await?;
+            let (addr, _) = new_funded_delegated(SENDER_FUND_AMT).await?;
             import_lotus_wallet_into_forest(&addr)?;
             anyhow::Ok(addr)
         })
         .await?
         .as_str())
+}
+
+/// A new Lotus delegated wallet funded with `amount`, once both nodes see it.
+async fn new_funded_delegated(amount: &str) -> anyhow::Result<(String, Address)> {
+    let addr = lotus_exec(&["wallet", "new", "delegated"])?;
+    let msg = send_from(
+        &FOREST_TEST_PRELOADED_ADDRESS,
+        &addr,
+        amount,
+        Backend::Local,
+    )?;
+    eprintln!("funding {addr} with {amount}, msg: {msg}");
+    let balance = poll_until_funded(&addr, Backend::Local).await?;
+    eprintln!("{addr} funded, balance: {balance}");
+    let parsed = Address::from_str(&addr).context("parsing the funded address")?;
+    poll_until_actor_on("lotus", parsed, lotus_client).await?;
+    Ok((addr, parsed))
 }
 
 /// A call from the funded sender to the deployed contract.
@@ -160,40 +181,59 @@ async fn call_message(calldata: Vec<u8>, gas: Option<u64>) -> anyhow::Result<Eth
     })
 }
 
-async fn estimate(
+async fn estimate_msg(
     client: &Client,
-    calldata: Vec<u8>,
+    msg: EthCallMessage,
     block: BlockNumberOrHash,
-    gas: Option<u64>,
 ) -> anyhow::Result<u64> {
-    let msg = call_message(calldata, gas).await?;
     let gas = client
         .call(EthEstimateGas::request((msg, Some(block)))?)
         .await?;
     Ok(gas.0)
 }
 
-/// Estimating under `cap` must fail with exactly this JSON-RPC error.
-async fn expect_estimate_error(
+async fn estimate(
     client: &Client,
     calldata: Vec<u8>,
     block: BlockNumberOrHash,
-    cap: u64,
+    gas: Option<u64>,
+) -> anyhow::Result<u64> {
+    estimate_msg(client, call_message(calldata, gas).await?, block).await
+}
+
+/// Estimating `msg` must fail with this JSON-RPC code and exactly the `expected` message.
+async fn expect_estimate_error(
+    client: &Client,
+    msg: EthCallMessage,
+    block: BlockNumberOrHash,
     code: i32,
     expected: &str,
 ) -> anyhow::Result<()> {
-    let err = match estimate(client, calldata, block, Some(cap)).await {
-        Ok(gas) => anyhow::bail!("returned {gas} for a call that does not fit in a cap of {cap}"),
+    let err = match estimate_msg(client, msg.clone(), block).await {
+        Ok(gas) => anyhow::bail!("returned {gas} for a call that must fail: {msg:?}"),
         Err(e) => e,
     };
     let obj = rpc_call_err(&err)
-        .with_context(|| format!("expected a JSON-RPC error for a cap of {cap}: {err:?}"))?;
+        .with_context(|| format!("expected a JSON-RPC error for {msg:?}: {err:?}"))?;
     ensure!(
         obj.code() == code && obj.message() == expected,
-        "expected code {code} `{expected}` for a cap of {cap}, got code {} `{}`",
+        "expected code {code} `{expected}` for {msg:?}, got code {} `{}`",
         obj.code(),
         obj.message()
     );
+    Ok(())
+}
+
+/// `eth_call` must succeed with `msg`, proving an estimate put in its `gas` is enough.
+async fn expect_call_ok(
+    client: &Client,
+    msg: EthCallMessage,
+    block: BlockNumberOrHash,
+) -> anyhow::Result<()> {
+    client
+        .call(EthCall::request((msg.clone(), block))?)
+        .await
+        .with_context(|| format!("eth_call failed for {msg:?}"))?;
     Ok(())
 }
 
@@ -294,23 +334,20 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// A failure that raising the gas limit cannot be shown to fix must be reported, not searched
-/// around. This is the companion of [`estimate_agrees`]: it pins the branch that decides whether
-/// a failed probe means "needs more gas" or "is simply broken".
+/// A call that reverts at any gas limit must be reported, not answered with a gas value.
 async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
     let (forest_c, lotus_c, block) = pinned_common_block().await?;
     for (node, client) in [("forest", &forest_c), ("lotus", &lotus_c)] {
         let err = match estimate(
             client,
-            selector(REQUIRES_HIGH_GAS_SIGNATURE),
+            selector(ALWAYS_REVERTS_SIGNATURE),
             BlockNumberOrHash::from_block_number(block),
             None,
         )
         .await
         {
             Ok(gas) => anyhow::bail!(
-                "{node} returned an estimate ({gas}) for a message that reverts at that limit; \
-                 a non-gas failure must be reported, not answered with a gas value"
+                "{node} returned an estimate ({gas}) for a message that reverts at any limit"
             ),
             Err(e) => e,
         };
@@ -324,27 +361,22 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
             obj.message()
         );
         ensure!(
-            obj.message().contains(REVERT_REASON),
-            "{node} rejected the call without naming the revert reason `{REVERT_REASON}`: {}",
+            obj.message().contains(ALWAYS_REVERTS_REASON),
+            "{node} rejected the call without naming the revert reason `{ALWAYS_REVERTS_REASON}`: {}",
             obj.message()
         );
 
-        // Forest returns eth-standard `execution reverted` (code 3) + data, matching current Lotus.
-        // The devnet's Lotus image predates that refactor (generic code, no data), so code/data
-        // parity is pinned on Forest alone.
-        if node == "forest" {
-            ensure!(
-                obj.code() == EXECUTION_REVERTED_CODE,
-                "forest rejected with code {}, expected execution-reverted {EXECUTION_REVERTED_CODE}: {}",
-                obj.code(),
-                obj.message()
-            );
-            ensure!(
-                obj.data().is_some(),
-                "forest rejected without revert data; eth clients cannot ABI-decode the reason: {}",
-                obj.message()
-            );
-        }
+        ensure!(
+            obj.code() == EXECUTION_REVERTED_CODE,
+            "{node} rejected with code {}, expected execution-reverted {EXECUTION_REVERTED_CODE}: {}",
+            obj.code(),
+            obj.message()
+        );
+        ensure!(
+            obj.data().is_some(),
+            "{node} rejected without revert data; eth clients cannot ABI-decode the reason: {}",
+            obj.message()
+        );
     }
     Ok(())
 }
@@ -363,7 +395,7 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
         "a cap above the need changed the estimate: capped={estimate_with_spare_cap} uncapped={uncapped}"
     );
 
-    // Just under the estimate still covers the need, so the result is clamped to the cap and must work.
+    // Just under the estimate still covers the need, so the result must stay within the cap and work.
     let tight = uncapped - 1;
     let estimate_with_tight_cap =
         estimate(&forest, calldata.clone(), block.clone(), Some(tight)).await?;
@@ -372,20 +404,14 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
         "the estimate {estimate_with_tight_cap} exceeds the cap {tight}"
     );
     let call = call_message(calldata.clone(), Some(estimate_with_tight_cap)).await?;
-    forest
-        .call(EthCall::request((call, block.clone()))?)
-        .await
-        .with_context(|| {
-            format!("eth_call at the capped estimate {estimate_with_tight_cap} failed")
-        })?;
+    expect_call_ok(&forest, call, block.clone()).await?;
 
     // Half the estimate is short of what the nesting needs.
     let half = uncapped / 2;
     expect_estimate_error(
         &forest,
-        calldata.clone(),
+        call_message(calldata.clone(), Some(half)).await?,
         block.clone(),
-        half,
         TRANSACTION_REJECTED_CODE,
         &format!("out of gas: gas required exceeds: {half}"),
     )
@@ -393,21 +419,18 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
     // Below the inclusion cost, preflight rejects the message before it runs.
     expect_estimate_error(
         &forest,
-        calldata,
+        call_message(calldata, Some(21_000)).await?,
         block,
-        21_000,
         INVALID_INPUT_CODE,
         "gas required exceeds allowance (21000)",
     )
     .await
 }
 
-/// Under a cap, a revert that more gas fixes is searched past instead of reported. Forest only: Lotus reports it.
+/// Under a cap, a revert that more gas fixes is searched past instead of reported. Forest only: the devnet Lotus reports it.
 async fn estimate_under_cap_searches_past_gas_dependent_revert() -> anyhow::Result<()> {
     let (forest, _, block) = pinned_common_block().await?;
     let block = BlockNumberOrHash::from_block_number(block);
-    // The `gasleft()` bound in `requiresHighGasLimit()`.
-    let threshold: u64 = 50_000_000;
     let calldata = selector(REQUIRES_HIGH_GAS_SIGNATURE);
 
     let gas = estimate(
@@ -418,23 +441,150 @@ async fn estimate_under_cap_searches_past_gas_dependent_revert() -> anyhow::Resu
     )
     .await?;
     ensure!(
-        gas > threshold,
-        "expected an estimate above {threshold}, got {gas}"
+        gas > REQUIRES_HIGH_GAS_THRESHOLD,
+        "expected an estimate above {REQUIRES_HIGH_GAS_THRESHOLD}, got {gas}"
     );
     let call = call_message(calldata.clone(), Some(gas)).await?;
-    forest
-        .call(EthCall::request((call, block.clone()))?)
-        .await
-        .with_context(|| format!("eth_call at the estimate {gas} failed"))?;
+    expect_call_ok(&forest, call, block.clone()).await?;
 
-    let cap = threshold / 2;
+    let cap = REQUIRES_HIGH_GAS_THRESHOLD / 2;
     expect_estimate_error(
         &forest,
-        calldata,
+        call_message(calldata, Some(cap)).await?,
         block,
-        cap,
         TRANSACTION_REJECTED_CODE,
         &format!("out of gas: gas required exceeds: {cap}"),
+    )
+    .await
+}
+
+/// Without a cap too, a revert that more gas fixes is searched past. Forest only: the devnet Lotus reports it.
+async fn estimate_without_cap_searches_past_gas_dependent_revert() -> anyhow::Result<()> {
+    let (forest, _, block) = pinned_common_block().await?;
+    let block = BlockNumberOrHash::from_block_number(block);
+    let calldata = selector(REQUIRES_HIGH_GAS_SIGNATURE);
+
+    let gas = estimate(&forest, calldata.clone(), block.clone(), None).await?;
+    ensure!(
+        gas > REQUIRES_HIGH_GAS_THRESHOLD && gas <= BLOCK_GAS_LIMIT,
+        "expected an estimate in ({REQUIRES_HIGH_GAS_THRESHOLD}, {BLOCK_GAS_LIMIT}], got {gas}"
+    );
+    expect_call_ok(&forest, call_message(calldata, Some(gas)).await?, block).await
+}
+
+/// Funded with [`POOR_SENDER_FUND_AMT`], once per process.
+async fn poor_sender() -> anyhow::Result<&'static EthAddress> {
+    static POOR_SENDER: OnceCell<EthAddress> = OnceCell::const_new();
+    POOR_SENDER
+        .get_or_try_init(|| async {
+            let (_, addr) = new_funded_delegated(POOR_SENDER_FUND_AMT).await?;
+            EthAddress::from_filecoin_address(&addr)
+        })
+        .await
+}
+
+/// Estimates run with zero fees, so a sender that cannot pay for the gas still gets one, with or
+/// without a cap. Forest only: the devnet Lotus estimates with fees.
+async fn estimate_ignores_sender_funds_without_price() -> anyhow::Result<()> {
+    let poor = *poor_sender().await?;
+    let forest = forest_client()?;
+    let block = BlockNumberOrHash::PredefinedBlock(Predefined::Latest);
+    let calldata = recurse_calldata(NESTED_DEPTH);
+    for gas in [None, Some(BLOCK_GAS_LIMIT)] {
+        let msg = EthCallMessage {
+            from: Some(poor),
+            ..call_message(calldata.clone(), gas).await?
+        };
+        let estimate = estimate_msg(&forest, msg.clone(), block.clone())
+            .await
+            .with_context(|| {
+                format!("estimating for a sender that cannot pay fees, gas={gas:?}")
+            })?;
+        ensure!(
+            estimate < BLOCK_GAS_LIMIT,
+            "the estimate {estimate} saturated instead of converging, gas={gas:?}"
+        );
+        let msg = EthCallMessage {
+            gas: Some(EthUint64(estimate)),
+            ..msg
+        };
+        expect_call_ok(&forest, msg, block.clone()).await?;
+    }
+    Ok(())
+}
+
+/// A `gasPrice` or `maxFeePerGas` limits the estimate to the gas the sender can pay for. Forest
+/// only: the devnet Lotus ignores both.
+async fn estimate_honors_gas_price() -> anyhow::Result<()> {
+    let (forest, _, block) = pinned_common_block().await?;
+    let block = BlockNumberOrHash::from_block_number(block);
+    let calldata = recurse_calldata(NESTED_DEPTH);
+    let base = call_message(calldata, None).await?;
+    let uncapped = estimate_msg(&forest, base.clone(), block.clone()).await?;
+
+    // One attoFIL per gas leaves the funded sender far more than the block gas limit.
+    let affordable = estimate_msg(
+        &forest,
+        EthCallMessage {
+            gas_price: Some(EthBigInt::from(1)),
+            ..base.clone()
+        },
+        block.clone(),
+    )
+    .await?;
+    ensure!(
+        affordable == uncapped,
+        "an affordable price changed the estimate: priced={affordable} unpriced={uncapped}"
+    );
+
+    let from = base.from.context("the call has no sender")?;
+    let balance = TokenAmount::from(
+        forest
+            .call(EthGetBalance::request((from, block.clone()))?)
+            .await?,
+    );
+
+    // At 10^13 attoFIL per gas the funded sender affords about a million gas, far below the need.
+    let max_fee = TokenAmount::from_atto(10_u64.pow(13));
+    let allowance = balance.div_floor(max_fee.atto().clone());
+    expect_estimate_error(
+        &forest,
+        EthCallMessage {
+            max_fee_per_gas: Some(max_fee.into()),
+            ..base.clone()
+        },
+        block.clone(),
+        TRANSACTION_REJECTED_CODE,
+        &format!("out of gas: gas required exceeds: {}", allowance.atto()),
+    )
+    .await?;
+    expect_estimate_error(
+        &forest,
+        EthCallMessage {
+            gas_price: Some(EthBigInt::from(1)),
+            max_fee_per_gas: Some(EthBigInt::from(1)),
+            ..base.clone()
+        },
+        block.clone(),
+        INVALID_PARAMS_CODE,
+        "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
+    )
+    .await?;
+    let value = TokenAmount::from_whole(1_000_000);
+    expect_estimate_error(
+        &forest,
+        EthCallMessage {
+            gas_price: Some(EthBigInt::from(1)),
+            value: Some((&value).into()),
+            ..base
+        },
+        block,
+        TRANSACTION_REJECTED_CODE,
+        &format!(
+            "insufficient funds for gas * price + value: have {} want {}",
+            balance.atto(),
+            value.atto()
+        ),
     )
     .await
 }

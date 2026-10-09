@@ -4,10 +4,12 @@
 use super::utils::decode_revert_reason;
 use crate::rpc::error::RpcErrorData;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::econ::TokenAmount;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::ApplyRet;
 use crate::utils::encoding::hex;
 use fvm_ipld_encoding::RawBytes;
+use jsonrpsee::types::error::INVALID_PARAMS_CODE;
 use serde::Serialize;
 use std::fmt::Debug;
 use thiserror::Error;
@@ -42,12 +44,21 @@ pub enum EthErrors {
     EventsNotYetAvailable,
     #[error("requested epoch was a null round ({epoch})")]
     NullRound { epoch: ChainEpoch },
-    /// The caller-supplied gas limit is below the message inclusion cost.
+    /// The gas cap (the caller's `gas`, or what the sender can pay for at the caller's price) is below the message inclusion cost.
     #[error("gas required exceeds allowance ({gas_limit})")]
     GasRequiredExceedsAllowance { gas_limit: u64 },
-    /// The call runs out of gas, or fails, within the caller-supplied gas limit but succeeds with more.
+    /// The call runs out of gas, or fails, within the gas cap but succeeds with more.
     #[error("out of gas: gas required exceeds: {gas_limit}")]
     InsufficientGasLimit { gas_limit: u64 },
+    /// The sender cannot send the call's value, let alone pay for gas at the caller's price.
+    #[error("insufficient funds for gas * price + value: have {} want {}", balance.atto(), value.atto())]
+    InsufficientFunds {
+        balance: TokenAmount,
+        value: TokenAmount,
+    },
+    /// The call sets both a legacy and an EIP-1559 price.
+    #[error("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")]
+    ConflictingGasPrices,
 }
 
 impl EthErrors {
@@ -110,7 +121,10 @@ impl RpcErrorData for EthErrors {
             EthErrors::EventsNotYetAvailable => None,
             EthErrors::NullRound { .. } => Some(NULL_ROUND_CODE),
             EthErrors::GasRequiredExceedsAllowance { .. } => Some(INVALID_INPUT_CODE),
-            EthErrors::InsufficientGasLimit { .. } => Some(TRANSACTION_REJECTED_CODE),
+            EthErrors::InsufficientGasLimit { .. } | EthErrors::InsufficientFunds { .. } => {
+                Some(TRANSACTION_REJECTED_CODE)
+            }
+            EthErrors::ConflictingGasPrices => Some(INVALID_PARAMS_CODE),
         }
     }
 
@@ -122,7 +136,9 @@ impl RpcErrorData for EthErrors {
             EthErrors::EventsNotYetAvailable => Some(self.to_string()),
             EthErrors::NullRound { .. } => Some(self.to_string()),
             EthErrors::GasRequiredExceedsAllowance { .. }
-            | EthErrors::InsufficientGasLimit { .. } => Some(self.to_string()),
+            | EthErrors::InsufficientGasLimit { .. }
+            | EthErrors::InsufficientFunds { .. }
+            | EthErrors::ConflictingGasPrices => Some(self.to_string()),
         }
     }
 
@@ -135,7 +151,9 @@ impl RpcErrorData for EthErrors {
             | EthErrors::BlockRangeExceeded { .. }
             | EthErrors::EventsNotYetAvailable
             | EthErrors::GasRequiredExceedsAllowance { .. }
-            | EthErrors::InsufficientGasLimit { .. } => None,
+            | EthErrors::InsufficientGasLimit { .. }
+            | EthErrors::InsufficientFunds { .. }
+            | EthErrors::ConflictingGasPrices => None,
             // Lotus sends the epoch as a bare JSON number.
             EthErrors::NullRound { epoch } => Some(serde_json::Value::from(*epoch)),
         }
@@ -243,6 +261,33 @@ mod tests {
         assert_eq!(
             server_err.message(),
             "out of gas: gas required exceeds: 25000"
+        );
+        assert!(server_err.data().is_none());
+    }
+
+    #[test]
+    fn test_insufficient_funds_converts_to_server_error() {
+        let server_err: ServerError = EthErrors::InsufficientFunds {
+            balance: TokenAmount::from_atto(100),
+            value: TokenAmount::from_atto(101),
+        }
+        .into();
+
+        assert_eq!(server_err.code(), TRANSACTION_REJECTED_CODE);
+        assert_eq!(
+            server_err.message(),
+            "insufficient funds for gas * price + value: have 100 want 101"
+        );
+        assert!(server_err.data().is_none());
+    }
+    #[test]
+    fn test_conflicting_gas_prices_converts_to_server_error() {
+        let server_err: ServerError = EthErrors::ConflictingGasPrices.into();
+
+        assert_eq!(server_err.code(), INVALID_PARAMS_CODE);
+        assert_eq!(
+            server_err.message(),
+            "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified"
         );
         assert!(server_err.data().is_none());
     }
