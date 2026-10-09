@@ -5,7 +5,7 @@ expression: spec
 openrpc: 1.3.2
 info:
   title: forest
-  version: 0.37.0
+  version: 0.38.0
 methods:
   - name: Filecoin.ChainGetTipSet
     description: Returns the tipset with the specified CID.
@@ -1594,6 +1594,19 @@ methods:
       schema:
         $ref: "#/components/schemas/Address"
     paramStructure: by-position
+  - name: Filecoin.StateRewardDistribution
+    description: "Returns the block rewards allocated while executing the selected tipset, for each block and in total: the stream weights and recipient shares used by each award, the resulting amounts in attoFIL, and the payments to the miner and to the burnt funds actor. The selected tipset is executed, so it needs no child tipset. Requires reward actor v19 (network version 29). A block with a positive WinCount and zero MintedReward received only its gas reward."
+    params:
+      - name: tipsetSelector
+        required: true
+        schema:
+          $ref: "#/components/schemas/TipsetSelector"
+    result:
+      name: Filecoin.StateRewardDistribution.Result
+      required: true
+      schema:
+        $ref: "#/components/schemas/RewardDistribution"
+    paramStructure: by-position
 components:
   schemas:
     AccountDiff:
@@ -1932,6 +1945,33 @@ components:
       anyOf:
         - type: string
         - $ref: "#/components/schemas/EthInt64"
+    BlockReward:
+      description: Reward award of one block and the distribution it used.
+      type: object
+      properties:
+        Amounts:
+          $ref: "#/components/schemas/RewardAmounts"
+        Block:
+          $ref: "#/components/schemas/Cid"
+        BurnWeight:
+          description: "Fraction assigned to no stream. `BurnAllocation` also includes integer rounding and the\nburn shares of explicit streams."
+          type: string
+        Miner:
+          $ref: "#/components/schemas/Address"
+        Streams:
+          type: array
+          items:
+            $ref: "#/components/schemas/StreamReward"
+        WinCount:
+          type: integer
+          format: int64
+      required:
+        - Block
+        - Miner
+        - WinCount
+        - Amounts
+        - BurnWeight
+        - Streams
     Bloom:
       type: string
     ChainExportKind:
@@ -2648,6 +2688,31 @@ components:
         - type
     EthUint64:
       type: string
+    ExplicitRewardDistribution:
+      description: "Recipients of an explicit stream's award.\n\nThe stream's `Amount = sum(Recipients.EarnedAmount) + BurnAmount + RoundingAdjustment`."
+      type: object
+      properties:
+        BurnAmount:
+          description: Stream allocation burned for this award.
+          $ref: "#/components/schemas/TokenAmount"
+        BurnShare:
+          description: Fraction of the stream assigned to no recipient.
+          type: string
+        Recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipientReward"
+        RoundingAdjustment:
+          description: "Reconciles the stream allocation with recipient earnings and burn. Negative when earlier\nrounding dust becomes earned, because earnings are differences of rounded cumulative\nentitlements. Not an additional payment or burn."
+          $ref: "#/components/schemas/TokenAmount"
+        Writer:
+          $ref: "#/components/schemas/Address"
+      required:
+        - Writer
+        - Recipients
+        - BurnShare
+        - BurnAmount
+        - RoundingAdjustment
     FilecoinSnapshotVersion:
       type: string
       enum:
@@ -2897,6 +2962,80 @@ components:
       type: object
       additionalProperties:
         $ref: "#/components/schemas/AccountState"
+    RecipientReward:
+      description: Share and earnings of one recipient from a stream award.
+      type: object
+      properties:
+        EarnedAmount:
+          description: "Increase of the recipient's entitlement from this award. Excludes earnings from earlier\nawards and does not subtract later claims."
+          $ref: "#/components/schemas/TokenAmount"
+        Recipient:
+          $ref: "#/components/schemas/Address"
+        Share:
+          type: string
+      required:
+        - Recipient
+        - Share
+        - EarnedAmount
+    RewardAmounts:
+      description: "Reward allocations and transfers of one block, or their sums over a tipset.\n\n`MintedReward = MinerReward + ExplicitReward + BurnAllocation`."
+      type: object
+      properties:
+        BurnAllocation:
+          description: Minted reward allocated to burn by the distribution.
+          $ref: "#/components/schemas/TokenAmount"
+        BurnPaid:
+          description: "Amount successfully transferred to the burnt funds actor by reward awards, including\nearlier rounding dust settled during the award and a miner payment redirected to burn on\nfailure. Excludes burns from separate messages and nested transfers from miner actors."
+          $ref: "#/components/schemas/TokenAmount"
+        ExplicitReward:
+          description: Minted reward retained for explicit stream recipients.
+          $ref: "#/components/schemas/TokenAmount"
+        MessageReward:
+          description: Reward funded by message fees and allocated to the miner.
+          $ref: "#/components/schemas/TokenAmount"
+        MinerPaid:
+          description: "Amount successfully transferred to miner actors, including message rewards."
+          $ref: "#/components/schemas/TokenAmount"
+        MinerReward:
+          description: Minted reward allocated to the implicit miner stream.
+          $ref: "#/components/schemas/TokenAmount"
+        MintedReward:
+          description: "Block subsidy released from the reward actor's reserve. Zero for a block with a positive\n`WinCount` means the block received only its gas reward, the reward actor's fallback when\nit cannot award normally."
+          $ref: "#/components/schemas/TokenAmount"
+      required:
+        - MintedReward
+        - MinerReward
+        - MessageReward
+        - ExplicitReward
+        - BurnAllocation
+        - MinerPaid
+        - BurnPaid
+    RewardDistribution:
+      description: "Block rewards allocated while executing one tipset.\n\nAll token amounts are in attoFIL."
+      type: object
+      properties:
+        Blocks:
+          description: "One entry per block, in execution order."
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockReward"
+        Denom:
+          description: Common denominator of stream weights and recipient shares.
+          type: string
+        Height:
+          type: integer
+          format: int64
+        TipSetKey:
+          $ref: "#/components/schemas/NonEmpty_Array_of_Cid"
+        Totals:
+          description: "Sums of the corresponding `Amounts` fields across `Blocks`."
+          $ref: "#/components/schemas/RewardAmounts"
+      required:
+        - TipSetKey
+        - Height
+        - Denom
+        - Totals
+        - Blocks
     Signature:
       type: object
       properties:
@@ -2926,6 +3065,26 @@ components:
       type: object
       additionalProperties:
         $ref: "#/components/schemas/AccountDiff"
+    StreamReward:
+      description: "Fraction and allocation of one reward stream in one block's award."
+      type: object
+      properties:
+        Amount:
+          description: Gross minted reward allocated to this stream.
+          $ref: "#/components/schemas/TokenAmount"
+        Distribution:
+          description: "`null` for the implicit stream, whose recipient is the block's miner."
+          anyOf:
+            - $ref: "#/components/schemas/ExplicitRewardDistribution"
+            - type: "null"
+        ID:
+          type: string
+        Weight:
+          type: string
+      required:
+        - ID
+        - Weight
+        - Amount
     Ticket:
       type: object
       properties:

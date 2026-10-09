@@ -184,6 +184,7 @@ mod tests {
     use crate::shim::address::Address;
     use crate::utils::db::car_util::load_car;
     use nunny::Vec as NonEmpty;
+    use rstest::rstest;
     use std::{io::Cursor, sync::Arc};
 
     async fn populate_chain_store() -> (NonEmpty<Cid>, ChainStore) {
@@ -283,28 +284,25 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::zero(0)]
+    #[case::max(u64::MAX)]
+    #[case::over_finality(crate::shim::policy::policy_constants::CHAIN_FINALITY as u64 + 1)]
     #[tokio::test]
-    async fn oversized_request_len_is_rejected_before_allocation() {
+    async fn oversized_request_len_is_rejected_before_allocation(#[case] request_len: u64) {
         // A malicious peer sending a huge `request_len` must be rejected by the
         // *before* any allocations happen.
         let (cids, cs) = populate_chain_store().await;
 
-        let over_limit = crate::shim::policy::policy_constants::CHAIN_FINALITY as u64 + 1;
-        for request_len in [0, u64::MAX, over_limit] {
-            let response = make_chain_exchange_response(
-                &cs,
-                &ChainExchangeRequest {
-                    start: cids.clone(),
-                    request_len,
-                    options: HEADERS | MESSAGES,
-                },
-            );
-            assert_eq!(
-                response.status,
-                ChainExchangeResponseStatus::BadRequest,
-                "request_len {request_len} should be rejected"
-            );
-        }
+        let response = make_chain_exchange_response(
+            &cs,
+            &ChainExchangeRequest {
+                start: cids,
+                request_len,
+                options: HEADERS | MESSAGES,
+            },
+        );
+        assert_eq!(response.status, ChainExchangeResponseStatus::BadRequest);
     }
 
     #[tokio::test]

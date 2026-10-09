@@ -3,10 +3,10 @@
 
 use super::*;
 use crate::shim::actors::miner::State;
+use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use ::cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fvm_shared4::clock::ChainEpoch;
 
 use super::vesting_funds::{VestingFundLotusJson, VestingFundsLotusJson};
 

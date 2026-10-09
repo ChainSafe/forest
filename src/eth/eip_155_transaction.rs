@@ -320,6 +320,7 @@ pub fn calc_valid_eip155_sig_len(eth_chain_id: EthChainId) -> (u64, u64) {
 mod tests {
     use num_bigint::ToBigInt;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
 
     use super::*;
 
@@ -359,39 +360,13 @@ mod tests {
         .unwrap();
     }
 
-    #[test]
-    fn test_calc_eip_155_sig_len() {
-        let cases = [
-            (
-                "ChainId fits in 1 byte",
-                0x01,
-                HOMESTEAD_SIG_LEN as u64 + 1 - 1,
-            ),
-            (
-                "ChainId fits in 2 bytes",
-                0x0100,
-                HOMESTEAD_SIG_LEN as u64 + 2 - 1,
-            ),
-            (
-                "ChainId fits in 3 bytes",
-                0x10000,
-                HOMESTEAD_SIG_LEN as u64 + 3 - 1,
-            ),
-            (
-                "ChainId fits in 4 bytes",
-                0x01000000,
-                HOMESTEAD_SIG_LEN as u64 + 4 - 1,
-            ),
-            (
-                "ChainId fits in 6 bytes",
-                0x010000000000,
-                HOMESTEAD_SIG_LEN as u64 + 6 - 1,
-            ),
-        ];
-
-        for (name, chain_id, expected) in cases {
-            let actual = calc_eip155_sig_len(chain_id, 1);
-            assert_eq!(actual, expected, "{name}");
-        }
+    #[rstest]
+    #[case::chain_id_fits_in_1_byte(0x01, HOMESTEAD_SIG_LEN as u64 + 1 - 1)]
+    #[case::chain_id_fits_in_2_bytes(0x0100, HOMESTEAD_SIG_LEN as u64 + 2 - 1)]
+    #[case::chain_id_fits_in_3_bytes(0x10000, HOMESTEAD_SIG_LEN as u64 + 3 - 1)]
+    #[case::chain_id_fits_in_4_bytes(0x01000000, HOMESTEAD_SIG_LEN as u64 + 4 - 1)]
+    #[case::chain_id_fits_in_6_bytes(0x010000000000, HOMESTEAD_SIG_LEN as u64 + 6 - 1)]
+    fn test_calc_eip_155_sig_len(#[case] chain_id: EthChainId, #[case] expected: u64) {
+        assert_eq!(calc_eip155_sig_len(chain_id, 1), expected);
     }
 }
