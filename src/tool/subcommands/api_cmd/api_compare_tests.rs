@@ -2485,7 +2485,7 @@ fn eth_null_round_tests<DB: Blockstore + ShallowClone>(
                 .with_api_path(api_path),
             )
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-            // `eth_getBlockReceipts*` reject null rounds by default (lotus#13694).
+            // `eth_getBlockReceipts*` reject null rounds (lotus#13694).
             RpcTest::identity(
                 EthGetBlockReceipts::request((BlockNumberOrHash::from_block_number(null_epoch),))?
                     .with_api_path(api_path),
