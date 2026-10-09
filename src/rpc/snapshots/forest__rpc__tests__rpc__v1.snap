@@ -5986,6 +5986,10 @@ components:
           anyOf:
             - $ref: "#/components/schemas/EthBytes"
             - type: "null"
+        maxFeePerGas:
+          anyOf:
+            - $ref: "#/components/schemas/EthBigInt"
+            - type: "null"
         to:
           anyOf:
             - $ref: "#/components/schemas/EthAddress"

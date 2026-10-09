@@ -9,11 +9,15 @@ contract NestedGas {
     uint256 public acc;
 
     /// Succeeds only when handed a large gas limit, and otherwise reverts explicitly rather than
-    /// running out of gas. Raising the limit would in fact fix it, but the estimator has no way to
-    /// know that, so this is the failure it must report instead of searching around.
+    /// running out of gas. Raising the limit fixes it, so the estimator searches past the revert.
     function requiresHighGasLimit() external {
         require(gasleft() > 50_000_000, "gas limit too low");
         acc += 1;
+    }
+
+    /// Reverts at any gas limit, the failure the estimator must report rather than search around.
+    function alwaysReverts() external pure {
+        revert("always reverts");
     }
 
     function recurse(uint256 depth) external {
