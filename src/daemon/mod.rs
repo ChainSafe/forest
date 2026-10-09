@@ -27,7 +27,6 @@ use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::eth::types::CallSource;
 use crate::rpc::start_rpc;
-use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
@@ -456,35 +455,6 @@ async fn prefill_rpc_caches_for_tipset(
                 .await
                 {
                     warn!("failed to call `Block::from_filecoin_tipset` for cache warmup: {e:#}");
-                }
-            }
-            {
-                use crate::rpc::eth::filter::{Matcher, SkipEvent};
-                struct CollectEventsCachePrefillingMatcher;
-                impl Matcher for CollectEventsCachePrefillingMatcher {
-                    fn msg_cid_filter(&self) -> Option<&Cid> {
-                        None
-                    }
-                    fn matches(
-                        &self,
-                        _: &Address,
-                        _: &[crate::shim::executor::Entry],
-                    ) -> anyhow::Result<bool> {
-                        Ok(false)
-                    }
-                }
-                let mut collected_events = vec![];
-                if let Err(e) = EthEventHandler::collect_events(
-                    &state_manager,
-                    &ts,
-                    None,
-                    Some(&CollectEventsCachePrefillingMatcher),
-                    SkipEvent::OnUnresolvedAddress,
-                    &mut collected_events,
-                )
-                .await
-                {
-                    warn!("failed to collect events for cache warmup: {e:#}");
                 }
             }
         }
