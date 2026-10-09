@@ -59,6 +59,8 @@ Mandatory release for mainnet node operators. It includes support for the NV29 _
 
 ### Fixed
 
+- [#7528](https://github.com/ChainSafe/forest/issues/7528): `trace_call` now accepts a `from` address that is an EVM contract or that does not exist on chain, matching `eth_call`.
+
 - [#7661](https://github.com/ChainSafe/forest/pull/7661): Fixed snapshot GC occasionally leaving a gap in the chain right above the exported snapshot.
 
 - [#7677](https://github.com/ChainSafe/forest/pull/7677): Fixed the same state migration running several times in parallel when multiple tipsets at the upgrade epoch share a parent, which is redundant.
