@@ -310,6 +310,7 @@ opt-level = 1
 lto = "off"
 incremental = true
 codegen-units = 256
+overflow-checks = true
 
 [profile.quick-test]
 inherits = "quick"
