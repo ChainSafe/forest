@@ -27,6 +27,10 @@
 
 ### Breaking
 
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): Removed the `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND` environment variable. `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now always return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number, matching Lotus since v1.36.2 ([lotus#13694](https://github.com/filecoin-project/lotus/pull/13694)).
+
+- [#7737](https://github.com/ChainSafe/forest/pull/7737): `Filecoin.MinerCreateBlock` now requires the `sign` permission instead of `write`, since it signs the block with the node's wallet. Matches Lotus ([lotus#13871](https://github.com/filecoin-project/lotus/pull/13871)).
+
 ### Added
 
 - [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section. List drand relay addresses there (`/p2p/<peer-id>` or `/dnsaddr/<name>`).
@@ -38,6 +42,8 @@
 ### Fixed
 
 - [#7544](https://github.com/ChainSafe/forest/pull/7544): Fixed the `drand_http_fetch_total` metric being exported as `drand_http_fetch_total_total`.
+
+- [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
 
 ## Forest v0.38.0 "Ayanant"
 

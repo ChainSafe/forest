@@ -32,20 +32,24 @@ impl RpcMethod<1> for GetActorEventsRaw {
         (filter,): Self::Params,
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        if let Some(filter) = filter {
-            let parsed_filter = Arc::new(ParsedFilter::from_actor_event_filter(
-                ctx.chain_store().heaviest_tipset().epoch(),
-                ctx.eth_event_handler.max_filter_height_range,
-                filter,
-            )?);
-            let events = ctx
-                .eth_event_handler
-                .get_events_for_parsed_filter(&ctx, &parsed_filter, SkipEvent::Never)
-                .await?;
-            Ok(events.into_iter().map(|ce| ce.into()).collect())
-        } else {
-            Ok(vec![])
-        }
+        let Some(parsed_filter) = filter
+            .map(|filter| {
+                ParsedFilter::from_actor_event_filter(
+                    ctx.chain_store().heaviest_tipset().epoch(),
+                    ctx.eth_event_handler.max_filter_height_range,
+                    filter,
+                )
+            })
+            .transpose()?
+            .flatten()
+        else {
+            return Ok(vec![]);
+        };
+        let events = ctx
+            .eth_event_handler
+            .get_events_for_parsed_filter(&ctx, &Arc::new(parsed_filter), SkipEvent::Never)
+            .await?;
+        Ok(events.into_iter().map(|ce| ce.into()).collect())
     }
 }
 
@@ -96,5 +100,28 @@ impl From<CollectedEvent> for ActorEvent {
             tipset_key: LotusJson(event.tipset_key),
             msg_cid: LotusJson(event.msg_cid),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rpc::RPCState;
+    use crate::rpc::test_utils::chain_store;
+
+    #[tokio::test]
+    async fn get_actor_events_raw_without_lower_bound_is_empty() {
+        let (ctx, _) = RPCState::for_tests(chain_store()).unwrap();
+        let filter = ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: None,
+            to_height: Some(0),
+            tipset_key: None,
+        };
+        let events = GetActorEventsRaw::handle(ctx, (Some(filter),), &Default::default())
+            .await
+            .unwrap();
+        assert!(events.is_empty());
     }
 }
