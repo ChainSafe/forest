@@ -783,6 +783,22 @@ fn event_tests_with_tipset<DB: Blockstore + ShallowClone>(
             addresses: vec![],
             fields: Default::default(),
             from_height: None,
+            to_height: Some(epoch),
+            tipset_key: None,
+        }),))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(GetActorEventsRaw::request((Some(ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: Some(epoch - 3000),
+            to_height: Some(epoch),
+            tipset_key: None,
+        }),))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(GetActorEventsRaw::request((Some(ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: None,
             to_height: None,
             tipset_key: Some(tipset.key().clone().into()),
         }),))?)
