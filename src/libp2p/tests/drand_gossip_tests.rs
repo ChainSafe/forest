@@ -50,10 +50,9 @@ async fn gossip_rounds_are_verified_and_cached() {
     // The whitelist must carry the *fake* chain hash, otherwise the node refuses
     // to subscribe to the topic the relay publishes on.
     let network_name: GenesisNetworkName = "testdrandgossipsub".into();
-    let drand_chain_hashes = vec![hash];
     let cfg = PubsubTopicCfg {
         network_name: &network_name,
-        drand_chain_hashes: &drand_chain_hashes,
+        drand_chain_hash: Some(&hash),
     };
 
     let mut node = Swarm::new_ephemeral_tokio(|id| build_gossipsub(&id, cfg).unwrap());

@@ -541,7 +541,7 @@ pub(crate) fn handle_drand_entry(
             return report(MessageAcceptance::Ignore);
         }
     }
-    
+
     // The chain uses one round per epoch, skip the rest.
     if !beacon.is_epoch_round(round) {
         trace!(

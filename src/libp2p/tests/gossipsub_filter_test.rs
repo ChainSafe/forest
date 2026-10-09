@@ -19,28 +19,23 @@ use crate::libp2p::{
 };
 use crate::networks::GenesisNetworkName;
 
-const NETWORK: &str = "testnetname";
-/// quicknet, the one unchained drand network Forest subscribes to.
-const DRAND_HASH: &str = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
 
 /// Owns what [`PubsubTopicCfg`] borrows.
 pub(in crate::libp2p) struct TopicCfgOwner {
     network_name: GenesisNetworkName,
-    drand_chain_hashes: Vec<String>,
 }
 
 impl TopicCfgOwner {
     pub(in crate::libp2p) fn new() -> Self {
         Self {
-            network_name: NETWORK.into(),
-            drand_chain_hashes: vec![DRAND_HASH.to_string()],
+            network_name: "testnetname".into(),
         }
     }
 
     pub(in crate::libp2p) fn cfg(&self) -> PubsubTopicCfg<'_> {
         PubsubTopicCfg {
             network_name: &self.network_name,
-            drand_chain_hashes: &self.drand_chain_hashes,
+            drand_chain_hash: Some("52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971"),
         }
     }
 }

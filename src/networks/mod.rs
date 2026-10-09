@@ -500,12 +500,10 @@ impl ChainConfig {
         }
     }
 
-    pub fn drand_gossip_chain_hashes(&self) -> Vec<String> {
+    pub fn drand_gossip_chain_hash(&self) -> Option<&str> {
         self.drand_points()
-            .filter(|p| p.config.network_type.is_unchained())
-            .take(1)
-            .map(|p| p.config.chain_info.hash.to_string())
-            .collect()
+            .find(|p| p.config.network_type.is_unchained())
+            .map(|p| p.config.chain_info.hash.as_ref())
     }
 
     pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {

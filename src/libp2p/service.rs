@@ -103,7 +103,7 @@ pub enum PubsubTopic {
 #[derive(Clone, Copy)]
 pub struct PubsubTopicCfg<'a> {
     pub network_name: &'a GenesisNetworkName,
-    pub drand_chain_hashes: &'a [String],
+    pub drand_chain_hash: Option<&'a str>,
 }
 
 /// All gossipsub topics on `network_name`.
@@ -120,11 +120,9 @@ pub fn pubsub_topics(cfg: PubsubTopicCfg<'_>) -> Vec<(PubsubTopic, IdentTopic)> 
                 ));
             }
             PubsubTopic::Drand => {
-                topics.extend(
-                    cfg.drand_chain_hashes
-                        .iter()
-                        .map(move |h| (kind, IdentTopic::new(format!("{kind}/{h}")))),
-                );
+                if let Some(hash) = cfg.drand_chain_hash {
+                    topics.push((kind, IdentTopic::new(format!("{kind}/{hash}"))));
+                }
             }
         }
     }
@@ -247,7 +245,7 @@ impl Libp2pService {
     ) -> anyhow::Result<Self> {
         let pubsub_topic_cfg = PubsubTopicCfg {
             network_name: &network_name,
-            drand_chain_hashes: &cs.chain_config().drand_gossip_chain_hashes(),
+            drand_chain_hash: cs.chain_config().drand_gossip_chain_hash(),
         };
         let gossipsub = build_gossipsub(&net_keypair, pubsub_topic_cfg)?;
         let behaviour = ForestBehaviour::new(
