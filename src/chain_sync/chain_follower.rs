@@ -541,6 +541,16 @@ pub(crate) fn handle_drand_entry(
             return report(MessageAcceptance::Ignore);
         }
     }
+    
+    // The chain uses one round per epoch, skip the rest.
+    if !beacon.is_epoch_round(round) {
+        trace!(
+            round,
+            "ignoring drand entry: no epoch draws from this round"
+        );
+        return report(MessageAcceptance::Ignore);
+    }
+
     let Ok(permit) = drand_verify_limiter.shallow_clone().try_acquire_owned() else {
         debug!(
             round,
@@ -1726,16 +1736,19 @@ mod tests {
         );
     }
 
-    /// Entries that are verified: accepted and cached when the signature is valid,
-    /// rejected and never cached when it is forged. `now_offset` is relative to one
-    /// second after round 7 is produced.
+    /// On the test chain (mainnet genesis, 30-second epochs, `quicknet` rounds) every epoch
+    /// draws from a round ending in 2.
+    const EPOCH_ROUND: u64 = 12;
+
+    /// Verified entries: valid ones are accepted and cached, forged ones are rejected and
+    /// never cached. `now_offset` is relative to one second after the entry's round is produced.
     #[rstest::rstest]
-    #[case::valid(|d: &FakeDrand| d.entry(7), 0, MessageAcceptance::Accept)]
-    // The clock reads exactly round 7's production time: not a future round.
-    #[case::produced_this_second(|d: &FakeDrand| d.entry(7), -1, MessageAcceptance::Accept)]
-    // Round 7 carrying round 8's signature: well-formed but fails verification.
+    #[case::valid(|d: &FakeDrand| d.entry(EPOCH_ROUND), 0, MessageAcceptance::Accept)]
+    // The clock reads exactly the round's production time: not a future round.
+    #[case::produced_this_second(|d: &FakeDrand| d.entry(EPOCH_ROUND), -1, MessageAcceptance::Accept)]
+    // An epoch round carrying the next round's signature: well-formed but fails verification.
     #[case::forged_signature(
-        |d: &FakeDrand| BeaconEntry::new(7, d.entry(8).signature().to_vec()),
+        |d: &FakeDrand| BeaconEntry::new(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature().to_vec()),
         0,
         MessageAcceptance::Reject
     )]
@@ -1746,22 +1759,23 @@ mod tests {
         #[case] expected: MessageAcceptance,
     ) {
         let (drand, schedule) = fake_drand_schedule();
+        let beacon = schedule.unchained_beacon().expect("unchained beacon");
+        let cached = matches!(expected, MessageAcceptance::Accept);
         let limiter = Arc::new(Semaphore::new(1));
         let gossiped = GossipedEntry::new(entry(&drand));
+        let round = gossiped.entry.round();
 
-        let now = time_of(&schedule, 7).saturating_add_signed(now_offset);
+        let now = time_of(&schedule, round).saturating_add_signed(now_offset);
         gossiped.handle(&limiter, &schedule, now);
 
-        let accepted = matches!(expected, MessageAcceptance::Accept);
         assert_verdict(gossiped.verdict().await, expected);
         assert_eq!(limiter.available_permits(), 1, "verification slot released");
-        // The fake beacon has no HTTP servers, so a round can only come from the
-        // cache that the gossip verification filled.
-        let beacon = schedule.unchained_beacon().expect("unchained beacon");
-        match beacon.entry(7).await {
-            Ok(cached) if accepted => assert_eq!(cached, drand.entry(7)),
-            Err(_) if !accepted => {}
-            other => panic!("unexpected cache state: {other:?}"),
+        // The fake beacon has no HTTP servers, so a round can only come from the cache
+        // that the gossip verification filled.
+        match beacon.entry(round).await {
+            Ok(entry) if cached => assert_eq!(entry, drand.entry(round)),
+            Err(_) if !cached => {}
+            other => panic!("round {round}: expected cached={cached}, got {other:?}"),
         }
     }
 
@@ -1783,6 +1797,8 @@ mod tests {
         true,
         MessageAcceptance::Ignore
     )]
+    // Round 13 is produced 18s after round 7 and no epoch draws from it.
+    #[case::not_an_epoch_round(|d: &FakeDrand| d.entry(EPOCH_ROUND + 1), 18, true, MessageAcceptance::Ignore)]
     #[case::no_unchained_beacon(|d: &FakeDrand| d.entry(7), 0, false, MessageAcceptance::Ignore)]
     #[tokio::test]
     async fn drand_entry_decided_before_verification(
@@ -1811,10 +1827,10 @@ mod tests {
     async fn drand_entry_ignored_when_verifications_saturated() {
         let (drand, schedule) = fake_drand_schedule();
         let limiter = Arc::new(Semaphore::new(1));
-        let gossiped = GossipedEntry::new(drand.entry(7));
+        let gossiped = GossipedEntry::new(drand.entry(EPOCH_ROUND));
 
         let _held = limiter.clone().try_acquire_owned().unwrap();
-        gossiped.handle(&limiter, &schedule, time_of(&schedule, 7));
+        gossiped.handle(&limiter, &schedule, time_of(&schedule, EPOCH_ROUND));
 
         assert_verdict(gossiped.verdict().await, MessageAcceptance::Ignore);
         assert_eq!(limiter.available_permits(), 0, "held permit not stolen");

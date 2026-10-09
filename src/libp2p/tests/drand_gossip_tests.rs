@@ -32,7 +32,7 @@ use tokio::sync::Semaphore;
 
 /// End to end: a relay publishes rounds, the node's `gossipsub` delivers them,
 /// `handle_gossip_event` decodes them and defers the verdict, and `handle_drand_entry`
-/// verifies, caches and accepts them.
+/// verifies, caches and accepts the rounds an epoch draws from, ignoring the rest.
 #[tokio::test]
 async fn gossip_rounds_are_verified_and_cached() {
     let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
@@ -133,19 +133,41 @@ async fn gossip_rounds_are_verified_and_cached() {
             .expect("no verdict reported")
             .unwrap()
         {
-            NetworkMessage::ReportValidation { acceptance, .. } => {
-                assert!(
-                    matches!(acceptance, MessageAcceptance::Accept),
-                    "round {round}"
-                );
-            }
+            // Only the rounds an epoch draws from are verified; the rest are ignored.
+            NetworkMessage::ReportValidation { acceptance, .. } => match acceptance {
+                MessageAcceptance::Accept => assert!(beacon.is_epoch_round(round), "round {round}"),
+                MessageAcceptance::Ignore => {
+                    assert!(!beacon.is_epoch_round(round), "round {round}")
+                }
+                other => panic!("round {round}: unexpected verdict {other:?}"),
+            },
             other => panic!("unexpected network message: {other:?}"),
         }
     }
 
-    // The beacon has no HTTP servers: every round is served from the gossip-filled cache.
+    // Only epoch rounds are cached. The beacon has no HTTP servers, so a cached round can
+    // only come from gossip.
+    let epoch_rounds = (1..=test_rounds)
+        .filter(|r| beacon.is_epoch_round(*r))
+        .count();
+    assert!(
+        epoch_rounds > 0,
+        "the published rounds must include an epoch round"
+    );
     for round in 1..=test_rounds {
-        assert_eq!(beacon.entry(round).await.unwrap(), drand.entry(round));
+        match beacon.entry(round).await {
+            Ok(entry) => {
+                assert!(
+                    beacon.is_epoch_round(round),
+                    "round {round} should not be cached"
+                );
+                assert_eq!(entry, drand.entry(round));
+            }
+            Err(_) => assert!(
+                !beacon.is_epoch_round(round),
+                "round {round} should be cached"
+            ),
+        }
     }
 }
 
