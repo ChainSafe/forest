@@ -6,3 +6,4 @@ data_dir = "/forest_data"
 # The devnet chain config ships no bootstrap peers, so `docker-compose.yml`
 # substitutes the placeholder with the Lotus validating node's address.
 bootstrap_peers = ["__LOTUS_MULTIADDR__"]
+drand_gossipsub_peers = [__DRAND_MULTIADDR__]

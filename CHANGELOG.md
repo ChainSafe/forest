@@ -33,11 +33,15 @@
 
 ### Added
 
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): Fixed the `drand_http_fetch_total` metric being exported as `drand_http_fetch_total_total`.
 
 - [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
 

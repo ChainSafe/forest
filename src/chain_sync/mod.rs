@@ -11,6 +11,8 @@ mod sync_status;
 pub(crate) mod tipset_syncer;
 mod validation;
 
+#[cfg(test)]
+pub(crate) use self::chain_follower::handle_drand_entry;
 pub use self::{
     bad_block_cache::BadBlockCache,
     chain_follower::{
