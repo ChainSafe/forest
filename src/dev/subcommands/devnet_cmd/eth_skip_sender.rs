@@ -9,15 +9,16 @@
 //! as needed. They cover estimate-then-submit from an unfunded `from` (including
 //! nested `recurse`), estimate parity with a funded placeholder, `msg.sender`
 //! identity via `sendCoin`, skip-call state isolation, a historical `eth_call`,
-//! cross-contract callbacks, and the skip-sender success/error matrix (CREATE,
-//! `gasPrice`, `FromNil`, `FromEOA`, value, revert data, out-of-gas).
+//! cross-contract callbacks, the skip-sender success/error matrix (CREATE,
+//! `gasPrice`, `FromNil`, `FromEOA`, value, revert data, out-of-gas), and a
+//! `trace_call` state diff for a missing sender.
 
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::rpc::Client;
 use crate::rpc::eth::errors::{EXECUTION_REVERTED_CODE, OUT_OF_GAS_CODE};
 use crate::rpc::eth::{
-    BlockNumberOrHash, EthBigInt, Predefined,
-    trace::types::{EthTraceResults, EthTraceType},
+    BlockNumberOrHash, EthBigInt, EthUint64, Predefined,
+    trace::types::{Delta, EthTraceResults, EthTraceType},
     types::{EthAddress, EthBytes, EthCallMessage},
 };
 use crate::rpc::prelude::*;
@@ -121,6 +122,9 @@ fn tests() -> Vec<Trial> {
         }),
         trial("trace_call_skip_sender", || {
             block_on(trace_call_skip_sender())
+        }),
+        trial("trace_call_state_diff_missing_sender", || {
+            block_on(trace_call_state_diff_missing_sender())
         }),
         trial("funded_placeholder_sender", || {
             block_on(funded_placeholder_sender())
@@ -355,13 +359,13 @@ async fn eth_call_msg(
     Ok(client.call(EthCall::request((msg, block))?).await?)
 }
 
-async fn trace_call_msg(client: &Client, msg: EthCallMessage) -> anyhow::Result<EthTraceResults> {
+async fn trace_call_msg(
+    client: &Client,
+    msg: EthCallMessage,
+    trace_types: nunny::Vec<EthTraceType>,
+) -> anyhow::Result<EthTraceResults> {
     Ok(client
-        .call(EthTraceCall::request((
-            msg,
-            nunny::vec![EthTraceType::Trace],
-            Some(latest()),
-        ))?)
+        .call(EthTraceCall::request((msg, trace_types, Some(latest())))?)
         .await?)
 }
 
@@ -369,65 +373,95 @@ async fn trace_call_skip_sender() -> anyhow::Result<()> {
     let forest = forest_client()?;
     let env = table_env().await?;
     for case in skip_sender_cases(env)? {
-        let Some(expect) = case.call else {
+        if case.call.is_none() {
             continue;
-        };
+        }
         let label = format!("trace_call {}", case.name);
-        let result = trace_call_msg(&forest, case.msg).await;
-        match expect {
-            Expect::Success => {
-                let results =
-                    result.with_context(|| format!("{label}: expected a trace result"))?;
+        let call = eth_call_msg(&forest, case.msg.clone(), latest()).await;
+        let trace = trace_call_msg(&forest, case.msg, nunny::vec![EthTraceType::Trace])
+            .await
+            .with_context(|| format!("{label}: trace_call failed"))?;
+        match call {
+            Ok(bytes) => {
+                let root = trace
+                    .trace
+                    .iter()
+                    .find(|frame| frame.trace_address.is_empty())
+                    .with_context(|| format!("{label}: missing root frame, got {trace:?}"))?;
                 ensure!(
-                    !results.trace.is_empty()
-                        && results.trace.iter().all(|trace| trace.is_success()),
-                    "{label}: expected a successful trace, got {results:?}"
+                    root.is_success(),
+                    "{label}: root frame failed, got {trace:?}"
+                );
+                ensure!(
+                    trace.output == bytes,
+                    "{label}: output {:?} != eth_call {bytes:?}",
+                    trace.output
                 );
             }
-            Expect::Reverted { .. } => {
-                let results =
-                    result.with_context(|| format!("{label}: expected a traced revert"))?;
+            Err(err) => {
+                let obj = rpc_call_err(&err)
+                    .with_context(|| format!("{label}: expected a JSON-RPC error, got {err:#}"))?;
                 ensure!(
-                    results.trace.iter().any(|trace| trace.is_reverted()),
-                    "{label}: expected a reverted trace, got {results:?}"
+                    obj.code() == EXECUTION_REVERTED_CODE,
+                    "{label}: expected execution-reverted code {EXECUTION_REVERTED_CODE}, got {}: {}",
+                    obj.code(),
+                    obj.message()
+                );
+                let data = rpc_data(obj)
+                    .with_context(|| format!("{label}: execution-reverted error has no data"))?;
+                let data_bytes = EthBytes::from_str(&data)
+                    .with_context(|| format!("{label}: error data `{data}` is not hex bytes"))?;
+                ensure!(
+                    trace.output == data_bytes,
+                    "{label}: output {:?} != error data {data_bytes:?}",
+                    trace.output
+                );
+                ensure!(
+                    trace
+                        .trace
+                        .iter()
+                        .find(|frame| frame.trace_address.is_empty())
+                        .is_none_or(|frame| !frame.is_success()),
+                    "{label}: root frame must be failed or absent, got {trace:?}"
                 );
             }
-            Expect::ErrContains(needle)
-            | Expect::ErrCode {
-                contains: needle, ..
-            } => {
-                let detail = match result {
-                    Ok(results) => {
-                        ensure!(
-                            results.trace.is_empty()
-                                || results.trace.iter().any(|trace| !trace.is_success()),
-                            "{label}: must not become a successful trace"
-                        );
-                        results
-                            .trace
-                            .iter()
-                            .filter_map(|trace| trace.error.as_ref().map(ToString::to_string))
-                            .collect()
-                    }
-                    Err(err) => {
-                        let text = format!("{err:#}");
-                        ensure!(
-                            text.to_ascii_lowercase()
-                                .contains(&needle.to_ascii_lowercase()),
-                            "{label}: expected an error containing `{needle}`, got {text}"
-                        );
-                        text
-                    }
-                };
-                let lower = detail.to_ascii_lowercase();
-                ensure!(
-                    !lower.contains("senderinvalid") && !lower.contains("sender validation failed"),
-                    "{label}: rejected as sender validation: {detail}"
-                );
-            }
-            Expect::SuccessGas => {}
         }
     }
+    Ok(())
+}
+
+async fn trace_call_state_diff_missing_sender() -> anyhow::Result<()> {
+    let forest = forest_client()?;
+    let env = table_env().await?;
+    let from = non_existent(0x02)?;
+    let results = trace_call_msg(
+        &forest,
+        EthCallMessage {
+            from: Some(from),
+            to: Some(env.eoa),
+            ..Default::default()
+        },
+        nunny::vec![EthTraceType::StateDiff],
+    )
+    .await
+    .context("trace_call stateDiff from a missing sender")?;
+    let diff = results
+        .state_diff
+        .context("stateDiff missing from trace_call result")?;
+    let account = diff
+        .0
+        .get(&from)
+        .with_context(|| format!("sender {from:?} missing from stateDiff: {diff:?}"))?;
+    ensure!(
+        account.balance == Delta::Added(EthBigInt::from(0u64)),
+        "sender balance {:?}, expected +0",
+        account.balance
+    );
+    ensure!(
+        account.nonce == Delta::Added(EthUint64(1)),
+        "sender nonce {:?}, expected +1",
+        account.nonce
+    );
     Ok(())
 }
 

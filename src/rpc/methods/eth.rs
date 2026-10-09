@@ -2020,7 +2020,10 @@ fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> b
     }
 }
 
-async fn apply_on_state_maybe_skip_sender(
+/// Applies `msg` with sender validation, then again without it if the sender was rejected.
+/// A contract or missing `from` still runs, same as `eth_call`
+/// ([lotus#13724](https://github.com/filecoin-project/lotus/issues/13724)).
+async fn apply_on_state_accepting_any_sender(
     ctx: &Ctx,
     tipset: Option<&Tipset>,
     msg: &Message,
@@ -2032,14 +2035,14 @@ async fn apply_on_state_maybe_skip_sender(
         .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Enforce)
         .await;
 
-    if needs_skip_sender(&result) {
-        ctx.state_manager
-            .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Skip)
-            .await
-            .context("failed to apply on state with gas (skipping sender validation)")
-    } else {
-        result.context("failed to apply on state with gas")
+    if !needs_skip_sender(&result) {
+        return result.context("failed to apply on state with gas");
     }
+
+    ctx.state_manager
+        .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Skip)
+        .await
+        .context("failed to apply on state with gas (skipping sender validation)")
 }
 
 async fn apply_message(
@@ -2057,7 +2060,7 @@ async fn apply_message(
     }
 
     let (invoc_res, _) =
-        apply_on_state_maybe_skip_sender(ctx, tipset, msg, VMFlush::Skip, VMTrace::NotTraced)
+        apply_on_state_accepting_any_sender(ctx, tipset, msg, VMFlush::Skip, VMTrace::NotTraced)
             .await?;
 
     // Extract receipt or return early if none
@@ -3977,7 +3980,7 @@ impl RpcMethod<3> for EthTraceCall {
             .context("failed to get tipset state")?;
         let pre_state = StateTree::new_from_root(ctx.db(), &pre_state_root)?;
 
-        let (invoke_result, post_state_root) = apply_on_state_maybe_skip_sender(
+        let (invoke_result, post_state_root) = apply_on_state_accepting_any_sender(
             &ctx,
             Some(&ts),
             &msg,
