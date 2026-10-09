@@ -19,7 +19,6 @@ use crate::libp2p::{
 };
 use crate::networks::GenesisNetworkName;
 
-
 /// Owns what [`PubsubTopicCfg`] borrows.
 pub(in crate::libp2p) struct TopicCfgOwner {
     network_name: GenesisNetworkName,
@@ -35,7 +34,9 @@ impl TopicCfgOwner {
     pub(in crate::libp2p) fn cfg(&self) -> PubsubTopicCfg<'_> {
         PubsubTopicCfg {
             network_name: &self.network_name,
-            drand_chain_hash: Some("52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971"),
+            drand_chain_hash: Some(
+                "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
+            ),
         }
     }
 }
