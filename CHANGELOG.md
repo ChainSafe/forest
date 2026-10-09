@@ -33,7 +33,7 @@
 
 ### Added
 
-- [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section. List drand relay addresses there (`/p2p/<peer-id>` or `/dnsaddr/<name>`).
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section.
 
 ### Changed
 
