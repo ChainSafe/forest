@@ -70,11 +70,9 @@ fn compute_block_logs_bloom(
             let emitter = event.emitter();
             let address = resolved_eth_addrs.entry(emitter).or_insert_with(|| {
                 state_tree
-                    .resolve_to_deterministic_address(
-                        state_manager.chain_store().db(),
-                        FilecoinAddress::new_id(emitter),
-                    )
+                    .get_delegated_address(emitter)
                     .ok()
+                    .flatten()
                     .and_then(|addr| EthAddress::from_filecoin_address(&addr).ok())
             });
             let Some(address) = address else {
