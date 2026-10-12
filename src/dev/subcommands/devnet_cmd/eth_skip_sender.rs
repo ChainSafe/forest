@@ -387,8 +387,8 @@ async fn trace_call_skip_sender() -> anyhow::Result<()> {
             .find(|frame| frame.trace_address.is_empty());
         match call {
             Ok(bytes) => {
-                let root = root
-                    .with_context(|| format!("{label}: missing root frame, got {trace:?}"))?;
+                let root =
+                    root.with_context(|| format!("{label}: missing root frame, got {trace:?}"))?;
                 ensure!(
                     root.is_success(),
                     "{label}: root frame failed, got {trace:?}"
