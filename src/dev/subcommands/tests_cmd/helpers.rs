@@ -278,6 +278,45 @@ pub async fn poll_until_actor_on(
     .await
 }
 
+/// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
+pub struct Wallet {
+    pub cli: String,
+    pub f4: Address,
+    pub eth: EthAddress,
+}
+
+pub async fn new_unfunded() -> anyhow::Result<Wallet> {
+    let cli = lotus_exec(&["wallet", "new", "delegated"])?;
+    let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
+    let eth = EthAddress::from_filecoin_address(&f4)?;
+    Ok(Wallet { cli, f4, eth })
+}
+
+pub async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
+    let wallet = new_unfunded().await?;
+    fund_on_chain(&wallet.cli, amount).await?;
+    Ok(wallet)
+}
+
+/// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
+/// both Forest and Lotus see the actor. Lotus visibility is required before any
+/// `lotus --from`. Pass the Lotus string into `forest-wallet`; it rejects Forest
+/// `Address::to_string()` (`f4…`) while `CurrentNetwork` stays Mainnet.
+pub async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
+    let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
+    let msg = send_from(
+        &FOREST_TEST_PRELOADED_ADDRESS,
+        cli_addr,
+        amount,
+        Backend::Local,
+    )?;
+    eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
+    let balance = poll_until_funded(cli_addr, Backend::Local).await?;
+    eprintln!("{cli_addr} funded on forest, balance: {balance}");
+    poll_until_actor_on("lotus", addr, lotus_client).await?;
+    Ok(addr)
+}
+
 /// Delegated signer: create once on local, fund locally, mirror to remote
 /// for tests that query or sign.
 pub async fn funded_delegated_addr() -> &'static str {
