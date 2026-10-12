@@ -35,7 +35,7 @@
 
 ### Changed
 
-- [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` now ignores the sender's ability to pay gas fees unless `gasPrice` or `maxFeePerGas` is set, in which case the estimate is limited to what the sender can afford (`-32003` `insufficient funds for gas * price + value`, `-32000` `gas required exceeds allowance (0)`). It also searches past reverts that more gas fixes, never exceeds the block gas limit, reports running out of gas at the block gas limit as `-32003` `out of gas: gas required exceeds: <limit>`, and rejects a call with both `gasPrice` and `maxFeePerGas` (`-32602`), matching [lotus#13911](https://github.com/filecoin-project/lotus/pull/13911).
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` matches Lotus v1.38.0 and reth. The estimate never exceeds the call's `gas` or, with `gasPrice` or `maxFeePerGas` set, the gas the sender can pay for after the value; without a price the sender's funds are ignored. A revert that more gas fixes is searched past, and failures use the Ethereum codes: `-32000` when the cap is below the message inclusion cost, `-32003` when the call runs out of gas within the cap or the value exceeds the balance, `-32602` when both prices are set. See [lotus#13911](https://github.com/filecoin-project/lotus/pull/13911).
 
 ### Removed
 
