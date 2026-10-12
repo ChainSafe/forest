@@ -27,6 +27,26 @@
 
 ### Breaking
 
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): Removed the `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND` environment variable. `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now always return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number, matching Lotus since v1.36.2 ([lotus#13694](https://github.com/filecoin-project/lotus/pull/13694)).
+
+- [#7737](https://github.com/ChainSafe/forest/pull/7737): `Filecoin.MinerCreateBlock` now requires the `sign` permission instead of `write`, since it signs the block with the node's wallet. Matches Lotus ([lotus#13871](https://github.com/filecoin-project/lotus/pull/13871)).
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
+
+## Forest v0.38.0 "Ayanant"
+
+Mandatory release for mainnet node operators. It includes support for the NV29 _Solstice_ network upgrade for mainnet, which is set to activate at epoch `6470279` (2026-10-19T12:59:30Z). Note the breaking change below: JSON-RPC batch requests are now limited to 100 entries by default. There are also other changes and improvements; see below.
+
+### Breaking
+
 - [#7697](https://github.com/ChainSafe/forest/pull/7697): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
 
 ### Added
@@ -40,8 +60,6 @@
 ### Changed
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
-
-### Removed
 
 ### Fixed
 

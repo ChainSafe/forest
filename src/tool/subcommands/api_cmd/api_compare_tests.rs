@@ -783,6 +783,22 @@ fn event_tests_with_tipset<DB: Blockstore + ShallowClone>(
             addresses: vec![],
             fields: Default::default(),
             from_height: None,
+            to_height: Some(epoch),
+            tipset_key: None,
+        }),))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(GetActorEventsRaw::request((Some(ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: Some(epoch - 3000),
+            to_height: Some(epoch),
+            tipset_key: None,
+        }),))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(GetActorEventsRaw::request((Some(ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: None,
             to_height: None,
             tipset_key: Some(tipset.key().clone().into()),
         }),))?)
@@ -2485,7 +2501,7 @@ fn eth_null_round_tests<DB: Blockstore + ShallowClone>(
                 .with_api_path(api_path),
             )
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-            // `eth_getBlockReceipts*` reject null rounds by default (lotus#13694).
+            // `eth_getBlockReceipts*` reject null rounds (lotus#13694).
             RpcTest::identity(
                 EthGetBlockReceipts::request((BlockNumberOrHash::from_block_number(null_epoch),))?
                     .with_api_path(api_path),
