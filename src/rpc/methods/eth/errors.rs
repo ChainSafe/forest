@@ -44,13 +44,13 @@ pub enum EthErrors {
     EventsNotYetAvailable,
     #[error("requested epoch was a null round ({epoch})")]
     NullRound { epoch: ChainEpoch },
-    /// The gas cap (the caller's `gas`, or what the sender can pay for at the caller's price) is below the message inclusion cost.
+    /// The gas cap is below the message inclusion cost.
     #[error("gas required exceeds allowance ({gas_limit})")]
     GasRequiredExceedsAllowance { gas_limit: u64 },
     /// The call runs out of gas, or fails, within the gas cap but succeeds with more.
     #[error("out of gas: gas required exceeds: {gas_limit}")]
     InsufficientGasLimit { gas_limit: u64 },
-    /// The sender cannot send the call's value, let alone pay for gas at the caller's price.
+    /// The sender's balance is below the call's value.
     #[error("insufficient funds for gas * price + value: have {} want {}", balance.atto(), value.atto())]
     InsufficientFunds {
         balance: TokenAmount,
