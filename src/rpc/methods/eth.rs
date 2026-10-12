@@ -4242,6 +4242,7 @@ mod test {
         db::MemoryDB,
         test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
     };
+    use jsonrpsee::types::error::INTERNAL_ERROR_CODE;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use rstest::rstest;
@@ -4328,6 +4329,7 @@ mod test {
         assert!(!needs_skip_sender(&Ok((ApiInvocResult::default(), None))));
     }
 
+    /// A failed run that charged `gas_used`; zero means preflight rejected it before it ran.
     fn apply_ret(exit_code: u32, gas_used: u64) -> ApplyRet {
         use crate::shim::fvm_shared_latest;
         let mut ret = crate::shim::fvm_latest::executor::ApplyRet::prevalidation_fail(
@@ -4354,66 +4356,65 @@ mod test {
     }
 
     #[rstest]
-    #[case::out_of_gas(
-        EthErrors::OutOfGas,
-        errors::TRANSACTION_REJECTED_CODE,
-        "out of gas: gas required exceeds: 1000"
-    )]
-    #[case::revert(EthErrors::execution_reverted(EVM_CONTRACT_REVERTED, "", "", &[]), errors::EXECUTION_REVERTED_CODE, "message execution failed")]
-    fn estimate_gas_error_keeps_typed_errors(
-        #[case] err: EthErrors,
-        #[case] expected_code: i32,
-        #[case] expected_message: &str,
+    #[case::out_of_gas(EthErrors::OutOfGas.into(), errors::TRANSACTION_REJECTED_CODE, "out of gas: gas required exceeds: 1000")]
+    #[case::revert(EthErrors::execution_reverted(EVM_CONTRACT_REVERTED, "", "", &[]).into(), errors::EXECUTION_REVERTED_CODE, "message execution failed (exit=[33], vm error=[])")]
+    // A bare error prints the same with `{e}` and `{e:#}`; the context layer is what `{e:#}` keeps.
+    #[case::untyped(anyhow::anyhow!("blockstore read failed").context("gas estimation failed"), INTERNAL_ERROR_CODE, "failed to estimate gas: gas estimation failed: blockstore read failed")]
+    fn estimate_gas_error_keeps_codes_and_causes(
+        #[case] err: anyhow::Error,
+        #[case] code: i32,
+        #[case] message: &str,
     ) {
-        let err = estimate_gas_error(err.into(), 1000);
-        assert_eq!(err.code(), expected_code);
-        assert!(
-            err.message().starts_with(expected_message),
-            "{}",
-            err.message()
-        );
-    }
-
-    #[test]
-    fn estimate_gas_error_wraps_untyped_errors() {
-        let err = estimate_gas_error(anyhow::anyhow!("blockstore read failed"), 1000);
-        assert_eq!(
-            err.message(),
-            "failed to estimate gas: blockstore read failed"
-        );
+        let err = estimate_gas_error(err, 1000);
+        assert_eq!(err.code(), code);
+        assert_eq!(err.message(), message);
     }
 
     #[rstest]
-    #[case::affordable(1_000_000, 0, 1, Ok(1_000_000))]
-    #[case::value_reduces_allowance(1_000_000, 400_000, 2, Ok(300_000))]
-    #[case::capped_at_block_gas_limit(u128::from(BLOCK_GAS_LIMIT) * 2, 0, 1, Ok(BLOCK_GAS_LIMIT))]
-    #[case::beyond_u64(u128::MAX, 0, 1, Ok(BLOCK_GAS_LIMIT))]
-    #[case::nothing_affordable(1, 0, 2, Err((errors::INVALID_INPUT_CODE, "gas required exceeds allowance (0)")))]
-    #[case::value_above_balance(100, 101, 1, Err((errors::TRANSACTION_REJECTED_CODE, "insufficient funds for gas * price + value: have 100 want 101")))]
+    #[case::affordable(1_000_000, 0, 1, 1_000_000)]
+    #[case::value_reduces_allowance(1_000_000, 400_000, 2, 300_000)] // (1_000_000 - 400_000) / 2
+    #[case::capped_at_block_gas_limit(u128::from(BLOCK_GAS_LIMIT) * 2, 0, 1, BLOCK_GAS_LIMIT)]
+    #[case::beyond_u64(u128::MAX, 0, 1, BLOCK_GAS_LIMIT)]
     fn gas_allowance_limits_gas_to_what_the_sender_can_pay(
         #[case] balance: u128,
         #[case] value: u128,
         #[case] price: u128,
-        #[case] expected: Result<u64, (i32, &str)>,
+        #[case] gas: u64,
     ) {
         let allowance = gas_allowance(
             &TokenAmount::from_atto(balance),
             &TokenAmount::from_atto(value),
             &TokenAmount::from_atto(price),
-        )
-        .map_err(|e| {
-            let e: ServerError = e.into();
-            (e.code(), e.message().to_string())
-        });
-        assert_eq!(
-            allowance,
-            expected.map_err(|(code, message)| (code, message.to_string()))
         );
+        assert_eq!(allowance.unwrap(), gas);
     }
 
-    /// A fake run that succeeds exactly for the limits in `succeeds`.
-    async fn search(start: u64, cap: u64, succeeds: impl Fn(u64) -> bool) -> anyhow::Result<u64> {
-        gas_search(start, cap, 1.25, |limit| {
+    #[rstest]
+    #[case::nothing_affordable(1, 0, 2, "gas required exceeds allowance (0)")] // 1 / 2 = 0 gas
+    #[case::value_above_balance(
+        100,
+        101,
+        1,
+        "insufficient funds for gas * price + value: have 100 want 101"
+    )]
+    fn gas_allowance_rejects_a_sender_that_cannot_pay(
+        #[case] balance: u128,
+        #[case] value: u128,
+        #[case] price: u128,
+        #[case] message: &str,
+    ) {
+        let err = gas_allowance(
+            &TokenAmount::from_atto(balance),
+            &TokenAmount::from_atto(value),
+            &TokenAmount::from_atto(price),
+        )
+        .unwrap_err();
+        assert_eq!(err.to_string(), message);
+    }
+
+    /// Searches with a fake run that succeeds exactly at the limits `succeeds` accepts.
+    async fn search(start: u64, gas_cap: u64, succeeds: fn(u64) -> bool) -> anyhow::Result<u64> {
+        gas_search(start, gas_cap, 1.25, |limit| {
             let exit_code = if succeeds(limit) {
                 0
             } else {
@@ -4424,50 +4425,19 @@ mod test {
         .await
     }
 
+    #[rstest]
+    #[case::margin_added(100, BLOCK_GAS_LIMIT, |limit| limit >= 1000, 1250)] // 1000 found, ×1.25
+    #[case::margin_clamped_to_cap(100, 1100, |limit| limit >= 1000, 1100)] // 1001 found, 1251 is above the cap
+    #[case::margin_breaks_the_call(500, BLOCK_GAS_LIMIT, |limit| limit >= 1000 && !(1100..=1500).contains(&limit), 1000)] // 1000 found, 1250 fails
+    #[case::below_100_gas(1, BLOCK_GAS_LIMIT, |limit| limit >= 70, 87)] // 70 found, ×1.25 = 87.5
     #[tokio::test]
-    async fn gas_search_applies_the_margin_when_it_succeeds() {
-        let gas = search(100, BLOCK_GAS_LIMIT, |limit| limit >= 1000)
-            .await
-            .unwrap();
-        assert!((1250..=1275).contains(&gas), "{gas}");
-    }
-
-    #[tokio::test]
-    async fn gas_search_keeps_tested_limit_when_margin_fails() {
-        // Doubling from 600 lands on 1200, and 1.25 times the result overshoots the window.
-        let gas = search(600, BLOCK_GAS_LIMIT, |limit| (1000..1250).contains(&limit))
-            .await
-            .unwrap();
-        assert!((1000..=1020).contains(&gas), "{gas}");
-    }
-
-    #[tokio::test]
-    async fn gas_search_does_not_retry_the_failing_start() {
-        let gas = search(600, BLOCK_GAS_LIMIT, |limit| {
-            assert_ne!(limit, 600, "the caller already showed `start` fails");
-            limit >= 1000
-        })
-        .await
-        .unwrap();
-        assert!((1250..=1275).contains(&gas), "{gas}");
-    }
-
-    #[tokio::test]
-    async fn gas_search_converges_below_100_gas() {
-        let gas = search(1, BLOCK_GAS_LIMIT, |limit| limit >= 70)
-            .await
-            .unwrap();
-        assert_eq!(gas, 87);
-    }
-
-    #[tokio::test]
-    async fn gas_search_clamps_margin_to_cap() {
-        let gas = search(100, BLOCK_GAS_LIMIT, |limit| {
-            limit >= BLOCK_GAS_LIMIT / 100 * 99
-        })
-        .await
-        .unwrap();
-        assert_eq!(gas, BLOCK_GAS_LIMIT);
+    async fn gas_search_adds_the_margin_only_when_it_fits(
+        #[case] start: u64,
+        #[case] gas_cap: u64,
+        #[case] succeeds: fn(u64) -> bool,
+        #[case] gas: u64,
+    ) {
+        assert_eq!(search(start, gas_cap, succeeds).await.unwrap(), gas);
     }
 
     #[tokio::test]

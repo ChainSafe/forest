@@ -693,30 +693,40 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case::neither(None, None, Ok(None))]
-    #[case::gas_price_only(Some(7), None, Ok(Some(7)))]
-    #[case::max_fee_only(None, Some(9), Ok(Some(9)))]
-    #[case::zero_gas_price_with_max_fee(Some(0), Some(9), Ok(Some(9)))]
-    #[case::zero_is_no_price(Some(0), None, Ok(None))]
-    #[case::both_prices(Some(7), Some(9), Err(()))]
-    #[case::both_prices_zero_max_fee(Some(7), Some(0), Err(()))]
+    #[case::neither(None, None, None)]
+    #[case::gas_price_only(Some(7), None, Some(7))]
+    #[case::max_fee_only(None, Some(9), Some(9))]
+    #[case::max_fee_wins_over_zero_gas_price(Some(0), Some(9), Some(9))]
+    #[case::zero_gas_price_is_absent(Some(0), None, None)]
     fn eth_call_message_max_gas_price(
         #[case] gas_price: Option<u64>,
         #[case] max_fee_per_gas: Option<u64>,
-        #[case] expected: Result<Option<u64>, ()>,
+        #[case] price: Option<u64>,
     ) {
         let msg = EthCallMessage {
             gas_price: gas_price.map(EthBigInt::from),
             max_fee_per_gas: max_fee_per_gas.map(EthBigInt::from),
             ..Default::default()
         };
-        let price = msg.max_gas_price().map_err(|e| {
-            assert!(matches!(e, errors::EthErrors::ConflictingGasPrices), "{e}");
-        });
         assert_eq!(
-            price,
-            expected.map(|price| price.map(TokenAmount::from_atto))
+            msg.max_gas_price().unwrap(),
+            price.map(TokenAmount::from_atto)
         );
+    }
+
+    #[rstest::rstest]
+    #[case::both_set(7, 9)]
+    #[case::zero_max_fee_still_conflicts(7, 0)]
+    fn eth_call_message_rejects_both_prices(#[case] gas_price: u64, #[case] max_fee_per_gas: u64) {
+        let msg = EthCallMessage {
+            gas_price: Some(gas_price.into()),
+            max_fee_per_gas: Some(max_fee_per_gas.into()),
+            ..Default::default()
+        };
+        assert!(matches!(
+            msg.max_gas_price(),
+            Err(errors::EthErrors::ConflictingGasPrices)
+        ));
     }
 
     #[rstest::rstest]
