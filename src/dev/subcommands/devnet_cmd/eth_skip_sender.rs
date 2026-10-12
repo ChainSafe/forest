@@ -381,12 +381,13 @@ async fn trace_call_skip_sender() -> anyhow::Result<()> {
         let trace = trace_call_msg(&forest, case.msg, nunny::vec![EthTraceType::Trace])
             .await
             .with_context(|| format!("{label}: trace_call failed"))?;
+        let root = trace
+            .trace
+            .iter()
+            .find(|frame| frame.trace_address.is_empty());
         match call {
             Ok(bytes) => {
-                let root = trace
-                    .trace
-                    .iter()
-                    .find(|frame| frame.trace_address.is_empty())
+                let root = root
                     .with_context(|| format!("{label}: missing root frame, got {trace:?}"))?;
                 ensure!(
                     root.is_success(),
@@ -417,11 +418,7 @@ async fn trace_call_skip_sender() -> anyhow::Result<()> {
                     trace.output
                 );
                 ensure!(
-                    trace
-                        .trace
-                        .iter()
-                        .find(|frame| frame.trace_address.is_empty())
-                        .is_none_or(|frame| !frame.is_success()),
+                    root.is_none_or(|frame| !frame.is_success()),
                     "{label}: root frame must be failed or absent, got {trace:?}"
                 );
             }
@@ -457,6 +454,7 @@ async fn trace_call_state_diff_missing_sender() -> anyhow::Result<()> {
         "sender balance {:?}, expected +0",
         account.balance
     );
+    // Placeholder accounts start at nonce 0; applying the call explicitly increments it to 1.
     ensure!(
         account.nonce == Delta::Added(EthUint64(1)),
         "sender nonce {:?}, expected +1",

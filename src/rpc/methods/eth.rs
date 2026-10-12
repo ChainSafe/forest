@@ -2006,7 +2006,7 @@ fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> b
 
 /// Applies `msg` with sender validation, then again without it if the sender was rejected.
 /// A contract or missing `from` still runs, same as `eth_call`
-/// ([lotus#13724](https://github.com/filecoin-project/lotus/issues/13724)).
+/// ([lotus#13724](https://github.com/filecoin-project/lotus/pull/13724)).
 async fn apply_on_state_accepting_any_sender(
     ctx: &Ctx,
     tipset: Option<&Tipset>,
