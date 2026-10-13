@@ -104,7 +104,7 @@ pub(in crate::libp2p) fn build_gossipsub(
     let mut gs_config_builder = gossipsub::ConfigBuilder::default();
     gs_config_builder.max_transmit_size(1 << 20);
     gs_config_builder.validation_mode(ValidationMode::Strict);
-    // Forward messages only once validated, see `handle_gossip_event`.
+    // Forward messages only once validated.
     gs_config_builder.validate_messages();
     gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
         let s = blake2b_256(&msg.data);

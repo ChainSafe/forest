@@ -106,12 +106,15 @@ async fn filecoin_gossip_verdicts(
         &msg_topic,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         None,
 =======
 >>>>>>> 6d4231766 (chore: enable gossipsub validation)
 =======
         None,
 >>>>>>> 937746be6 (feat(lip2p/drand): introduce drand libp2p module)
+=======
+>>>>>>> 6d4231766 (chore: enable gossipsub validation)
     )
     .await
     .expect("an immediate verdict");
