@@ -104,7 +104,10 @@ async fn filecoin_gossip_verdicts(
         &tx,
         &block_topic,
         &msg_topic,
+<<<<<<< HEAD
         None,
+=======
+>>>>>>> e176fb76c (chore: enable gossipsub validation)
     )
     .await
     .expect("an immediate verdict");
