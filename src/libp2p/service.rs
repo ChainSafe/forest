@@ -188,6 +188,7 @@ pub enum NetRPCMethods {
 pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
+    drand: Option<DrandGossip>,
     connection_manager: ConnectionManager,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
@@ -281,6 +282,7 @@ impl Libp2pService {
         Ok(Libp2pService {
             swarm,
             bootstrap_peers,
+            drand,
             connection_manager: ConnectionManager::new(config.target_peer_count),
             cs,
             peer_manager,
