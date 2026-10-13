@@ -95,6 +95,9 @@ impl DrandGossipValidator {
         if round == 0 || entry.signature().is_empty() {
             return verdict(MessageAcceptance::Reject, Reason::Malformed);
         }
+        if !beacon.is_epoch_round(round) {
+            return verdict(MessageAcceptance::Ignore, Reason::OffEpoch);
+        }
         if let Some(round_ts) = beacon.beacon_round_timestamp(round) {
             if round_ts > now.saturating_add(MAX_CLOCK_SKEW_SECS) {
                 debug!(round, %source, "ignoring drand entry: round is in the future");
@@ -209,6 +212,7 @@ mod tests {
         0,
         MessageAcceptance::Reject
     )]
+    #[case::off_epoch_round(|d: &FakeDrandSigner| d.to_protobuf(EPOCH_ROUND + 1), 0, MessageAcceptance::Ignore)]
     // Beyond the clock skew allowance.
     #[case::future_round(|d: &FakeDrandSigner| d.encode(EPOCH_ROUND + 2), 0, MessageAcceptance::Ignore)]
     #[case::stale_round(|d: &FakeDrandSigner| d.encode(EPOCH_ROUND), MAX_ROUND_AGE_SECS as i64, MessageAcceptance::Ignore)]
