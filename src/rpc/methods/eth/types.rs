@@ -371,8 +371,7 @@ impl EthCallMessage {
 
     /// Returns the most the caller pays per unit of gas: `maxFeePerGas` when present, else `gasPrice`.
     ///
-    /// `None` when that price is absent or zero. A zero `gasPrice` counts as absent, as in Lotus:
-    /// <https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L199-L202>
+    /// `None` when that price is absent or zero. A zero `gasPrice` counts as absent.
     ///
     /// # Errors
     ///
@@ -698,6 +697,7 @@ mod tests {
     #[case::max_fee_only(None, Some(9), Some(9))]
     #[case::max_fee_wins_over_zero_gas_price(Some(0), Some(9), Some(9))]
     #[case::zero_gas_price_is_absent(Some(0), None, None)]
+    #[case::zero_max_fee_is_absent(None, Some(0), None)]
     fn eth_call_message_max_gas_price(
         #[case] gas_price: Option<u64>,
         #[case] max_fee_per_gas: Option<u64>,

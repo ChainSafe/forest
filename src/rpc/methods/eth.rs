@@ -1863,9 +1863,9 @@ impl RpcMethod<2> for EthEstimateGas {
         (tx, block_param): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        // Invalid prices are reported before the block param is resolved, as in Lotus:
-        // https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L199-L222
+        // Invalid prices are reported before the block param is resolved.
         let price = tx.max_gas_price()?;
+        let caller_cap = tx.gas_cap().unwrap_or(BLOCK_GAS_LIMIT);
         let msg = Message::try_from(tx)?;
         let tipset = if let Some(block_param) = block_param {
             let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
@@ -1875,48 +1875,51 @@ impl RpcMethod<2> for EthEstimateGas {
         } else {
             ctx.chain_store().heaviest_tipset()
         };
-        eth_estimate_gas(&ctx, msg, price, tipset).await
+        eth_estimate_gas(&ctx, msg, price, caller_cap, tipset).await
     }
 }
 
-/// Estimates the gas limit `msg` needs on `tipset`, never above the caller's `gas` or, with a
-/// `price`, the gas the sender can pay for.
+/// Estimates the gas limit `msg` needs on `tipset`, never above `caller_cap` or, with a `price`,
+/// the gas the sender can pay for. `msg`'s own gas limit is not used: the measurement runs at the
+/// block gas limit.
+///
+/// Mirrors Lotus's `EthEstimateGas`:
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L193-L305>
 async fn eth_estimate_gas(
     ctx: &Ctx,
     msg: Message,
     price: Option<TokenAmount>,
+    caller_cap: u64,
     tipset: Tipset,
 ) -> Result<EthUint64, ServerError> {
-    // The sender is read after `tipset`'s messages, as in Lotus; a failed read matters only when
-    // the balance is needed: https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L224-L248
+    // The sender as it is after `tipset`'s messages, so one funded in that block counts.
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&tipset).await?;
-    let sender = ctx.state_manager.get_actor(&msg.from(), state_root);
-    // An EVM contract fails the FVM's sender check, so it is estimated on the skip-sender path.
-    let first_try = match &sender {
-        Ok(Some(actor)) if is_evm_actor(&actor.code) => SenderValidation::Skip,
+    let sender = ctx.state_manager.get_actor(&msg.from(), state_root)?;
+    // An EVM contract fails the FVM's sender check, so it is estimated on the skip-sender path from
+    // the start; a sender the FVM rejects at run time, such as one that does not exist, is retried there.
+    let sender_validation = match &sender {
+        Some(actor) if is_evm_actor(&actor.code) => SenderValidation::Skip,
         _ => SenderValidation::Enforce,
     };
-    // `msg`'s limit is the caller's `gas`, or the block gas limit without one.
     let gas_cap = match price {
         Some(price) => {
-            let balance = sender?
+            let balance = sender
                 .map(|actor| TokenAmount::from(&actor.balance))
                 .unwrap_or_default();
-            msg.gas_limit()
-                .min(gas_allowance(&balance, msg.value(), &price)?)
+            caller_cap.min(gas_allowance(&balance, msg.value(), &price)?)
         }
-        None => msg.gas_limit(),
+        None => caller_cap,
     };
 
     let measure = |sender_validation| {
         gas::GasEstimateGasLimit::estimate_gas_limit(ctx, msg.clone(), &tipset, sender_validation)
     };
-    let (sender_validation, measured) = match measure(first_try).await {
+    let (sender_validation, measured) = match measure(sender_validation).await {
         Err(err) if is_sender_validation_failed(&err) => (
             SenderValidation::Skip,
             measure(SenderValidation::Skip).await,
         ),
-        result => (first_try, result),
+        result => (sender_validation, result),
     };
     let gas_used = measured.map_err(|err| estimate_gas_error(err, gas_cap))?;
 
@@ -1925,18 +1928,14 @@ async fn eth_estimate_gas(
         .into_builder()
         .gas_limit(gas_limit.min(BLOCK_GAS_LIMIT))
         .build();
-    Ok(
-        eth_gas_search(ctx, msg, &tipset, sender_validation, gas_cap)
-            .await?
-            .into(),
-    )
+    let gas = eth_gas_search(ctx, msg, &tipset, sender_validation, gas_cap).await?;
+    Ok(gas.into())
 }
 
 /// Maps an estimate that failed at the block gas limit to the error returned to the caller.
 ///
 /// Out of gas there cannot fit `gas_cap` either, so it is reported against `gas_cap`; typed errors
 /// keep their JSON-RPC codes, any other error keeps its cause.
-/// Lotus: <https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L337-L355>
 fn estimate_gas_error(err: anyhow::Error, gas_cap: u64) -> ServerError {
     match err.downcast_ref::<EthErrors>() {
         Some(EthErrors::OutOfGas) => EthErrors::InsufficientGasLimit { gas_limit: gas_cap }.into(),
@@ -2093,7 +2092,7 @@ async fn eth_gas_search(
         return Ok(gas_limit);
     }
     let err = gas_cap_error(&apply_ret, gas_cap);
-    // At the cap any failure is final; below it, only a rejection unrelated to gas is.
+    // At the cap any failure is final; below it, only a preflight rejection unrelated to gas is.
     if gas_limit == gas_cap || matches!(err, EthErrors::ExecutionReverted { .. }) {
         return Err(err.into());
     }
@@ -2146,7 +2145,7 @@ where
     let can_succeed = async |limit: u64| anyhow::Ok(apply(limit).await?.exit_code().is_success());
     let mut low = start;
     // A floor of 1 keeps the doubling below able to make progress.
-    let mut high = start.saturating_mul(2).clamp(1, gas_cap);
+    let mut high = start.saturating_mul(2).max(1).min(gas_cap);
 
     while high < gas_cap {
         if can_succeed(high).await? {
@@ -4329,7 +4328,8 @@ mod test {
         assert!(!needs_skip_sender(&Ok((ApiInvocResult::default(), None))));
     }
 
-    /// A failed run that charged `gas_used`; zero means preflight rejected it before it ran.
+    /// An `ApplyRet` that exited with `exit_code` after charging `gas_used`; zero gas means preflight
+    /// rejected it before it ran.
     fn apply_ret(exit_code: u32, gas_used: u64) -> ApplyRet {
         use crate::shim::fvm_shared_latest;
         let mut ret = crate::shim::fvm_latest::executor::ApplyRet::prevalidation_fail(
@@ -4358,8 +4358,7 @@ mod test {
     #[rstest]
     #[case::out_of_gas(EthErrors::OutOfGas.into(), errors::TRANSACTION_REJECTED_CODE, "out of gas: gas required exceeds: 1000")]
     #[case::revert(EthErrors::execution_reverted(EVM_CONTRACT_REVERTED, "", "", &[]).into(), errors::EXECUTION_REVERTED_CODE, "message execution failed (exit=[33], vm error=[])")]
-    // A bare error prints the same with `{e}` and `{e:#}`; the context layer is what `{e:#}` keeps.
-    #[case::untyped(anyhow::anyhow!("blockstore read failed").context("gas estimation failed"), INTERNAL_ERROR_CODE, "failed to estimate gas: gas estimation failed: blockstore read failed")]
+    #[case::untyped_keeps_the_cause_chain(anyhow::anyhow!("blockstore read failed").context("gas estimation failed"), INTERNAL_ERROR_CODE, "failed to estimate gas: gas estimation failed: blockstore read failed")]
     fn estimate_gas_error_keeps_codes_and_causes(
         #[case] err: anyhow::Error,
         #[case] code: i32,
@@ -4391,6 +4390,7 @@ mod test {
 
     #[rstest]
     #[case::nothing_affordable(1, 0, 2, "gas required exceeds allowance (0)")] // 1 / 2 = 0 gas
+    #[case::all_spent_on_value(100, 100, 1, "gas required exceeds allowance (0)")]
     #[case::value_above_balance(
         100,
         101,
