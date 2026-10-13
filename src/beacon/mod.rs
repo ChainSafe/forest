@@ -1,15 +1,15 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod beacon_entries;
 mod drand;
-// Only test fixtures decode it until gossiped entries are validated.
-#[cfg(test)]
 mod drand_pb;
+
+pub mod beacon_entries;
 pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
 pub use drand::*;
+pub use drand_pb::PublicRandResponse;
 
 #[cfg(test)]
 pub mod mock_beacon;
