@@ -10,6 +10,8 @@ pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
 pub use drand::*;
+#[cfg(test)]
+pub use drand_pb::PublicRandResponse;
 
 #[cfg(test)]
 pub mod mock_beacon;
