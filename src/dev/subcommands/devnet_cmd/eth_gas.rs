@@ -1,8 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! `eth_estimateGas` parity tests on the docker devnet. Every case runs against Forest and the
-//! Lotus node, which must agree on the estimate, or on the error code and message.
+//! `eth_estimateGas` parity tests on the docker devnet: Forest and the Lotus node must agree on the
+//! estimate, or on the error code and message. Only the on-chain submit runs against Forest alone,
+//! and a negative price is compared by code only.
 //!
 //! [EIP-150] caps a `CALL` at 63/64 of remaining gas, so a nested call chain needs a far higher
 //! gas *limit* than the gas it *uses*. Estimating from gas used alone therefore under-shoots,
@@ -39,8 +40,6 @@ const REQUIRES_HIGH_GAS_SIGNATURE: &str = "requiresHighGasLimit()";
 const REQUIRES_HIGH_GAS_THRESHOLD: u64 = 50_000_000;
 const ALWAYS_REVERTS_SIGNATURE: &str = "alwaysReverts()";
 const ALWAYS_REVERTS_REASON: &str = "always reverts";
-const BOTH_PRICES_MESSAGE: &str =
-    "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified";
 
 /// Shallow enough that the 63/64 penalty stays inside any estimator's safety margin, so both
 /// nodes must agree. Guards against a failure that is really "the two disagree about gas".
@@ -153,12 +152,12 @@ async fn sender() -> anyhow::Result<&'static Wallet> {
 }
 
 /// A call from the funded sender to the deployed contract.
-async fn call_message(calldata: Vec<u8>, gas: Option<u64>) -> anyhow::Result<EthCallMessage> {
+async fn call_message(calldata: &[u8], gas: Option<u64>) -> anyhow::Result<EthCallMessage> {
     let (from, to) = tokio::try_join!(sender(), contract())?;
     Ok(EthCallMessage {
         from: Some(from.eth),
         to: Some(*to),
-        data: Some(EthBytes(calldata)),
+        data: Some(EthBytes(calldata.to_vec())),
         gas: gas.map(EthUint64),
         ..Default::default()
     })
@@ -190,9 +189,8 @@ async fn estimate_error(
         .with_context(|| format!("expected a JSON-RPC error for {msg:?}: {err:?}"))
 }
 
-/// A height both nodes have already executed. `Latest` is resolved per node, so at an epoch
-/// boundary or under slight sync skew the two could pick different tipsets; pinning both to the
-/// lower of their heads makes the cross-node comparison deterministic.
+/// A height both nodes have already executed. `Latest` is resolved per node and could differ at an
+/// epoch boundary, so both are pinned to the lower of their heads.
 async fn common_block_number(a: &Client, b: &Client) -> anyhow::Result<i64> {
     let (head_a, head_b) = tokio::try_join!(
         async { anyhow::Ok(a.call(EthBlockNumber::request(())?).await?) },
@@ -212,7 +210,8 @@ async fn poll_until_next_epoch() -> anyhow::Result<()> {
     .await
 }
 
-/// Both nodes and a block both have executed, so every comparison runs on the same state.
+/// Both nodes and a block both have executed. The block pins the state the sender's balance and
+/// the `eth_call` checks are read at; the estimate itself runs on each node's own head.
 struct Devnet {
     forest: Client,
     lotus: Client,
@@ -284,7 +283,7 @@ impl Devnet {
 async fn estimate_agrees(depth: u64) -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
     let gas = devnet
-        .agreed_estimate(call_message(recurse_calldata(depth), None).await?)
+        .agreed_estimate(call_message(&recurse_calldata(depth), None).await?)
         .await?;
     eprintln!("depth={depth} block={:?} estimate={gas}", devnet.block);
     Ok(())
@@ -298,7 +297,7 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
     let calldata = recurse_calldata(NESTED_DEPTH);
     let estimate = estimate(
         &forest_client()?,
-        call_message(calldata.clone(), None).await?,
+        call_message(&calldata, None).await?,
         latest,
     )
     .await?;
@@ -313,6 +312,7 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
             )
         })?;
     eprintln!("submitted at forest's estimate {estimate}: {cid}");
+    // The landed call changes the contract's storage, so later trials measure their own baseline.
     Ok(())
 }
 
@@ -320,8 +320,8 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
 /// answered with a gas value.
 async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
-    for gas in [None, Some(BLOCK_GAS_LIMIT)] {
-        let msg = call_message(selector(ALWAYS_REVERTS_SIGNATURE), gas).await?;
+    for cap in [None, Some(BLOCK_GAS_LIMIT)] {
+        let msg = call_message(&selector(ALWAYS_REVERTS_SIGNATURE), cap).await?;
         let (forest, lotus) = tokio::try_join!(
             estimate_error(&devnet.forest, msg.clone(), devnet.block.clone()),
             estimate_error(&devnet.lotus, msg.clone(), devnet.block.clone()),
@@ -329,7 +329,7 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
         for (node, err) in [("forest", &forest), ("lotus", &lotus)] {
             ensure!(
                 err.code() == EXECUTION_REVERTED_CODE,
-                "{node}: expected code {EXECUTION_REVERTED_CODE} with gas={gas:?}, got {}: {}",
+                "{node}: expected code {EXECUTION_REVERTED_CODE} with cap={cap:?}, got {}: {}",
                 err.code(),
                 err.message()
             );
@@ -353,47 +353,55 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
 }
 
 /// A caller's `gas` bounds the estimate: a spare cap leaves it alone, an executable cap replaces
-/// the margin, and a cap below the need or the inclusion cost is an error.
+/// the margin, and a cap below the need or the inclusion cost is an error. The plain call takes
+/// the cap as soon as the probe at it succeeds; the nested call has to search up to it.
 async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
-    let calldata = recurse_calldata(NESTED_DEPTH);
-    let call = async |gas: Option<u64>| call_message(calldata.clone(), gas).await;
-    let uncapped = devnet.agreed_estimate(call(None).await?).await?;
+    for depth in [CONTROL_DEPTH, NESTED_DEPTH] {
+        let calldata = recurse_calldata(depth);
+        let uncapped = devnet
+            .agreed_estimate(call_message(&calldata, None).await?)
+            .await?;
 
-    let spare = devnet
-        .agreed_estimate(call(Some(uncapped * 2)).await?)
-        .await?;
-    ensure!(
-        spare == uncapped,
-        "a cap above the need changed the estimate: capped={spare} uncapped={uncapped}"
-    );
+        let spare = devnet
+            .agreed_estimate(call_message(&calldata, Some(uncapped * 2)).await?)
+            .await?;
+        ensure!(
+            spare == uncapped,
+            "depth {depth}: a cap above the need changed the estimate: capped={spare} uncapped={uncapped}"
+        );
 
-    // Below the estimate but above the need, the cap takes the margin's place and is returned as is.
-    let tight = uncapped * 9 / 10;
-    let capped = devnet.agreed_estimate(call(Some(tight)).await?).await?;
-    ensure!(
-        capped == tight,
-        "an executable cap must replace the estimation margin: cap={tight} estimate={capped}"
-    );
-    devnet.expect_call_ok(call(Some(capped)).await?).await?;
+        // Below the estimate but above the need, the cap takes the margin's place and is returned as is.
+        let tight = uncapped * 9 / 10;
+        let capped = devnet
+            .agreed_estimate(call_message(&calldata, Some(tight)).await?)
+            .await?;
+        ensure!(
+            capped == tight,
+            "depth {depth}: an executable cap must replace the estimation margin: cap={tight} estimate={capped}"
+        );
+        devnet
+            .expect_call_ok(call_message(&calldata, Some(capped)).await?)
+            .await?;
 
-    // Half the estimate is short of what the nesting needs.
-    let half = uncapped / 2;
-    devnet
-        .expect_estimate_error(
-            call(Some(half)).await?,
-            TRANSACTION_REJECTED_CODE,
-            &format!("out of gas: gas required exceeds: {half}"),
-        )
-        .await?;
-    // Below the inclusion cost, preflight rejects the message before it runs.
-    devnet
-        .expect_estimate_error(
-            call(Some(21_000)).await?,
-            INVALID_INPUT_CODE,
-            "gas required exceeds allowance (21000)",
-        )
-        .await
+        let half = uncapped / 2;
+        devnet
+            .expect_estimate_error(
+                call_message(&calldata, Some(half)).await?,
+                TRANSACTION_REJECTED_CODE,
+                &format!("out of gas: gas required exceeds: {half}"),
+            )
+            .await?;
+        // Below the inclusion cost, preflight rejects the message before it runs.
+        devnet
+            .expect_estimate_error(
+                call_message(&calldata, Some(21_000)).await?,
+                INVALID_INPUT_CODE,
+                "gas required exceeds allowance (21000)",
+            )
+            .await?;
+    }
+    Ok(())
 }
 
 /// A revert that more gas fixes is searched past, with or without a cap; a cap below the
@@ -401,23 +409,23 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
 async fn estimate_searches_past_gas_dependent_revert() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
     let calldata = selector(REQUIRES_HIGH_GAS_SIGNATURE);
-    for gas in [None, Some(BLOCK_GAS_LIMIT)] {
+    for cap in [None, Some(BLOCK_GAS_LIMIT)] {
         let estimate = devnet
-            .agreed_estimate(call_message(calldata.clone(), gas).await?)
+            .agreed_estimate(call_message(&calldata, cap).await?)
             .await?;
         ensure!(
             estimate > REQUIRES_HIGH_GAS_THRESHOLD,
-            "expected an estimate above {REQUIRES_HIGH_GAS_THRESHOLD} with gas={gas:?}, got {estimate}"
+            "expected an estimate above {REQUIRES_HIGH_GAS_THRESHOLD} with cap={cap:?}, got {estimate}"
         );
         devnet
-            .expect_call_ok(call_message(calldata.clone(), Some(estimate)).await?)
+            .expect_call_ok(call_message(&calldata, Some(estimate)).await?)
             .await?;
     }
 
     let cap = REQUIRES_HIGH_GAS_THRESHOLD / 2;
     devnet
         .expect_estimate_error(
-            call_message(calldata, Some(cap)).await?,
+            call_message(&calldata, Some(cap)).await?,
             TRANSACTION_REJECTED_CODE,
             &format!("out of gas: gas required exceeds: {cap}"),
         )
@@ -431,15 +439,15 @@ async fn estimate_ignores_sender_funds_without_price() -> anyhow::Result<()> {
     let poor = new_funded(POOR_SENDER_FUND_AMT).await?.eth;
     let devnet = Devnet::pinned().await?;
     let calldata = recurse_calldata(NESTED_DEPTH);
-    for gas in [None, Some(BLOCK_GAS_LIMIT)] {
+    for cap in [None, Some(BLOCK_GAS_LIMIT)] {
         let msg = EthCallMessage {
             from: Some(poor),
-            ..call_message(calldata.clone(), gas).await?
+            ..call_message(&calldata, cap).await?
         };
         let estimate = devnet.agreed_estimate(msg.clone()).await?;
         ensure!(
             estimate < BLOCK_GAS_LIMIT,
-            "the estimate {estimate} saturated instead of converging, gas={gas:?}"
+            "the estimate {estimate} saturated instead of converging, cap={cap:?}"
         );
         devnet
             .expect_call_ok(EthCallMessage {
@@ -455,21 +463,20 @@ async fn estimate_ignores_sender_funds_without_price() -> anyhow::Result<()> {
 /// sending the value.
 async fn estimate_price_limits_gas() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
-    let base = call_message(recurse_calldata(NESTED_DEPTH), None).await?;
+    let base = call_message(&recurse_calldata(NESTED_DEPTH), None).await?;
     let uncapped = devnet.agreed_estimate(base.clone()).await?;
-    let from = base.from.context("the call has no sender")?;
     let balance = TokenAmount::from(
         devnet
             .forest
-            .call(EthGetBalance::request((from, devnet.block.clone()))?)
+            .call(EthGetBalance::request((
+                sender().await?.eth,
+                devnet.block.clone(),
+            ))?)
             .await?,
     );
-    // The price at which the sender affords about `gas`, and the gas a price buys.
+    // `price_for(gas)` is the price at which the sender affords about `gas`; `buys` is what a price affords.
     let price_for = |gas: u64| balance.div_floor(gas);
-    let allowance = |price: &TokenAmount| {
-        u64::try_from(balance.div_floor(price.atto().clone()).atto())
-            .map_or(BLOCK_GAS_LIMIT, |gas| gas.min(BLOCK_GAS_LIMIT))
-    };
+    let buys = |price: &TokenAmount| balance.div_floor(price.atto().clone());
     let priced = |max_fee: TokenAmount| EthCallMessage {
         max_fee_per_gas: Some(max_fee.into()),
         ..base.clone()
@@ -489,9 +496,9 @@ async fn estimate_price_limits_gas() -> anyhow::Result<()> {
     let tight = price_for(uncapped * 9 / 10);
     let limited = devnet.agreed_estimate(priced(tight.clone())).await?;
     ensure!(
-        limited == allowance(&tight),
+        TokenAmount::from_atto(limited) == buys(&tight),
         "an executable allowance must replace the estimation margin: allowance={} estimate={limited}",
-        allowance(&tight)
+        buys(&tight).atto()
     );
 
     // A price that buys less than the need is out of gas at the allowance.
@@ -500,7 +507,7 @@ async fn estimate_price_limits_gas() -> anyhow::Result<()> {
         .expect_estimate_error(
             priced(short.clone()),
             TRANSACTION_REJECTED_CODE,
-            &format!("out of gas: gas required exceeds: {}", allowance(&short)),
+            &format!("out of gas: gas required exceeds: {}", buys(&short).atto()),
         )
         .await?;
 
@@ -526,7 +533,7 @@ async fn estimate_price_limits_gas() -> anyhow::Result<()> {
 /// Conflicting or negative prices are invalid params, rejected before the block is looked at.
 async fn estimate_rejects_invalid_prices() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
-    let base = call_message(recurse_calldata(CONTROL_DEPTH), None).await?;
+    let base = call_message(&recurse_calldata(CONTROL_DEPTH), None).await?;
 
     let both_prices = EthCallMessage {
         gas_price: Some(EthBigInt::from(1)),
@@ -544,7 +551,7 @@ async fn estimate_rejects_invalid_prices() -> anyhow::Result<()> {
             .expect_estimate_error(
                 both_prices.clone(),
                 INVALID_PARAMS_CODE,
-                BOTH_PRICES_MESSAGE,
+                "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
             )
             .await?;
     }
@@ -590,12 +597,12 @@ async fn estimate_reads_balance_after_the_block() -> anyhow::Result<()> {
         Backend::Local,
     )?;
     let cid = assert_send_ok(&funding).await?;
+    let lookup = poll_until_message_executed(&devnet.forest, cid).await?;
     // The lookup names the tipset that executed the message; its parent is the block that includes it.
-    let executed = poll_until_message_executed(&devnet.forest, cid).await?;
     let executed = devnet
         .forest
         .call(ChainGetTipSet::request((ApiTipsetKey(Some(
-            executed.tipset,
+            lookup.tipset,
         )),))?)
         .await?;
     let included = devnet
@@ -610,7 +617,7 @@ async fn estimate_reads_balance_after_the_block() -> anyhow::Result<()> {
     let msg = EthCallMessage {
         from: Some(wallet.eth),
         gas_price: Some(EthBigInt::from(1)),
-        ..call_message(recurse_calldata(CONTROL_DEPTH), None).await?
+        ..call_message(&recurse_calldata(CONTROL_DEPTH), None).await?
     };
     for (node, client) in devnet.nodes() {
         let balance = client

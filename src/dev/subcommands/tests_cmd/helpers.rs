@@ -285,6 +285,7 @@ pub struct Wallet {
     pub eth: EthAddress,
 }
 
+/// A fresh Lotus delegated wallet with no balance.
 pub async fn new_unfunded() -> anyhow::Result<Wallet> {
     let cli = lotus_exec(&["wallet", "new", "delegated"])?;
     let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
@@ -292,16 +293,17 @@ pub async fn new_unfunded() -> anyhow::Result<Wallet> {
     Ok(Wallet { cli, f4, eth })
 }
 
+/// A fresh Lotus delegated wallet funded with `amount` and known to both nodes.
 pub async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
     let wallet = new_unfunded().await?;
     fund_on_chain(&wallet.cli, amount).await?;
     Ok(wallet)
 }
 
-/// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
-/// both Forest and Lotus see the actor. Lotus visibility is required before any
-/// `lotus --from`. Pass the Lotus string into `forest-wallet`; it rejects Forest
-/// `Address::to_string()` (`f4…`) while `CurrentNetwork` stays Mainnet.
+/// Funds `cli_addr` (Lotus `t4…` form) from the harness wallet and waits until both nodes have the
+/// actor, so a test can use it on either node or pin a block after it. Pass the Lotus string into
+/// `forest-wallet`; it rejects Forest `Address::to_string()` (`f4…`) while `CurrentNetwork` stays
+/// Mainnet.
 pub async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
     let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
     let msg = send_from(
