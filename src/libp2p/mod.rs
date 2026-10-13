@@ -6,6 +6,7 @@ pub mod chain_exchange;
 mod config;
 mod connection_manager;
 pub mod discovery;
+mod drand;
 mod gossip_params;
 pub mod hello;
 pub mod keypair;
@@ -22,7 +23,7 @@ pub use libp2p::{
 };
 
 pub(in crate::libp2p) use self::behaviour::*;
-pub use self::{config::*, peer_manager::*, service::*};
+pub use self::{config::*, drand::DrandGossip, peer_manager::*, service::*};
 #[cfg(test)]
 mod tests {
     mod decode_test;
