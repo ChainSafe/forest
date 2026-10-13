@@ -686,7 +686,8 @@ pub(in crate::libp2p) struct Verdict {
     pub(in crate::libp2p) acceptance: MessageAcceptance,
 }
 
-/// Decodes a `gossipsub` message, emits it and returns its verdict.
+/// Decodes a `gossipsub` message and emits it. Returns its verdict, or `None` when the `drand`
+/// module reports it later.
 pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
