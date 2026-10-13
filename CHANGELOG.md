@@ -33,6 +33,8 @@
 
 ### Added
 
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): Forest now receives `drand` beacon entries over `gossipsub` and falls back to HTTP only on a cache miss.
+
 ### Changed
 
 ### Removed

@@ -74,6 +74,10 @@ impl FakeDrandSigner {
     pub fn beacon(&self) -> DrandBeacon {
         DrandBeacon::new(TEST_FIL_GENESIS_TIME, TEST_FIL_BLOCK_DELAY, &self.config)
     }
+
+    pub fn chain_info_hash(&self) -> String {
+        self.config.chain_info.hash.to_string()
+    }
 }
 
 // Entries decoded from the gossip encoding verify against the fake chain's key.
