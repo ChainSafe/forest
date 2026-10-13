@@ -1,1 +1,2 @@
 assets/actor_bundles.car.zst filter=lfs diff=lfs merge=lfs -text
+src/beacon/drand_pb.rs linguist-generated=true
