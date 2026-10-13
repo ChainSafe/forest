@@ -21,7 +21,6 @@ use crate::libp2p::{
 
 const NETWORK: &str = "testnetname";
 
-/// The `drand` topic.
 fn drand_topic() -> Vec<ExtraTopic> {
     vec![ExtraTopic {
         topic: IdentTopic::new(format!(
@@ -31,7 +30,6 @@ fn drand_topic() -> Vec<ExtraTopic> {
     }]
 }
 
-/// Every topic the node should accept, drand included.
 fn allowed_topics() -> Vec<IdentTopic> {
     pubsub_topics(NETWORK)
         .chain(drand_topic().into_iter().map(|extra| extra.topic))
