@@ -328,7 +328,7 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
 }
 
 /// A call that reverts at any gas limit is reported as a revert, never answered with a gas value,
-/// from a funded EOA and from a contract sender, with and without a cap.
+/// from a funded `EOA` and from a contract sender, with and without a cap.
 async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
     let revert = call_message(&selector(ALWAYS_REVERTS_SIGNATURE), None).await?;
@@ -375,8 +375,8 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
 
 /// A caller's `gas` bounds the estimate for every kind of sender: a spare cap leaves it alone, an
 /// executable cap replaces the margin, and a cap below the need or the inclusion cost is an error.
-/// Lotus's table: the plain call from a funded EOA, from a contract and from an address that does
-/// not exist, then the nested call from the EOA, which has to search up to the cap.
+/// Lotus's table: the plain call from a funded `EOA`, from a contract and from an address that does
+/// not exist, then the nested call from the `EOA`, which has to search up to the cap.
 async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
     let eoa = sender().await?.eth;
@@ -611,7 +611,7 @@ async fn estimate_rejects_invalid_prices() -> anyhow::Result<()> {
 }
 
 /// Values a caller may send that must change nothing or fail the same way on both nodes: zero and
-/// oversized `gas`, zero prices, an explicit zero value, `input` beside `data`, a price no balance
+/// over-sized `gas`, zero prices, an explicit zero value, `input` beside `data`, a price no balance
 /// covers, and a price with no sender (the default sender holds nothing).
 async fn estimate_accepts_edge_values() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
@@ -688,7 +688,7 @@ async fn estimate_accepts_edge_values() -> anyhow::Result<()> {
 }
 
 /// The sender's balance is read from the state after the block's messages: a sender funded in the
-/// very block the estimate runs at can pay for gas there.
+/// very block the estimate runs at can pay for gas there, and cannot one block earlier.
 async fn estimate_reads_balance_after_the_block() -> anyhow::Result<()> {
     let devnet = Devnet::pinned().await?;
     let wallet = new_unfunded().await?;
@@ -721,6 +721,7 @@ async fn estimate_reads_balance_after_the_block() -> anyhow::Result<()> {
         gas_price: Some(EthBigInt::from(1)),
         ..call_message(&recurse_calldata(CONTROL_DEPTH), None).await?
     };
+    let before = BlockNumberOrHash::from_block_number(included.epoch() - 1);
     for (node, client) in devnet.nodes() {
         let balance = client
             .call(EthGetBalance::request((wallet.eth, in_block.clone()))?)
@@ -734,6 +735,15 @@ async fn estimate_reads_balance_after_the_block() -> anyhow::Result<()> {
             .with_context(|| {
                 format!("{node}: a sender funded in the block must pay for gas at that block")
             })?;
+        // One block earlier the transfer has not happened, so the price buys nothing.
+        let err = estimate_error(client, msg.clone(), before.clone()).await?;
+        ensure!(
+            err.code() == INVALID_INPUT_CODE
+                && err.message() == "gas required exceeds allowance (0)",
+            "{node}: before the funding block the sender must afford no gas, got code {} `{}`",
+            err.code(),
+            err.message()
+        );
     }
     Ok(())
 }
