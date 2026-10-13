@@ -1863,7 +1863,6 @@ impl RpcMethod<2> for EthEstimateGas {
         (tx, block_param): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
-        // Invalid prices are reported before the block param is resolved.
         let price = tx.max_gas_price()?;
         let caller_cap = tx.gas_cap().unwrap_or(BLOCK_GAS_LIMIT);
         let msg = Message::try_from(tx)?;
@@ -1880,11 +1879,12 @@ impl RpcMethod<2> for EthEstimateGas {
 }
 
 /// Estimates the gas limit `msg` needs on `tipset`, never above `caller_cap` or, with a `price`,
-/// the gas the sender can pay for. `msg`'s own gas limit is not used: the measurement runs at the
-/// block gas limit.
+/// the gas the sender can pay for.
+///
+/// `msg`'s own gas limit is not used: the measurement runs at the block gas limit.
 ///
 /// Mirrors Lotus's `EthEstimateGas`:
-/// <https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L193-L305>
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L193-L307>
 async fn eth_estimate_gas(
     ctx: &Ctx,
     msg: Message,
@@ -1896,7 +1896,7 @@ async fn eth_estimate_gas(
     let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&tipset).await?;
     let sender = ctx.state_manager.get_actor(&msg.from(), state_root)?;
     // An EVM contract fails the FVM's sender check, so it is estimated on the skip-sender path from
-    // the start; a sender the FVM rejects at run time, such as one that does not exist, is retried there.
+    // the start; any other sender the check rejects, such as one that does not exist, is retried there.
     let sender_validation = match &sender {
         Some(actor) if is_evm_actor(&actor.code) => SenderValidation::Skip,
         _ => SenderValidation::Enforce,
@@ -2125,10 +2125,12 @@ async fn eth_gas_search(
     .await
 }
 
-/// Returns the lowest gas limit, within 1%, at which `apply` succeeds, plus the `overestimation`
-/// margin when `apply` still succeeds with it; never above `gas_cap`.
+/// Finds the gas limit `apply` needs: the lowest limit, within 1%, at which it succeeds, plus the
+/// `overestimation` margin when `apply` still succeeds with it; never above `gas_cap`.
 ///
-/// `start` is a limit already known to fail below `gas_cap`.
+/// The gas a run *uses* is not a limit it can run with: a nested `CALL` forwards at most 63/64 of
+/// the remaining gas, and a contract can `revert` on `gasleft()`, so only runs at other limits
+/// tell which limits work. `start` is a limit the caller already saw fail.
 ///
 /// # Errors
 ///
@@ -4377,7 +4379,7 @@ mod test {
     fn gas_allowance_limits_gas_to_what_the_sender_can_pay(
         #[case] balance: u128,
         #[case] value: u128,
-        #[case] price: u128,
+        #[case] price: u64,
         #[case] gas: u64,
     ) {
         let allowance = gas_allowance(
@@ -4391,6 +4393,7 @@ mod test {
     #[rstest]
     #[case::nothing_affordable(1, 0, 2, "gas required exceeds allowance (0)")] // 1 / 2 = 0 gas
     #[case::all_spent_on_value(100, 100, 1, "gas required exceeds allowance (0)")]
+    #[case::price_above_balance(1_000_000, 0, u64::MAX, "gas required exceeds allowance (0)")]
     #[case::value_above_balance(
         100,
         101,
@@ -4400,7 +4403,7 @@ mod test {
     fn gas_allowance_rejects_a_sender_that_cannot_pay(
         #[case] balance: u128,
         #[case] value: u128,
-        #[case] price: u128,
+        #[case] price: u64,
         #[case] message: &str,
     ) {
         let err = gas_allowance(

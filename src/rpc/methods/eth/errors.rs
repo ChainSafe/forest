@@ -167,19 +167,19 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case(EthErrors::OutOfGas, OUT_OF_GAS_CODE, "call ran out of gas")]
-    #[case(EthErrors::GasRequiredExceedsAllowance { gas_limit: 1000 }, INVALID_INPUT_CODE, "gas required exceeds allowance (1000)")]
-    #[case(EthErrors::InsufficientGasLimit { gas_limit: 25000 }, TRANSACTION_REJECTED_CODE, "out of gas: gas required exceeds: 25000")]
-    #[case(EthErrors::InsufficientFunds {
+    #[case::out_of_gas(EthErrors::OutOfGas, OUT_OF_GAS_CODE, "call ran out of gas")]
+    #[case::gas_required_exceeds_allowance(EthErrors::GasRequiredExceedsAllowance { gas_limit: 1000 }, INVALID_INPUT_CODE, "gas required exceeds allowance (1000)")]
+    #[case::insufficient_gas_limit(EthErrors::InsufficientGasLimit { gas_limit: 25000 }, TRANSACTION_REJECTED_CODE, "out of gas: gas required exceeds: 25000")]
+    #[case::insufficient_funds(EthErrors::InsufficientFunds {
             balance: TokenAmount::from_atto(100),
             value: TokenAmount::from_atto(101),
         }, TRANSACTION_REJECTED_CODE, "insufficient funds for gas * price + value: have 100 want 101")]
-    #[case(
+    #[case::conflicting_gas_prices(
         EthErrors::ConflictingGasPrices,
         INVALID_PARAMS_CODE,
         "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified"
     )]
-    #[case(
+    #[case::block_range_exceeded(
         EthErrors::limit_exceeded(100, 500),
         LIMIT_EXCEEDED_CODE,
         "block range exceeds maximum of 100 (got 500)"
