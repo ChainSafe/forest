@@ -27,7 +27,6 @@ use crate::{
 
 const NETWORK: &str = "testdrandgossipsub";
 
-/// A Forest node subscribed to the Filecoin and `drand` topics.
 fn forest_node(drand: &DrandGossip) -> Swarm<Gossipsub> {
     let extra = [drand.extra_topic()];
     let mut node = Swarm::new_ephemeral_tokio(|id| {
@@ -40,7 +39,6 @@ fn forest_node(drand: &DrandGossip) -> Swarm<Gossipsub> {
     node
 }
 
-/// A plain `gossipsub` peer: a `drand` relay or another node.
 fn plain_peer(topic: &IdentTopic) -> Swarm<gossipsub::Behaviour> {
     let mut peer = Swarm::new_ephemeral_tokio(|id| {
         gossipsub::Behaviour::new(
