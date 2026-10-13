@@ -39,6 +39,7 @@ use super::{
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
     drand::DrandGossip,
+    gossip_params::ExtraTopic,
 };
 use crate::libp2p::{
     PeerManager, PeerOperation,
@@ -208,9 +209,15 @@ impl Libp2pService {
         genesis_cid: Cid,
         drand: Option<DrandGossip>,
     ) -> anyhow::Result<Self> {
-        let behaviour =
-            ForestBehaviour::new(&net_keypair, &config, &network_name, peer_manager.clone())
-                .await?;
+        let extra_topics: Vec<ExtraTopic> = drand.iter().map(DrandGossip::extra_topic).collect();
+        let behaviour = ForestBehaviour::new(
+            &net_keypair,
+            &config,
+            &network_name,
+            &extra_topics,
+            peer_manager.clone(),
+        )
+        .await?;
         let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
             .with_tokio()
             .with_tcp(
@@ -230,8 +237,8 @@ impl Libp2pService {
             })
             .build();
 
-        // Subscribe to gossipsub topics with the network name suffix
-        for topic in pubsub_topics(&network_name) {
+        // Subscribe to gossipsub topics with the network name suffix, and the extra ones
+        for topic in pubsub_topics(&network_name).chain(extra_topics.into_iter().map(|t| t.topic)) {
             swarm
                 .behaviour_mut()
                 .subscribe(&topic)
