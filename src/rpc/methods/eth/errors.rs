@@ -164,17 +164,35 @@ impl RpcErrorData for EthErrors {
 mod tests {
     use super::*;
     use crate::rpc::error::ServerError;
+    use rstest::rstest;
 
-    #[test]
-    fn test_block_range_exceeded_converts_to_server_error_with_correct_code() {
-        let err = EthErrors::limit_exceeded(100, 500);
-        let server_err: ServerError = err.into();
-
-        assert_eq!(server_err.code(), LIMIT_EXCEEDED_CODE);
-        assert_eq!(
-            server_err.message(),
-            "block range exceeds maximum of 100 (got 500)"
-        );
+    #[rstest]
+    #[case(EthErrors::OutOfGas, OUT_OF_GAS_CODE, "call ran out of gas")]
+    #[case(EthErrors::GasRequiredExceedsAllowance { gas_limit: 1000 }, INVALID_INPUT_CODE, "gas required exceeds allowance (1000)")]
+    #[case(EthErrors::InsufficientGasLimit { gas_limit: 25000 }, TRANSACTION_REJECTED_CODE, "out of gas: gas required exceeds: 25000")]
+    #[case(EthErrors::InsufficientFunds {
+            balance: TokenAmount::from_atto(100),
+            value: TokenAmount::from_atto(101),
+        }, TRANSACTION_REJECTED_CODE, "insufficient funds for gas * price + value: have 100 want 101")]
+    #[case(
+        EthErrors::ConflictingGasPrices,
+        INVALID_PARAMS_CODE,
+        "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified"
+    )]
+    #[case(
+        EthErrors::limit_exceeded(100, 500),
+        LIMIT_EXCEEDED_CODE,
+        "block range exceeds maximum of 100 (got 500)"
+    )]
+    fn test_eth_error_conversion_to_server_error(
+        #[case] eth_error: EthErrors,
+        #[case] code: i32,
+        #[case] expected: &str,
+    ) {
+        let server_err: ServerError = eth_error.into();
+        assert_eq!(server_err.code(), code);
+        assert_eq!(server_err.message(), expected);
+        assert!(server_err.data().is_none());
     }
 
     #[test]
@@ -229,66 +247,5 @@ mod tests {
             server_err.message(),
             "events for the requested block are not yet available"
         );
-    }
-
-    #[test]
-    fn test_out_of_gas_converts_to_server_error_matching_lotus() {
-        let err = EthErrors::OutOfGas;
-        let server_err: ServerError = err.into();
-
-        assert_eq!(server_err.code(), OUT_OF_GAS_CODE);
-        assert_eq!(server_err.message(), "call ran out of gas");
-    }
-
-    #[test]
-    fn test_gas_required_exceeds_allowance_converts_to_server_error() {
-        let server_err: ServerError =
-            EthErrors::GasRequiredExceedsAllowance { gas_limit: 1000 }.into();
-
-        assert_eq!(server_err.code(), INVALID_INPUT_CODE);
-        assert_eq!(
-            server_err.message(),
-            "gas required exceeds allowance (1000)"
-        );
-        assert!(server_err.data().is_none());
-    }
-
-    #[test]
-    fn test_insufficient_gas_limit_converts_to_server_error() {
-        let server_err: ServerError = EthErrors::InsufficientGasLimit { gas_limit: 25000 }.into();
-
-        assert_eq!(server_err.code(), TRANSACTION_REJECTED_CODE);
-        assert_eq!(
-            server_err.message(),
-            "out of gas: gas required exceeds: 25000"
-        );
-        assert!(server_err.data().is_none());
-    }
-
-    #[test]
-    fn test_insufficient_funds_converts_to_server_error() {
-        let server_err: ServerError = EthErrors::InsufficientFunds {
-            balance: TokenAmount::from_atto(100),
-            value: TokenAmount::from_atto(101),
-        }
-        .into();
-
-        assert_eq!(server_err.code(), TRANSACTION_REJECTED_CODE);
-        assert_eq!(
-            server_err.message(),
-            "insufficient funds for gas * price + value: have 100 want 101"
-        );
-        assert!(server_err.data().is_none());
-    }
-    #[test]
-    fn test_conflicting_gas_prices_converts_to_server_error() {
-        let server_err: ServerError = EthErrors::ConflictingGasPrices.into();
-
-        assert_eq!(server_err.code(), INVALID_PARAMS_CODE);
-        assert_eq!(
-            server_err.message(),
-            "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified"
-        );
-        assert!(server_err.data().is_none());
     }
 }
