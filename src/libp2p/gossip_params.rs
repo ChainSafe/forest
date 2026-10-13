@@ -4,12 +4,18 @@
 use std::time::Duration;
 
 use libp2p::gossipsub::{
-    PeerScoreParams, PeerScoreThresholds, TopicScoreParams, score_parameter_decay,
+    IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams, score_parameter_decay,
 };
 
 use strum::IntoEnumIterator as _;
 
 use crate::{libp2p::PubsubTopic, networks::GenesisNetworkName};
+
+/// A non-Filecoin topic with its score parameters.
+pub(in crate::libp2p) struct ExtraTopic {
+    pub(in crate::libp2p) topic: IdentTopic,
+    pub(in crate::libp2p) score: TopicScoreParams,
+}
 
 // All these parameters are copied from what Lotus has set for their Topic
 // scores. They are currently unused because enabling them causes GossipSub
@@ -82,6 +88,7 @@ fn build_block_topic_config() -> TopicScoreParams {
 
 pub(in crate::libp2p) fn build_peer_score_params(
     network_name: &GenesisNetworkName,
+    extra: &[ExtraTopic],
 ) -> PeerScoreParams {
     #[allow(clippy::disallowed_types)]
     let mut psp_topics = std::collections::HashMap::new();
@@ -92,6 +99,9 @@ pub(in crate::libp2p) fn build_peer_score_params(
             PubsubTopic::Messages => build_msg_topic_config(),
         };
         psp_topics.insert(topic.ident(network_name).hash(), params);
+    }
+    for extra in extra {
+        psp_topics.insert(extra.topic.hash(), extra.score.clone());
     }
 
     PeerScoreParams {
