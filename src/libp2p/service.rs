@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+use libp2p::gossipsub::{MessageAcceptance, MessageId};
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
     autonat::NatStatus,
@@ -651,55 +652,77 @@ async fn handle_discovery_event(
     }
 }
 
-async fn handle_gossip_event(
+/// Verdict for a gossiped message.
+#[derive(Debug)]
+pub(in crate::libp2p) struct Verdict {
+    pub(in crate::libp2p) message_id: MessageId,
+    pub(in crate::libp2p) source: PeerId,
+    pub(in crate::libp2p) acceptance: MessageAcceptance,
+}
+
+/// Decodes a `gossipsub` message, emits it and returns its verdict.
+pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
-) {
-    if let gossipsub::Event::Message {
+) -> Option<Verdict> {
+    let gossipsub::Event::Message {
         propagation_source: source,
+        message_id,
         message,
-        ..
     } = e
-    {
-        let topic = message.topic.as_str();
-        let message = message.data;
-        trace!("Got a Gossip Message from {:?}", source);
-        if topic == pubsub_block_str {
-            match from_slice_with_fallback::<GossipBlock>(&message) {
-                Ok(b) => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Block(b),
-                        },
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
-                }
+    else {
+        return None;
+    };
+    let topic = message.topic.as_str();
+    let message = message.data;
+    trace!("Got a Gossip Message from {:?}", source);
+    // Accepted once decoded; the syncer and message pool validate fully. Undecodable ones are
+    // ignored, so gaps in our decoder don't penalize peers.
+    let acceptance = if topic == pubsub_block_str {
+        match from_slice_with_fallback::<GossipBlock>(&message) {
+            Ok(b) => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::PubsubMessage {
+                        message: PubsubMessage::Block(b),
+                    },
+                )
+                .await;
+                MessageAcceptance::Accept
             }
-        } else if topic == pubsub_msg_str {
-            match from_slice_with_fallback::<SignedMessage>(&message) {
-                Ok(m) => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Message(m),
-                        },
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
-                }
+            Err(e) => {
+                warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
+                MessageAcceptance::Ignore
             }
-        } else {
-            warn!("Getting gossip messages from unknown topic: {topic}");
         }
-    }
+    } else if topic == pubsub_msg_str {
+        match from_slice_with_fallback::<SignedMessage>(&message) {
+            Ok(m) => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::PubsubMessage {
+                        message: PubsubMessage::Message(m),
+                    },
+                )
+                .await;
+                MessageAcceptance::Accept
+            }
+            Err(e) => {
+                warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
+                MessageAcceptance::Ignore
+            }
+        }
+    } else {
+        warn!("Getting gossip messages from unknown topic: {topic}");
+        MessageAcceptance::Ignore
+    };
+    Some(Verdict {
+        message_id,
+        source,
+        acceptance,
+    })
 }
 
 /// Saturating: these timestamps only feed peer latency estimates, so a skewed clock should degrade
@@ -934,7 +957,19 @@ async fn handle_forest_behaviour_event(
             .await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
-            handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
+            if let Some(Verdict {
+                message_id,
+                source,
+                acceptance,
+            }) =
+                handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
+            {
+                swarm.behaviour_mut().report_message_validation_result(
+                    &message_id,
+                    &source,
+                    acceptance,
+                );
+            }
         }
         ForestBehaviourEvent::Hello(rr_event) => {
             let behaviour_mut = swarm.behaviour_mut();
