@@ -38,6 +38,7 @@ use super::{
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
+    drand::DrandGossip,
 };
 use crate::libp2p::{
     PeerManager, PeerOperation,
@@ -186,6 +187,7 @@ pub enum NetRPCMethods {
 pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
+    drand: Option<DrandGossip>,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -204,6 +206,7 @@ impl Libp2pService {
         net_keypair: Keypair,
         network_name: GenesisNetworkName,
         genesis_cid: Cid,
+        drand: Option<DrandGossip>,
     ) -> anyhow::Result<Self> {
         let behaviour =
             ForestBehaviour::new(&net_keypair, &config, &network_name, peer_manager.clone())
@@ -277,6 +280,7 @@ impl Libp2pService {
         Ok(Libp2pService {
             swarm,
             bootstrap_peers,
+            drand,
             cs,
             peer_manager,
             network_receiver_in,
@@ -297,6 +301,12 @@ impl Libp2pService {
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
             warn!("Failed to bootstrap with Kademlia: {e:#}");
         }
+
+        let mut drand_verdicts = match &self.drand {
+            Some(drand) => drand.verdicts.clone().into_stream().left_stream(),
+            None => futures::stream::pending().right_stream(),
+        }
+        .fuse();
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
@@ -347,7 +357,8 @@ impl Libp2pService {
                             &self.network_sender_out,
                             cx_response_tx.clone(),
                             &pubsub_block_str,
-                            &pubsub_msg_str,).await;
+                            &pubsub_msg_str,
+                            self.drand.as_ref()).await;
                     },
                     None => { break; },
                     _ => { },
@@ -396,6 +407,14 @@ impl Libp2pService {
                 },
                 _ = bootstrap_peer_dialer_interval_stream.next() => {
                     dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers);
+                }
+                verdict = drand_verdicts.next() => {
+                    if let Some(Verdict { message_id, source, acceptance }) = verdict {
+                        swarm_stream
+                            .get_mut()
+                            .behaviour_mut()
+                            .report_message_validation_result(&message_id, &source, acceptance);
+                    }
                 }
             };
         }
@@ -660,12 +679,14 @@ pub(in crate::libp2p) struct Verdict {
     pub(in crate::libp2p) acceptance: MessageAcceptance,
 }
 
-/// Decodes a `gossipsub` message, emits it and returns its verdict.
+/// Decodes a `gossipsub` message and emits it. Returns its verdict, or `None` when the `drand`
+/// module reports it later.
 pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
+    drand: Option<&DrandGossip>,
 ) -> Option<Verdict> {
     let gossipsub::Event::Message {
         propagation_source: source,
@@ -675,10 +696,21 @@ pub(in crate::libp2p) async fn handle_gossip_event(
     else {
         return None;
     };
+    trace!("Got a Gossip Message from {:?}", source);
+    if let Some(drand) = drand.filter(|drand| message.topic == drand.topic) {
+        drand.on_message(message_id, source, &message.data);
+        return None;
+    }
+
     let topic = message.topic.as_str();
     let message = message.data;
+<<<<<<< HEAD
 
     trace!("Got a Gossip Message from {:?}", source);
+=======
+    // Accepted once decoded; the syncer and message pool validate fully. Undecodable ones are
+    // ignored, so gaps in our decoder don't penalize peers.
+>>>>>>> 937746be6 (feat(lip2p/drand): introduce drand libp2p module)
     let acceptance = if topic == pubsub_block_str {
         match from_slice_with_fallback::<GossipBlock>(&message) {
             Ok(b) => {
@@ -934,6 +966,7 @@ async fn handle_forest_behaviour_event(
     )>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
+    drand: Option<&DrandGossip>,
 ) {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
@@ -950,8 +983,14 @@ async fn handle_forest_behaviour_event(
                 message_id,
                 source,
                 acceptance,
-            }) =
-                handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
+            }) = handle_gossip_event(
+                e,
+                network_sender_out,
+                pubsub_block_str,
+                pubsub_msg_str,
+                drand,
+            )
+            .await
             {
                 swarm.behaviour_mut().report_message_validation_result(
                     &message_id,
