@@ -140,6 +140,14 @@ impl BeaconSchedule {
         }
     }
 
+    /// The first unchained beacon in schedule order.
+    pub fn unchained_beacon(&self) -> Option<&DrandBeacon> {
+        self.0.iter().find_map(|point| match &point.beacon {
+            BeaconImpl::Drand(beacon) if beacon.network().is_unchained() => Some(beacon),
+            _ => None,
+        })
+    }
+
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
@@ -197,6 +205,11 @@ pub trait Beacon {
     /// Unix timestamp (seconds) at which the given `drand` round is produced, or `None`
     /// (the default) if not derivable - meaning callers should not wait.
     fn beacon_round_timestamp(&self, _round: u64) -> Option<u64> {
+        None
+    }
+
+    /// Chain hash identifying the `drand` network, if any.
+    fn chain_hash(&self) -> Option<&str> {
         None
     }
 
@@ -266,6 +279,8 @@ impl DrandBeacon {
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
         const CACHE_SIZE: NonZeroUsize = nonzero!(1000usize);
+        // Registered eagerly so zero fetches export as 0.
+        LazyLock::force(&metrics::DRAND_HTTP_FETCH_TOTAL);
         Self {
             servers: config.servers.clone(),
             hash: config.chain_info.hash.to_string(),
@@ -306,6 +321,11 @@ impl DrandBeacon {
                 "fetched drand entry failed verification"
             );
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_cached(&self, round: u64) -> bool {
+        self.verified_beacons.get(&round).is_some()
     }
 }
 
@@ -482,5 +502,9 @@ impl Beacon for DrandBeacon {
             self.drand_gen_time
                 .saturating_add(round.saturating_sub(1).saturating_mul(self.interval)),
         )
+    }
+
+    fn chain_hash(&self) -> Option<&str> {
+        Some(&self.hash)
     }
 }
