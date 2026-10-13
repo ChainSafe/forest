@@ -83,6 +83,10 @@ impl FakeDrandSigner {
     pub fn chain_info_hash(&self) -> String {
         self.config.chain_info.hash.to_string()
     }
+
+    pub fn chain_info_hash(&self) -> String {
+        self.config.chain_info.hash.to_string()
+    }
 }
 
 // Entries decoded from the gossip encoding verify against the fake chain's key.
