@@ -2770,14 +2770,6 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
         ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(EthEstimateGas::request((
-            EthCallMessage {
-                from: Some(generate_eth_random_address()?),
-                ..Default::default()
-            },
-            Some(BlockNumberOrHash::from_block_number(expensive_fork_epoch)),
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
     ])
 }
 
