@@ -19,7 +19,7 @@ use crate::cli_shared::{
 use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
-use crate::libp2p::{Libp2pService, PeerManager};
+use crate::libp2p::{DrandGossip, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
 use crate::networks::{self, ChainConfig};
 use crate::prelude::*;
@@ -303,6 +303,8 @@ async fn create_p2p_service(
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
+    // The state manager's schedule, so gossiped entries fill the cache block validation reads.
+    let drand_gossip = DrandGossip::new(ctx.state_manager.beacon_schedule().clone());
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -311,6 +313,7 @@ async fn create_p2p_service(
         ctx.net_keypair.clone(),
         config.chain.genesis_name(),
         *ctx.state_manager.chain_store().genesis_block_header().cid(),
+        drand_gossip,
     )
     .await?;
     Ok(p2p_service)
