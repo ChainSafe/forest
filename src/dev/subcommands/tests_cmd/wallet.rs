@@ -268,6 +268,6 @@ async fn send_params_hex_invokes_contract() {
         true,
     )
     .unwrap();
-    let cid = assert_send_ok(&out).await.unwrap();
+    let cid = assert_send_ok(&out).await.unwrap().message;
     eprintln!("send --params-hex {cid}");
 }

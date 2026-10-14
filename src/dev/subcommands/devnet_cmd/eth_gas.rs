@@ -210,6 +210,11 @@ async fn common_block_number(a: &Client, b: &Client) -> anyhow::Result<i64> {
     Ok(head_a.0.min(head_b.0) as i64)
 }
 
+/// Waits for both heads to move one block past the deploy.
+///
+/// The actor polls read each node's chain head, but estimates run on its mpool head, which Lotus
+/// updates a couple of seconds later; a call to a receiver missing from that state is priced as a
+/// placeholder creation instead.
 async fn poll_until_next_epoch() -> anyhow::Result<()> {
     let current_epoch = common_block_number(&forest_client()?, &lotus_client()?).await?;
     poll("both nodes one epoch past deploy", || async {
@@ -323,7 +328,9 @@ async fn estimate_is_sufficient_on_chain() -> anyhow::Result<()> {
             )
         })?;
     eprintln!("submitted at forest's estimate {estimate}: {cid}");
-    // The landed call changes the contract's storage, so later trials measure their own baseline.
+    // The landed call changes the contract's storage, which later trials estimate on each node's
+    // own head, so Lotus must have executed it too before the next trial starts.
+    poll_until_message_executed(&lotus_client()?, cid).await?;
     Ok(())
 }
 
@@ -348,14 +355,10 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
             )?;
             for (node, err) in [("forest", &forest), ("lotus", &lotus)] {
                 ensure!(
-                    err.code() == EXECUTION_REVERTED_CODE,
-                    "{node}, {label} sender, cap={cap:?}: expected code {EXECUTION_REVERTED_CODE}, got {}: {}",
+                    err.code() == EXECUTION_REVERTED_CODE
+                        && err.message().contains(ALWAYS_REVERTS_REASON),
+                    "{node}, {label} sender, cap={cap:?}: expected code {EXECUTION_REVERTED_CODE} naming `{ALWAYS_REVERTS_REASON}`, got code {} `{}`",
                     err.code(),
-                    err.message()
-                );
-                ensure!(
-                    err.message().contains(ALWAYS_REVERTS_REASON),
-                    "{node}, {label} sender: revert reason `{ALWAYS_REVERTS_REASON}` missing from `{}`",
                     err.message()
                 );
             }
@@ -382,11 +385,18 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
     let eoa = sender().await?.eth;
     let contract = *contract().await?;
     let missing = new_unfunded().await?.eth;
-    for (label, from, depth) in [
-        ("EOA", eoa, CONTROL_DEPTH),
-        ("contract", contract, CONTROL_DEPTH),
-        ("missing", missing, CONTROL_DEPTH),
-        ("nested EOA", eoa, NESTED_DEPTH),
+    // A cap below the inclusion cost: preflight rejects an explicit message before it runs. A
+    // contract sender is applied implicitly, without an inclusion cost, so it runs out of gas instead.
+    let preflight = (INVALID_INPUT_CODE, "gas required exceeds allowance (21000)");
+    let implicit = (
+        TRANSACTION_REJECTED_CODE,
+        "out of gas: gas required exceeds: 21000",
+    );
+    for (label, from, depth, below_inclusion) in [
+        ("EOA", eoa, CONTROL_DEPTH, preflight),
+        ("contract", contract, CONTROL_DEPTH, implicit),
+        ("missing", missing, CONTROL_DEPTH, preflight),
+        ("nested EOA", eoa, NESTED_DEPTH, preflight),
     ] {
         let base = EthCallMessage {
             from: Some(from),
@@ -402,7 +412,6 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
             "{label}: a cap above the need changed the estimate: capped={spare} uncapped={uncapped}"
         );
 
-        // Below the estimate but above the need, the cap takes the margin's place and is returned as is.
         let tight = uncapped * 9 / 10;
         let capped = devnet.agreed_estimate(with_gas(&base, tight)).await?;
         ensure!(
@@ -420,16 +429,7 @@ async fn estimate_honors_gas_cap() -> anyhow::Result<()> {
             )
             .await?;
 
-        // A cap below the inclusion cost: preflight rejects an explicit message before it runs. A
-        // contract sender is applied implicitly, without an inclusion cost, so it runs out of gas instead.
-        let (code, message) = if from == contract {
-            (
-                TRANSACTION_REJECTED_CODE,
-                "out of gas: gas required exceeds: 21000",
-            )
-        } else {
-            (INVALID_INPUT_CODE, "gas required exceeds allowance (21000)")
-        };
+        let (code, message) = below_inclusion;
         devnet
             .expect_estimate_error(with_gas(&base, 21_000), code, message)
             .await?;
@@ -536,23 +536,38 @@ async fn estimate_price_limits_gas() -> anyhow::Result<()> {
         )
         .await?;
 
-    // The value comes out of the balance before any gas does.
-    let value = balance.clone() + TokenAmount::from_atto(1);
-    devnet
-        .expect_estimate_error(
-            EthCallMessage {
-                gas_price: Some(EthBigInt::from(1)),
-                value: Some((&value).into()),
-                ..base
-            },
+    // The value comes out of the balance before any gas does: one atto over the balance is
+    // rejected outright, and the whole balance leaves nothing to pay for gas with.
+    let over = balance.clone() + TokenAmount::from_atto(1);
+    for (value, code, message) in [
+        (
+            &over,
             TRANSACTION_REJECTED_CODE,
-            &format!(
+            format!(
                 "insufficient funds for gas * price + value: have {} want {}",
                 balance.atto(),
-                value.atto()
+                over.atto()
             ),
-        )
-        .await
+        ),
+        (
+            &balance,
+            INVALID_INPUT_CODE,
+            "gas required exceeds allowance (0)".to_string(),
+        ),
+    ] {
+        devnet
+            .expect_estimate_error(
+                EthCallMessage {
+                    gas_price: Some(EthBigInt::from(1)),
+                    value: Some(value.into()),
+                    ..base.clone()
+                },
+                code,
+                &message,
+            )
+            .await?;
+    }
+    Ok(())
 }
 
 /// Conflicting or negative prices are invalid params, rejected before the block is looked at.
@@ -698,8 +713,7 @@ async fn estimate_reads_balance_after_the_block() -> anyhow::Result<()> {
         "1 FIL",
         Backend::Local,
     )?;
-    let cid = assert_send_ok(&funding).await?;
-    let lookup = poll_until_message_executed(&devnet.forest, cid).await?;
+    let lookup = assert_send_ok(&funding).await?;
     // The lookup names the tipset that executed the message; its parent is the block that includes it.
     let executed = devnet
         .forest

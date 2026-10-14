@@ -156,9 +156,9 @@ pub fn wallet_send(
     wallet(backend, &args)
 }
 
-/// Parse the CID from `forest-wallet send` and require a successful on-chain receipt.
+/// Parses the CID from `forest-wallet send` and returns its execution, which must have succeeded.
 /// `send` with `--wait-confidence` already waited for inclusion; this checks the exit code.
-pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
+pub async fn assert_send_ok(out: &str) -> anyhow::Result<MessageLookup> {
     let cid = Cid::from_str(
         out.lines()
             .last()
@@ -171,7 +171,7 @@ pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
         exit.is_success(),
         "message {cid} failed on chain with exit code {exit}"
     );
-    Ok(cid)
+    Ok(lookup)
 }
 
 /// Submit an EVM contract call via `forest-wallet send --params-hex`.
@@ -196,7 +196,7 @@ pub async fn wallet_send_calldata(
         &["--params-hex", params.as_str(), "--gas-limit", gas.as_str()],
         true,
     )?;
-    assert_send_ok(&out).await
+    Ok(assert_send_ok(&out).await?.message)
 }
 
 /// Max attempts for [`rpc_call_with_retry`].
