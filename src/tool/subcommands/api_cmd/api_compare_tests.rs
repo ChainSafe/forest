@@ -1730,15 +1730,22 @@ fn eth_skip_sender_revert_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest
     let revert_initcode = EthBytes::from_str(
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex").trim(),
     )?;
-    eth_call_and_estimate_gas_tests(
-        epoch,
-        PolicyOnRejected::PassWithIdenticalError,
-        [EthCallMessage {
-            from: Some(generate_eth_random_address()?),
-            data: Some(revert_initcode),
-            ..Default::default()
-        }],
-    )
+    let msg = EthCallMessage {
+        from: Some(generate_eth_random_address()?),
+        data: Some(revert_initcode),
+        ..Default::default()
+    };
+    let block = BlockNumberOrHash::from_block_number(epoch);
+    Ok(vec![
+        RpcTest::identity(EthCall::request((msg.clone(), block.clone()))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        // The revert's backtrace names the contract that failed to deploy, and its ID is the next
+        // free one in the Init actor of the state the node simulated on. `eth_call` runs at the
+        // requested block on both nodes, so the IDs agree; the estimate runs at each node's own
+        // head, so they differ as soon as calibnet creates an actor in between.
+        RpcTest::identity(EthEstimateGas::request((msg, Some(block)))?)
+            .policy_on_rejected(PolicyOnRejected::Pass),
+    ])
 }
 
 /// Contract creation that both nodes must refuse or report as reverting.
