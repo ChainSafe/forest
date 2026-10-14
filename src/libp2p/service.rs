@@ -677,9 +677,8 @@ pub(in crate::libp2p) async fn handle_gossip_event(
     };
     let topic = message.topic.as_str();
     let message = message.data;
+    
     trace!("Got a Gossip Message from {:?}", source);
-    // Accepted once decoded; the syncer and message pool validate fully. Undecodable ones are
-    // ignored, so gaps in our decoder don't penalize peers.
     let acceptance = if topic == pubsub_block_str {
         match from_slice_with_fallback::<GossipBlock>(&message) {
             Ok(b) => {
