@@ -362,6 +362,12 @@ async fn estimate_reports_a_non_gas_failure() -> anyhow::Result<()> {
                     err.message()
                 );
             }
+            ensure!(
+                forest.message() == lotus.message(),
+                "{label} sender, cap={cap:?}: revert messages differ: forest `{}`, lotus `{}`",
+                forest.message(),
+                lotus.message()
+            );
             // The data field carries the ABI-encoded reason eth clients decode.
             let (forest_data, lotus_data) = (
                 forest.data().map(|d| d.get()),
