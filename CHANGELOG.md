@@ -44,6 +44,7 @@
 ### Fixed
 
 - [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
+- [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall`, `Filecoin.StateReplay` and `Filecoin.StateCompute` report `unknown error (RetCode=<code>)` for a failed message the FVM attaches no failure info to, such as one that runs out of gas, instead of an empty error. Matches Lotus.
 
 ## Forest v0.38.0 "Ayanant"
 
