@@ -309,6 +309,16 @@ impl Libp2pService {
             warn!("Failed to bootstrap with Kademlia: {e:#}");
         }
 
+        // Relays never speak hello. Connect them now rather than on the first re-dial tick.
+        if let Some(drand) = &self.drand {
+            for peer in drand.relays.keys() {
+                self.swarm
+                    .behaviour_mut()
+                    .hello
+                    .exempt_from_inbound_timeout(*peer);
+            }
+            dial_peers_if_needed(&mut self.swarm, &drand.relays, "drand relay");
+        }
         let mut drand_verdicts = match &self.drand {
             Some(drand) => drand.verdicts.clone().into_stream().left_stream(),
             None => futures::stream::pending().right_stream(),
@@ -413,7 +423,10 @@ impl Libp2pService {
                     }
                 },
                 _ = bootstrap_peer_dialer_interval_stream.next() => {
-                    dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers);
+                    dial_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers, "bootstrap");
+                    if let Some(drand) = &self.drand {
+                        dial_peers_if_needed(swarm_stream.get_mut(), &drand.relays, "drand relay");
+                    }
                 }
                 verdict = drand_verdicts.next() => {
                     if let Some(Verdict { message_id, source, acceptance }) = verdict {
@@ -443,13 +456,14 @@ impl Libp2pService {
     }
 }
 
-fn dial_to_bootstrap_peers_if_needed(
+fn dial_peers_if_needed(
     swarm: &mut Swarm<ForestBehaviour>,
-    bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+    peers: &HashMap<PeerId, Multiaddr>,
+    kind: &str,
 ) {
-    for (peer, ma) in bootstrap_peers {
+    for (peer, ma) in peers {
         if !swarm.behaviour().peers().contains(peer) {
-            info!("Re-dialing to bootstrap peer at {ma}");
+            info!("Dialing {kind} peer at {ma}");
             if let Err(e) = swarm.dial(ma.clone()) {
                 warn!("{e}");
             }
@@ -637,15 +651,22 @@ async fn handle_discovery_event(
     discovery_out: DiscoveryEvent,
     network_sender_out: &Sender<NetworkEvent>,
     peer_manager: &PeerManager,
+    drand: Option<&DrandGossip>,
 ) {
+    // `drand` relays are not Filecoin peers: no hello, no chain sync, no protocol bans.
+    let is_drand_relay = |peer: &PeerId| drand.is_some_and(|d| d.relays.contains_key(peer));
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
             trace!("Peer connected, {peer_id}");
-            emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
+            if !is_drand_relay(&peer_id) {
+                emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
+            }
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
             trace!("Peer disconnected, {peer_id}");
-            emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
+            if !is_drand_relay(&peer_id) {
+                emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
+            }
         }
         DiscoveryEvent::Discovery(discovery_event) => match &*discovery_event {
             DerivedDiscoveryBehaviourEvent::Identify(identify::Event::Received {
@@ -654,7 +675,9 @@ async fn handle_discovery_event(
                 ..
             }) => {
                 let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
-                if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
+                if is_drand_relay(peer_id) {
+                    // Relays only speak gossipsub.
+                } else if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
                     peer_manager
                         .ban_peer_with_default_duration(
                             *peer_id,
@@ -987,6 +1010,7 @@ async fn handle_forest_behaviour_event(
                 discovery_out,
                 network_sender_out,
                 peer_manager,
+                drand,
             )
             .await
         }

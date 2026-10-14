@@ -36,6 +36,7 @@ impl FakeDrandSigner {
                     group_hash: "00".repeat(32).into(),
                 },
                 network_type: DrandNetwork::Quicknet, // unchained
+                relays: vec![],
                 // Would clash with the real quicknet config's collector.
                 register_metrics: false,
             },

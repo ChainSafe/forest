@@ -15,20 +15,24 @@ pub(in crate::libp2p) use validator::DrandGossipValidator;
 
 use std::{sync::Arc, time::Duration};
 
+use ahash::HashMap;
 use libp2p::{
-    PeerId,
+    Multiaddr, PeerId,
     gossipsub::{IdentTopic, MessageId, TopicHash, TopicScoreParams, score_parameter_decay},
+    multiaddr::Protocol,
 };
+use tracing::warn;
 
-use super::{gossip_params::ExtraTopic, service::Verdict};
+use super::{discovery::resolve_libp2p_dnsaddr, gossip_params::ExtraTopic, service::Verdict};
 use crate::beacon::{Beacon as _, BeaconSchedule};
 
 /// `gossipsub` topic prefix of a `drand` network, followed by its chain hash.
 pub(in crate::libp2p) const PUBSUB_DRAND_STR: &str = "/drand/pubsub/v0.0.0";
 
-/// The unchained beacon's `drand` topic and its validator.
+/// The unchained beacon's `drand` topic, its relays and its validator.
 pub struct DrandGossip {
     pub(in crate::libp2p) topic: TopicHash,
+    pub(in crate::libp2p) relays: HashMap<PeerId, Multiaddr>,
     pub(in crate::libp2p) verdicts: flume::Receiver<Verdict>,
     validator: DrandGossipValidator,
 }
@@ -36,12 +40,14 @@ pub struct DrandGossip {
 impl DrandGossip {
     /// `None` without an unchained beacon. `schedule` must be the one block validation uses, as
     /// gossip fills its cache.
-    pub fn new(schedule: Arc<BeaconSchedule>) -> Option<Self> {
+    pub async fn new(schedule: Arc<BeaconSchedule>) -> Option<Self> {
         let beacon = schedule.unchained_beacon()?;
         let topic = TopicHash::from_raw(format!("{PUBSUB_DRAND_STR}/{}", beacon.chain_hash()?));
+        let relays = resolve_relays(beacon.relays()).await;
         let (verdicts_tx, verdicts) = flume::unbounded();
         Some(Self {
             topic,
+            relays,
             verdicts,
             validator: DrandGossipValidator::new(schedule, verdicts_tx),
         })
@@ -89,6 +95,28 @@ fn score_params() -> TopicScoreParams {
         invalid_message_deliveries_weight: -1000.0,
         invalid_message_deliveries_decay: score_parameter_decay(Duration::from_hours(1)),
     }
+}
+
+/// Resolves the relays, skipping failures: HTTP is the fallback.
+async fn resolve_relays(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
+    let mut relays = HashMap::default();
+    for addr in addrs {
+        if let Some(Protocol::Dnsaddr(name)) = addr.iter().next() {
+            match resolve_libp2p_dnsaddr(&name).await {
+                Ok(resolved) => relays.extend(
+                    resolved
+                        .into_iter()
+                        .map(|(peer, addr)| (peer, addr.with(Protocol::P2p(peer)))),
+                ),
+                Err(e) => warn!("failed to resolve drand relay {addr}: {e:#}"),
+            }
+        } else if let Some(Protocol::P2p(peer)) = addr.iter().last() {
+            relays.insert(peer, addr.clone());
+        } else {
+            warn!("ignoring drand relay {addr}: no peer id");
+        }
+    }
+    relays
 }
 
 fn unix_now_secs() -> u64 {
