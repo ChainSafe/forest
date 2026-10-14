@@ -49,6 +49,7 @@ fn new_beacon_mainnet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Mainnet,
+            relays: vec![],
             register_metrics: false,
         },
     )
@@ -75,6 +76,7 @@ pub fn new_beacon_quicknet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Quicknet,
+            relays: vec![],
             register_metrics: false,
         },
     )

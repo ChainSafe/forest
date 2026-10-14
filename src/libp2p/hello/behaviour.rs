@@ -24,6 +24,8 @@ pub struct HelloBehaviour {
     inner: InnerBehaviour,
     response_channels: HashMap<OutboundRequestId, flume::Sender<HelloResponse>>,
     pending_inbound_hello_peers: HashMap<PeerId, Instant>,
+    /// Peers never disconnected for not sending hello, e.g. `drand` relays.
+    inbound_timeout_exempt: ahash::HashSet<PeerId>,
     peer_manager: Arc<PeerManager>,
 }
 
@@ -33,8 +35,14 @@ impl HelloBehaviour {
             inner: InnerBehaviour::new([(HELLO_PROTOCOL_NAME, ProtocolSupport::Full)], cfg),
             response_channels: Default::default(),
             pending_inbound_hello_peers: Default::default(),
+            inbound_timeout_exempt: Default::default(),
             peer_manager,
         }
+    }
+
+    /// Never disconnects `peer` for not sending a hello request.
+    pub fn exempt_from_inbound_timeout(&mut self, peer: PeerId) {
+        self.inbound_timeout_exempt.insert(peer);
     }
 
     pub fn send_request(
@@ -160,6 +168,7 @@ impl NetworkBehaviour for HelloBehaviour {
     fn on_swarm_event(&mut self, event: FromSwarm) {
         if let FromSwarm::ConnectionEstablished(e) = &event
             && e.other_established == 0
+            && !self.inbound_timeout_exempt.contains(&e.peer_id)
         {
             self.pending_inbound_hello_peers
                 .insert(e.peer_id, Instant::now());
