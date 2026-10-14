@@ -100,7 +100,7 @@ async fn filecoin_gossip_verdicts(
     });
     let (tx, rx) = flume::unbounded();
     let (_, schedule) = fake_drand_schedule();
-    let (gossip, _listener) = DrandGossip::new(schedule).expect("unchained beacon");
+    let (gossip, _listener) = DrandGossip::new(schedule).await.expect("unchained beacon");
 
     let Verdict {
         acceptance: verdict,

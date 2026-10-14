@@ -304,8 +304,9 @@ async fn create_p2p_service(
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     // The state manager's schedule, so gossiped entries fill the cache block validation reads.
-    let drand_gossip =
-        DrandGossip::new(ctx.state_manager.beacon_schedule().clone()).map(|(gossip, listener)| {
+    let drand_gossip = DrandGossip::new(ctx.state_manager.beacon_schedule().clone())
+        .await
+        .map(|(gossip, listener)| {
             services.spawn(listener.run());
             gossip
         });

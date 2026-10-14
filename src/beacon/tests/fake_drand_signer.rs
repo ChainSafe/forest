@@ -43,6 +43,7 @@ impl FakeDrandSigner {
                     group_hash: "00".repeat(32).into(),
                 },
                 network_type: DrandNetwork::Quicknet,
+                relays: vec![],
                 // Would clash with the real quicknet config's collector.
                 register_metrics: false,
             },
@@ -84,10 +85,6 @@ impl FakeDrandSigner {
             EPOCH_DURATION_SECONDS as u64,
             &self.config,
         )
-    }
-
-    pub fn chain_info_hash(&self) -> String {
-        self.config.chain_info.hash.to_string()
     }
 
     pub fn chain_info_hash(&self) -> String {
