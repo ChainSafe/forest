@@ -79,7 +79,7 @@ impl UpdateCheckpointsCommand {
         let yaml_content = std::fs::read_to_string(&known_blocks_file)
             .context("Failed to read known_blocks.yaml")?;
         let mut known_blocks: KnownBlocks =
-            serde_yaml::from_str(&yaml_content).context("Failed to parse known_blocks.yaml")?;
+            serde_saphyr::from_str(&yaml_content).context("Failed to parse known_blocks.yaml")?;
 
         if matches!(network, Network::All | Network::Calibnet) {
             println!("\n=== Updating Calibnet Checkpoints ===");
