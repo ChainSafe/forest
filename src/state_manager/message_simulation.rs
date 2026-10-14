@@ -359,3 +359,23 @@ fn placeholder_send(to: Address) -> Message {
         .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
         .build()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::zero_selects_the_cap(0, 10, Ok(10))]
+    #[case::below_the_cap(1, 10, Ok(1))]
+    #[case::at_the_cap(10, 10, Ok(10))]
+    #[case::above_the_cap(11, 10, Err("StateCall gas limit 11 exceeds configured cap 10"))]
+    fn state_call_gas_limit_respects_the_cap(
+        #[case] requested: u64,
+        #[case] cap: u64,
+        #[case] expected: Result<u64, &str>,
+    ) {
+        let actual = state_call_gas_limit(requested, cap).map_err(|e| e.to_string());
+        assert_eq!(actual, expected.map_err(str::to_string));
+    }
+}
