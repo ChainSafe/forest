@@ -674,10 +674,12 @@ async fn handle_discovery_event(
                 info,
                 ..
             }) => {
-                let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
+                // Relays only speak gossipsub, so the Filecoin protocol checks don't apply.
                 if is_drand_relay(peer_id) {
-                    // Relays only speak gossipsub.
-                } else if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
+                    return;
+                }
+                let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
+                if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
                     peer_manager
                         .ban_peer_with_default_duration(
                             *peer_id,

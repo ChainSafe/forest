@@ -63,8 +63,8 @@ impl DrandGossip {
 
     /// Validates a topic message; the verdict arrives on [`Self::verdicts`].
     pub(in crate::libp2p) fn on_message(&self, message_id: MessageId, source: PeerId, data: &[u8]) {
-        self.validator
-            .handle(data, message_id, source, unix_now_secs());
+        let now = chrono::Utc::now().timestamp().max(0) as u64;
+        self.validator.handle(data, message_id, source, now);
     }
 }
 
@@ -117,8 +117,4 @@ async fn resolve_relays(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
         }
     }
     relays
-}
-
-fn unix_now_secs() -> u64 {
-    chrono::Utc::now().timestamp().max(0) as u64
 }
