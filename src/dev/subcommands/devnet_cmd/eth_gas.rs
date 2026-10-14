@@ -23,11 +23,10 @@ use crate::rpc::eth::{
 use crate::rpc::prelude::*;
 use crate::rpc::types::ApiTipsetKey;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
-use crate::utils::encoding::keccak_256;
 use anyhow::{Context as _, bail, ensure};
 use jsonrpsee::types::ErrorObjectOwned;
 use jsonrpsee::types::error::INVALID_PARAMS_CODE;
-use libtest_mimic::{Arguments, Failed, Trial};
+use libtest_mimic::{Arguments, Trial};
 use tokio::sync::OnceCell;
 
 /// `NestedGas`, whose `recurse(uint256)` calls itself that many times.
@@ -46,8 +45,6 @@ const ALWAYS_REVERTS_REASON: &str = "always reverts";
 const CONTROL_DEPTH: u64 = 0;
 /// Deep enough that the penalty is ~1.9x, well clear of the crossover measured around 40-60.
 const NESTED_DEPTH: u64 = 100;
-/// Pays for the on-chain submit and lets the priced estimates afford the nested call.
-const SENDER_FUND_AMT: &str = "10 FIL";
 /// Enough for the sender to exist, far too little to pay for the nested call's gas.
 const POOR_SENDER_FUND_AMT: &str = "1 nanoFIL";
 
@@ -66,12 +63,6 @@ impl EthGasTestCommand {
 }
 
 fn tests() -> Vec<Trial> {
-    fn trial(name: &'static str, body: fn() -> anyhow::Result<()>) -> Trial {
-        Trial::test(name, move || {
-            body().map_err(|e| Failed::from(format!("{e:?}")))
-        })
-    }
-
     vec![
         trial("eth_estimate_gas_agrees_without_nesting", || {
             block_on(estimate_agrees(CONTROL_DEPTH))
@@ -111,14 +102,6 @@ fn tests() -> Vec<Trial> {
     ]
 }
 
-/// The 4-byte Ethereum function selector: first 4 bytes of `keccak256(signature)`.
-fn selector(signature: &str) -> Vec<u8> {
-    keccak_256(signature.as_bytes())
-        .get(..4)
-        .expect("keccak256 is 32 bytes")
-        .to_vec()
-}
-
 /// ABI calldata for `recurse(uint256)`: the selector followed by `depth` as a 32-byte word.
 fn recurse_calldata(depth: u64) -> Vec<u8> {
     let mut out = selector(RECURSE_SIGNATURE);
@@ -131,25 +114,9 @@ async fn contract() -> anyhow::Result<&'static EthAddress> {
     static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
         .get_or_try_init(|| async {
-            let deploy = forest_evm_deploy_hex(&sender().await?.cli, NESTED_GAS_HEX)?;
-            let f4 = parse_f4_from_evm_deploy(&deploy)?;
-            eprintln!("deployed NestedGas at {f4}");
-            poll_until_actor_on("forest", f4, forest_client).await?;
-            poll_until_actor_on("lotus", f4, lotus_client).await?;
+            let contract = deploy_contract("NestedGas", NESTED_GAS_HEX).await?;
             poll_until_next_epoch().await?;
-            EthAddress::from_filecoin_address(&f4)
-        })
-        .await
-}
-
-/// The funded sender, created once per process and known to both nodes and both wallets.
-async fn sender() -> anyhow::Result<&'static Wallet> {
-    static SENDER: OnceCell<Wallet> = OnceCell::const_new();
-    SENDER
-        .get_or_try_init(|| async {
-            let wallet = new_funded(SENDER_FUND_AMT).await?;
-            import_lotus_wallet_into_forest(&wallet.cli)?;
-            Ok(wallet)
+            Ok(contract)
         })
         .await
 }

@@ -3,7 +3,7 @@
 
 use super::helpers::*;
 use crate::rpc::eth::types::EthAddress;
-use crate::utils::encoding::{hex, keccak_256};
+use crate::utils::encoding::hex;
 use libtest_mimic::{Arguments, Trial};
 use std::str::FromStr as _;
 
@@ -251,13 +251,8 @@ async fn send_params_hex_invokes_contract() {
     let from_eth =
         EthAddress::from_filecoin_address(&crate::shim::address::Address::from_str(from).unwrap())
             .unwrap();
-    let mut calldata = keccak_256(b"getBalance(address)")
-        .get(..4)
-        .expect("keccak256 is 32 bytes")
-        .to_vec();
-    calldata.extend_from_slice(&[0u8; 12]);
-    calldata.extend_from_slice(from_eth.0.as_bytes());
-    let params = hex::encode(&calldata);
+    let data = calldata("getBalance(address)", &abi_address_word(from_eth));
+    let params = hex::encode(&data);
 
     let out = wallet_send(
         Backend::Local,
