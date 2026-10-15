@@ -368,6 +368,13 @@ mod tests {
                 }),
         );
         println!("covered: {covered:?}");
+        // A descriptive suffix after the method name, e.g. `_null_round`, still covers the method.
+        let is_covered = |name: &str| {
+            covered.iter().any(|c| {
+                c.strip_prefix(name)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+            })
+        };
         let ignored = HashSet::from_iter(
             include_str!("test_snapshots_ignored.txt")
                 .trim()
@@ -381,14 +388,14 @@ mod tests {
         macro_rules! print_uncovered {
             ($ty:ty) => {
                 let name = <$ty>::NAME.to_lowercase();
-                if !covered.contains(&name) && !ignored.contains(&name) {
-                    let is_covered = if let Some(alias) = <$ty>::NAME_ALIAS {
+                if !is_covered(&name) && !ignored.contains(&name) {
+                    let alias_covered = if let Some(alias) = <$ty>::NAME_ALIAS {
                         let alias = alias.to_lowercase();
-                        covered.contains(&alias) || ignored.contains(&alias)
+                        is_covered(&alias) || ignored.contains(&alias)
                     } else {
                         false
                     };
-                    if !is_covered {
+                    if !alias_covered {
                         uncovered.push(<$ty>::NAME);
                     }
                 }

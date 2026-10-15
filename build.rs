@@ -116,7 +116,7 @@ fn rpc_regression_tests_gen() {
 fn state_compute_tests_gen() {
     println!("cargo:rerun-if-changed=src/state_manager/state_compute_tests.yaml");
     let StateComputeTests { tests } =
-        serde_yaml::from_str(include_str!("src/state_manager/state_compute_tests.yaml")).unwrap();
+        serde_saphyr::from_str(include_str!("src/state_manager/state_compute_tests.yaml")).unwrap();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let out_path = out_dir.join("__state_compute_tests_gen.rs");
     let mut w = BufWriter::new(File::create(&out_path).unwrap());
