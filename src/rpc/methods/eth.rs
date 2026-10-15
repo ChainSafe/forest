@@ -3354,22 +3354,30 @@ pub(crate) fn eth_tx_hash_from_signed_message(
     }
 }
 
+/// Returns the Ethereum transaction hash of the message at `message_cid`.
+///
+/// # Errors
+/// Fails when the message can be read neither as a signed nor as an unsigned message. The error
+/// names the CID and carries both read failures.
 fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     blockstore: &DB,
     message_cid: &Cid,
     eth_chain_id: EthChainIdType,
-) -> anyhow::Result<Option<EthHash>> {
-    if let Ok(smsg) = crate::chain::message_from_cid(blockstore, message_cid) {
-        // This is an Eth Tx, Secp message, Or BLS message in the mpool
-        return Ok(Some(eth_tx_hash_from_signed_message(&smsg, eth_chain_id)?));
-    }
-    let result: Result<Message, _> = crate::chain::message_from_cid(blockstore, message_cid);
-    if result.is_ok() {
+) -> anyhow::Result<EthHash> {
+    let signed_err =
+        match crate::chain::message_from_cid::<_, SignedMessage>(blockstore, message_cid) {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            Ok(smsg) => return eth_tx_hash_from_signed_message(&smsg, eth_chain_id),
+            Err(e) => e,
+        };
+    // An unsigned/BLS message fails signed decoding, so always try the fallback.
+    match crate::chain::message_from_cid::<_, Message>(blockstore, message_cid) {
         // This is a BLS message
-        let hash: EthHash = (*message_cid).into();
-        return Ok(Some(hash));
+        Ok(_) => Ok((*message_cid).into()),
+        Err(unsigned_err) => Err(anyhow!(
+            "failed to load event message {message_cid}: {signed_err}; {unsigned_err}"
+        )),
     }
-    Ok(None)
 }
 
 fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec<EthHash>> {
@@ -3401,16 +3409,9 @@ fn eth_filter_logs_from_events(
         let transaction_hash = if let Some(h) = tx_hash_by_msg.get(&event.msg_cid) {
             *h
         } else {
-            match eth_tx_hash_from_message_cid(ctx.db(), &event.msg_cid, chain_id)? {
-                Some(h) => {
-                    tx_hash_by_msg.insert(event.msg_cid, h);
-                    h
-                }
-                None => {
-                    tracing::debug!("Ignoring event");
-                    continue;
-                }
-            }
+            let h = eth_tx_hash_from_message_cid(ctx.db(), &event.msg_cid, chain_id)?;
+            tx_hash_by_msg.insert(event.msg_cid, h);
+            h
         };
 
         let block_hash = if let Some(h) = block_hash_by_tipset.get(&event.tipset_key) {
@@ -4858,13 +4859,78 @@ mod test {
         crate::chain::persist_objects(&blockstore, [&secp0, &bls0].into_iter()).unwrap();
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp0.cid(), 0).unwrap();
-        assert!(tx_hash.is_some());
+        assert_eq!(tx_hash, eth_tx_hash_from_signed_message(&secp0, 0).unwrap());
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &msg2.cid(), 0).unwrap();
-        assert!(tx_hash.is_some());
+        assert_eq!(tx_hash, EthHash::from(msg2.cid()));
 
-        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
-        assert!(tx_hash.is_none());
+        let err = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap_err();
+        let missing = secp1.cid();
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "failed to load event message {missing}: Invalid tipset: {missing}; Invalid tipset: {missing}"
+            )
+        );
+    }
+
+    /// One unreadable event message fails the whole conversion instead of dropping the event;
+    /// readable ones still convert, through the unsigned fallback too.
+    #[tokio::test]
+    async fn test_eth_filter_logs_from_events_fails_on_unreadable_message() {
+        let (ctx, _network_rx) =
+            crate::rpc::RPCState::for_tests(crate::rpc::test_utils::chain_store()).unwrap();
+        let (readable, _) = construct_bls_messages();
+        let (_, missing) = construct_eth_messages(0);
+        crate::chain::persist_objects(ctx.db(), std::iter::once(&readable)).unwrap();
+        let (readable, missing) = (readable.cid(), missing.cid());
+        let tipset_key = ctx.chain_store().genesis_tipset().key().clone();
+        let event = |msg_cid: Cid, codec: u64| CollectedEvent {
+            entries: vec![EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec,
+                value: vec![1].into(),
+            }],
+            emitter_addr: FilecoinAddress::new_id(1),
+            event_idx: 0,
+            reverted: false,
+            height: 0,
+            tipset_key: tipset_key.clone(),
+            msg_idx: 0,
+            msg_cid,
+        };
+
+        // (case, events, expected log count; `None` expects the error naming the missing message)
+        let cases = [
+            ("BLS fallback", vec![event(readable, IPLD_RAW)], Some(1)),
+            ("missing message", vec![event(missing, IPLD_RAW)], None),
+            (
+                "readable then missing",
+                vec![event(readable, IPLD_RAW), event(missing, IPLD_RAW)],
+                None,
+            ),
+            ("empty", vec![], Some(0)),
+            ("non-Ethereum", vec![event(missing, DAG_CBOR)], Some(0)),
+        ];
+        for (case, events, want_logs) in cases {
+            let result = eth_filter_logs_from_events(&ctx, &events);
+            let Some(want_logs) = want_logs else {
+                let err = result.expect_err(case).to_string();
+                assert!(
+                    err.contains(&format!("failed to load event message {missing}")),
+                    "{case}: {err}"
+                );
+                continue;
+            };
+            let logs = result.unwrap_or_else(|e| panic!("{case}: {e:#}"));
+            assert_eq!(logs.len(), want_logs, "{case}");
+            assert!(
+                logs.iter()
+                    .all(|log| log.transaction_hash == EthHash::from(readable)),
+                "{case}: {logs:?}"
+            );
+        }
     }
 
     #[test]
