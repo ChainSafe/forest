@@ -13,8 +13,14 @@ use rayon::prelude::*;
 pub use bls_signatures::{PublicKey as PublicKeyOnG1, Signature as SignatureOnG2};
 
 // See <https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-05.html#name-basic>
-pub(in crate::beacon) const CSUITE_G1: &[u8] = b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
+const CSUITE_G1: &[u8] = b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
 const CSUITE_G2: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+
+/// Signs `message` on G1 with `secret`, as an unchained `drand` network signs a round.
+#[cfg(test)]
+pub(in crate::beacon) fn sign_unchained(secret: blstrs::Scalar, message: &[u8]) -> SignatureOnG1 {
+    SignatureOnG1((G1Projective::hash_to_curve(message, CSUITE_G1, &[]) * secret).to_affine())
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Deref)]
 pub struct PublicKeyOnG2(pub(crate) G2Projective);

@@ -20,14 +20,18 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use std::time::Duration;
 
+/// Filecoin mainnet genesis timestamp and epoch duration, which the test beacons map rounds to.
+pub const FIL_GENESIS_TIME: u64 = 1598306400;
+pub const FIL_BLOCK_DELAY: u64 = 30;
+
 /// Serves recorded `quicknet` responses, so no test below reaches a public relay.
 static FAKE_DRAND: LazyLock<FakeDrandServer> =
     LazyLock::new(|| FakeDrandServer::start(vec![FakeDrandChain::quicknet()]));
 
 fn new_beacon_mainnet() -> DrandBeacon {
     DrandBeacon::new(
-        1598306400,
-        30,
+        FIL_GENESIS_TIME,
+        FIL_BLOCK_DELAY,
         &DrandConfig {
             servers: vec![],
             // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
@@ -52,8 +56,8 @@ fn new_beacon_mainnet() -> DrandBeacon {
 
 pub fn new_beacon_quicknet() -> DrandBeacon {
     DrandBeacon::new(
-        1598306400,
-        30,
+        FIL_GENESIS_TIME,
+        FIL_BLOCK_DELAY,
         &DrandConfig {
             servers: vec![FAKE_DRAND.url().clone()],
             // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
