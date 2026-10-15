@@ -24,6 +24,10 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use std::time::Duration;
 
+/// Filecoin mainnet genesis timestamp and epoch duration, which the test beacons map rounds to.
+pub const FIL_GENESIS_TIME: u64 = 1598306400;
+pub const FIL_BLOCK_DELAY: u64 = 30;
+
 /// Serves recorded `quicknet` responses, so no test below reaches a public relay.
 static FAKE_DRAND: LazyLock<FakeDrandServer> =
     LazyLock::new(|| FakeDrandServer::start(vec![FakeDrandChain::quicknet()]));
