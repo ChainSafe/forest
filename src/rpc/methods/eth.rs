@@ -79,7 +79,7 @@ use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use get_size2::GetSize;
 use ipld_core::ipld::Ipld;
 use nonzero_ext::nonzero;
-use num::BigInt;
+use num::{BigInt, Zero};
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1946,19 +1946,18 @@ fn estimate_gas_error(err: anyhow::Error, gas_cap: u64) -> ServerError {
 
 /// Returns the gas the sender can pay for at `price` after sending `value`, up to the block gas limit.
 ///
+/// `price` must be non-zero.
+///
 /// # Errors
 ///
 /// [`EthErrors::InsufficientFunds`] when `balance` is below `value`;
 /// [`EthErrors::GasRequiredExceedsAllowance`] when the sender affords no gas at all.
-///
-/// # Panics
-///
-/// If `price` is zero.
 fn gas_allowance(
     balance: &TokenAmount,
     value: &TokenAmount,
     price: &TokenAmount,
 ) -> Result<u64, EthErrors> {
+    debug_assert!(!price.is_zero(), "gas price must be positive");
     if balance < value {
         return Err(EthErrors::InsufficientFunds {
             balance: balance.clone(),
