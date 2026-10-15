@@ -2649,7 +2649,8 @@ async fn get_eth_transaction_by_hash(
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<ApiEthTx>, ServerError> {
-    let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
+    let mapping = ctx.chain_store().get_mapping(tx_hash)?;
+    let message_cid = mapping.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
             tx_hash
@@ -2689,10 +2690,18 @@ async fn get_eth_transaction_by_hash(
     // explorer shouldn't care about seeing pending messages from native
     // accounts.
     let eth_chain_id = ctx.chain_config().eth_chain_id;
-    let pending_tx = pending
-        .iter()
-        .find(|smsg| smsg.cid() == message_cid)
-        .and_then(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok());
+    let pending_tx = match mapping {
+        Some(cid) => pending
+            .iter()
+            .find(|smsg| smsg.cid() == cid)
+            .and_then(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok()),
+        // Without a mapping `tx_hash.to_cid()` never matches a delegated message's CID, so those
+        // are found by their Ethereum hash.
+        None => pending
+            .iter()
+            .filter_map(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok())
+            .find(|tx| tx.hash == *tx_hash),
+    };
 
     // Ethereum clients expect an empty response when the message was not found
     Ok(pending_tx)
@@ -4863,8 +4872,9 @@ mod test {
         );
     }
 
-    /// A pending delegated message is found by its Ethereum hash and comes back with its hash and
-    /// sender.
+    /// A pending delegated message is found by its Ethereum hash with and without a tx-hash
+    /// mapping, and comes back with its hash and sender. A transaction gossiped from another node
+    /// has no mapping until it is mined.
     #[tokio::test]
     async fn test_eth_get_transaction_by_hash_finds_pending_tx() {
         let tx = signed_calibnet_tx();
@@ -4872,6 +4882,9 @@ mod test {
         let smsg = tx
             .get_signed_message(crate::networks::calibnet::ETH_CHAIN_ID)
             .unwrap();
+        // The mapping miss falls back to the hash as a CID, which is never the message's CID.
+        assert_ne!(tx_hash.to_cid(), smsg.cid());
+
         let (from, sequence) = (smsg.message().from(), smsg.message().sequence());
         let (ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
         let cid = ctx.mpool.push(smsg).await.unwrap();
@@ -4887,7 +4900,7 @@ mod test {
         };
 
         // (case, mapping): the mapping is what `eth_sendRawTransaction` on this node writes.
-        for (case, mapping) in [("mapping hit", Some(cid))] {
+        for (case, mapping) in [("mapping miss", None), ("mapping hit", Some(cid))] {
             if let Some(cid) = mapping {
                 ctx.chain_store().put_mapping(tx_hash, cid, 0).unwrap();
             }
