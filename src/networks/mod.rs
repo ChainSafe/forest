@@ -491,16 +491,24 @@ impl ChainConfig {
         0
     }
 
-    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
-        let ds_iter = match self.network {
+    fn drand_points(&self) -> impl Iterator<Item = &DrandPoint<'static>> {
+        match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Butterflynet => butterflynet::DRAND_SCHEDULE.iter(),
             NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
-        };
+        }
+    }
 
+    pub fn drand_gossip_chain_hash(&self) -> Option<&str> {
+        self.drand_points()
+            .find(|p| p.config.network_type.is_unchained())
+            .map(|p| p.config.chain_info.hash.as_ref())
+    }
+
+    pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
         BeaconSchedule(
-            ds_iter
+            self.drand_points()
                 .map(|dc| {
                     BeaconPoint::new(
                         dc.height,

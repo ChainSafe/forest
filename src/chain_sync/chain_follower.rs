@@ -18,6 +18,7 @@
 
 use super::network_context::SyncNetworkContext;
 use crate::{
+    beacon::{Beacon, BeaconEntry, BeaconSchedule},
     blocks::{Block, FullTipset, Tipset, TipsetKey},
     chain::{ChainStore, index::ResolveNullTipset},
     chain_sync::{
@@ -27,7 +28,7 @@ use crate::{
         tipset_syncer::{TipsetSyncerError, validate_tipset},
         validation::GossipBlockValidator,
     },
-    libp2p::{NetworkEvent, PubsubMessage, hello::HelloRequest},
+    libp2p::{NetworkEvent, NetworkMessage, PubsubMessage, hello::HelloRequest},
     message_pool::MessagePool,
     networks::calculate_expected_epoch,
     prelude::*,
@@ -38,7 +39,10 @@ use crate::{
 use arc_swap::ArcSwap;
 use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
-use libp2p::PeerId;
+use libp2p::{
+    PeerId,
+    gossipsub::{MessageAcceptance, MessageId},
+};
 use nonzero_ext::nonzero;
 use parking_lot::Mutex;
 use std::{
@@ -228,6 +232,8 @@ async fn chain_follower(
 
     let hello_fetch_limiter = Arc::new(Semaphore::new(*MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES));
 
+    let drand_verify_limiter = Arc::new(Semaphore::new(*MAX_CONCURRENT_DRAND_VERIFICATIONS));
+
     let mut set = JoinSet::new();
     let cancellation_token = CancellationToken::new();
     let _cancellation_token_drop_guard = cancellation_token.drop_guard_ref();
@@ -243,6 +249,7 @@ async fn chain_follower(
         let cancellation_token = cancellation_token.clone();
         let hello_fetch_limiter = hello_fetch_limiter.shallow_clone();
         let tipset_sender = tipset_sender.clone();
+        let drand_verify_limiter = drand_verify_limiter.shallow_clone();
         async move {
             while let Ok(event) = network_rx.recv_async().await {
                 inc_gossipsub_event_metrics(&event);
@@ -309,6 +316,19 @@ async fn chain_follower(
                                 debug!("Received invalid GossipSub message: {}", why);
                             }
                         }
+                        PubsubMessage::DrandEntry {
+                            entry,
+                            message_id,
+                            source,
+                        } => handle_drand_entry(
+                            entry,
+                            message_id,
+                            source,
+                            &drand_verify_limiter,
+                            state_manager.beacon_schedule(),
+                            network.network_send(),
+                            Utc::now().timestamp().max(0) as u64,
+                        ),
                     },
                     _ => {}
                 }
@@ -473,6 +493,90 @@ async fn chain_follower(
     Ok(())
 }
 
+/// Limiting receiving old rounds to avoiding fill the beacon cache
+/// and old rounds are available to fetch if extremely needed
+const DRAND_GOSSIP_MAX_ROUND_AGE_SECS: u64 = 30;
+
+/// Validates and verifies a `drand` beacon entry received over `gossipsub` at Unix time
+/// `now`, caching it on success, and reports the verdict so the service forwards only
+/// verified entries: `Reject` for a malformed, future or badly signed round (as
+/// `drand`'s own gossip validator does), `Ignore` for a stale round or one dropped
+/// under load.
+pub(crate) fn handle_drand_entry(
+    entry: BeaconEntry,
+    message_id: MessageId,
+    source: PeerId,
+    drand_verify_limiter: &Arc<Semaphore>,
+    beacon_schedule: &Arc<BeaconSchedule>,
+    network_send: &flume::Sender<NetworkMessage>,
+    now: u64,
+) {
+    let report = {
+        let network_send = network_send.clone();
+        move |acceptance| {
+            let _ = network_send.send(NetworkMessage::ReportValidation {
+                message_id,
+                source,
+                acceptance,
+            });
+        }
+    };
+    let Some(beacon) = beacon_schedule.unchained_beacon() else {
+        return report(MessageAcceptance::Ignore);
+    };
+
+    let round = entry.round();
+    if round == 0 || entry.signature().is_empty() {
+        return report(MessageAcceptance::Reject);
+    }
+
+    if let Some(round_ts) = beacon.beacon_round_timestamp(round) {
+        // No clock slack, as in `drand`'s own gossip validator.
+        if round_ts > now {
+            debug!(round, %source, "rejecting drand entry: round is in the future");
+            return report(MessageAcceptance::Reject);
+        }
+        if round_ts.saturating_add(DRAND_GOSSIP_MAX_ROUND_AGE_SECS) < now {
+            debug!(round, %source, "ignoring drand entry: round is stale");
+            return report(MessageAcceptance::Ignore);
+        }
+    }
+
+    // The chain uses one round per epoch, skip the rest.
+    if !beacon.is_epoch_round(round) {
+        trace!(
+            round,
+            "ignoring drand entry: no epoch draws from this round"
+        );
+        return report(MessageAcceptance::Ignore);
+    }
+
+    let Ok(permit) = drand_verify_limiter.shallow_clone().try_acquire_owned() else {
+        debug!(
+            round,
+            "dropping drand entry: too many verifications in flight"
+        );
+        return report(MessageAcceptance::Ignore);
+    };
+    let beacon_schedule = beacon_schedule.shallow_clone();
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let verified = beacon_schedule.unchained_beacon().is_some_and(|beacon| {
+            matches!(
+                beacon.verify_entries(std::slice::from_ref(&entry), &BeaconEntry::default()),
+                Ok(true)
+            )
+        });
+        if verified {
+            debug!(round, "verified drand entry from gossipsub");
+            report(MessageAcceptance::Accept);
+        } else {
+            debug!(round, %source, "received invalid drand entry over gossipsub");
+            report(MessageAcceptance::Reject);
+        }
+    });
+}
+
 // Increment the gossipsub event metrics.
 fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
     let label = match event {
@@ -485,6 +589,7 @@ fn inc_gossipsub_event_metrics(event: &NetworkEvent) {
         NetworkEvent::PubsubMessage { message } => match message {
             PubsubMessage::Block(_) => metrics::values::PUBSUB_BLOCK,
             PubsubMessage::Message(_) => metrics::values::PUBSUB_MESSAGE,
+            PubsubMessage::DrandEntry { .. } => metrics::values::PUBSUB_DRAND_ENTRY,
         },
         NetworkEvent::ChainExchangeRequestOutbound => {
             metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND
@@ -589,6 +694,16 @@ static MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES: LazyLock<usize> = LazyLock::new(|
     env_or_default_logged(
         "FOREST_MAX_CONCURRENT_HELLO_TRIGGERED_FETCHES",
         nonzero!(16_usize),
+    )
+    .get()
+    .min(Semaphore::MAX_PERMITS)
+});
+
+/// Concurrency cap for `drand` entries verified from `gossipsub`. Excess is dropped, not queued.
+static MAX_CONCURRENT_DRAND_VERIFICATIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_or_default_logged(
+        "FOREST_MAX_CONCURRENT_DRAND_VERIFICATIONS",
+        nonzero!(4_usize),
     )
     .get()
     .min(Semaphore::MAX_PERMITS)
@@ -1542,5 +1657,182 @@ mod tests {
             rx.try_recv().unwrap(),
             (block_cid, BlockValidationOutcome::Applied)
         );
+    }
+
+    use crate::beacon::{
+        BeaconPoint, BeaconSchedule,
+        tests::fake_drand::{
+            FAKE_DRAND_GENESIS_TIME, FAKE_DRAND_PERIOD, FakeDrand, TEST_FIL_BLOCK_DELAY,
+            TEST_FIL_GENESIS_TIME,
+        },
+    };
+
+    fn fake_drand_schedule() -> (FakeDrand, Arc<BeaconSchedule>) {
+        let drand = FakeDrand::new(vec![], FAKE_DRAND_PERIOD, FAKE_DRAND_GENESIS_TIME);
+        let beacon = drand.beacon(TEST_FIL_GENESIS_TIME, TEST_FIL_BLOCK_DELAY);
+        (
+            drand,
+            Arc::new(BeaconSchedule(vec![BeaconPoint::new(0, beacon)])),
+        )
+    }
+
+    /// A `drand` entry as delivered by `gossipsub`, with the channel its verdict is reported on.
+    struct GossipedEntry {
+        entry: BeaconEntry,
+        network_send: flume::Sender<NetworkMessage>,
+        verdicts: flume::Receiver<NetworkMessage>,
+    }
+
+    impl GossipedEntry {
+        fn new(entry: BeaconEntry) -> Self {
+            let (network_send, verdicts) = flume::unbounded();
+            Self {
+                entry,
+                network_send,
+                verdicts,
+            }
+        }
+
+        /// Hands the entry to `handle_drand_entry` as if received at Unix time `now`.
+        fn handle(&self, limiter: &Arc<Semaphore>, schedule: &Arc<BeaconSchedule>, now: u64) {
+            handle_drand_entry(
+                self.entry.clone(),
+                MessageId::new(b"drand"),
+                PeerId::random(),
+                limiter,
+                schedule,
+                &self.network_send,
+                now,
+            );
+        }
+
+        async fn verdict(&self) -> MessageAcceptance {
+            match tokio::time::timeout(Duration::from_secs(5), self.verdicts.recv_async())
+                .await
+                .expect("no verdict reported in time")
+                .expect("verdict channel closed")
+            {
+                NetworkMessage::ReportValidation { acceptance, .. } => acceptance,
+                other => panic!("unexpected network message: {other:?}"),
+            }
+        }
+    }
+
+    /// Unix time right after `round` is produced by the fake `drand` chain.
+    fn time_of(schedule: &BeaconSchedule, round: u64) -> u64 {
+        schedule
+            .unchained_beacon()
+            .and_then(|beacon| beacon.beacon_round_timestamp(round))
+            .expect("fake drand beacon has round timestamps")
+            + 1
+    }
+
+    // `MessageAcceptance` doesn't implement `PartialEq`.
+    fn assert_verdict(actual: MessageAcceptance, expected: MessageAcceptance) {
+        assert_eq!(
+            std::mem::discriminant(&actual),
+            std::mem::discriminant(&expected),
+            "verdict {actual:?}, expected {expected:?}"
+        );
+    }
+
+    /// On the test chain (mainnet genesis, 30-second epochs, `quicknet` rounds) every epoch
+    /// draws from a round ending in 2.
+    const EPOCH_ROUND: u64 = 12;
+
+    /// Verified entries: valid ones are accepted and cached, forged ones are rejected and
+    /// never cached. `now_offset` is relative to one second after the entry's round is produced.
+    #[rstest::rstest]
+    #[case::valid(|d: &FakeDrand| d.entry(EPOCH_ROUND), 0, MessageAcceptance::Accept)]
+    // The clock reads exactly the round's production time: not a future round.
+    #[case::produced_this_second(|d: &FakeDrand| d.entry(EPOCH_ROUND), -1, MessageAcceptance::Accept)]
+    // An epoch round carrying the next round's signature: well-formed but fails verification.
+    #[case::forged_signature(
+        |d: &FakeDrand| BeaconEntry::new(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature().to_vec()),
+        0,
+        MessageAcceptance::Reject
+    )]
+    #[tokio::test]
+    async fn drand_entry_verification(
+        #[case] entry: fn(&FakeDrand) -> BeaconEntry,
+        #[case] now_offset: i64,
+        #[case] expected: MessageAcceptance,
+    ) {
+        let (drand, schedule) = fake_drand_schedule();
+        let beacon = schedule.unchained_beacon().expect("unchained beacon");
+        let cached = matches!(expected, MessageAcceptance::Accept);
+        let limiter = Arc::new(Semaphore::new(1));
+        let gossiped = GossipedEntry::new(entry(&drand));
+        let round = gossiped.entry.round();
+
+        let now = time_of(&schedule, round).saturating_add_signed(now_offset);
+        gossiped.handle(&limiter, &schedule, now);
+
+        assert_verdict(gossiped.verdict().await, expected);
+        assert_eq!(limiter.available_permits(), 1, "verification slot released");
+        // The fake beacon has no HTTP servers, so a round can only come from the cache
+        // that the gossip verification filled.
+        match beacon.entry(round).await {
+            Ok(entry) if cached => assert_eq!(entry, drand.entry(round)),
+            Err(_) if !cached => {}
+            other => panic!("round {round}: expected cached={cached}, got {other:?}"),
+        }
+    }
+
+    /// Entries decided before verification: they never take a verification slot.
+    /// `now_offset` is relative to the production time of round 7.
+    #[rstest::rstest]
+    #[case::round_zero(
+        |d: &FakeDrand| BeaconEntry::new(0, d.entry(1).signature().to_vec()),
+        0,
+        true,
+        MessageAcceptance::Reject
+    )]
+    #[case::empty_signature(|_: &FakeDrand| BeaconEntry::new(7, vec![]), 0, true, MessageAcceptance::Reject)]
+    // Round 8 is produced one period (3s) after round 7, so it is not yet produced at round 7's time.
+    #[case::future_round(|d: &FakeDrand| d.entry(8), 0, true, MessageAcceptance::Reject)]
+    #[case::stale_round(
+        |d: &FakeDrand| d.entry(7),
+        DRAND_GOSSIP_MAX_ROUND_AGE_SECS as i64,
+        true,
+        MessageAcceptance::Ignore
+    )]
+    // Round 13 is produced 18s after round 7 and no epoch draws from it.
+    #[case::not_an_epoch_round(|d: &FakeDrand| d.entry(EPOCH_ROUND + 1), 18, true, MessageAcceptance::Ignore)]
+    #[case::no_unchained_beacon(|d: &FakeDrand| d.entry(7), 0, false, MessageAcceptance::Ignore)]
+    #[tokio::test]
+    async fn drand_entry_decided_before_verification(
+        #[case] entry: fn(&FakeDrand) -> BeaconEntry,
+        #[case] now_offset: i64,
+        #[case] with_unchained_beacon: bool,
+        #[case] expected: MessageAcceptance,
+    ) {
+        let (drand, schedule) = fake_drand_schedule();
+        let now = time_of(&schedule, 7).saturating_add_signed(now_offset);
+        let schedule = if with_unchained_beacon {
+            schedule
+        } else {
+            Arc::new(BeaconSchedule(vec![]))
+        };
+        let limiter = Arc::new(Semaphore::new(1));
+        let gossiped = GossipedEntry::new(entry(&drand));
+
+        gossiped.handle(&limiter, &schedule, now);
+
+        assert_verdict(gossiped.verdict().await, expected);
+        assert_eq!(limiter.available_permits(), 1, "no verification slot taken");
+    }
+
+    #[tokio::test]
+    async fn drand_entry_ignored_when_verifications_saturated() {
+        let (drand, schedule) = fake_drand_schedule();
+        let limiter = Arc::new(Semaphore::new(1));
+        let gossiped = GossipedEntry::new(drand.entry(EPOCH_ROUND));
+
+        let _held = limiter.clone().try_acquire_owned().unwrap();
+        gossiped.handle(&limiter, &schedule, time_of(&schedule, EPOCH_ROUND));
+
+        assert_verdict(gossiped.verdict().await, MessageAcceptance::Ignore);
+        assert_eq!(limiter.available_permits(), 0, "held permit not stolen");
     }
 }

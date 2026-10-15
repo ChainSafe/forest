@@ -154,7 +154,10 @@ services:
       - |
         set -euxo pipefail
         LOTUS_PEER_ID=$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
-        sed s@__LOTUS_MULTIADDR__@/dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$LOTUS_PEER_ID@ /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
+        DRAND_MULTIADDRS_TOML=$$(printf '"%s", ' ${DRAND_MULTIADDRS} | sed 's/, $$//')
+        sed -e s@__LOTUS_MULTIADDR__@/dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$LOTUS_PEER_ID@ \
+            -e "s@__DRAND_MULTIADDR__@$$DRAND_MULTIADDRS_TOML@" \
+            /forest/forest_config.toml.tpl > ${FOREST_DATA_DIR}/forest_config.toml
         forest --chain ${NETWORK_NAME} --genesis ${LOTUS_DATA_DIR}/devgen.car --config ${FOREST_DATA_DIR}/forest_config.toml --p2p-listen-address /ip4/0.0.0.0/tcp/${FOREST_P2P_PORT} --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   # `forest-wallet` opens an RPC connection, so this runs after the daemon is up.

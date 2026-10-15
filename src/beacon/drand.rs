@@ -140,6 +140,13 @@ impl BeaconSchedule {
         }
     }
 
+    pub fn unchained_beacon(&self) -> Option<&BeaconImpl> {
+        self.0
+            .iter()
+            .map(|point| &point.beacon)
+            .find(|beacon| beacon.network().is_unchained())
+    }
+
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
@@ -198,6 +205,11 @@ pub trait Beacon {
     /// (the default) if not derivable - meaning callers should not wait.
     fn beacon_round_timestamp(&self, _round: u64) -> Option<u64> {
         None
+    }
+
+    /// Whether some Filecoin epoch draws its randomness from `round`.
+    fn is_epoch_round(&self, _round: u64) -> bool {
+        true
     }
 
     /// Fetches `round`, waiting only until that `drand` round is produced (per
@@ -482,5 +494,18 @@ impl Beacon for DrandBeacon {
             self.drand_gen_time
                 .saturating_add(round.saturating_sub(1).saturating_mul(self.interval)),
         )
+    }
+
+    fn is_epoch_round(&self, round: u64) -> bool {
+        // Used when an epoch's randomness timestamp falls within this round's period.
+        let round_ts = self
+            .drand_gen_time
+            .saturating_add(round.saturating_sub(1).saturating_mul(self.interval));
+        let Some(since_genesis) = round_ts.checked_sub(self.fil_gen_time) else {
+            return false;
+        };
+        let until_epoch_ts =
+            (self.fil_round_time - since_genesis % self.fil_round_time) % self.fil_round_time;
+        until_epoch_ts < self.interval
     }
 }

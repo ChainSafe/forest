@@ -33,6 +33,8 @@
 
 ### Added
 
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): New `drand_gossipsub_peers` option in the `[network]` config section.
+
 ### Changed
 
 - [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` matches Lotus v1.38.0 and reth. The estimate never exceeds the call's `gas` or, with `gasPrice` or `maxFeePerGas` set, the gas the sender can pay for after the value; without a price the sender's balance does not limit the gas. A revert that more gas fixes is searched past, and failures use the Ethereum codes: `-32000` when the cap is below the message inclusion cost or the sender affords no gas, `-32003` when the call runs out of gas within the cap or, with a price, the value exceeds the balance, `-32602` when both prices are set. See [lotus#13911](https://github.com/filecoin-project/lotus/pull/13911).
@@ -42,6 +44,8 @@
 ### Removed
 
 ### Fixed
+
+- [#7544](https://github.com/ChainSafe/forest/pull/7544): Fixed the `drand_http_fetch_total` metric being exported as `drand_http_fetch_total_total`.
 
 - [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
 - [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall`, `Filecoin.StateReplay` and `Filecoin.StateCompute` report `unknown error (RetCode=<code>)` for a failed message the FVM attaches no failure info to, such as one that runs out of gas, instead of an empty error. Matches Lotus.
