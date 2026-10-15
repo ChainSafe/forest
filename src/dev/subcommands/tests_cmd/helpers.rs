@@ -156,9 +156,9 @@ pub fn wallet_send(
     wallet(backend, &args)
 }
 
-/// Parse the CID from `forest-wallet send` and require a successful on-chain receipt.
+/// Parses the CID from `forest-wallet send` and returns its execution, which must have succeeded.
 /// `send` with `--wait-confidence` already waited for inclusion; this checks the exit code.
-pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
+pub async fn assert_send_ok(out: &str) -> anyhow::Result<MessageLookup> {
     let cid = Cid::from_str(
         out.lines()
             .last()
@@ -171,7 +171,7 @@ pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
         exit.is_success(),
         "message {cid} failed on chain with exit code {exit}"
     );
-    Ok(cid)
+    Ok(lookup)
 }
 
 /// Submit an EVM contract call via `forest-wallet send --params-hex`.
@@ -196,7 +196,7 @@ pub async fn wallet_send_calldata(
         &["--params-hex", params.as_str(), "--gas-limit", gas.as_str()],
         true,
     )?;
-    assert_send_ok(&out).await
+    Ok(assert_send_ok(&out).await?.message)
 }
 
 /// Max attempts for [`rpc_call_with_retry`].
@@ -276,6 +276,47 @@ pub async fn poll_until_actor_on(
         get_actor(&make_client()?, addr).await
     })
     .await
+}
+
+/// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
+pub struct Wallet {
+    pub cli: String,
+    pub f4: Address,
+    pub eth: EthAddress,
+}
+
+/// A fresh Lotus delegated wallet with no balance.
+pub async fn new_unfunded() -> anyhow::Result<Wallet> {
+    let cli = lotus_exec(&["wallet", "new", "delegated"])?;
+    let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
+    let eth = EthAddress::from_filecoin_address(&f4)?;
+    Ok(Wallet { cli, f4, eth })
+}
+
+/// A fresh Lotus delegated wallet funded with `amount` and known to both nodes.
+pub async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
+    let wallet = new_unfunded().await?;
+    fund_on_chain(&wallet.cli, amount).await?;
+    Ok(wallet)
+}
+
+/// Funds `cli_addr` (Lotus `t4…` form) from the harness wallet and waits until both nodes have the
+/// actor, so a test can use it on either node or pin a block after it. Pass the Lotus string into
+/// `forest-wallet`; it rejects Forest `Address::to_string()` (`f4…`) while `CurrentNetwork` stays
+/// Mainnet.
+pub async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
+    let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
+    let msg = send_from(
+        &FOREST_TEST_PRELOADED_ADDRESS,
+        cli_addr,
+        amount,
+        Backend::Local,
+    )?;
+    eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
+    let balance = poll_until_funded(cli_addr, Backend::Local).await?;
+    eprintln!("{cli_addr} funded on forest, balance: {balance}");
+    poll_until_actor_on("lotus", addr, lotus_client).await?;
+    Ok(addr)
 }
 
 /// Delegated signer: create once on local, fund locally, mirror to remote

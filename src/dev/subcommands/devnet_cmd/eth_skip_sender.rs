@@ -201,13 +201,6 @@ fn latest() -> BlockNumberOrHash {
     BlockNumberOrHash::PredefinedBlock(Predefined::Latest)
 }
 
-/// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
-struct Wallet {
-    cli: String,
-    f4: Address,
-    eth: EthAddress,
-}
-
 /// Dedicated delegated wallet used to deploy and to credit `SimpleCoin`.
 /// Not the genesis/miner key: that wallet races with the miner on nonce.
 async fn deployer() -> anyhow::Result<&'static Address> {
@@ -325,25 +318,6 @@ async fn linked_contracts() -> anyhow::Result<&'static (EthAddress, EthAddress)>
 
 async fn poll_until_actor(addr: Address) -> anyhow::Result<ActorState> {
     poll_until_actor_on("forest", addr, forest_client).await
-}
-
-/// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
-/// both Forest and Lotus see the actor. Lotus visibility is required before any
-/// `lotus --from`. Pass the Lotus string into `forest-wallet`; it rejects Forest
-/// `Address::to_string()` (`f4…`) while `CurrentNetwork` stays Mainnet.
-async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
-    let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
-    let msg = send_from(
-        &FOREST_TEST_PRELOADED_ADDRESS,
-        cli_addr,
-        amount,
-        Backend::Local,
-    )?;
-    eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
-    let balance = poll_until_funded(cli_addr, Backend::Local).await?;
-    eprintln!("{cli_addr} funded on forest, balance: {balance}");
-    poll_until_actor_on("lotus", addr, lotus_client).await?;
-    Ok(addr)
 }
 
 async fn invoke(to: EthAddress, calldata: &[u8]) -> anyhow::Result<()> {
@@ -560,7 +534,7 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
     };
     let oog_estimate = Expect::ErrCode {
         code: TRANSACTION_REJECTED_CODE,
-        contains: "out of gas: gas required exceeds: ",
+        contains: "out of gas: gas required exceeds: 10000000000",
     };
     let no_allowance = Expect::ErrCode {
         code: INVALID_INPUT_CODE,
@@ -920,19 +894,6 @@ async fn eth_call(
 fn within_parity(skip: u64, funded: u64) -> bool {
     let denom = funded.max(1) as f64;
     (skip as f64 - funded as f64).abs() / denom <= ESTIMATE_PARITY
-}
-
-async fn new_unfunded() -> anyhow::Result<Wallet> {
-    let cli = lotus_exec(&["wallet", "new", "delegated"])?;
-    let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
-    let eth = EthAddress::from_filecoin_address(&f4)?;
-    Ok(Wallet { cli, f4, eth })
-}
-
-async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
-    let wallet = new_unfunded().await?;
-    fund_on_chain(&wallet.cli, amount).await?;
-    Ok(wallet)
 }
 
 async fn round_trip_from_unfunded() -> anyhow::Result<()> {
