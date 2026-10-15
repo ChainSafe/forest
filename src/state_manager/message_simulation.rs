@@ -6,9 +6,13 @@ use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
 use crate::shim::address::Protocol;
+use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::{METHOD_SEND, Message};
 use crate::state_migration::run_state_migrations;
+use crate::utils::misc::env::env_or_default_logged;
+use std::num::NonZeroU64;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tracing::instrument;
 
@@ -20,6 +24,7 @@ impl StateManager {
         msg: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
+        let gas_limit = state_call_gas_limit(msg.gas_limit(), state_call_gas_cap())?;
         let chain_config = self.chain_config();
 
         let tipset = if let Some(ts) = tipset {
@@ -111,12 +116,11 @@ impl StateManager {
         let from_actor = state
             .get_actor(&msg.from())?
             .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
-        // Implicit messages need a special gas limit.
         let msg = msg
             .clone()
             .into_builder()
             .sequence(from_actor.sequence)
-            .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
+            .gas_limit(gas_limit)
             .build();
 
         let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
@@ -133,8 +137,14 @@ impl StateManager {
         })
     }
 
-    /// runs the given message and returns its result without any persisted
-    /// changes.
+    /// Runs the given message and returns its result without any persisted changes.
+    ///
+    /// The message runs at its own gas limit; `0` selects the `StateCall` gas cap
+    /// (`FOREST_STATE_CALL_GAS_LIMIT`, the block gas limit by default).
+    ///
+    /// # Errors
+    ///
+    /// The message's gas limit is above the cap.
     pub async fn call(
         &self,
         message: Arc<Message>,
@@ -271,6 +281,27 @@ impl StateManager {
     }
 }
 
+/// The most gas a `StateCall` simulation may run with: `FOREST_STATE_CALL_GAS_LIMIT`, or the block
+/// gas limit when it is unset or not a positive integer.
+fn state_call_gas_cap() -> u64 {
+    static CAP: LazyLock<NonZeroU64> = LazyLock::new(|| {
+        env_or_default_logged("FOREST_STATE_CALL_GAS_LIMIT", nonzero!(BLOCK_GAS_LIMIT))
+    });
+    CAP.get()
+}
+
+/// Returns the gas limit a `StateCall` simulation runs with: `requested`, or `cap` when
+/// `requested` is `0`.
+fn state_call_gas_limit(requested: u64, cap: u64) -> Result<u64, Error> {
+    match requested {
+        0 => Ok(cap),
+        limit if limit > cap => Err(Error::Other(format!(
+            "StateCall gas limit {limit} exceeds configured cap {cap}"
+        ))),
+        limit => Ok(limit),
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum SenderApply {
     Explicit,
@@ -327,4 +358,24 @@ fn placeholder_send(to: Address) -> Message {
         .method_num(METHOD_SEND)
         .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
         .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::zero_selects_the_cap(0, 10, Ok(10))]
+    #[case::below_the_cap(1, 10, Ok(1))]
+    #[case::at_the_cap(10, 10, Ok(10))]
+    #[case::above_the_cap(11, 10, Err("StateCall gas limit 11 exceeds configured cap 10"))]
+    fn state_call_gas_limit_respects_the_cap(
+        #[case] requested: u64,
+        #[case] cap: u64,
+        #[case] expected: Result<u64, &str>,
+    ) {
+        let actual = state_call_gas_limit(requested, cap).map_err(|e| e.to_string());
+        assert_eq!(actual, expected.map_err(str::to_string));
+    }
 }

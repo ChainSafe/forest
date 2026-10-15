@@ -11,6 +11,7 @@ use std::time::Duration;
 use anyhow::{Context as _, bail, ensure};
 use cid::Cid;
 use jsonrpsee::core::ClientError;
+use libtest_mimic::{Failed, Trial};
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
@@ -23,7 +24,7 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::ActorState;
 use crate::state_manager::FAILED_TO_LOAD_MESSAGE;
-use crate::utils::encoding::hex;
+use crate::utils::encoding::{hex, keccak_256};
 
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
@@ -40,6 +41,8 @@ pub const FIL_AMT: &str = "500 atto FIL";
 pub const FIL_ZERO: &str = "0 FIL";
 /// Amount to seed a freshly-created delegated wallet.
 pub const DELEGATE_FUND_AMT: &str = "30 micro FIL";
+/// Funds [`sender`]: pays for an on-chain submit and lets priced estimates afford a nested call.
+const SENDER_FUND_AMT: &str = "10 FIL";
 
 /// Maximum time to wait for a polled condition before failing the test.
 pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);
@@ -156,9 +159,9 @@ pub fn wallet_send(
     wallet(backend, &args)
 }
 
-/// Parse the CID from `forest-wallet send` and require a successful on-chain receipt.
+/// Parses the CID from `forest-wallet send` and returns its execution, which must have succeeded.
 /// `send` with `--wait-confidence` already waited for inclusion; this checks the exit code.
-pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
+pub async fn assert_send_ok(out: &str) -> anyhow::Result<MessageLookup> {
     let cid = Cid::from_str(
         out.lines()
             .last()
@@ -171,7 +174,7 @@ pub async fn assert_send_ok(out: &str) -> anyhow::Result<Cid> {
         exit.is_success(),
         "message {cid} failed on chain with exit code {exit}"
     );
-    Ok(cid)
+    Ok(lookup)
 }
 
 /// Submit an EVM contract call via `forest-wallet send --params-hex`.
@@ -196,7 +199,7 @@ pub async fn wallet_send_calldata(
         &["--params-hex", params.as_str(), "--gas-limit", gas.as_str()],
         true,
     )?;
-    assert_send_ok(&out).await
+    Ok(assert_send_ok(&out).await?.message)
 }
 
 /// Max attempts for [`rpc_call_with_retry`].
@@ -276,6 +279,60 @@ pub async fn poll_until_actor_on(
         get_actor(&make_client()?, addr).await
     })
     .await
+}
+
+/// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
+pub struct Wallet {
+    pub cli: String,
+    pub f4: Address,
+    pub eth: EthAddress,
+}
+
+/// A fresh Lotus delegated wallet with no balance.
+pub async fn new_unfunded() -> anyhow::Result<Wallet> {
+    let cli = lotus_exec(&["wallet", "new", "delegated"])?;
+    let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
+    let eth = EthAddress::from_filecoin_address(&f4)?;
+    Ok(Wallet { cli, f4, eth })
+}
+
+/// A fresh Lotus delegated wallet funded with `amount` and known to both nodes.
+pub async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
+    let wallet = new_unfunded().await?;
+    fund_on_chain(&wallet.cli, amount).await?;
+    Ok(wallet)
+}
+
+/// Funds `cli_addr` (Lotus `t4…` form) from the harness wallet and waits until both nodes have the
+/// actor, so a test can use it on either node or pin a block after it. Pass the Lotus string into
+/// `forest-wallet`; it rejects Forest `Address::to_string()` (`f4…`) while `CurrentNetwork` stays
+/// Mainnet.
+pub async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
+    let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
+    let msg = send_from(
+        &FOREST_TEST_PRELOADED_ADDRESS,
+        cli_addr,
+        amount,
+        Backend::Local,
+    )?;
+    eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
+    let balance = poll_until_funded(cli_addr, Backend::Local).await?;
+    eprintln!("{cli_addr} funded on forest, balance: {balance}");
+    poll_until_actor_on("lotus", addr, lotus_client).await?;
+    Ok(addr)
+}
+
+/// The funded sender, created once per process and known to both nodes and both wallets: a
+/// dedicated wallet, since the genesis/miner key races with the miner on nonce.
+pub async fn sender() -> anyhow::Result<&'static Wallet> {
+    static SENDER: OnceCell<Wallet> = OnceCell::const_new();
+    SENDER
+        .get_or_try_init(|| async {
+            let wallet = new_funded(SENDER_FUND_AMT).await?;
+            import_lotus_wallet_into_forest(&wallet.cli)?;
+            Ok(wallet)
+        })
+        .await
 }
 
 /// Delegated signer: create once on local, fund locally, mirror to remote
@@ -532,6 +589,38 @@ pub fn parse_f4_from_evm_deploy(out: &str) -> anyhow::Result<Address> {
     Address::from_str(f4.trim()).context("parsing the deployed f4 address")
 }
 
+/// Deploys `bytecode_hex` from [`sender`] and waits until both nodes have the contract.
+pub async fn deploy_contract(name: &str, bytecode_hex: &str) -> anyhow::Result<EthAddress> {
+    let deploy = forest_evm_deploy_hex(&sender().await?.cli, bytecode_hex)?;
+    let f4 = parse_f4_from_evm_deploy(&deploy)?;
+    eprintln!("deployed {name} at {f4}");
+    poll_until_actor_on("forest", f4, forest_client).await?;
+    poll_until_actor_on("lotus", f4, lotus_client).await?;
+    EthAddress::from_filecoin_address(&f4)
+}
+
+/// The 4-byte Ethereum function selector: first 4 bytes of `keccak256(signature)`.
+pub fn selector(signature: &str) -> Vec<u8> {
+    keccak_256(signature.as_bytes())
+        .get(..4)
+        .expect("keccak256 is 32 bytes")
+        .to_vec()
+}
+
+/// An address as a 32-byte ABI word: 12 zero bytes, then the 20 address bytes.
+pub fn abi_address_word(addr: EthAddress) -> Vec<u8> {
+    let mut word = vec![0u8; 12];
+    word.extend_from_slice(addr.0.as_bytes());
+    word
+}
+
+/// ABI calldata: the selector of `signature`, then the already encoded `args`.
+pub fn calldata(signature: &str, args: &[u8]) -> Vec<u8> {
+    let mut out = selector(signature);
+    out.extend_from_slice(args);
+    out
+}
+
 /// Next nonce for an address
 pub fn mpool_nonce(address: &str) -> anyhow::Result<u64> {
     let out = forest_cli(&["mpool", "nonce", address])?;
@@ -577,6 +666,13 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .as_str()
         .map(str::to_owned)
         .with_context(|| format!("expected string ETH address, got {result}"))
+}
+
+/// A trial that runs `body` and reports a failure with its full error chain.
+pub fn trial(name: &'static str, body: fn() -> anyhow::Result<()>) -> Trial {
+    Trial::test(name, move || {
+        body().map_err(|e| Failed::from(format!("{e:?}")))
+    })
 }
 
 pub fn block_on<F: Future + Send + 'static>(future: F) -> F::Output

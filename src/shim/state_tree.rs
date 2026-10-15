@@ -377,6 +377,14 @@ where
         }
     }
 
+    /// Returns the delegated (f4) address of actor `id`, if it exists and has one.
+    pub fn get_delegated_address(&self, id: ActorID) -> anyhow::Result<Option<Address>> {
+        Ok(self
+            .get_actor(&Address::new_id(id))?
+            .and_then(|actor| actor.delegated_address)
+            .map(Address::from))
+    }
+
     /// Returns the public key type of
     /// address(`BLS`/`SECP256K1`) of an actor identified by `addr`,
     /// or its delegated address.

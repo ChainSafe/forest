@@ -35,7 +35,7 @@ use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
-    econ::TokenAmount,
+    econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::{METHOD_SEND, Message},
     state_tree::StateTree,
 };
@@ -1350,6 +1350,20 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                     tipset.epoch(),
                 ))?),
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
+                // A zero gas limit selects the StateCall gas cap; above the block gas limit both
+                // nodes reject the message.
+                RpcTest::identity(StateCall::request((
+                    msg.clone().into_builder().gas_limit(0).build(),
+                    tipset.key().into(),
+                ))?),
+                RpcTest::identity(StateCall::request((
+                    msg.clone()
+                        .into_builder()
+                        .gas_limit(BLOCK_GAS_LIMIT + 1)
+                        .build(),
+                    tipset.key().into(),
+                ))?)
+                .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
             ]);
         }
     }
@@ -1730,15 +1744,22 @@ fn eth_skip_sender_revert_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest
     let revert_initcode = EthBytes::from_str(
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex").trim(),
     )?;
-    eth_call_and_estimate_gas_tests(
-        epoch,
-        PolicyOnRejected::PassWithIdenticalError,
-        [EthCallMessage {
-            from: Some(generate_eth_random_address()?),
-            data: Some(revert_initcode),
-            ..Default::default()
-        }],
-    )
+    let msg = EthCallMessage {
+        from: Some(generate_eth_random_address()?),
+        data: Some(revert_initcode),
+        ..Default::default()
+    };
+    let block = BlockNumberOrHash::from_block_number(epoch);
+    Ok(vec![
+        RpcTest::identity(EthCall::request((msg.clone(), block.clone()))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        // The revert's backtrace names the contract that failed to deploy, and its ID is the next
+        // free one in the Init actor of the state the node simulated on. `eth_call` runs at the
+        // requested block on both nodes, so the IDs agree; the estimate runs at each node's own
+        // head, so they differ as soon as calibnet creates an actor in between.
+        RpcTest::identity(EthEstimateGas::request((msg, Some(block)))?)
+            .policy_on_rejected(PolicyOnRejected::Pass),
+    ])
 }
 
 /// Contract creation that both nodes must refuse or report as reverting.
@@ -2768,14 +2789,6 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
         RpcTest::identity(EthCall::request((
             EthCallMessage::default(),
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(EthEstimateGas::request((
-            EthCallMessage {
-                from: Some(generate_eth_random_address()?),
-                ..Default::default()
-            },
-            Some(BlockNumberOrHash::from_block_number(expensive_fork_epoch)),
         ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
     ])
