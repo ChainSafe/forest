@@ -11,6 +11,7 @@ use std::time::Duration;
 use anyhow::{Context as _, bail, ensure};
 use cid::Cid;
 use jsonrpsee::core::ClientError;
+use libtest_mimic::{Failed, Trial};
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use tokio::sync::OnceCell;
@@ -23,7 +24,7 @@ use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::ActorState;
 use crate::state_manager::FAILED_TO_LOAD_MESSAGE;
-use crate::utils::encoding::hex;
+use crate::utils::encoding::{hex, keccak_256};
 
 /// Funded preloaded address from env `FOREST_TEST_PRELOADED_ADDRESS` (`forest_wallet_init` in `scripts/tests/harness.sh`).
 pub static FOREST_TEST_PRELOADED_ADDRESS: LazyLock<String> = LazyLock::new(|| {
@@ -40,6 +41,8 @@ pub const FIL_AMT: &str = "500 atto FIL";
 pub const FIL_ZERO: &str = "0 FIL";
 /// Amount to seed a freshly-created delegated wallet.
 pub const DELEGATE_FUND_AMT: &str = "30 micro FIL";
+/// Funds [`sender`]: pays for an on-chain submit and lets priced estimates afford a nested call.
+const SENDER_FUND_AMT: &str = "10 FIL";
 
 /// Maximum time to wait for a polled condition before failing the test.
 pub const POLL_TIMEOUT: Duration = Duration::from_secs(600);
@@ -319,6 +322,19 @@ pub async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Addre
     Ok(addr)
 }
 
+/// The funded sender, created once per process and known to both nodes and both wallets: a
+/// dedicated wallet, since the genesis/miner key races with the miner on nonce.
+pub async fn sender() -> anyhow::Result<&'static Wallet> {
+    static SENDER: OnceCell<Wallet> = OnceCell::const_new();
+    SENDER
+        .get_or_try_init(|| async {
+            let wallet = new_funded(SENDER_FUND_AMT).await?;
+            import_lotus_wallet_into_forest(&wallet.cli)?;
+            Ok(wallet)
+        })
+        .await
+}
+
 /// Delegated signer: create once on local, fund locally, mirror to remote
 /// for tests that query or sign.
 pub async fn funded_delegated_addr() -> &'static str {
@@ -573,6 +589,38 @@ pub fn parse_f4_from_evm_deploy(out: &str) -> anyhow::Result<Address> {
     Address::from_str(f4.trim()).context("parsing the deployed f4 address")
 }
 
+/// Deploys `bytecode_hex` from [`sender`] and waits until both nodes have the contract.
+pub async fn deploy_contract(name: &str, bytecode_hex: &str) -> anyhow::Result<EthAddress> {
+    let deploy = forest_evm_deploy_hex(&sender().await?.cli, bytecode_hex)?;
+    let f4 = parse_f4_from_evm_deploy(&deploy)?;
+    eprintln!("deployed {name} at {f4}");
+    poll_until_actor_on("forest", f4, forest_client).await?;
+    poll_until_actor_on("lotus", f4, lotus_client).await?;
+    EthAddress::from_filecoin_address(&f4)
+}
+
+/// The 4-byte Ethereum function selector: first 4 bytes of `keccak256(signature)`.
+pub fn selector(signature: &str) -> Vec<u8> {
+    keccak_256(signature.as_bytes())
+        .get(..4)
+        .expect("keccak256 is 32 bytes")
+        .to_vec()
+}
+
+/// An address as a 32-byte ABI word: 12 zero bytes, then the 20 address bytes.
+pub fn abi_address_word(addr: EthAddress) -> Vec<u8> {
+    let mut word = vec![0u8; 12];
+    word.extend_from_slice(addr.0.as_bytes());
+    word
+}
+
+/// ABI calldata: the selector of `signature`, then the already encoded `args`.
+pub fn calldata(signature: &str, args: &[u8]) -> Vec<u8> {
+    let mut out = selector(signature);
+    out.extend_from_slice(args);
+    out
+}
+
 /// Next nonce for an address
 pub fn mpool_nonce(address: &str) -> anyhow::Result<u64> {
     let out = forest_cli(&["mpool", "nonce", address])?;
@@ -618,6 +666,13 @@ pub async fn filecoin_to_eth(address: &str) -> anyhow::Result<String> {
         .as_str()
         .map(str::to_owned)
         .with_context(|| format!("expected string ETH address, got {result}"))
+}
+
+/// A trial that runs `body` and reports a failure with its full error chain.
+pub fn trial(name: &'static str, body: fn() -> anyhow::Result<()>) -> Trial {
+    Trial::test(name, move || {
+        body().map_err(|e| Failed::from(format!("{e:?}")))
+    })
 }
 
 pub fn block_on<F: Future + Send + 'static>(future: F) -> F::Output

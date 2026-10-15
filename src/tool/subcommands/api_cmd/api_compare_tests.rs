@@ -35,7 +35,7 @@ use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
-    econ::TokenAmount,
+    econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::{METHOD_SEND, Message},
     state_tree::StateTree,
 };
@@ -1350,6 +1350,20 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                     tipset.epoch(),
                 ))?),
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
+                // A zero gas limit selects the StateCall gas cap; above the block gas limit both
+                // nodes reject the message.
+                RpcTest::identity(StateCall::request((
+                    msg.clone().into_builder().gas_limit(0).build(),
+                    tipset.key().into(),
+                ))?),
+                RpcTest::identity(StateCall::request((
+                    msg.clone()
+                        .into_builder()
+                        .gas_limit(BLOCK_GAS_LIMIT + 1)
+                        .build(),
+                    tipset.key().into(),
+                ))?)
+                .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
             ]);
         }
     }

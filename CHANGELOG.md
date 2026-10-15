@@ -37,11 +37,14 @@
 
 - [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` matches Lotus v1.38.0 and reth. The estimate never exceeds the call's `gas` or, with `gasPrice` or `maxFeePerGas` set, the gas the sender can pay for after the value; without a price the sender's balance does not limit the gas. A revert that more gas fixes is searched past, and failures use the Ethereum codes: `-32000` when the cap is below the message inclusion cost or the sender affords no gas, `-32003` when the call runs out of gas within the cap or, with a price, the value exceeds the balance, `-32602` when both prices are set. See [lotus#13911](https://github.com/filecoin-project/lotus/pull/13911).
 
+- [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall` runs the message at its own `GasLimit` instead of an effectively unlimited one. A `GasLimit` of `0` selects the node's cap, the block gas limit unless the new `FOREST_STATE_CALL_GAS_LIMIT` is set, and a larger `GasLimit` is rejected. Matches Lotus v1.38.0 ([lotus#13910](https://github.com/filecoin-project/lotus/pull/13910)).
+
 ### Removed
 
 ### Fixed
 
 - [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
+- [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall`, `Filecoin.StateReplay` and `Filecoin.StateCompute` report `unknown error (RetCode=<code>)` for a failed message the FVM attaches no failure info to, such as one that runs out of gas, instead of an empty error. Matches Lotus.
 
 ## Forest v0.38.0 "Ayanant"
 

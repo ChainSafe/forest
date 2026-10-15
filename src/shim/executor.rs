@@ -35,8 +35,20 @@ pub enum ApplyRet {
 }
 
 impl ApplyRet {
+    /// The failure of a message that did not succeed: the failure info from
+    /// the FVM, or `unknown error` when it gave none, followed by the exit code.
+    /// <https://github.com/filecoin-project/lotus/blob/v1.38.0/chain/vm/fvm.go#L428-L435>
     pub fn failure_info(&self) -> Option<String> {
-        delegate_apply_ret!(self => |r| r.failure_info.as_ref().map(|failure| format!("{failure} (RetCode={})", self.exit_code())))
+        let exit_code = self.exit_code();
+        if exit_code.is_success() {
+            return None;
+        }
+        let info =
+            delegate_apply_ret!(self => |r| r.failure_info.as_ref().map(ToString::to_string));
+        Some(format!(
+            "{} (RetCode={exit_code})",
+            info.unwrap_or_else(|| "unknown error".into())
+        ))
     }
 
     pub fn miner_tip(&self) -> TokenAmount {
