@@ -8,8 +8,15 @@
 //! served from the store when building Ethereum blocks. For tipsets never executed by
 //! this node (nor covered by index backfill), the block reports [`FULL_BLOOM`].
 
-use super::*;
+use super::events::BlockLogs;
+use super::types::{EthAddress, EthHash};
+use crate::blocks::Tipset;
 use crate::db::EthBlockBloomStore;
+use crate::lotus_json::lotus_json_with_self;
+use crate::state_manager::{ExecutedTipset, StateManager};
+use get_size2::GetSize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Ethereum Bloom filter size in bits.
 /// Bloom filter is used in Ethereum to minimize the number of block queries.
@@ -52,69 +59,18 @@ pub(super) fn accrue_eth_log(bloom: &mut Bloom, address: &EthAddress, topics: &[
     bloom.accrue(address.0.as_bytes());
 }
 
-/// Computes the block logs bloom of a tipset directly from its executed messages, resolving
-/// event emitters against the post-execution state root.
-fn compute_block_logs_bloom(
-    state_manager: &StateManager,
-    state_root: &Cid,
-    executed_messages: &[ExecutedMessage],
-) -> anyhow::Result<Bloom> {
-    let state_tree = state_manager.get_state_tree(state_root)?;
-    let mut resolved_eth_addrs = HashMap::default();
-    let mut bloom = Bloom::default();
-    for executed_message in executed_messages {
-        let Some(events) = &executed_message.events else {
-            continue;
-        };
-        for event in events {
-            let emitter = event.emitter();
-            let address = resolved_eth_addrs.entry(emitter).or_insert_with(|| {
-                state_tree
-                    .resolve_to_deterministic_address(
-                        state_manager.chain_store().db(),
-                        FilecoinAddress::new_id(emitter),
-                    )
-                    .ok()
-                    .and_then(|addr| EthAddress::from_filecoin_address(&addr).ok())
-            });
-            let Some(address) = address else {
-                continue;
-            };
-            let entries: Vec<EventEntry> = event
-                .entries()
-                .into_iter()
-                .map(|entry| {
-                    let (flags, key, codec, value) = entry.into_parts();
-                    EventEntry {
-                        flags,
-                        key,
-                        codec,
-                        value: value.into(),
-                    }
-                })
-                .collect();
-            let Some((_data, topics)) = eth_log_from_event(&entries) else {
-                continue;
-            };
-            accrue_eth_log(&mut bloom, address, &topics);
-        }
-    }
-    Ok(bloom)
-}
-
 /// Computes and stores the block logs bloom of an executed tipset so that serving it later
 /// is a plain read. Called when a tipset is executed and from index backfill.
 pub(crate) fn store_block_logs_bloom(
     state_manager: &StateManager,
     tipset: &Tipset,
-    state_root: &Cid,
-    executed_messages: &[ExecutedMessage],
+    executed: &ExecutedTipset,
 ) -> anyhow::Result<()> {
     let key = tipset.key().cid()?;
     if state_manager.db().read_bloom(&key)?.is_some() {
         return Ok(());
     }
-    let bloom = compute_block_logs_bloom(state_manager, state_root, executed_messages)?;
+    let bloom = BlockLogs::collect(state_manager, tipset, executed)?.bloom();
     state_manager
         .db()
         .write_bloom(&key, tipset.epoch(), &bloom.0.0)
@@ -126,8 +82,7 @@ pub(crate) fn store_block_logs_bloom(
 pub(super) fn block_logs_bloom(
     state_manager: &StateManager,
     tipset: &Tipset,
-    state_root: &Cid,
-    executed_messages: &[ExecutedMessage],
+    executed: &ExecutedTipset,
 ) -> anyhow::Result<Bloom> {
     crate::def_is_env_truthy!(compute_bloom_on_miss, COMPUTE_BLOOM_ON_MISS_ENV);
 
@@ -137,7 +92,7 @@ pub(super) fn block_logs_bloom(
     }
 
     if compute_bloom_on_miss() {
-        let bloom = compute_block_logs_bloom(state_manager, state_root, executed_messages)?;
+        let bloom = BlockLogs::collect(state_manager, tipset, executed)?.bloom();
         state_manager
             .db()
             .write_bloom(&key, tipset.epoch(), &bloom.0.0)?;
@@ -149,6 +104,7 @@ pub(super) fn block_logs_bloom(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rpc::eth::{ADDRESS_LENGTH, EVM_WORD_LENGTH};
 
     #[test]
     fn test_accrue_eth_log_and_block_bloom_decomposition() {
