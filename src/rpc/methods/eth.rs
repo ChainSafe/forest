@@ -2681,21 +2681,36 @@ async fn get_eth_transaction_by_hash(
     // If not found, try to get it from the mempool
     let (pending, _) = ctx.mpool.pending();
 
-    if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
-        // We only return pending eth-account messages because we can't guarantee
-        // that the from/to addresses of other messages are conversable to 0x-style
-        // addresses. So we just ignore them.
-        //
-        // This should be "fine" as anyone using an "Ethereum-centric" block
-        // explorer shouldn't care about seeing pending messages from native
-        // accounts.
-        if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
-            return Ok(Some(eth_tx.into()));
-        }
-    }
+    // We only return pending eth-account messages because we can't guarantee
+    // that the from/to addresses of other messages are conversable to 0x-style
+    // addresses. So we just ignore them.
+    //
+    // This should be "fine" as anyone using an "Ethereum-centric" block
+    // explorer shouldn't care about seeing pending messages from native
+    // accounts.
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+    let pending_tx = pending
+        .iter()
+        .find(|smsg| smsg.cid() == message_cid)
+        .and_then(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok());
 
     // Ethereum clients expect an empty response when the message was not found
-    Ok(None)
+    Ok(pending_tx)
+}
+
+/// The API transaction of a delegated message, with its sender and hash; fails when it is not an
+/// Ethereum transaction.
+fn eth_tx_from_delegated_message(
+    smsg: &SignedMessage,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<ApiEthTx> {
+    let (from, tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id)?;
+    let hash = tx.eth_hash()?.into();
+    Ok(ApiEthTx {
+        from,
+        hash,
+        ..tx.into()
+    })
 }
 
 pub enum EthGetTransactionHashByCid {}
@@ -4768,13 +4783,9 @@ mod test {
         RPCState::for_tests(cs).unwrap()
     }
 
-    // Regression test for the historical "EthSendRawTransaction returns the
-    // hash of the Filecoin message CID, not of the raw tx" bug: a delegated
-    // (eth account) transaction's own hash must never coincide with
-    // `EthHash::from(message_cid)` - the two are unrelated hashing schemes.
-    #[tokio::test]
-    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
-        use crate::eth::{EthEip1559TxArgsBuilder, EthTx};
+    /// A signed calibnet EIP-1559 transaction, as `eth_sendRawTransaction` receives it.
+    fn signed_calibnet_tx() -> EthTx {
+        use crate::eth::EthEip1559TxArgsBuilder;
         use std::str::FromStr as _;
 
         let mut tx_args = EthEip1559TxArgsBuilder::default()
@@ -4801,7 +4812,12 @@ mod test {
             "7820796778417228639067439047870612492553874254089570360061550763595363987236",
         )
         .unwrap();
-        let tx = EthTx::from(tx_args);
+        EthTx::from(tx_args)
+    }
+
+    #[tokio::test]
+    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
+        let tx = signed_calibnet_tx();
         let raw_tx = EthBytes(tx.rlp_signed_message().unwrap());
 
         let expected_hash = "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f";
@@ -4845,6 +4861,55 @@ mod test {
                 .unwrap(),
             Some(smsg.cid())
         );
+    }
+
+    /// A pending delegated message is found by its Ethereum hash and comes back with its hash and
+    /// sender.
+    #[tokio::test]
+    async fn test_eth_get_transaction_by_hash_finds_pending_tx() {
+        let tx = signed_calibnet_tx();
+        let tx_hash: EthHash = tx.eth_hash().unwrap().into();
+        let smsg = tx
+            .get_signed_message(crate::networks::calibnet::ETH_CHAIN_ID)
+            .unwrap();
+        let (from, sequence) = (smsg.message().from(), smsg.message().sequence());
+        let (ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
+        let cid = ctx.mpool.push(smsg).await.unwrap();
+        let cancellation_token = CancellationToken::new();
+        let lookup = |hash: EthHash| {
+            let ctx = ctx.clone();
+            let cancellation_token = cancellation_token.clone();
+            async move {
+                get_eth_transaction_by_hash(&ctx, &hash, None, &cancellation_token)
+                    .await
+                    .unwrap()
+            }
+        };
+
+        // (case, mapping): the mapping is what `eth_sendRawTransaction` on this node writes.
+        for (case, mapping) in [("mapping hit", Some(cid))] {
+            if let Some(cid) = mapping {
+                ctx.chain_store().put_mapping(tx_hash, cid, 0).unwrap();
+            }
+            assert_eq!(ctx.chain_store().get_mapping(&tx_hash).unwrap(), mapping);
+            let found = lookup(tx_hash)
+                .await
+                .unwrap_or_else(|| panic!("{case}: the pending tx must be found by its hash"));
+            assert_eq!(found.hash, tx_hash, "{case}");
+            assert_eq!(
+                found.from,
+                EthAddress::from_filecoin_address(&from).unwrap(),
+                "{case}"
+            );
+            assert_eq!(
+                found.block_hash,
+                EthHash::default(),
+                "{case}: pending, not mined"
+            );
+        }
+
+        let unknown = lookup(EthHash::default()).await;
+        assert!(unknown.is_none(), "{unknown:?}");
     }
 
     #[test]
