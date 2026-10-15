@@ -1,19 +1,20 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use quick_protobuf::{BytesReader, MessageRead as _, MessageWrite as _, Writer};
+
+use super::drand::{FIL_BLOCK_DELAY, FIL_GENESIS_TIME};
+use super::fake_drand_server::FakeDrandChain;
 use crate::beacon::{
-    Beacon, BeaconEntry, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork, PublicRandResponse,
+    Beacon, BeaconEntry, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork,
+    drand_pb::PublicRandResponse, signatures::sign_unchained,
 };
 use crate::utils::encoding::hex;
-use blstrs::{G1Projective, G2Projective, Scalar};
+use blstrs::{G2Projective, Scalar};
 use group::{Curve, Group};
 
-const FAKE_DRAND_GENESIS_TIME: i32 = 1_692_803_367;
-const FAKE_DRAND_PERIOD: i32 = 3;
-
-const TEST_FIL_GENESIS_TIME: u64 = 1_598_306_400;
-const TEST_FIL_BLOCK_DELAY: u64 = 30;
-
+/// Signs any round of a `quicknet`-like chain with a made-up key, and encodes it as `drand`
+/// gossips it.
 pub struct FakeDrandSigner {
     secret: Scalar,
     config: DrandConfig<'static>,
@@ -21,17 +22,21 @@ pub struct FakeDrandSigner {
 
 impl FakeDrandSigner {
     pub fn new() -> Self {
+        // Arbitrary: any non-zero scalar makes a valid key pair.
         let secret = Scalar::from(0xC0FFEEu64);
         let public = G2Projective::generator() * secret;
         let public_key = hex::encode(public.to_affine().to_compressed());
+        // Real `quicknet` timing, so rounds map to epochs as on mainnet; the key and hashes
+        // are made up.
+        let quicknet = FakeDrandChain::quicknet().info;
         Self {
             secret,
             config: DrandConfig {
                 servers: vec![],
                 chain_info: ChainInfo {
                     public_key: public_key.into(),
-                    period: FAKE_DRAND_PERIOD,
-                    genesis_time: FAKE_DRAND_GENESIS_TIME,
+                    period: quicknet.period,
+                    genesis_time: quicknet.genesis_time,
                     hash: "0011".repeat(16).into(),
                     group_hash: "00".repeat(32).into(),
                 },
@@ -42,37 +47,37 @@ impl FakeDrandSigner {
         }
     }
 
-    // sign H(round) on G1, exactly what `verify_entries` checks for unchained.
     pub fn entry(&self, round: u64) -> BeaconEntry {
-        let msg = BeaconEntry::message_unchained(round);
-        let point =
-            G1Projective::hash_to_curve(msg.as_ref(), crate::beacon::signatures::CSUITE_G1, &[]);
-        let point = point * self.secret;
-        BeaconEntry::new(round, point.to_affine().to_compressed().to_vec())
+        let signature = sign_unchained(self.secret, BeaconEntry::message_unchained(round).as_ref());
+        BeaconEntry::new(round, signature.0.to_compressed().to_vec())
     }
 
-    // encode PublicRandResponse to protobuf
-    pub fn to_protobuf(&self, round: u64) -> Vec<u8> {
-        self.to_protobuf_raw(round, self.entry(round).signature())
+    /// `round`, signed, as a gossiped `PublicRandResponse`.
+    pub fn encode(&self, round: u64) -> Vec<u8> {
+        self.encode_raw(round, self.entry(round).signature())
     }
 
-    /// A `PublicRandResponse` payload with any signature.
-    pub fn to_protobuf_raw(&self, round: u64, signature: &[u8]) -> Vec<u8> {
+    /// A gossiped `PublicRandResponse` with any signature.
+    pub fn encode_raw(&self, round: u64, signature: &[u8]) -> Vec<u8> {
         let mut out = Vec::new();
-        let mut w = quick_protobuf::Writer::new(&mut out);
-        quick_protobuf::MessageWrite::write_message(
-            &PublicRandResponse {
-                round,
-                signature: signature.to_vec(),
-            },
-            &mut w,
-        )
+        PublicRandResponse {
+            round,
+            signature: signature.to_vec(),
+        }
+        .write_message(&mut Writer::new(&mut out))
         .unwrap();
         out
     }
 
+    pub fn decode(payload: &[u8]) -> BeaconEntry {
+        let response =
+            PublicRandResponse::from_reader(&mut BytesReader::from_bytes(payload), payload)
+                .unwrap();
+        BeaconEntry::new(response.round, response.signature)
+    }
+
     pub fn beacon(&self) -> DrandBeacon {
-        DrandBeacon::new(TEST_FIL_GENESIS_TIME, TEST_FIL_BLOCK_DELAY, &self.config)
+        DrandBeacon::new(FIL_GENESIS_TIME, FIL_BLOCK_DELAY, &self.config)
     }
 }
 
@@ -81,16 +86,7 @@ impl FakeDrandSigner {
 fn fake_drand_entries_verify() {
     let d = FakeDrandSigner::new();
     let entries: Vec<_> = (1..=5)
-        .map(|r| {
-            let payload = d.to_protobuf(r);
-            let mut reader = quick_protobuf::BytesReader::from_bytes(&payload);
-            let response = <PublicRandResponse as quick_protobuf::MessageRead>::from_reader(
-                &mut reader,
-                &payload,
-            )
-            .unwrap();
-            BeaconEntry::new(response.round, response.signature)
-        })
+        .map(|round| FakeDrandSigner::decode(&d.encode(round)))
         .collect();
     assert!(
         d.beacon()
