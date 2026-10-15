@@ -1445,23 +1445,22 @@ pub async fn eth_logs_for_block_and_transaction(
 }
 
 /// Collects all Ethereum logs produced by a tipset's already-executed messages, in tipset order.
-async fn collect_block_logs(
+fn collect_block_logs(
     ctx: &Ctx,
     tipset: &Tipset,
-    executed_messages: &[ExecutedMessage],
+    executed_tipset: &ExecutedTipset,
     revert_status: EventRevertStatus,
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events_from_messages(
         &ctx.state_manager,
         tipset,
-        executed_messages,
+        executed_tipset,
         None::<&ParsedFilter>,
         SkipEvent::OnUnresolvedAddress,
         revert_status,
         &mut events,
-    )
-    .await?;
+    )?;
     eth_filter_logs_from_events(ctx, &events)
 }
 
@@ -1486,7 +1485,7 @@ pub(in crate::rpc) async fn eth_logs_for_head_change(
         .state_manager
         .load_executed_tipset_with_receipt(&msg_ts, receipt_ts)
         .await?;
-    collect_block_logs(ctx, &msg_ts, &executed_ts.executed_messages, revert_status).await
+    collect_block_logs(ctx, &msg_ts, &executed_ts, revert_status)
 }
 
 fn get_signed_message(ctx: &Ctx, message_cid: Cid) -> Result<SignedMessage> {
@@ -1577,17 +1576,16 @@ async fn get_block_receipts(
     let ts_key = ts_ref.key();
 
     // Execute the tipset to get the messages and receipts
-    let ExecutedTipset {
-        state_root,
-        executed_messages,
-        ..
-    } = ctx
+    let executed_tipset = ctx
         .state_manager
         .load_executed_tipset_for_rpc(&ts_ref)
         .await?;
+    let executed_messages = &executed_tipset.executed_messages;
 
     // Load the state tree
-    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
+    let state_tree = ctx
+        .state_manager
+        .get_state_tree(&executed_tipset.state_root)?;
 
     // Collect the whole tipset's logs in a single pass and scatter them back to their messages.
     let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
@@ -1600,9 +1598,7 @@ async fn get_block_receipts(
     }
 
     let mut logs_by_msg: Vec<Vec<EthLog>> = vec![Vec::new(); executed_messages.len()];
-    for log in
-        collect_block_logs(ctx, &ts_ref, &executed_messages, EventRevertStatus::Applied).await?
-    {
+    for log in collect_block_logs(ctx, &ts_ref, &executed_tipset, EventRevertStatus::Applied)? {
         // `transaction_index` is the message's index in `executed_messages` (this loop's slice), always a valid bucket.
         if let Some(bucket) = logs_by_msg.get_mut(log.transaction_index.0 as usize) {
             bucket.push(log);
