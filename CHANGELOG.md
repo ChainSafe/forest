@@ -44,7 +44,14 @@
 ### Fixed
 
 - [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
+
 - [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall`, `Filecoin.StateReplay` and `Filecoin.StateCompute` report `unknown error (RetCode=<code>)` for a failed message the FVM attaches no failure info to, such as one that runs out of gas, instead of an empty error. Matches Lotus.
+
+- [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getLogs`, `eth_getFilterLogs`, `eth_getFilterChanges`, `eth_getTransactionReceipt`, `eth_getBlockReceipts` and their `Limited` variants return an error instead of partial logs when an event's message cannot be read. Matches Lotus v1.38.1 ([lotus#13926](https://github.com/filecoin-project/lotus/pull/13926)).
+
+- [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getTransactionByHash` and `eth_getTransactionByHashLimited` return a pending Ethereum transaction received from another node instead of `null` until it is mined. Matches Lotus v1.38.0 ([lotus#13677](https://github.com/filecoin-project/lotus/pull/13677)).
+
+- [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getTransactionByHash` and `eth_getTransactionByHashLimited` report the `hash` and `from` of a pending transaction instead of zeros.
 
 ## Forest v0.38.0 "Ayanant"
 
