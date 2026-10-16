@@ -263,6 +263,25 @@ impl EthMappingsStore for ParityDb {
         let bytes = fvm_ipld_encoding::to_vec(tsk)?;
         self.write_to_column(key, bytes, DbColumn::EthMappings)
     }
+
+    fn set_tipset_keys_at_epochs_raw(
+        &self,
+        entries: &[(ChainEpoch, TipsetKey)],
+    ) -> anyhow::Result<()> {
+        let tx = entries
+            .iter()
+            .map(|(epoch, tsk)| {
+                Ok((
+                    DbColumn::EthMappings as u8,
+                    epoch.to_le_bytes(),
+                    Some(fvm_ipld_encoding::to_vec(tsk)?),
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        self.db
+            .commit(tx)
+            .with_context(|| format!("error writing to column {}", DbColumn::EthMappings))
+    }
 }
 
 impl EthBlockBloomStore for ParityDb {
@@ -635,5 +654,27 @@ mod test {
         db.unsubscribe_write_ops();
 
         assert!(db.write_ops_broadcast_tx.read().is_none());
+    }
+
+    #[test]
+    fn set_tipset_keys_at_epochs_raw_test() {
+        let db = TempParityDB::new();
+        let tsk = |n: u64| {
+            TipsetKey::from(nunny::vec![Cid::new_v1(
+                DAG_CBOR,
+                MultihashCode::Blake2b256.digest(&n.to_le_bytes())
+            )])
+        };
+        let entries = [(20, tsk(1)), (40, tsk(2)), (60, tsk(3))];
+        db.set_tipset_keys_at_epochs_raw(&entries).unwrap();
+        for (epoch, expected) in &entries {
+            assert_eq!(
+                db.tipset_key_by_epoch(*epoch).unwrap().as_ref(),
+                Some(expected)
+            );
+        }
+        assert!(db.tipset_key_by_epoch(80).unwrap().is_none());
+        // Empty batches are a no-op.
+        db.set_tipset_keys_at_epochs_raw(&[]).unwrap();
     }
 }

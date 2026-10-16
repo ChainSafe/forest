@@ -167,6 +167,13 @@ impl EthMappingsStore for GarbageCollectableParityDb {
     ) -> anyhow::Result<()> {
         EthMappingsStore::set_tipset_key_at_epoch_raw(&*self.db.read(), epoch, tsk)
     }
+
+    fn set_tipset_keys_at_epochs_raw(
+        &self,
+        entries: &[(ChainEpoch, TipsetKey)],
+    ) -> anyhow::Result<()> {
+        EthMappingsStore::set_tipset_keys_at_epochs_raw(&*self.db.read(), entries)
+    }
 }
 
 impl EthBlockBloomStore for GarbageCollectableParityDb {
