@@ -192,7 +192,7 @@ mod tests {
         let (drand, schedule) = fake_drand_schedule();
         let now = time_of(&schedule, round).saturating_add_signed(now_offset);
 
-        let verdict = verdict_for(&schedule, &drand.to_protobuf(round), now, 1).await;
+        let verdict = verdict_for(&schedule, &drand.encode(round), now, 1).await;
 
         assert_verdict(&verdict, MessageAcceptance::Accept);
         assert!(is_cached(&schedule, round), "round {round}");
@@ -201,17 +201,17 @@ mod tests {
     /// Entries rejected or ignored without being cached.
     #[rstest::rstest]
     #[case::undecodable(|_: &FakeDrandSigner| vec![0xff, 0xff, 0xff], 0, MessageAcceptance::Reject)]
-    #[case::round_zero(|d: &FakeDrandSigner| d.to_protobuf_raw(0, d.entry(1).signature()), 0, MessageAcceptance::Reject)]
-    #[case::empty_signature(|d: &FakeDrandSigner| d.to_protobuf_raw(EPOCH_ROUND, &[]), 0, MessageAcceptance::Reject)]
+    #[case::round_zero(|d: &FakeDrandSigner| d.encode_raw(0, d.entry(1).signature()), 0, MessageAcceptance::Reject)]
+    #[case::empty_signature(|d: &FakeDrandSigner| d.encode_raw(EPOCH_ROUND, &[]), 0, MessageAcceptance::Reject)]
     // An epoch round with the next round's signature.
     #[case::forged_signature(
-        |d: &FakeDrandSigner| d.to_protobuf_raw(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature()),
+        |d: &FakeDrandSigner| d.encode_raw(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature()),
         0,
         MessageAcceptance::Reject
     )]
     // Beyond the clock skew allowance.
-    #[case::future_round(|d: &FakeDrandSigner| d.to_protobuf(EPOCH_ROUND + 2), 0, MessageAcceptance::Ignore)]
-    #[case::stale_round(|d: &FakeDrandSigner| d.to_protobuf(EPOCH_ROUND), MAX_ROUND_AGE_SECS as i64, MessageAcceptance::Ignore)]
+    #[case::future_round(|d: &FakeDrandSigner| d.encode(EPOCH_ROUND + 2), 0, MessageAcceptance::Ignore)]
+    #[case::stale_round(|d: &FakeDrandSigner| d.encode(EPOCH_ROUND), MAX_ROUND_AGE_SECS as i64, MessageAcceptance::Ignore)]
     #[tokio::test]
     async fn invalid_or_untimely_entry_is_not_accepted(
         #[case] payload: fn(&FakeDrandSigner) -> Vec<u8>,
@@ -232,7 +232,7 @@ mod tests {
         let (drand, schedule) = fake_drand_schedule();
         let now = time_of(&schedule, EPOCH_ROUND);
 
-        let verdict = verdict_for(&schedule, &drand.to_protobuf(EPOCH_ROUND), now, 0).await;
+        let verdict = verdict_for(&schedule, &drand.encode(EPOCH_ROUND), now, 0).await;
 
         assert_verdict(&verdict, MessageAcceptance::Ignore);
     }

@@ -1,8 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Helpers for `drand` gossip tests.
-
 use std::sync::Arc;
 
 use libp2p::gossipsub::MessageAcceptance;

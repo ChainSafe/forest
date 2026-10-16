@@ -1,11 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! `drand` beacon entries over `gossipsub`.
-//!
-//! The network service routes the topic's messages to [`DrandGossip::on_message`] and applies the
-//! [`Verdict`]s it gets back.
-
 mod metrics;
 #[cfg(test)]
 pub(in crate::libp2p) mod test_utils;
