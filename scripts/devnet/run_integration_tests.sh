@@ -23,3 +23,4 @@ forest-dev tests wallet
 forest-dev devnet eth-gas
 forest-dev devnet eth-skip-sender
 forest-dev devnet state-call
+forest-dev devnet eth-pending-tx
