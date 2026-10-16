@@ -366,7 +366,7 @@ struct ExtendedSnapshotFile {
 }
 
 /// Fetches the `.metadata.json` published next to `snapshot_url` and returns its extended
-/// snapshots, if any. A missing metadata file is not an error.
+/// snapshots, if any.
 async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<ExtendedSnapshots>> {
     let metadata_url = Url::parse(&format!("{snapshot_url}.metadata.json"))?;
     let response = crate::utils::net::global_http_client()
@@ -385,8 +385,10 @@ async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<E
     Ok(metadata.snapshot.extended)
 }
 
-/// Downloads an extended snapshot that sits next to `snapshot_url` into a temporary file in
-/// `temp_dir` and verifies its `SHA-256` checksum.
+/// Number of blocks or tipset lookup entries written to the database per commit when importing
+/// extended snapshots.
+const EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE: usize = 1_000;
+
 async fn download_extended_snapshot(
     snapshot_url: &Url,
     file: &ExtendedSnapshotFile,
@@ -403,6 +405,7 @@ async fn download_extended_snapshot(
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
     download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
+
     let actual = crate::utils::encoding::hex::encode(Sha256::digest(tokio::fs::read(&path).await?));
     anyhow::ensure!(
         actual.eq_ignore_ascii_case(&file.sha256),
@@ -413,62 +416,92 @@ async fn download_extended_snapshot(
     Ok(path)
 }
 
-/// Imports message receipts and events from a receipts and events snapshot into `db`.
-async fn import_receipts_events_snapshot(
-    db: &impl Blockstore,
-    path: &Path,
-) -> anyhow::Result<usize> {
+/// Imports message receipts and events from a receipts and events snapshot into `db`,
+/// committing [`EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE`] blocks at a time.
+async fn import_receipts_events_snapshot<DB>(db: &Arc<DB>, path: &Path) -> anyhow::Result<usize>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    async fn flush<DB: Blockstore + Send + Sync + 'static>(
+        db: &Arc<DB>,
+        batch: Vec<(Cid, bytes::Bytes)>,
+    ) -> anyhow::Result<()> {
+        let db = db.clone();
+        tokio::task::spawn_blocking(move || db.put_many_keyed(batch)).await?
+    }
+
     let mut car_stream = CarStream::new_from_path(path).await?;
     let mut n_blocks = 0;
+    let mut batch = Vec::with_capacity(EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE);
     while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        db.put_keyed(&cid, &data)?;
+        batch.push((cid, data));
         n_blocks += 1;
+        if batch.len() == EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE {
+            flush(
+                db,
+                std::mem::replace(
+                    &mut batch,
+                    Vec::with_capacity(EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE),
+                ),
+            )
+            .await?;
+        }
+    }
+    if !batch.is_empty() {
+        flush(db, batch).await?;
     }
     Ok(n_blocks)
 }
 
 /// Populates the tipset lookup table in `db` from a tipset lookup snapshot.
-/// Fails without writing anything if an entry is not a checkpoint at or below `head`.
-async fn import_tipset_lookup_snapshot(
-    db: &impl EthMappingsStore,
+async fn import_tipset_lookup_snapshot<DB>(
+    db: &Arc<DB>,
     path: &Path,
-    head: &Tipset,
-) -> anyhow::Result<usize> {
+    head_epoch: ChainEpoch,
+) -> anyhow::Result<usize>
+where
+    DB: EthMappingsStore + Send + Sync + 'static,
+{
     let store = MemoryDB::default();
     let mut car_stream = CarStream::new_from_path(path).await?;
     let hamt_root = *car_stream.header_v1.roots.first();
     while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
         store.put_keyed(&cid, &data)?;
     }
-    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
-        Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
-            .context("failed to load tipset lookup HAMT")?;
-    // Validate all entries before writing any of them.
-    let mut entries = vec![];
-    hamt.for_each_cacheless(|&epoch, tsk| {
-        anyhow::ensure!(
-            ChainIndex::is_tipset_lookup_checkpoint(epoch) && epoch <= head.epoch(),
-            "invalid tipset lookup entry at epoch {epoch}, head epoch: {}",
-            head.epoch()
-        );
-        entries.push((epoch, tsk.clone()));
-        Ok(())
-    })?;
-    for (epoch, tsk) in &entries {
-        db.set_tipset_key_at_epoch_raw(*epoch, tsk)?;
-    }
-    Ok(entries.len())
+
+    let db = db.clone();
+    tokio::task::spawn_blocking(move || {
+        let hamt: Hamt<_, TipsetKey, ChainEpoch> =
+            Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
+                .context("failed to load tipset lookup HAMT")?;
+        // Validate all entries before writing any of them.
+        let mut entries = vec![];
+        hamt.for_each_cacheless(|&epoch, tsk| {
+            anyhow::ensure!(
+                ChainIndex::is_tipset_lookup_checkpoint(epoch) && epoch <= head_epoch,
+                "invalid tipset lookup entry at epoch {epoch}, head epoch: {head_epoch}",
+            );
+            entries.push((epoch, tsk.clone()));
+            Ok(())
+        })?;
+        for batch in entries.chunks(EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE) {
+            db.set_tipset_keys_at_epochs_raw(batch)?;
+        }
+        Ok(entries.len())
+    })
+    .await?
 }
 
 /// Downloads the extended snapshots (message receipts and events, tipset lookup table)
 /// advertised in the metadata of the snapshot at `snapshot_url` and imports them into `db`.
-/// This is best-effort: failures are logged and never fail the base snapshot import.
-pub async fn maybe_import_extended_snapshots(
-    db: &(impl Blockstore + EthMappingsStore),
+pub async fn maybe_import_extended_snapshots<DB>(
+    db: &Arc<DB>,
     snapshot_url: &Url,
     head: &Tipset,
     temp_dir: &Path,
-) {
+) where
+    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
+{
     let extended = match fetch_extended_snapshots(snapshot_url).await {
         Ok(Some(extended)) => extended,
         Ok(None) => {
@@ -502,7 +535,7 @@ pub async fn maybe_import_extended_snapshots(
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
             let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
-            import_tipset_lookup_snapshot(db, &path, head).await
+            import_tipset_lookup_snapshot(db, &path, head.epoch()).await
         }
         .await;
         match result {
