@@ -38,6 +38,7 @@ pub(super) static DRAND_MAINNET: LazyLock<DrandConfig<'static>> = LazyLock::new(
             ),
         },
         network_type: DrandNetwork::Mainnet,
+        relays: vec![],
         register_metrics: false,
     };
     parse_drand_config_from_env_var("FOREST_DRAND_MAINNET_CONFIG").unwrap_or(default)
@@ -76,6 +77,18 @@ pub(super) static DRAND_QUICKNET: LazyLock<DrandConfig<'static>> = LazyLock::new
             ),
         },
         network_type: DrandNetwork::Quicknet,
+        relays: [
+            "/dnsaddr/api.drand.sh",
+            "/dnsaddr/api2.drand.sh",
+            "/dnsaddr/api3.drand.sh",
+        ]
+        .iter()
+        .map(|relay| {
+            relay
+                .parse()
+                .expect("hardcoded drand relay address is valid")
+        })
+        .collect(),
         register_metrics: true,
     };
     parse_drand_config_from_env_var("FOREST_DRAND_QUICKNET_CONFIG").unwrap_or(default)
@@ -99,6 +112,7 @@ pub(super) static DRAND_INCENTINET: LazyLock<DrandConfig<'static>> = LazyLock::n
             ),
         },
         network_type: DrandNetwork::Incentinet,
+        relays: vec![],
         register_metrics: false,
     };
     parse_drand_config_from_env_var("FOREST_DRAND_INCENTINET_CONFIG").unwrap_or(default)

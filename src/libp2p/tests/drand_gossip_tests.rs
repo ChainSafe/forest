@@ -59,7 +59,9 @@ fn drand_topic(drand: &FakeDrandSigner) -> IdentTopic {
 #[tokio::test]
 async fn only_verified_rounds_are_forwarded() {
     let (drand, schedule) = fake_drand_schedule();
-    let gossip = DrandGossip::new(schedule.clone()).expect("unchained beacon");
+    let gossip = DrandGossip::new(schedule.clone())
+        .await
+        .expect("unchained beacon");
     let topic = drand_topic(&drand);
     assert_eq!(gossip.topic, topic.hash());
 
@@ -143,7 +145,7 @@ async fn only_verified_rounds_are_forwarded() {
 #[tokio::test]
 async fn drand_gossip_is_handed_to_the_drand_module() {
     let (drand, schedule) = fake_drand_schedule();
-    let gossip = DrandGossip::new(schedule).unwrap();
+    let gossip = DrandGossip::new(schedule).await.unwrap();
     let (tx, rx) = flume::unbounded();
 
     let verdict = handle_gossip_event(
