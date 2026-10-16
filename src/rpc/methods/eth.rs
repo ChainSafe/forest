@@ -2649,7 +2649,8 @@ async fn get_eth_transaction_by_hash(
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<ApiEthTx>, ServerError> {
-    let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
+    let mapping = ctx.chain_store().get_mapping(tx_hash)?;
+    let message_cid = mapping.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
             tx_hash
@@ -2681,21 +2682,44 @@ async fn get_eth_transaction_by_hash(
     // If not found, try to get it from the mempool
     let (pending, _) = ctx.mpool.pending();
 
-    if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
-        // We only return pending eth-account messages because we can't guarantee
-        // that the from/to addresses of other messages are conversable to 0x-style
-        // addresses. So we just ignore them.
-        //
-        // This should be "fine" as anyone using an "Ethereum-centric" block
-        // explorer shouldn't care about seeing pending messages from native
-        // accounts.
-        if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
-            return Ok(Some(eth_tx.into()));
-        }
-    }
+    // We only return pending eth-account messages because we can't guarantee
+    // that the from/to addresses of other messages are conversable to 0x-style
+    // addresses. So we just ignore them.
+    //
+    // This should be "fine" as anyone using an "Ethereum-centric" block
+    // explorer shouldn't care about seeing pending messages from native
+    // accounts.
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+    let pending_tx = match mapping {
+        Some(cid) => pending
+            .iter()
+            .find(|smsg| smsg.cid() == cid)
+            .and_then(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok()),
+        // Without a mapping `tx_hash.to_cid()` never matches a delegated message's CID, so those
+        // are found by their Ethereum hash.
+        None => pending
+            .iter()
+            .filter_map(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok())
+            .find(|tx| tx.hash == *tx_hash),
+    };
 
     // Ethereum clients expect an empty response when the message was not found
-    Ok(None)
+    Ok(pending_tx)
+}
+
+/// The API transaction of a delegated message, with its sender and hash; fails when it is not an
+/// Ethereum transaction.
+fn eth_tx_from_delegated_message(
+    smsg: &SignedMessage,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<ApiEthTx> {
+    let (from, tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id)?;
+    let hash = tx.eth_hash()?.into();
+    Ok(ApiEthTx {
+        from,
+        hash,
+        ..tx.into()
+    })
 }
 
 pub enum EthGetTransactionHashByCid {}
@@ -3354,22 +3378,30 @@ pub(crate) fn eth_tx_hash_from_signed_message(
     }
 }
 
+/// Returns the Ethereum transaction hash of the message at `message_cid`.
+///
+/// # Errors
+/// Fails when the message can be read neither as a signed nor as an unsigned message. The error
+/// names the CID and carries both read failures.
 fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     blockstore: &DB,
     message_cid: &Cid,
     eth_chain_id: EthChainIdType,
-) -> anyhow::Result<Option<EthHash>> {
-    if let Ok(smsg) = crate::chain::message_from_cid(blockstore, message_cid) {
-        // This is an Eth Tx, Secp message, Or BLS message in the mpool
-        return Ok(Some(eth_tx_hash_from_signed_message(&smsg, eth_chain_id)?));
-    }
-    let result: Result<Message, _> = crate::chain::message_from_cid(blockstore, message_cid);
-    if result.is_ok() {
+) -> anyhow::Result<EthHash> {
+    let signed_err =
+        match crate::chain::message_from_cid::<_, SignedMessage>(blockstore, message_cid) {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            Ok(smsg) => return eth_tx_hash_from_signed_message(&smsg, eth_chain_id),
+            Err(e) => e,
+        };
+    // An unsigned/BLS message fails signed decoding, so always try the fallback.
+    match crate::chain::message_from_cid::<_, Message>(blockstore, message_cid) {
         // This is a BLS message
-        let hash: EthHash = (*message_cid).into();
-        return Ok(Some(hash));
+        Ok(_) => Ok((*message_cid).into()),
+        Err(unsigned_err) => Err(anyhow!(
+            "failed to load event message {message_cid}: {signed_err}; {unsigned_err}"
+        )),
     }
-    Ok(None)
 }
 
 fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec<EthHash>> {
@@ -3401,16 +3433,9 @@ fn eth_filter_logs_from_events(
         let transaction_hash = if let Some(h) = tx_hash_by_msg.get(&event.msg_cid) {
             *h
         } else {
-            match eth_tx_hash_from_message_cid(ctx.db(), &event.msg_cid, chain_id)? {
-                Some(h) => {
-                    tx_hash_by_msg.insert(event.msg_cid, h);
-                    h
-                }
-                None => {
-                    tracing::debug!("Ignoring event");
-                    continue;
-                }
-            }
+            let h = eth_tx_hash_from_message_cid(ctx.db(), &event.msg_cid, chain_id)?;
+            tx_hash_by_msg.insert(event.msg_cid, h);
+            h
         };
 
         let block_hash = if let Some(h) = block_hash_by_tipset.get(&event.tipset_key) {
@@ -4767,13 +4792,9 @@ mod test {
         RPCState::for_tests(cs).unwrap()
     }
 
-    // Regression test for the historical "EthSendRawTransaction returns the
-    // hash of the Filecoin message CID, not of the raw tx" bug: a delegated
-    // (eth account) transaction's own hash must never coincide with
-    // `EthHash::from(message_cid)` - the two are unrelated hashing schemes.
-    #[tokio::test]
-    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
-        use crate::eth::{EthEip1559TxArgsBuilder, EthTx};
+    /// A signed calibnet EIP-1559 transaction, as `eth_sendRawTransaction` receives it.
+    fn signed_calibnet_tx() -> EthTx {
+        use crate::eth::EthEip1559TxArgsBuilder;
         use std::str::FromStr as _;
 
         let mut tx_args = EthEip1559TxArgsBuilder::default()
@@ -4800,7 +4821,12 @@ mod test {
             "7820796778417228639067439047870612492553874254089570360061550763595363987236",
         )
         .unwrap();
-        let tx = EthTx::from(tx_args);
+        EthTx::from(tx_args)
+    }
+
+    #[tokio::test]
+    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
+        let tx = signed_calibnet_tx();
         let raw_tx = EthBytes(tx.rlp_signed_message().unwrap());
 
         let expected_hash = "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f";
@@ -4846,6 +4872,59 @@ mod test {
         );
     }
 
+    /// A pending delegated message is found by its Ethereum hash with and without a tx-hash
+    /// mapping, and comes back with its hash and sender. A transaction gossiped from another node
+    /// has no mapping until it is mined.
+    #[tokio::test]
+    async fn test_eth_get_transaction_by_hash_finds_pending_tx() {
+        let tx = signed_calibnet_tx();
+        let tx_hash: EthHash = tx.eth_hash().unwrap().into();
+        let smsg = tx
+            .get_signed_message(crate::networks::calibnet::ETH_CHAIN_ID)
+            .unwrap();
+        // The mapping miss falls back to the hash as a CID, which is never the message's CID.
+        assert_ne!(tx_hash.to_cid(), smsg.cid());
+
+        let (from, sequence) = (smsg.message().from(), smsg.message().sequence());
+        let (ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
+        let cid = ctx.mpool.push(smsg).await.unwrap();
+        let cancellation_token = CancellationToken::new();
+        let lookup = |hash: EthHash| {
+            let ctx = ctx.clone();
+            let cancellation_token = cancellation_token.clone();
+            async move {
+                get_eth_transaction_by_hash(&ctx, &hash, None, &cancellation_token)
+                    .await
+                    .unwrap()
+            }
+        };
+
+        // (case, mapping): the mapping is what `eth_sendRawTransaction` on this node writes.
+        for (case, mapping) in [("mapping miss", None), ("mapping hit", Some(cid))] {
+            if let Some(cid) = mapping {
+                ctx.chain_store().put_mapping(tx_hash, cid, 0).unwrap();
+            }
+            assert_eq!(ctx.chain_store().get_mapping(&tx_hash).unwrap(), mapping);
+            let found = lookup(tx_hash)
+                .await
+                .unwrap_or_else(|| panic!("{case}: the pending tx must be found by its hash"));
+            assert_eq!(found.hash, tx_hash, "{case}");
+            assert_eq!(
+                found.from,
+                EthAddress::from_filecoin_address(&from).unwrap(),
+                "{case}"
+            );
+            assert_eq!(
+                found.block_hash,
+                EthHash::default(),
+                "{case}: pending, not mined"
+            );
+        }
+
+        let unknown = lookup(EthHash::default()).await;
+        assert!(unknown.is_none(), "{unknown:?}");
+    }
+
     #[test]
     fn test_eth_tx_hash_from_message_cid() {
         let blockstore = Arc::new(MemoryDB::default());
@@ -4858,13 +4937,78 @@ mod test {
         crate::chain::persist_objects(&blockstore, [&secp0, &bls0].into_iter()).unwrap();
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp0.cid(), 0).unwrap();
-        assert!(tx_hash.is_some());
+        assert_eq!(tx_hash, eth_tx_hash_from_signed_message(&secp0, 0).unwrap());
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &msg2.cid(), 0).unwrap();
-        assert!(tx_hash.is_some());
+        assert_eq!(tx_hash, EthHash::from(msg2.cid()));
 
-        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
-        assert!(tx_hash.is_none());
+        let err = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap_err();
+        let missing = secp1.cid();
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "failed to load event message {missing}: Invalid tipset: {missing}; Invalid tipset: {missing}"
+            )
+        );
+    }
+
+    /// One unreadable event message fails the whole conversion instead of dropping the event;
+    /// readable ones still convert, through the unsigned fallback too.
+    #[tokio::test]
+    async fn test_eth_filter_logs_from_events_fails_on_unreadable_message() {
+        let (ctx, _network_rx) =
+            crate::rpc::RPCState::for_tests(crate::rpc::test_utils::chain_store()).unwrap();
+        let (readable, _) = construct_bls_messages();
+        let (_, missing) = construct_eth_messages(0);
+        crate::chain::persist_objects(ctx.db(), std::iter::once(&readable)).unwrap();
+        let (readable, missing) = (readable.cid(), missing.cid());
+        let tipset_key = ctx.chain_store().genesis_tipset().key().clone();
+        let event = |msg_cid: Cid, codec: u64| CollectedEvent {
+            entries: vec![EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec,
+                value: vec![1].into(),
+            }],
+            emitter_addr: FilecoinAddress::new_id(1),
+            event_idx: 0,
+            reverted: false,
+            height: 0,
+            tipset_key: tipset_key.clone(),
+            msg_idx: 0,
+            msg_cid,
+        };
+
+        // (case, events, expected log count; `None` expects the error naming the missing message)
+        let cases = [
+            ("BLS fallback", vec![event(readable, IPLD_RAW)], Some(1)),
+            ("missing message", vec![event(missing, IPLD_RAW)], None),
+            (
+                "readable then missing",
+                vec![event(readable, IPLD_RAW), event(missing, IPLD_RAW)],
+                None,
+            ),
+            ("empty", vec![], Some(0)),
+            ("non-Ethereum", vec![event(missing, DAG_CBOR)], Some(0)),
+        ];
+        for (case, events, want_logs) in cases {
+            let result = eth_filter_logs_from_events(&ctx, &events);
+            let Some(want_logs) = want_logs else {
+                let err = result.expect_err(case).to_string();
+                assert!(
+                    err.contains(&format!("failed to load event message {missing}")),
+                    "{case}: {err}"
+                );
+                continue;
+            };
+            let logs = result.unwrap_or_else(|e| panic!("{case}: {e:#}"));
+            assert_eq!(logs.len(), want_logs, "{case}");
+            assert!(
+                logs.iter()
+                    .all(|log| log.transaction_hash == EthHash::from(readable)),
+                "{case}: {logs:?}"
+            );
+        }
     }
 
     #[test]

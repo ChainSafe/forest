@@ -257,15 +257,17 @@ pub async fn get_actor(client: &Client, addr: Address) -> anyhow::Result<Option<
         .await
     {
         Ok(actor) => Ok(actor),
-        Err(e)
-            if ["actor not found", "resolution lookup failed"]
-                .iter()
-                .any(|s| format!("{e:#}").contains(s)) =>
-        {
-            Ok(None)
-        }
+        Err(e) if is_unknown_actor_error(&e) => Ok(None),
         Err(e) => Err(anyhow::anyhow!("{e:#}")),
     }
+}
+
+/// Whether a node answered that it does not have the actor (yet).
+pub fn is_unknown_actor_error(e: &impl std::fmt::Display) -> bool {
+    let text = format!("{e:#}");
+    ["actor not found", "resolution lookup failed"]
+        .iter()
+        .any(|s| text.contains(s))
 }
 
 /// Poll until `node`'s state has an actor at `addr` (the Lotus node trails Forest by a block on the
