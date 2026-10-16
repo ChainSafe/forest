@@ -20,7 +20,7 @@ async fn drand_gossip_is_handed_to_the_drand_module() {
     let (tx, rx) = flume::unbounded();
 
     let verdict = handle_gossip_event(
-        gossip_message_event(drand.to_protobuf(EPOCH_ROUND), gossip.topic.clone()),
+        gossip_message_event(drand.encode(EPOCH_ROUND), gossip.topic.clone()),
         &tx,
         "",
         "",
