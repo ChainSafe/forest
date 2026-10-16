@@ -55,7 +55,13 @@ use std::{
 };
 use tokio::sync::broadcast::{self, Receiver as Subscriber};
 
-const HEAD_CHANNEL_CAPACITY: usize = 10;
+/// Head-change batches buffered per subscriber before the channel is closed.
+/// Matches Lotus's `SubHeadChanges` buffer:
+/// <https://github.com/filecoin-project/lotus/blob/v1.36.2/chain/store/store.go#L295>
+const HEAD_CHANNEL_CAPACITY: usize = 16;
+
+/// Backlog at which Forest starts warning that a head-change subscriber is slow.
+const SLOW_SUBSCRIBER_BACKLOG: usize = 5;
 
 /// [`SAFE_HEIGHT_DISTANCE`] is the distance from the latest tipset, i.e. "heaviest", that
 /// is considered to be safe from re-orgs at an increasingly diminishing
@@ -1751,6 +1757,10 @@ fn chain_notify_inner(chain_store: &ChainStore) -> Subscriber<Vec<ApiHeadChange>
             if sender.send(api_changes).is_err() {
                 tracing::info!("chain notify subscribers are all closed");
                 break;
+            }
+            let backlog = sender.len();
+            if backlog > SLOW_SUBSCRIBER_BACKLOG {
+                warn!("head change sub is slow, has {backlog} buffered entries");
             }
         }
         tracing::info!("head changes channel closed");
