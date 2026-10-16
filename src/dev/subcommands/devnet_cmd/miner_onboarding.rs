@@ -139,11 +139,15 @@ async fn create_miner() -> anyhow::Result<()> {
     let _ = docker(&["exec", "lotus-miner", "rm", "-rf", &repo]);
     init?;
 
-    let created: Vec<Address> = list_miners(&forest)
-        .await?
-        .difference(&before)
-        .copied()
-        .collect();
+    let created = poll("Forest to list the new miner", || async {
+        let created: Vec<Address> = list_miners(&forest)
+            .await?
+            .difference(&before)
+            .copied()
+            .collect();
+        Ok((!created.is_empty()).then_some(created))
+    })
+    .await?;
     let [miner] = created.as_slice() else {
         bail!("expected exactly one new miner after `lotus-miner init`, found {created:?}");
     };
