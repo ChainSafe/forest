@@ -15,7 +15,9 @@
 
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::rpc::Client;
-use crate::rpc::eth::errors::{EXECUTION_REVERTED_CODE, OUT_OF_GAS_CODE};
+use crate::rpc::eth::errors::{
+    EXECUTION_REVERTED_CODE, INVALID_INPUT_CODE, TRANSACTION_REJECTED_CODE,
+};
 use crate::rpc::eth::{
     BlockNumberOrHash, EthBigInt, EthUint64, Predefined,
     trace::types::{Delta, EthTraceResults, EthTraceType},
@@ -25,9 +27,9 @@ use crate::rpc::prelude::*;
 use crate::shim::address::Address;
 use crate::shim::econ::TokenAmount;
 use crate::shim::state_tree::ActorState;
-use crate::utils::encoding::{hex, keccak_256};
+use crate::utils::encoding::hex;
 use anyhow::{Context as _, ensure};
-use libtest_mimic::{Arguments, Failed, Trial};
+use libtest_mimic::{Arguments, Trial};
 use std::str::FromStr as _;
 use tokio::sync::OnceCell;
 
@@ -50,7 +52,6 @@ const FAIL_REVERT_EMPTY: &str = "failRevertEmpty()";
 const FAIL_CUSTOM: &str = "failCustom()";
 
 const NESTED_DEPTH: u64 = 100;
-const DEPLOYER_FUND_AMT: &str = "10 FIL";
 const ROUND_TRIP_FUND_AMT: &str = "1 FIL";
 const RECURSIVE_FUND_AMT: &str = "10 FIL";
 const EOA_FUND_AMT: &str = "10 FIL";
@@ -82,12 +83,6 @@ impl EthSkipSenderTestCommand {
 }
 
 fn tests() -> Vec<Trial> {
-    fn trial(name: &'static str, body: fn() -> anyhow::Result<()>) -> Trial {
-        Trial::test(name, move || {
-            body().map_err(|e| Failed::from(format!("{e:?}")))
-        })
-    }
-
     vec![
         trial("evm_deploy_and_call", || block_on(evm_deploy_and_call())),
         trial("round_trip_from_unfunded", || {
@@ -130,25 +125,6 @@ fn tests() -> Vec<Trial> {
             block_on(funded_placeholder_sender())
         }),
     ]
-}
-
-fn selector(signature: &str) -> Vec<u8> {
-    keccak_256(signature.as_bytes())
-        .get(..4)
-        .expect("keccak256 is 32 bytes")
-        .to_vec()
-}
-
-fn abi_address_word(addr: EthAddress) -> Vec<u8> {
-    let mut word = vec![0u8; 12];
-    word.extend_from_slice(addr.0.as_bytes());
-    word
-}
-
-fn calldata(sig: &str, extra: &[u8]) -> Vec<u8> {
-    let mut out = selector(sig);
-    out.extend_from_slice(extra);
-    out
 }
 
 fn send_coin_calldata(to: EthAddress, amount: u64) -> Vec<u8> {
@@ -199,48 +175,16 @@ fn latest() -> BlockNumberOrHash {
     BlockNumberOrHash::PredefinedBlock(Predefined::Latest)
 }
 
-/// Lotus `wallet new` string (`t4…`) plus parsed Filecoin and ETH forms.
-struct Wallet {
-    cli: String,
-    f4: Address,
-    eth: EthAddress,
-}
-
-/// Dedicated delegated wallet used to deploy and to credit `SimpleCoin`.
-/// Not the genesis/miner key: that wallet races with the miner on nonce.
-async fn deployer() -> anyhow::Result<&'static Address> {
-    static DEPLOYER: OnceCell<Address> = OnceCell::const_new();
-    DEPLOYER
-        .get_or_try_init(|| async {
-            let addr = lotus_exec(&["wallet", "new", "delegated"])?;
-            let funded = fund_on_chain(&addr, DEPLOYER_FUND_AMT).await?;
-            import_lotus_wallet_into_forest(&addr)?;
-            Ok(funded)
-        })
-        .await
-}
-
-async fn deploy_hex(label: &str, bytecode: &str) -> anyhow::Result<EthAddress> {
-    let deployer = deployer().await?;
-    let from = deployer.to_string();
-    let deploy = forest_evm_deploy_hex(&from, bytecode)?;
-    let f4 = parse_f4_from_evm_deploy(&deploy)?;
-    eprintln!("deployed {label} at {f4}");
-    poll_until_actor(f4).await?;
-    poll_until_actor_on("lotus", f4, lotus_client).await?;
-    EthAddress::from_filecoin_address(&f4)
-}
-
 async fn simple_coin() -> anyhow::Result<&'static EthAddress> {
     static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("SimpleCoin", SIMPLE_COIN_HEX))
+        .get_or_try_init(|| deploy_contract("SimpleCoin", SIMPLE_COIN_HEX))
         .await
 }
 
 async fn evm_deploy_and_call() -> anyhow::Result<()> {
     let coin = simple_coin().await?;
-    let from = EthAddress::from_filecoin_address(deployer().await?)?;
+    let from = sender().await?.eth;
     let from_hex = hex::encode_prefixed(from.0.as_bytes());
     let to_hex = hex::encode_prefixed(coin.0.as_bytes());
     let data = hex::encode_prefixed(get_balance_calldata(from));
@@ -265,21 +209,21 @@ async fn evm_deploy_and_call() -> anyhow::Result<()> {
 async fn contract_b() -> anyhow::Result<&'static EthAddress> {
     static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("ContractB", CONTRACT_B_HEX))
+        .get_or_try_init(|| deploy_contract("ContractB", CONTRACT_B_HEX))
         .await
 }
 
 async fn nested_gas() -> anyhow::Result<&'static EthAddress> {
     static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("NestedGas", NESTED_GAS_HEX))
+        .get_or_try_init(|| deploy_contract("NestedGas", NESTED_GAS_HEX))
         .await
 }
 
 async fn errors_contract() -> anyhow::Result<&'static EthAddress> {
     static CONTRACT: OnceCell<EthAddress> = OnceCell::const_new();
     CONTRACT
-        .get_or_try_init(|| deploy_hex("Errors", ERRORS_HEX))
+        .get_or_try_init(|| deploy_contract("Errors", ERRORS_HEX))
         .await
 }
 
@@ -314,7 +258,7 @@ async fn linked_contracts() -> anyhow::Result<&'static (EthAddress, EthAddress)>
     LINKED
         .get_or_try_init(|| async {
             let b = contract_b().await?;
-            let a = deploy_hex("ContractA", CONTRACT_A_HEX).await?;
+            let a = deploy_contract("ContractA", CONTRACT_A_HEX).await?;
             invoke(a, &set_contract_b_calldata(*b)).await?;
             Ok((a, *b))
         })
@@ -325,29 +269,10 @@ async fn poll_until_actor(addr: Address) -> anyhow::Result<ActorState> {
     poll_until_actor_on("forest", addr, forest_client).await
 }
 
-/// Fund `cli_addr` (Lotus `t4…` form) from the harness wallet, then wait until
-/// both Forest and Lotus see the actor. Lotus visibility is required before any
-/// `lotus --from`. Pass the Lotus string into `forest-wallet`; it rejects Forest
-/// `Address::to_string()` (`f4…`) while `CurrentNetwork` stays Mainnet.
-async fn fund_on_chain(cli_addr: &str, amount: &str) -> anyhow::Result<Address> {
-    let addr = Address::from_str(cli_addr).context("parsing funded delegated address")?;
-    let msg = send_from(
-        &FOREST_TEST_PRELOADED_ADDRESS,
-        cli_addr,
-        amount,
-        Backend::Local,
-    )?;
-    eprintln!("funding {cli_addr} with {amount}, msg: {msg}");
-    let balance = poll_until_funded(cli_addr, Backend::Local).await?;
-    eprintln!("{cli_addr} funded on forest, balance: {balance}");
-    poll_until_actor_on("lotus", addr, lotus_client).await?;
-    Ok(addr)
-}
-
 async fn invoke(to: EthAddress, calldata: &[u8]) -> anyhow::Result<()> {
-    let from = deployer().await?.to_string();
+    let from = &sender().await?.cli;
     let to_fil = to.to_filecoin_address()?.to_string();
-    forest_evm_invoke(&from, &to_fil, &hex::encode(calldata))?;
+    forest_evm_invoke(from, &to_fil, &hex::encode(calldata))?;
     Ok(())
 }
 
@@ -556,6 +481,14 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
         code: EXECUTION_REVERTED_CODE,
         contains: "SysErrOutOfGas",
     };
+    let oog_estimate = Expect::ErrCode {
+        code: TRANSACTION_REJECTED_CODE,
+        contains: "out of gas: gas required exceeds: 10000000000",
+    };
+    let no_allowance = Expect::ErrCode {
+        code: INVALID_INPUT_CODE,
+        contains: "gas required exceeds allowance (0)",
+    };
 
     let transfer = |from: Option<EthAddress>, to: Option<EthAddress>| EthCallMessage {
         from,
@@ -589,30 +522,30 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
                 ..Default::default()
             },
         ),
-        SkipSenderCase::revert_both(
-            "OutOfGasFromNonExistent",
-            oog_create(Some(missing))?,
-            oog_err.clone(),
-        ),
+        SkipSenderCase {
+            name: "OutOfGasFromNonExistent",
+            msg: oog_create(Some(missing))?,
+            call: Some(oog_err.clone()),
+            estimate: Some(oog_estimate.clone()),
+        },
         SkipSenderCase {
             name: "OutOfGasFromEoa",
             msg: oog_create(Some(env.eoa))?,
             call: Some(oog_err),
-            estimate: Some(Expect::ErrCode {
-                code: OUT_OF_GAS_CODE,
-                contains: "call ran out of gas",
-            }),
+            estimate: Some(oog_estimate),
         },
         SkipSenderCase::success("FromContract", transfer(Some(env.coin), Some(env.eoa))),
-        SkipSenderCase::success(
-            "FromContractWithGasPrice",
-            EthCallMessage {
+        SkipSenderCase {
+            name: "FromContractWithGasPrice",
+            msg: EthCallMessage {
                 from: Some(env.coin),
                 to: Some(env.eoa),
                 gas_price,
                 ..Default::default()
             },
-        ),
+            call: Some(Expect::Success),
+            estimate: Some(no_allowance.clone()),
+        },
         SkipSenderCase::success(
             "FromContractToSelf",
             EthCallMessage {
@@ -633,15 +566,17 @@ fn skip_sender_cases(env: &TableEnv) -> anyhow::Result<Vec<SkipSenderCase>> {
             "insufficient",
         ),
         SkipSenderCase::success("FromNonExistent", transfer(Some(missing), Some(env.eoa))),
-        SkipSenderCase::success(
-            "FromNonExistentWithGasPrice",
-            EthCallMessage {
+        SkipSenderCase {
+            name: "FromNonExistentWithGasPrice",
+            msg: EthCallMessage {
                 from: Some(missing),
                 to: Some(env.eoa),
                 gas_price,
                 ..Default::default()
             },
-        ),
+            call: Some(Expect::Success),
+            estimate: Some(no_allowance),
+        },
         SkipSenderCase::revert_both(
             "FromNonExistentToContractWithData",
             EthCallMessage {
@@ -910,19 +845,6 @@ fn within_parity(skip: u64, funded: u64) -> bool {
     (skip as f64 - funded as f64).abs() / denom <= ESTIMATE_PARITY
 }
 
-async fn new_unfunded() -> anyhow::Result<Wallet> {
-    let cli = lotus_exec(&["wallet", "new", "delegated"])?;
-    let f4 = Address::from_str(&cli).context("parsing unfunded delegated address")?;
-    let eth = EthAddress::from_filecoin_address(&f4)?;
-    Ok(Wallet { cli, f4, eth })
-}
-
-async fn new_funded(amount: &str) -> anyhow::Result<Wallet> {
-    let wallet = new_unfunded().await?;
-    fund_on_chain(&wallet.cli, amount).await?;
-    Ok(wallet)
-}
-
 async fn round_trip_from_unfunded() -> anyhow::Result<()> {
     let forest = forest_client()?;
     let coin = simple_coin().await?;
@@ -1048,7 +970,7 @@ async fn call_sender_identity() -> anyhow::Result<()> {
 
 async fn skip_sender_state_isolation() -> anyhow::Result<()> {
     let forest = forest_client()?;
-    let to = EthAddress::from_filecoin_address(deployer().await?)?;
+    let to = sender().await?.eth;
     let from = non_existent(0x03)?;
 
     let first = eth_call(&forest, from, to, Vec::new(), latest()).await?;
@@ -1083,7 +1005,7 @@ async fn skip_sender_state_isolation() -> anyhow::Result<()> {
 
 async fn skip_sender_historical_call() -> anyhow::Result<()> {
     let forest = forest_client()?;
-    let to = EthAddress::from_filecoin_address(deployer().await?)?;
+    let to = sender().await?.eth;
     let from = non_existent(0x03)?;
     let head = forest
         .call(EthBlockNumber::request(())?)
