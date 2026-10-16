@@ -8,6 +8,7 @@
 
 mod eth_gas;
 mod eth_skip_sender;
+mod miner_onboarding;
 mod state_call;
 
 use crate::dev::subcommands::tests_cmd::helpers::{docker, forest_client, lotus_client};
@@ -19,6 +20,7 @@ use anyhow::{Context as _, ensure};
 pub enum DevnetCommand {
     EthGas(eth_gas::EthGasTestCommand),
     EthSkipSender(eth_skip_sender::EthSkipSenderTestCommand),
+    MinerOnboarding(miner_onboarding::MinerOnboardingTestCommand),
     StateCall(state_call::StateCallTestCommand),
 }
 
@@ -28,6 +30,7 @@ impl DevnetCommand {
         match self {
             Self::EthGas(cmd) => cmd.run().await,
             Self::EthSkipSender(cmd) => cmd.run().await,
+            Self::MinerOnboarding(cmd) => cmd.run().await,
             Self::StateCall(cmd) => cmd.run().await,
         }
     }

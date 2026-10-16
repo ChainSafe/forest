@@ -31,40 +31,40 @@ pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| 
 
 /// Height epochs.
 /// Environment variable names follow
-/// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
+/// <https://github.com/filecoin-project/lotus/blob/v1.37.0/build/buildconstants/params_2k.go>.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
     IndexMap::from_iter([
         make_height!(
             Breeze,
-            get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-50)
+            get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-1)
         ),
         make_height!(
             Smoke,
-            get_upgrade_height_from_env("FOREST_SMOKE_HEIGHT").unwrap_or(-2)
+            get_upgrade_height_from_env("FOREST_SMOKE_HEIGHT").unwrap_or(-1)
         ),
         make_height!(
             Ignition,
-            get_upgrade_height_from_env("FOREST_IGNITION_HEIGHT").unwrap_or(-3)
+            get_upgrade_height_from_env("FOREST_IGNITION_HEIGHT").unwrap_or(-2)
         ),
         make_height!(
             Refuel,
-            get_upgrade_height_from_env("FOREST_REFUEL_HEIGHT").unwrap_or(-4)
+            get_upgrade_height_from_env("FOREST_REFUEL_HEIGHT").unwrap_or(-3)
+        ),
+        make_height!(
+            Tape,
+            get_upgrade_height_from_env("FOREST_TAPE_HEIGHT").unwrap_or(-4)
         ),
         make_height!(
             Assembly,
             get_upgrade_height_from_env("FOREST_ASSEMBLY_HEIGHT").unwrap_or(-5)
         ),
         make_height!(
-            Tape,
-            get_upgrade_height_from_env("FOREST_TAPE_HEIGHT").unwrap_or(-6)
-        ),
-        make_height!(
             Liftoff,
-            get_upgrade_height_from_env("FOREST_LIFTOFF_HEIGHT").unwrap_or(-7)
+            get_upgrade_height_from_env("FOREST_LIFTOFF_HEIGHT").unwrap_or(-6)
         ),
         make_height!(
             Kumquat,
-            get_upgrade_height_from_env("FOREST_KUMQUAT_HEIGHT").unwrap_or(-8)
+            get_upgrade_height_from_env("FOREST_KUMQUAT_HEIGHT").unwrap_or(-7)
         ),
         make_height!(
             Calico,
@@ -75,12 +75,12 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
             get_upgrade_height_from_env("FOREST_PERSIAN_HEIGHT").unwrap_or(-10)
         ),
         make_height!(
-            Claus,
-            get_upgrade_height_from_env("FOREST_CLAUS_HEIGHT").unwrap_or(-11)
+            Orange,
+            get_upgrade_height_from_env("FOREST_ORANGE_HEIGHT").unwrap_or(-11)
         ),
         make_height!(
-            Orange,
-            get_upgrade_height_from_env("FOREST_ORANGE_HEIGHT").unwrap_or(-12)
+            Claus,
+            get_upgrade_height_from_env("FOREST_CLAUS_HEIGHT").unwrap_or(-12)
         ),
         make_height!(
             Trust,
