@@ -452,7 +452,7 @@ impl Tipset {
 
         static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
         let headers = KNOWN_HEADERS.get_or_init(|| {
-            serde_yaml::from_str(include_str!("../../build/known_blocks.yaml"))
+            serde_saphyr::from_str(include_str!("../../build/known_blocks.yaml"))
                 .expect("bundled known_blocks.yaml is valid")
         });
 

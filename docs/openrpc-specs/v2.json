@@ -3720,6 +3720,16 @@
               }
             ]
           },
+          "maxFeePerGas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "to": {
             "anyOf": [
               {
