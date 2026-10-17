@@ -21,7 +21,7 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 /// Serves recorded `quicknet` responses, so no test below reaches a public relay.
-static FAKE_DRAND: LazyLock<FakeDrandServer> =
+pub static FAKE_DRAND: LazyLock<FakeDrandServer> =
     LazyLock::new(|| FakeDrandServer::start(vec![FakeDrandChain::quicknet()]));
 
 fn new_beacon_mainnet() -> DrandBeacon {

@@ -81,6 +81,18 @@ impl FakeDrandChain {
                     signature: "b9e7e1e3d7d9cf17a9f4703abfae4c137acfbef1fdb45715a98422c244a499ea381c7fd759851ed8eeb8a03d778959b3".into(),
                     previous_signature: None,
                 },
+                BeaconEntryJson {
+                    round: 14913822,
+                    randomness: "478e1a44fa08244d70778d1a3e45a76681cce4be5e15f34b0030c056f1f6364f".into(),
+                    signature: "a7c864f01dd84575fde80dda345446543b4a4a2e58d6866f08da752c51e9488f9f37371dd4d0a7cf49637c6affdc56e5".into(),
+                    previous_signature: None,
+                },
+                BeaconEntryJson {
+                    round: 16154352,
+                    randomness: "34b68c9a5b898144154a9410a7407abcce7283d83ae6562cc4ba9a3ce1ec0d76".into(),
+                    signature: "b73d22eced5f325d0980105e132704e658ff3c0c72b4343e69a96fcedb23a4ead29958a5850f51c3da5a9940ad36464f".into(),
+                    previous_signature: None,
+                },
             ],
         }
     }
