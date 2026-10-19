@@ -499,7 +499,7 @@ impl BackfillStatus {
 pub static BACKFILL_STATUS: LazyLock<BackfillStatus> = LazyLock::new(BackfillStatus::default);
 
 /// Single-flight guard for an index backfill. Holds the [`BACKFILL_STATUS`] slot for progress and
-/// cancellation, and nests a [`ChainExportGuard`] so backfill never overlaps snapshot exports or
+/// cancellation, and nests a [`ChainExportGuard`](crate::ipld::ChainExportGuard) so backfill never overlaps snapshot exports or
 /// the snapshot GC (all three share the chain-export slot).
 pub struct BackfillGuard {
     cancellation_token: CancellationToken,

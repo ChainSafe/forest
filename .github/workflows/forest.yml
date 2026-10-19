@@ -67,6 +67,8 @@ jobs:
           cache-dependency-path: "**/go.sum"
       - uses: jdx/mise-action@v5
       - run: cargo check
+      # Reuses the `cargo check` artifacts above; the lint job builds deps with dev-dependency features.
+      - run: mise lint:rustdoc
       # nextest doesn't run doctests https://github.com/nextest-rs/nextest/issues/16
       - run: mise test:docs
   build-ubuntu:

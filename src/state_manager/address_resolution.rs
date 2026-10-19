@@ -45,7 +45,7 @@ impl StateManager {
             .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
     }
 
-    /// Similar to [`StateTree::resolve_to_deterministic_addr`] but does not allow [`crate::shim::address::Protocol::Actor`] type of addresses.
+    /// Similar to [`StateTree::resolve_to_deterministic_address`] but does not allow [`crate::shim::address::Protocol::Actor`] type of addresses.
     /// Uses the [`Tipset`] `ts` to generate the VM state.
     pub async fn resolve_to_deterministic_address(
         &self,

@@ -73,6 +73,7 @@ mise lint
 # Run specific linters
 mise lint:rust-fmt    # Rust formatting check
 mise lint:clippy      # Rust linter
+mise lint:rustdoc     # Rustdoc lints (broken intra-doc links, bare URLs)
 mise lint:toml        # TOML formatting/linting
 mise lint:spellcheck  # Spell checking
 mise lint:deny        # Check licenses and security
@@ -110,7 +111,7 @@ mise clean
 
 - **`daemon/`** - Node startup, initialization, and service orchestration
 - **`chain/`** - Blockchain storage (`ChainStore`) and index management
-- **`chain_sync/`** - Chain synchronization, consensus (`ChainFollower`, `ChainMuxer`)
+- **`chain_sync/`** - Chain synchronization, consensus (`ChainFollower`)
 - **`state_manager/`** - State tree management and FVM execution coordinator
 - **`rpc/`** - JSON-RPC API server with authentication and filtering middleware
 - **`libp2p/`** - P2P networking (peer discovery, chain exchange, `gossipsub`)
@@ -156,7 +157,7 @@ pub struct ChainStore<DB> where DB: Blockstore { ... }
 
 - Receives tipsets from network peers
 - Validates blocks via `TipsetSyncer` and `TipsetValidator`
-- Resolves forks via `ChainMuxer` (heaviest chain wins)
+- Resolves forks (heaviest chain wins)
 - Updates chain head through `StateManager`
 - Maintains `BadBlockCache` for invalid blocks
 - Reports `SyncStatus` to RPC clients

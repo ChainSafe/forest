@@ -30,7 +30,7 @@ pub(super) trait MigrationOperation {
     fn to(&self) -> &Version;
     /// Performs pre-migration checks. This is the place to check if the database is in a valid
     /// state and if the migration can be performed. Note that some of the higher-level checks
-    /// (like checking if the database exists) are performed by the [`Migration`].
+    /// (like checking if the database exists) are performed by the [`DbMigration`](super::DbMigration).
     fn pre_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
         let old_db = self.old_db_path(chain_data_path);
         anyhow::ensure!(

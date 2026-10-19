@@ -164,7 +164,7 @@ impl Default for TipsetKey {
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
 ///
-/// Represents non-null tipsets, see the documentation on [`crate::state_manager::apply_block_messages`]
+/// Represents non-null tipsets, see the documentation on [`crate::state_manager::apply_block_messages_blocking`]
 /// for more.
 #[derive(Clone, Debug)]
 pub struct Tipset {
