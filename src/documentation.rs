@@ -44,7 +44,7 @@
 /// - [`Message`](crate::shim::message::Message)s are statements of messages between
 ///   the actors.
 ///   They describe and (equivalently) represent a change in _the state tree_ (see below).
-///   See [`apply_block_messages`](crate::state_manager::apply_block_messages) to learn
+///   See [`apply_block_messages_blocking`](crate::state_manager::apply_block_messages_blocking) to learn
 ///   more.
 ///   Messages may be [signed](crate::message::SignedMessage).
 /// - `Message`s are grouped into [`Block`](crate::blocks::Block)s, with a single
@@ -95,7 +95,7 @@
 ///         └───────────────────────┘           └─────────────────┘   └──────────────┘
 /// ```
 ///
-/// The [`ChainMuxer`](crate::chain_sync::ChainMuxer) receives two kinds of [messages](crate::libp2p::PubsubMessage)
+/// The [`ChainFollower`](crate::chain_sync::ChainFollower) receives two kinds of [messages](crate::libp2p::PubsubMessage)
 /// from peers:
 /// - [`GossipBlock`](crate::blocks::GossipBlock)s are descriptions of a single block, with the `BlockHeader` and `Message` CIDs.
 /// - [`SignedMessage`](crate::message::SignedMessage)s

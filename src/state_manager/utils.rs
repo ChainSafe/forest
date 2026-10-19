@@ -721,7 +721,7 @@ pub mod structured {
     /// ```
     ///
     /// Multiple call trees and trailing gas will be warned and ignored.
-    /// If no call tree is found, returns [`Ok(None)`]
+    /// If no call tree is found, returns `Ok(None)`
     pub fn parse_events(
         events: Vec<ExecutionEvent>,
     ) -> anyhow::Result<Option<ExecutionTrace>, BuildExecutionTraceError> {

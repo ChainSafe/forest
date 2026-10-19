@@ -26,7 +26,7 @@ const SMOKE_HEIGHT: ChainEpoch = 51000;
 
 /// Well-known network names.
 pub const NETWORK_COMMON_NAME: &str = "mainnet";
-/// Network name as defined in the genesis block. Refer to [`crate::networks::network_names`] for
+/// Network name as defined in the genesis block. Refer to [`crate::networks::network_name`] for
 /// additional information.
 pub const NETWORK_GENESIS_NAME: &str = "testnetnet";
 

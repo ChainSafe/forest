@@ -127,7 +127,7 @@ where
     }
 
     /// Look up possible frame offsets for a [`Cid`].
-    /// Returns `Ok([])` if no offsets are found, or [`Err(_)`] if the underlying
+    /// Returns `Ok([])` if no offsets are found, or `Err(_)` if the underlying
     /// IO fails.
     ///
     /// Does not allocate unless 2 or more CIDs have collided, see [module documentation](mod@self).
@@ -766,7 +766,7 @@ trait Readable {
 
 #[auto_impl::auto_impl(&)]
 trait Writable {
-    /// Must only return [`Err(_)`] if the underlying io fails.
+    /// Must only return `Err(_)` if the underlying io fails.
     async fn write_to<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()>;
     /// The number of bytes that will be written on a call to [`Writable::write_to`].
     ///
