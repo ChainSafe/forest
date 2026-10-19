@@ -4,6 +4,7 @@
 pub mod bundle;
 mod context;
 pub mod db_util;
+mod extended_snapshot;
 pub mod main;
 
 use crate::blocks::TipsetKey;
@@ -17,8 +18,8 @@ use crate::cli_shared::{
     delete_chain_data,
 };
 use crate::daemon::{
-    context::AppContext,
-    db_util::{import_chain_as_forest_car, maybe_import_extended_snapshots},
+    context::AppContext, db_util::import_chain_as_forest_car,
+    extended_snapshot::maybe_import_extended_snapshots,
 };
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
@@ -158,15 +159,13 @@ async fn maybe_import_snapshot(
         .await?;
         ctx.db
             .read_only_files(std::iter::once(car_db_path.clone()))?;
-        if let Ok(snapshot_url) = url::Url::parse(&path.display().to_string()) {
-            maybe_import_extended_snapshots(
-                &ctx.db,
-                &snapshot_url,
-                &ts,
-                &ctx.db_meta_data.get_forest_car_db_dir(),
-            )
-            .await;
-        }
+        maybe_import_extended_snapshots(
+            &ctx.db,
+            path,
+            &ts,
+            &ctx.db_meta_data.get_forest_car_db_dir(),
+        )
+        .await;
         let ts_epoch = ts.epoch();
         // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
         // in the current setting store

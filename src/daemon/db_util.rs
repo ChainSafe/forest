@@ -1,13 +1,12 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
+use crate::blocks::Tipset;
+use crate::db::SettingsStoreExt;
 use crate::db::car::forest::{
     FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
 };
 use crate::db::car::{ForestCar, ManyCar};
-use crate::db::{EthMappingsStore, MemoryDB, SettingsStoreExt};
 use crate::ipld::ChainExportState;
 use crate::message::SignedMessage;
 use crate::networks::ChainConfig;
@@ -15,11 +14,10 @@ use crate::prelude::*;
 use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
-use crate::utils::db::car_stream::{CarBlock, CarStream};
+use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::{Context, bail};
-use fil_actors_shared::fvm_ipld_hamt::Hamt;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
@@ -153,7 +151,7 @@ pub async fn import_chain_as_forest_car(
         let forest_car_db_path = forest_car_db_path.clone();
         async move {
             let downloaded_car_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
-            if let Ok(url) = Url::parse(&from_path.display().to_string()) {
+            if let Some(url) = path_as_url(from_path) {
                 download_to(
                     &url,
                     &downloaded_car_temp_path,
@@ -193,7 +191,7 @@ pub async fn import_chain_as_forest_car(
 
     match import_mode {
         ImportMode::Auto => {
-            if Url::parse(&from_path.display().to_string()).is_ok() {
+            if path_as_url(from_path).is_some() {
                 // Fallback to move if from_path is url
                 move_or_copy(ImportMode::Move).await?;
             } else if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
@@ -291,6 +289,11 @@ pub async fn import_chain_as_forest_car(
     Ok((forest_car_db_path, ts))
 }
 
+/// Parses `path` as a URL, returning `None` for local paths.
+pub(super) fn path_as_url(path: &Path) -> Option<Url> {
+    path.to_str().and_then(|s| Url::parse(s).ok())
+}
+
 fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow::Result<()> {
     match import_mode {
         ImportMode::Move => {
@@ -330,222 +333,6 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     writer.shutdown().await?;
 
     Ok(())
-}
-
-/// The subset of the snapshot `.metadata.json` file published in the Forest archive
-/// that is needed to locate the extended snapshots.
-#[derive(Debug, Deserialize)]
-struct SnapshotMetadataFile {
-    #[serde(rename = "Snapshot")]
-    snapshot: SnapshotMetadataSection,
-}
-
-#[derive(Debug, Deserialize)]
-struct SnapshotMetadataSection {
-    #[serde(rename = "Extended", default)]
-    extended: Option<ExtendedSnapshots>,
-}
-
-/// Auxiliary snapshots that enrich a base snapshot, see `Forest.ChainExport`.
-#[derive(Debug, Default, Deserialize, PartialEq)]
-struct ExtendedSnapshots {
-    /// Message receipts and events
-    #[serde(rename = "Augmented", default)]
-    receipts_events: Option<ExtendedSnapshotFile>,
-    /// Tipset lookup table (checkpoint epoch to tipset key)
-    #[serde(rename = "Tipset lookup", default)]
-    tipset_lookup: Option<ExtendedSnapshotFile>,
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-struct ExtendedSnapshotFile {
-    #[serde(rename = "Filename")]
-    filename: String,
-    #[serde(rename = "Sha256")]
-    sha256: String,
-}
-
-/// Fetches the `.metadata.json` published next to `snapshot_url` and returns its extended
-/// snapshots, if any.
-async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<ExtendedSnapshots>> {
-    let metadata_url = Url::parse(&format!("{snapshot_url}.metadata.json"))?;
-    let response = crate::utils::net::global_http_client()
-        .get(metadata_url.clone())
-        .send()
-        .await?;
-    if response.status() == reqwest::StatusCode::NOT_FOUND {
-        debug!("snapshot metadata not found at {metadata_url}");
-        return Ok(None);
-    }
-    let metadata: SnapshotMetadataFile = response
-        .error_for_status()?
-        .json()
-        .await
-        .with_context(|| format!("failed to parse snapshot metadata at {metadata_url}"))?;
-    Ok(metadata.snapshot.extended)
-}
-
-/// Number of blocks or tipset lookup entries written to the database per commit when importing
-/// extended snapshots.
-const EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE: usize = 1_000;
-
-async fn download_extended_snapshot(
-    snapshot_url: &Url,
-    file: &ExtendedSnapshotFile,
-    temp_dir: &Path,
-) -> anyhow::Result<tempfile::TempPath> {
-    use sha2::{Digest as _, Sha256};
-
-    anyhow::ensure!(
-        !file.filename.is_empty() && !file.filename.contains(['/', '\\', '?', '#']),
-        "invalid extended snapshot filename: {}",
-        file.filename
-    );
-    let url = snapshot_url.join(&file.filename)?;
-    let path = new_forest_car_temp_path_in(temp_dir)?;
-    info!("Downloading extended snapshot: {url}");
-    download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
-
-    let actual = crate::utils::encoding::hex::encode(Sha256::digest(tokio::fs::read(&path).await?));
-    anyhow::ensure!(
-        actual.eq_ignore_ascii_case(&file.sha256),
-        "checksum mismatch for {}, expected: {}, actual: {actual}",
-        file.filename,
-        file.sha256
-    );
-    Ok(path)
-}
-
-/// Imports message receipts and events from a receipts and events snapshot into `db`,
-/// committing [`EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE`] blocks at a time.
-async fn import_receipts_events_snapshot<DB>(db: &Arc<DB>, path: &Path) -> anyhow::Result<usize>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    async fn flush<DB: Blockstore + Send + Sync + 'static>(
-        db: &Arc<DB>,
-        batch: Vec<(Cid, bytes::Bytes)>,
-    ) -> anyhow::Result<()> {
-        let db = db.clone();
-        tokio::task::spawn_blocking(move || db.put_many_keyed(batch)).await?
-    }
-
-    let mut car_stream = CarStream::new_from_path(path).await?;
-    let mut n_blocks = 0;
-    let mut batch = Vec::with_capacity(EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE);
-    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        batch.push((cid, data));
-        n_blocks += 1;
-        if batch.len() == EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE {
-            flush(
-                db,
-                std::mem::replace(
-                    &mut batch,
-                    Vec::with_capacity(EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE),
-                ),
-            )
-            .await?;
-        }
-    }
-    if !batch.is_empty() {
-        flush(db, batch).await?;
-    }
-    Ok(n_blocks)
-}
-
-/// Populates the tipset lookup table in `db` from a tipset lookup snapshot.
-async fn import_tipset_lookup_snapshot<DB>(
-    db: &Arc<DB>,
-    path: &Path,
-    head_epoch: ChainEpoch,
-) -> anyhow::Result<usize>
-where
-    DB: EthMappingsStore + Send + Sync + 'static,
-{
-    let store = MemoryDB::default();
-    let mut car_stream = CarStream::new_from_path(path).await?;
-    let hamt_root = *car_stream.header_v1.roots.first();
-    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        store.put_keyed(&cid, &data)?;
-    }
-
-    let db = db.clone();
-    tokio::task::spawn_blocking(move || {
-        let hamt: Hamt<_, TipsetKey, ChainEpoch> =
-            Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
-                .context("failed to load tipset lookup HAMT")?;
-        // Validate all entries before writing any of them.
-        let mut entries = vec![];
-        hamt.for_each_cacheless(|&epoch, tsk| {
-            anyhow::ensure!(
-                ChainIndex::is_tipset_lookup_checkpoint(epoch) && epoch <= head_epoch,
-                "invalid tipset lookup entry at epoch {epoch}, head epoch: {head_epoch}",
-            );
-            entries.push((epoch, tsk.clone()));
-            Ok(())
-        })?;
-        for batch in entries.chunks(EXTENDED_SNAPSHOT_IMPORT_BATCH_SIZE) {
-            db.set_tipset_keys_at_epochs_raw(batch)?;
-        }
-        Ok(entries.len())
-    })
-    .await?
-}
-
-/// Downloads the extended snapshots (message receipts and events, tipset lookup table)
-/// advertised in the metadata of the snapshot at `snapshot_url` and imports them into `db`.
-pub async fn maybe_import_extended_snapshots<DB>(
-    db: &Arc<DB>,
-    snapshot_url: &Url,
-    head: &Tipset,
-    temp_dir: &Path,
-) where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
-    let extended = match fetch_extended_snapshots(snapshot_url).await {
-        Ok(Some(extended)) => extended,
-        Ok(None) => {
-            info!("No extended snapshots advertised for {snapshot_url}");
-            return;
-        }
-        Err(e) => {
-            warn!("Failed to fetch snapshot metadata for {snapshot_url}: {e:#}");
-            return;
-        }
-    };
-
-    if let Some(file) = &extended.receipts_events {
-        let result = async {
-            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
-            import_receipts_events_snapshot(db, &path).await
-        }
-        .await;
-        match result {
-            Ok(n) => info!(
-                "Imported {n} message receipt and event blocks from {}",
-                file.filename
-            ),
-            Err(e) => warn!(
-                "Failed to import receipts and events snapshot {}: {e:#}",
-                file.filename
-            ),
-        }
-    }
-
-    if let Some(file) = &extended.tipset_lookup {
-        let result = async {
-            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
-            import_tipset_lookup_snapshot(db, &path, head.epoch()).await
-        }
-        .await;
-        match result {
-            Ok(n) => info!("Imported {n} tipset lookup entries from {}", file.filename),
-            Err(e) => warn!(
-                "Failed to import tipset lookup snapshot {}: {e:#}",
-                file.filename
-            ),
-        }
-    }
 }
 
 /// Settings-store key under which index backfill persists the epoch of the last committed
@@ -1077,44 +864,6 @@ pub async fn run_backfill(
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn parse_snapshot_metadata_with_extended() {
-        let json = r#"{
-            "Snapshot": {
-                "Snapshot version": "2",
-                "Epoch": 4137600,
-                "Extended": {
-                    "Augmented": {
-                        "Filename": "forest_snapshot_calibnet_2026-10-08_height_4137600_receipts_events.forest.car.zst",
-                        "Sha256": "9585fa94f3c84a117929dd1942014a6f4f79f47dbfdbf693122ff9acfa1311cc"
-                    },
-                    "Tipset lookup": {
-                        "Filename": "forest_snapshot_calibnet_2026-10-08_height_4137600_tipset_lookup.forest.car.zst",
-                        "Sha256": "710262581a4fdea6a8cd162e4a65b42727475b83c44b0b0fe05aff72ce70c2f2"
-                    }
-                }
-            },
-            "Build Information": {}
-        }"#;
-        let metadata: SnapshotMetadataFile = serde_json::from_str(json).unwrap();
-        let extended = metadata.snapshot.extended.unwrap();
-        assert_eq!(
-            extended.receipts_events.unwrap().filename,
-            "forest_snapshot_calibnet_2026-10-08_height_4137600_receipts_events.forest.car.zst"
-        );
-        assert_eq!(
-            extended.tipset_lookup.unwrap().sha256,
-            "710262581a4fdea6a8cd162e4a65b42727475b83c44b0b0fe05aff72ce70c2f2"
-        );
-    }
-
-    #[test]
-    fn parse_snapshot_metadata_without_extended() {
-        let json = r#"{ "Snapshot": { "Snapshot version": "2", "Epoch": 4137600 } }"#;
-        let metadata: SnapshotMetadataFile = serde_json::from_str(json).unwrap();
-        assert!(metadata.snapshot.extended.is_none());
-    }
     use rstest::rstest;
 
     // The backfill guard shares the chain-export single-flight slot, so serialize with the export

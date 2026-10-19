@@ -123,18 +123,6 @@ pub trait EthMappingsStore {
     fn set_tipset_key_at_epoch_raw(&self, epoch: ChainEpoch, tsk: &TipsetKey)
     -> anyhow::Result<()>;
 
-    /// Writes the tipset keys for the given epochs(heights) to the store. Implementations
-    /// should commit them in a single batch.
-    fn set_tipset_keys_at_epochs_raw(
-        &self,
-        entries: &[(ChainEpoch, TipsetKey)],
-    ) -> anyhow::Result<()> {
-        for (epoch, tsk) in entries {
-            EthMappingsStore::set_tipset_key_at_epoch_raw(self, *epoch, tsk)?;
-        }
-        Ok(())
-    }
-
     /// Writes the tipset key for a given epoch(height) to the store.
     fn set_tipset_key_at_epoch(&self, ts: &Tipset) -> anyhow::Result<()> {
         EthMappingsStore::set_tipset_key_at_epoch_raw(self, ts.epoch(), ts.key())

@@ -321,13 +321,6 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
     ) -> anyhow::Result<()> {
         EthMappingsStore::set_tipset_key_at_epoch_raw(self.writer(), epoch, tsk)
     }
-
-    fn set_tipset_keys_at_epochs_raw(
-        &self,
-        entries: &[(ChainEpoch, TipsetKey)],
-    ) -> anyhow::Result<()> {
-        EthMappingsStore::set_tipset_keys_at_epochs_raw(self.writer(), entries)
-    }
 }
 
 impl<WriterT: EthBlockBloomStore> EthBlockBloomStore for ManyCar<WriterT> {
