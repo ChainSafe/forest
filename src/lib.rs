@@ -18,8 +18,7 @@
     doc,
     deny(rustdoc::all),
     allow(
-        // We build with `--document-private-items` on both docs.rs and our
-        // vendored docs.
+        // We build with `--document-private-items` on both docs.rs and `mise lint:rustdoc`.
         rustdoc::private_intra_doc_links,
         // See module `doctest_private` below.
         rustdoc::private_doc_tests,

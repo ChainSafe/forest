@@ -67,7 +67,7 @@ impl GenesisInfo {
     /// Calculate total FIL circulating supply based on Genesis configuration and state of particular
     /// actors at a given height and state root.
     ///
-    /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_state_circulating_supply`], that's being
+    /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_state_circulating_supply_with_cache`], that's being
     /// calculated differently.
     pub fn get_vm_circulating_supply<DB: Blockstore + ShallowClone>(
         &self,

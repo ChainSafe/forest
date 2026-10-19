@@ -11,8 +11,8 @@
 //! ~30 epochs (~15 minutes), compared to the static 900-epoch (~7.5 hour)
 //! EC finality assumption which is based on worst-case network conditions.
 //!
-//! Reference: https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0089.md
-//! Python reference: https://github.com/consensus-shipyard/ec-finality-calculator
+//! Reference: <https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0089.md>
+//! Python reference: <https://github.com/consensus-shipyard/ec-finality-calculator>
 
 mod skellam;
 #[cfg(test)]

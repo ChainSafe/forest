@@ -344,7 +344,7 @@ impl StateManager {
     /// After execution, the message has a _receipt_, showing how much gas was spent.
     /// This is similarly a [`Cid`] into the block store.
     ///
-    /// For details, see the documentation for [`apply_block_messages`].
+    /// For details, see the documentation for [`apply_block_messages_blocking`].
     ///
     pub async fn compute_tipset_state(
         &self,
