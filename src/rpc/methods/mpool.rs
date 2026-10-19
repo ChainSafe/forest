@@ -385,12 +385,17 @@ mod tests {
             header: CachingBlockHeader::new(RawBlockHeader {
                 parents: parent.key().clone(),
                 epoch,
-                messages: TipsetValidator::compute_msg_root(db, bls, secp).unwrap(),
+                messages: TipsetValidator::compute_msg_root(
+                    db,
+                    bls.iter().map(Message::cid),
+                    secp.iter().map(SignedMessage::signed_cid),
+                )
+                .unwrap(),
                 ticket: dummy_ticket(ticket),
                 ..Default::default()
             }),
-            bls_messages: bls.to_vec(),
-            secp_messages: secp.to_vec(),
+            bls_messages: bls.iter().cloned().map(Arc::new).collect(),
+            secp_messages: secp.iter().cloned().map(Arc::new).collect(),
         }])
         .unwrap();
         fts.persist(db).unwrap();

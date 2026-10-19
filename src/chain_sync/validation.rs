@@ -5,15 +5,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, FullTipset, GossipBlock, Tipset, TxMeta};
 use crate::chain::ChainStore;
-use crate::message::SignedMessage;
 use crate::shim::clock::ChainEpoch;
-use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::{Amtv0 as Amt, Error as IpldAmtError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as EncodingError;
-use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::chain_sync::bad_block_cache::{BadBlockCache, SeenBlockCache};
@@ -128,7 +125,11 @@ impl TipsetValidator<'_> {
         blockstore: &DB,
         block: &Block,
     ) -> Result<(), TipsetValidationError> {
-        let msg_root = Self::compute_msg_root(blockstore, block.bls_msgs(), block.secp_msgs())?;
+        let msg_root = Self::compute_msg_root(
+            blockstore,
+            block.bls_msgs().iter().map(|m| m.cid()),
+            block.secp_msgs().iter().map(|m| m.signed_cid()),
+        )?;
         if block.header().messages != msg_root {
             Err(TipsetValidationError::InvalidRoots)
         } else {
@@ -138,15 +139,9 @@ impl TipsetValidator<'_> {
 
     pub fn compute_msg_root<DB: Blockstore>(
         blockstore: &DB,
-        bls_msgs: &[Message],
-        secp_msgs: &[SignedMessage],
+        bls_cids: impl IntoIterator<Item = Cid>,
+        secp_cids: impl IntoIterator<Item = Cid>,
     ) -> Result<Cid, TipsetValidationError> {
-        let bls_cids = bls_msgs.iter().map(Message::cid).collect_vec();
-        let secp_cids = secp_msgs
-            .iter()
-            .map(SignedMessage::signed_cid)
-            .collect_vec();
-
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;
         let secp_message_root = Amt::new_from_iter(blockstore, secp_cids)?;
@@ -370,7 +365,7 @@ mod tests {
             Cid::try_from("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
-        let root = TipsetValidator::compute_msg_root(&blockstore, &[bls], &[secp])
+        let root = TipsetValidator::compute_msg_root(&blockstore, [bls.cid()], [secp.signed_cid()])
             .expect("Computing message root should succeed");
         assert_eq!(root, expected_root);
     }
@@ -384,9 +379,13 @@ mod tests {
             from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
-            TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
-                .expect("Computing message root should succeed")
-                .to_string(),
+            TipsetValidator::compute_msg_root(
+                &blockstore,
+                usm.iter().map(Message::cid),
+                sm.iter().map(SignedMessage::signed_cid),
+            )
+            .expect("Computing message root should succeed")
+            .to_string(),
             "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
         );
     }
