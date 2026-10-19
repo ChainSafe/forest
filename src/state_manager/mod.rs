@@ -72,6 +72,11 @@ const DEFAULT_ETH_TRACE_CACHE_SIZE: NonZeroUsize = nonzero!(64usize); // 0.03 to
 // reward actor's limits (8 streams of 64 recipients), so ~50 KiB, ~2.6 MiB with 5 blocks per tipset.
 const DEFAULT_REWARD_DISTRIBUTION_CACHE_SIZE: NonZeroUsize = nonzero!(8usize);
 pub const EVENTS_AMT_BITWIDTH: u32 = 5;
+
+/// Runs `f` on a 64 MiB stack, as the FVM requires.
+pub(crate) fn with_fvm_stack<T>(f: impl FnOnce() -> T) -> T {
+    stacker::grow(64 << 20, f)
+}
 pub type IdToAddressCache = SizeTrackingCache<AddressId, Address>;
 
 /// Result of executing an individual chain message in a tipset.
