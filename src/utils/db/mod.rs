@@ -49,7 +49,7 @@ impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
 
 /// Extension methods for [`CborStore`] that omits default multihash code from its APIs
 pub trait CborStoreExt: CborStore {
-    /// Default multihash code is [`cid::multihash::Code::Blake2b256`]
+    /// Default multihash code is [`Code::Blake2b256`]
     /// See <https://github.com/ipfs/go-ipld-cbor/blob/v0.0.6/store.go#L92>
     /// ```go
     /// mhType := uint64(mh.BLAKE2B_MIN + 31)

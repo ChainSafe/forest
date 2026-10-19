@@ -12,6 +12,7 @@ use cid::Cid;
 use fvm_ipld_encoding::tuple::*;
 use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::sync::Arc;
 
 /// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;
@@ -166,13 +167,13 @@ impl ChainExchangeResponse {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
     /// Unsigned BLS messages.
-    pub bls_msgs: Vec<Message>,
+    pub bls_msgs: Vec<Arc<Message>>,
     /// Describes which block each message belongs to.
     /// if `bls_msg_includes[2] = vec![5]` then `TipsetBundle.blocks[2]` contains `bls_msgs[5]`
     pub bls_msg_includes: Vec<Vec<u64>>,
 
     /// Signed SECP messages.
-    pub secp_msgs: Vec<SignedMessage>,
+    pub secp_msgs: Vec<Arc<SignedMessage>>,
     /// Describes which block each message belongs to.
     pub secp_msg_includes: Vec<Vec<u64>>,
 }

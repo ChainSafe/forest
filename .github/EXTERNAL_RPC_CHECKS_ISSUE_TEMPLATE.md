@@ -5,4 +5,4 @@ labels: ["Bug"]
 
 ## Description
 
-Latest RPC checks against the external `data.riba.plus` dataset failed on `{{ env.FOREST_CHAIN }}`. Please [check the logs]({{ env.WORKFLOW_URL }}) for more information.
+Latest RPC checks against the external `data.riba.plus` (cc @ribasushi) dataset failed on `{{ env.FOREST_CHAIN }}`. Please [check the logs]({{ env.WORKFLOW_URL }}) for more information.

@@ -389,19 +389,11 @@ impl SyncNetworkContext {
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
-                // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
-                    RequestResponseError::UnsupportedProtocols => {
-                        // refactor this into Networkevent if user agent logging is critical here
-                        peer_manager
-                            .ban_peer_with_default_duration(
-                                peer_id,
-                                "ChainExchange protocol unsupported",
-                                |_| None,
-                            )
-                            .await;
-                    }
-                    RequestResponseError::ConnectionClosed | RequestResponseError::DialFailure => {
+                    // Banning for unsupported protocols is left to the identify handler, which can exempt crawlers by user agent.
+                    RequestResponseError::UnsupportedProtocols
+                    | RequestResponseError::ConnectionClosed
+                    | RequestResponseError::DialFailure => {
                         peer_manager.mark_peer_bad(peer_id, format!("chain exchange error {e}"));
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
@@ -576,6 +568,42 @@ mod tests {
 
         assert_eq!(batch.get_ok().await, None);
         assert!(exceeded.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn chain_exchange_unsupported_protocol_does_not_ban() {
+        let peer_manager = Arc::new(PeerManager::default());
+        let (network_send, network_recv) = flume::unbounded();
+        let peer = PeerId::random();
+
+        tokio::spawn(async move {
+            let Ok(NetworkMessage::ChainExchangeRequest {
+                response_channel, ..
+            }) = network_recv.recv_async().await
+            else {
+                panic!("expected a chain exchange request");
+            };
+            response_channel
+                .send(Err(RequestResponseError::UnsupportedProtocols))
+                .unwrap();
+        });
+
+        let request = ChainExchangeRequest {
+            start: nunny::vec![Cid::default()],
+            request_len: 1,
+            options: HEADERS,
+        };
+        SyncNetworkContext::chain_exchange_request(
+            peer_manager.clone(),
+            network_send,
+            peer,
+            request,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(peer_manager.peer_ops_rx().is_empty());
+        assert!(!peer_manager.is_peer_new(&peer));
     }
 
     #[test]

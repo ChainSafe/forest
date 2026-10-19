@@ -35,8 +35,8 @@ pub const GETH_TRACE_REVERT_ERROR: &str = "execution reverted";
 
 /// Builds a Geth-style nested call frame tree from a Filecoin execution trace.
 ///
-/// Reuses [`build_trace`] for classification and data extraction, then converts
-/// the Parity-style [`EthTrace`] into a nested [`GethCallFrame`].
+/// Reuses [`super::parity::build_trace`] for classification and data extraction, then converts
+/// the Parity-style [`EthTrace`](super::types::EthTrace) into a nested [`GethCallFrame`].
 pub fn build_geth_call_frame(
     env: &mut Environment,
     trace: ExecutionTrace,
@@ -104,7 +104,7 @@ fn build_geth_frame_recursive(
     Ok(Some(frame))
 }
 
-/// Build an [`AccountState`] snapshot from an actor.
+/// Build an [`AccountState`](super::types::AccountState) snapshot from an actor.
 /// Returns `Ok(None)` when the actor does not exist.
 ///
 /// When `storage_filter` is provided, only storage keys in the filter set are
