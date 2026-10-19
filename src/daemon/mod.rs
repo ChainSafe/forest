@@ -997,7 +997,7 @@ async fn resolve_snapshot_path(path: &Path) -> anyhow::Result<PathBuf> {
     };
     let response = crate::utils::net::global_http_client()
         .head(url.clone())
-        .timeout(Duration::from_secs(30);)
+        .timeout(Duration::from_secs(30))
         .send()
         .await
         .and_then(|r| r.error_for_status())
