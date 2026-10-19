@@ -1,10 +1,9 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod beacon_entries;
 mod drand;
 mod drand_pb;
-
-pub mod beacon_entries;
 pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
