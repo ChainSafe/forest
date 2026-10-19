@@ -23,8 +23,4 @@ forest-dev tests wallet
 forest-dev devnet eth-gas
 forest-dev devnet eth-skip-sender
 forest-dev devnet state-call
-
-# Only the forest-produced devnet runs Lotus Miner against Forest's RPC.
-if [[ "$(basename "${DEVNET_DIR}")" == "devnet-forest-miner" ]]; then
-  forest-dev devnet miner-onboarding
-fi
+forest-dev devnet miner-onboarding

@@ -210,21 +210,7 @@ const RPC_RETRY_DELAY: Duration = Duration::from_secs(15);
 
 /// Poll until `try_check` returns `Some` or [`POLL_TIMEOUT`] elapses, sleeping
 /// [`POLL_WAIT_TIME`] between attempts.
-pub async fn poll<F, Fut, T>(label: &str, try_check: F) -> anyhow::Result<T>
-where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = anyhow::Result<Option<T>>>,
-{
-    poll_every(label, POLL_WAIT_TIME, POLL_TIMEOUT, try_check).await
-}
-
-/// [`poll`] with a caller-chosen `interval` and `timeout`, for conditions that take many blocks.
-pub async fn poll_every<F, Fut, T>(
-    label: &str,
-    interval: Duration,
-    timeout: Duration,
-    mut try_check: F,
-) -> anyhow::Result<T>
+pub async fn poll<F, Fut, T>(label: &str, mut try_check: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = anyhow::Result<Option<T>>>,
@@ -237,11 +223,11 @@ where
         if let Some(value) = try_check().await? {
             return Ok(value);
         }
-        if started.elapsed() >= timeout {
-            bail!("Timed out waiting for {label} after {timeout:?}");
+        if started.elapsed() >= POLL_TIMEOUT {
+            bail!("Timed out waiting for {label} after {POLL_TIMEOUT:?}");
         }
-        let remaining = timeout.saturating_sub(started.elapsed());
-        tokio::time::sleep(interval.min(remaining)).await;
+        let remaining = POLL_TIMEOUT.saturating_sub(started.elapsed());
+        tokio::time::sleep(POLL_WAIT_TIME.min(remaining)).await;
     }
 }
 
@@ -415,11 +401,6 @@ static API: LazyLock<anyhow::Result<(String, String)>> = LazyLock::new(|| {
 fn api() -> anyhow::Result<&'static (String, String)> {
     API.as_ref()
         .map_err(|e| anyhow::anyhow!("FULLNODE_API_INFO unavailable: {e}"))
-}
-
-/// Forest's API token, from `FULLNODE_API_INFO`.
-pub fn forest_api_token() -> anyhow::Result<&'static str> {
-    Ok(api()?.0.as_str())
 }
 
 /// Typed client for the Lotus node on the docker devnet, whose read methods need no token.

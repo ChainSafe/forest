@@ -31,7 +31,7 @@ pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| 
 
 /// Height epochs.
 /// Environment variable names follow
-/// <https://github.com/filecoin-project/lotus/blob/v1.37.0/build/buildconstants/params_2k.go>.
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.0/build/buildconstants/params_2k.go>.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
     IndexMap::from_iter([
         make_height!(
