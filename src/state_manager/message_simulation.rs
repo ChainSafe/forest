@@ -74,56 +74,59 @@ impl StateManager {
         };
 
         let height = tipset.epoch();
-        let mut vm = VM::new(
-            ExecutionContext {
-                heaviest_tipset: tipset.shallow_clone(),
-                state_tree_root: state_cid,
-                epoch: height,
-                rand: Box::new(self.chain_rand(tipset.shallow_clone())),
-                base_fee: tipset.block_headers().first().parent_base_fee.clone(),
-                circ_supply: self.genesis_info().get_vm_circulating_supply(
-                    height,
-                    self.db(),
-                    &state_cid,
-                )?,
-                chain_config: self.chain_config().shallow_clone(),
-                chain_index: self.chain_index().shallow_clone(),
-                timestamp: tipset.min_timestamp(),
-            },
-            &self.engine,
-            VMTrace::Traced,
-        )?;
+        let (apply_ret, duration, msg) = with_fvm_stack(|| -> Result<_, Error> {
+            let mut vm = VM::new(
+                ExecutionContext {
+                    heaviest_tipset: tipset.shallow_clone(),
+                    state_tree_root: state_cid,
+                    epoch: height,
+                    rand: Box::new(self.chain_rand(tipset.shallow_clone())),
+                    base_fee: tipset.block_headers().first().parent_base_fee.clone(),
+                    circ_supply: self.genesis_info().get_vm_circulating_supply(
+                        height,
+                        self.db(),
+                        &state_cid,
+                    )?,
+                    chain_config: self.chain_config().shallow_clone(),
+                    chain_index: self.chain_index().shallow_clone(),
+                    timestamp: tipset.min_timestamp(),
+                },
+                &self.engine,
+                VMTrace::Traced,
+            )?;
 
-        let tipset_messages = self
-            .chain_store()
-            .messages_for_tipset(&tipset)
-            .map_err(|err| Error::Other(err.to_string()))?;
+            let tipset_messages = self
+                .chain_store()
+                .messages_for_tipset(&tipset)
+                .map_err(|err| Error::Other(err.to_string()))?;
 
-        let prior_messsages = tipset_messages
-            .iter()
-            .filter(|ts_msg| ts_msg.message().from() == msg.from());
+            let prior_messsages = tipset_messages
+                .iter()
+                .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
-        for m in prior_messsages {
-            vm.apply_message(m)?;
-        }
+            for m in prior_messsages {
+                vm.apply_message(m)?;
+            }
 
-        // We flush to get the VM's view of the state tree after applying the above messages
-        // This is needed to get the correct nonce from the actor state to match the VM
-        let state_cid = vm.flush()?;
+            // We flush to get the VM's view of the state tree after applying the above messages
+            // This is needed to get the correct nonce from the actor state to match the VM
+            let state_cid = vm.flush()?;
 
-        let state = StateTree::new_from_root(self.db(), &state_cid)?;
+            let state = StateTree::new_from_root(self.db(), &state_cid)?;
 
-        let from_actor = state
-            .get_actor(&msg.from())?
-            .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
-        let msg = msg
-            .clone()
-            .into_builder()
-            .sequence(from_actor.sequence)
-            .gas_limit(gas_limit)
-            .build();
+            let from_actor = state
+                .get_actor(&msg.from())?
+                .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
+            let msg = msg
+                .clone()
+                .into_builder()
+                .sequence(from_actor.sequence)
+                .gas_limit(gas_limit)
+                .build();
 
-        let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
+            let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
+            Ok((apply_ret, duration, msg))
+        })?;
 
         let msg_cid = msg.cid();
         Ok(ApiInvocResult {
@@ -226,9 +229,7 @@ impl StateManager {
         let epoch = ts.epoch() + 1;
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
-            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-            // FVM, but that introduces some constraints, and possible deadlocks.
-            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> Result<_, Error> {
+            let (ret, duration, state_cid) = with_fvm_stack(|| -> Result<_, Error> {
                 let mut vm = VM::new(
                     ExecutionContext {
                         heaviest_tipset: ts.clone(),

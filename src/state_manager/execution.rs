@@ -79,7 +79,7 @@ impl StateManager {
         let (parent_state, epoch, block_messages) =
             exec.prepare_parent_state_blocking(genesis_timestamp, VMTrace::NotTraced, &mut no_cb)?;
 
-        Ok(stacker::grow(64 << 20, || {
+        Ok(with_fvm_stack(|| {
             let mut vm =
                 exec.create_vm(parent_state, epoch, ts.min_timestamp(), VMTrace::NotTraced)?;
             let mut processed = ahash::HashSet::default();
