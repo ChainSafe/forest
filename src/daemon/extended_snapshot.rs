@@ -24,6 +24,7 @@ use regex::Regex;
 use serde::Deserialize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 use tracing::{info, warn};
 use url::Url;
 
@@ -70,6 +71,7 @@ async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<E
     let metadata_url = Url::parse(&format!("{snapshot_url}.metadata.json"))?;
     let response = crate::utils::net::global_http_client()
         .get(metadata_url.clone())
+        .timeout(Duration::from_secs(30))
         .send()
         .await?;
     let metadata: SnapshotMetadataFile = response
@@ -209,8 +211,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
     let Some(snapshot_url) = path_as_url(snapshot_path) else {
         return;
     };
-    let snapshot_url = &snapshot_url;
-    let extended = match fetch_extended_snapshots(snapshot_url).await {
+    let extended = match fetch_extended_snapshots(&snapshot_url).await {
         Ok(Some(extended)) => extended,
         Ok(None) => {
             info!("No extended snapshots advertised for {snapshot_url}");
@@ -224,7 +225,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
 
     if let Some(file) = &extended.receipts_events {
         let result = async {
-            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
+            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
             import_receipts_events_snapshot(db, &path).await
         }
         .await;
@@ -247,7 +248,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
 
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
-            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
+            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
             let db = db.clone();
             tokio::task::spawn_blocking(move || import_tipset_lookup_snapshot(&*db, &path, || {}))
                 .await?

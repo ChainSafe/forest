@@ -18,7 +18,8 @@ use crate::cli_shared::{
     delete_chain_data,
 };
 use crate::daemon::{
-    context::AppContext, db_util::import_chain_as_forest_car,
+    context::AppContext,
+    db_util::{import_chain_as_forest_car, path_as_url},
     extended_snapshot::maybe_import_extended_snapshots,
 };
 use crate::db::gc::SnapshotGarbageCollector;
@@ -42,7 +43,7 @@ use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -147,6 +148,7 @@ async fn maybe_import_snapshot(
     if !opts.skip_load.unwrap_or_default()
         && let Some(path) = &config.client.snapshot_path
     {
+        let path = &resolve_snapshot_path(path).await?;
         let (car_db_path, ts) = import_chain_as_forest_car(
             path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
@@ -986,6 +988,21 @@ where
     T: Send + 'static,
 {
     tokio::task::spawn_blocking(f).then(|res| async { res.expect("spawned task panicked") })
+}
+
+/// Follows redirects when `path` is a URL (e.g. a stable `latest` snapshot URL)
+async fn resolve_snapshot_path(path: &Path) -> anyhow::Result<PathBuf> {
+    let Some(url) = path_as_url(path) else {
+        return Ok(path.to_owned());
+    };
+    let response = crate::utils::net::global_http_client()
+        .head(url.clone())
+        .timeout(Duration::from_secs(30);)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .with_context(|| format!("failed to resolve snapshot URL {url}"))?;
+    Ok(response.url().as_str().into())
 }
 
 #[cfg(test)]
