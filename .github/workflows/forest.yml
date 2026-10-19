@@ -513,6 +513,7 @@ jobs:
           forest-dev devnet eth-skip-sender
           forest-dev devnet state-call
           forest-dev devnet miner-onboarding
+          forest-dev devnet eth-pending-tx
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()

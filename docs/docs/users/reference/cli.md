@@ -2927,7 +2927,8 @@ Integration tests that require the local docker devnet
 Usage: forest-dev devnet <COMMAND>
 
 Commands:
-  eth-gas          `eth_estimateGas` parity and gas cap tests
+  eth-gas          `eth_estimateGas` parity tests
+  eth-pending-tx   `eth_getTransactionByHash` pending transaction tests
   eth-skip-sender  Skip-sender integration tests that need a private chain with a miner
   state-call       `Filecoin.StateCall` gas limit parity tests
   help             Print this message or the help of the given subcommand(s)
@@ -2939,7 +2940,7 @@ Options:
 ### `forest-dev devnet eth-gas`
 
 ```
-`eth_estimateGas` parity and gas cap tests
+`eth_estimateGas` parity tests
 
 Usage: forest-dev devnet eth-gas
 
@@ -2964,6 +2965,17 @@ Options:
 `Filecoin.StateCall` gas limit parity tests
 
 Usage: forest-dev devnet state-call
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev devnet eth-pending-tx`
+
+```
+`eth_getTransactionByHash` pending transaction tests
+
+Usage: forest-dev devnet eth-pending-tx
 
 Options:
   -h, --help  Print help
