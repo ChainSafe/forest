@@ -35,6 +35,8 @@ use url::Url;
 use walkdir::WalkDir;
 
 #[cfg(doc)]
+use crate::blocks::TipsetKey;
+#[cfg(doc)]
 use crate::rpc::eth::types::EthHash;
 
 #[cfg(doc)]

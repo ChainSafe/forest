@@ -161,6 +161,16 @@ async fn maybe_import_snapshot(
         .await?;
         ctx.db
             .read_only_files(std::iter::once(car_db_path.clone()))?;
+        let ts_epoch = ts.epoch();
+        // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
+        // in the current setting store
+        ctx.state_manager
+            .chain_store()
+            .set_heaviest_tipset(ts.shallow_clone())?;
+        debug!(
+            "Loaded car DB at {} and set current head to epoch {ts_epoch}",
+            car_db_path.display(),
+        );
         maybe_import_extended_snapshots(
             &ctx.db,
             &ctx.state_manager,
@@ -169,14 +179,6 @@ async fn maybe_import_snapshot(
             &ctx.db_meta_data.get_forest_car_db_dir(),
         )
         .await;
-        let ts_epoch = ts.epoch();
-        // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
-        // in the current setting store
-        ctx.state_manager.chain_store().set_heaviest_tipset(ts)?;
-        debug!(
-            "Loaded car DB at {} and set current head to epoch {ts_epoch}",
-            car_db_path.display(),
-        );
     }
 
     // If the snapshot progress state is not completed,
