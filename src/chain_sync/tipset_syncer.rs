@@ -536,9 +536,12 @@ async fn check_block_messages(
     }
 
     // Validate message root from header matches message root
-    let msg_root =
-        TipsetValidator::compute_msg_root(state_manager.db(), block.bls_msgs(), block.secp_msgs())
-            .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
+    let msg_root = TipsetValidator::compute_msg_root(
+        state_manager.db(),
+        block.bls_msgs().iter().map(|m| m.cid()),
+        block.secp_msgs().iter().map(|m| m.signed_cid()),
+    )
+    .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
     if block.header().messages != msg_root {
         return Err(TipsetSyncerError::BlockMessageRootInvalid(
             format!("{:?}", block.header().messages),
@@ -683,7 +686,7 @@ mod tests {
                     ..Default::default()
                 }),
                 bls_messages: vec![],
-                secp_messages: vec![secp_message],
+                secp_messages: vec![Arc::new(secp_message)],
             })
         }
 
