@@ -1794,7 +1794,10 @@ async fn load_api_messages_from_tipset(
         for message in bls_messages {
             let cid = message.cid();
             if seen.insert(cid) {
-                messages.push(ApiMessage { cid, message });
+                messages.push(ApiMessage {
+                    cid,
+                    message: Arc::unwrap_or_clone(message),
+                });
             }
         }
 
@@ -1803,7 +1806,7 @@ async fn load_api_messages_from_tipset(
             if seen.insert(cid) {
                 messages.push(ApiMessage {
                     cid,
-                    message: msg.into_message(),
+                    message: Arc::unwrap_or_clone(msg).into_message(),
                 });
             }
         }

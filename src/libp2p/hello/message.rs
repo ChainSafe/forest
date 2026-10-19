@@ -26,6 +26,18 @@ pub struct HelloResponse {
 }
 
 #[cfg(test)]
+impl Default for HelloRequest {
+    fn default() -> Self {
+        Self {
+            heaviest_tip_set: NonEmpty::of(Default::default()),
+            heaviest_tipset_height: Default::default(),
+            heaviest_tipset_weight: Default::default(),
+            genesis_cid: Default::default(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::utils::encoding::from_slice_with_fallback;
@@ -36,9 +48,7 @@ mod tests {
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
             genesis_cid: Cid::new_v1(DAG_CBOR, MultihashCode::Identity.digest(&[])),
-            heaviest_tipset_weight: Default::default(),
-            heaviest_tipset_height: Default::default(),
-            heaviest_tip_set: NonEmpty::of(Default::default()),
+            ..Default::default()
         };
         let bz = to_vec(&orig_msg).unwrap();
         let msg: HelloRequest = from_slice_with_fallback(&bz).unwrap();

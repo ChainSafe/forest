@@ -114,8 +114,8 @@ mod test {
 
         let root = TipsetValidator::compute_msg_root(
             &blockstore,
-            &[bls0, bls1],
-            &[secp0.clone(), secp1.clone()],
+            [bls0.cid(), bls1.cid()],
+            [secp0.signed_cid(), secp1.signed_cid()],
         )
         .expect("Computing message root should succeed");
         assert_eq!(root, expected_root);
