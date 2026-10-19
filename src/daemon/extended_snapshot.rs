@@ -6,11 +6,15 @@
 
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
-use crate::daemon::db_util::path_as_url;
+use crate::daemon::db_util::{
+    BackfillGuard, BackfillOptions, RangeSpec, path_as_url, run_backfill,
+};
+use crate::db::EthMappingsStore;
+use crate::db::car::AnyCar;
 use crate::db::car::forest::new_forest_car_temp_path_in;
-use crate::db::{EthMappingsStore, MemoryDB};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
+use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::Context;
@@ -114,41 +118,79 @@ where
     Ok(n_blocks)
 }
 
-/// Populates the tipset lookup table in `db` from a tipset lookup snapshot.
-async fn import_tipset_lookup_snapshot<DB>(
-    db: &Arc<DB>,
+/// Populates the tipset lookup table in `db` from a tipset lookup snapshot, calling
+/// `on_imported` after each entry is written. Every entry is validated against the tipsets
+/// in `db` before any of them is written.
+pub fn import_tipset_lookup_snapshot<DB>(
+    db: &DB,
     path: &Path,
-    head_epoch: ChainEpoch,
-) -> anyhow::Result<usize>
+    mut on_imported: impl FnMut(),
+) -> anyhow::Result<()>
 where
-    DB: EthMappingsStore + Send + Sync + 'static,
+    DB: Blockstore + EthMappingsStore,
 {
-    let store = MemoryDB::default();
-    let mut car_stream = CarStream::new_from_path(path).await?;
-    let hamt_root = *car_stream.header_v1.roots.first();
-    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        store.put_keyed(&cid, &data)?;
-    }
+    let hamt_car = AnyCar::try_from(path)?;
+    anyhow::ensure!(
+        hamt_car.header_v1().roots.len() == 1,
+        "hamt car should have a single root"
+    );
+    let hamt_root = *hamt_car.header_v1().roots.first();
+    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
+        Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
+            .context("failed to load tipset lookup HAMT")?;
+    let mut n_entries = 0;
+    hamt.for_each_cacheless(|&epoch, tsk| {
+        anyhow::ensure!(
+            ChainIndex::is_tipset_lookup_checkpoint(epoch),
+            "epoch {epoch} is not a tipset lookup checkpoint"
+        );
+        let ts = Tipset::load_required(db, tsk)?;
+        anyhow::ensure!(
+            ts.epoch() == epoch,
+            "epochs do not match, {epoch} in hamt, {} in database",
+            ts.epoch()
+        );
+        n_entries += 1;
+        Ok(())
+    })?;
+    hamt.for_each_cacheless(|&epoch, tsk| {
+        db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
+        on_imported();
+        Ok(())
+    })?;
+    Ok(())
+}
 
-    let db = db.clone();
-    tokio::task::spawn_blocking(move || {
-        let hamt: Hamt<_, TipsetKey, ChainEpoch> =
-            Hamt::load_with_bit_width(&hamt_root, &store, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
-                .context("failed to load tipset lookup HAMT")?;
-        // Validate all entries before writing any of them.
-        let mut n_entries = 0;
-        hamt.for_each_cacheless(|&epoch, _| {
-            anyhow::ensure!(
-                ChainIndex::is_tipset_lookup_checkpoint(epoch) && epoch <= head_epoch,
-                "invalid tipset lookup entry at epoch {epoch}, head epoch: {head_epoch}",
-            );
-            n_entries += 1;
-            Ok(())
-        })?;
-        hamt.for_each_cacheless(|&epoch, tsk| db.set_tipset_key_at_epoch_raw(epoch, tsk))?;
-        Ok(n_entries)
-    })
-    .await?
+/// Indexes the tipsets whose receipts and events were just imported (block logs blooms and
+/// Ethereum mappings), as `forest-tool index backfill` does.
+async fn backfill_receipts_events(
+    state_manager: &StateManager,
+    head: &Tipset,
+) -> anyhow::Result<()> {
+    let db = state_manager.db();
+    let Some(to) = head
+        .shallow_clone()
+        .chain(db)
+        .take_while(|ts| db.has(ts.parent_state()).unwrap_or_default())
+        .last()
+        .map(|ts| ts.epoch())
+    else {
+        return Ok(());
+    };
+    let guard = BackfillGuard::try_start()?;
+    let options = BackfillOptions {
+        allow_recompute: false,
+        ..Default::default()
+    };
+    let result = run_backfill(state_manager, head, RangeSpec::To(to), options, &guard).await;
+    let report = guard.finish(result)?;
+    info!(
+        "Indexed {} tipsets from epoch {} to {to} (skipped: {})",
+        report.indexed,
+        head.epoch(),
+        report.skipped
+    );
+    Ok(())
 }
 
 /// Downloads the extended snapshots (message receipts and events, tipset lookup table)
@@ -156,8 +198,9 @@ where
 /// Does nothing when `snapshot_path` is a local file rather than a URL.
 pub async fn maybe_import_extended_snapshots<DB>(
     db: &Arc<DB>,
-    snapshot_path: &Path,
+    state_manager: &StateManager,
     head: &Tipset,
+    snapshot_path: &Path,
     temp_dir: &Path,
 ) where
     DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
@@ -186,10 +229,15 @@ pub async fn maybe_import_extended_snapshots<DB>(
         }
         .await;
         match result {
-            Ok(n) => info!(
-                "Imported {n} message receipt and event blocks from {}",
-                file.filename
-            ),
+            Ok(n) => {
+                info!(
+                    "Imported {n} message receipt and event blocks from {}",
+                    file.filename
+                );
+                if let Err(e) = backfill_receipts_events(state_manager, head).await {
+                    warn!("Failed to index imported receipts and events: {e:#}");
+                }
+            }
             Err(e) => warn!(
                 "Failed to import receipts and events snapshot {}: {e:#}",
                 file.filename
@@ -200,11 +248,13 @@ pub async fn maybe_import_extended_snapshots<DB>(
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
             let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
-            import_tipset_lookup_snapshot(db, &path, head.epoch()).await
+            let db = db.clone();
+            tokio::task::spawn_blocking(move || import_tipset_lookup_snapshot(&*db, &path, || {}))
+                .await?
         }
         .await;
         match result {
-            Ok(n) => info!("Imported {n} tipset lookup entries from {}", file.filename),
+            Ok(()) => info!("Imported tipset lookup entries from {}", file.filename),
             Err(e) => warn!(
                 "Failed to import tipset lookup snapshot {}: {e:#}",
                 file.filename

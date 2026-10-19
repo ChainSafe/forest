@@ -4,7 +4,7 @@
 pub mod bundle;
 mod context;
 pub mod db_util;
-mod extended_snapshot;
+pub mod extended_snapshot;
 pub mod main;
 
 use crate::blocks::TipsetKey;
@@ -161,8 +161,9 @@ async fn maybe_import_snapshot(
             .read_only_files(std::iter::once(car_db_path.clone()))?;
         maybe_import_extended_snapshots(
             &ctx.db,
-            path,
+            &ctx.state_manager,
             &ts,
+            path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
         )
         .await;
