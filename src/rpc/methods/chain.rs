@@ -69,7 +69,7 @@ const HEAD_CHANNEL_CAPACITY: usize = 10;
 /// This constant is experimental and may change in the future.
 /// Discussion on this current value and a tracking item to document the
 /// probabilistic impact of various values is in
-/// https://github.com/filecoin-project/go-f3/issues/944
+/// <https://github.com/filecoin-project/go-f3/issues/944>
 pub const SAFE_HEIGHT_DISTANCE: ChainEpoch = 200;
 
 pub enum ChainGetFinalizedTipset {}

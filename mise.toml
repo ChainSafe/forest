@@ -71,6 +71,12 @@ cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=
 DOCS_RS=1 cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
 '''
 
+[tasks."lint:rustdoc"]
+description = "Run cargo-doc to check for broken intra-doc links and other rustdoc lints."
+run = '''
+cargo doc --lib --no-deps --document-private-items --quiet
+'''
+
 [tasks."lint:unused-deps"]
 description = "Check for unused dependencies in Rust code."
 tools.ruby = "latest"
