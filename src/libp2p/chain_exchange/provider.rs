@@ -164,9 +164,9 @@ where
         crate::chain::block_messages_from_cids(db, &bls_cids_combined, &secp_cids_combined)?;
 
     Ok(CompactedMessages {
-        bls_msgs,
+        bls_msgs: bls_msgs.into_iter().map(Arc::new).collect(),
         bls_msg_includes,
-        secp_msgs,
+        secp_msgs: secp_msgs.into_iter().map(Arc::new).collect(),
         secp_msg_includes,
     })
 }
