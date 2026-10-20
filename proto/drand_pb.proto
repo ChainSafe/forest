@@ -4,29 +4,12 @@ package drand_pb;
 
 // Only unchained networks, such as `quicknet` are supported,
 // chained ones, like the legacy `drand` mainnet, are not taken from gossip.
-
+// Ignoring fields:
+// `previous_signature` as it is empty on unchained networks
+// `randomness` as it is deprecated by drand.
+// `metadata` names the beacon, which the gossip topic already identifies
 // https://github.com/drand/drand/blob/v2.1.7/protobuf/drand/api.proto#L42-L53
 message PublicRandResponse {
   uint64 round = 1;
   bytes signature = 2;
-  // Unused: empty on unchained networks.
-  bytes previous_signature = 3;
-  // Unused: deprecated by drand, and derived from the signature.
-  bytes randomness = 4 [deprecated = true];
-  Metadata metadata = 5;
-}
-
-// https://github.com/drand/drand/blob/v2.1.7/protobuf/drand/common.proto#L17-L21
-message Metadata {
-  NodeVersion node_version = 1;
-  string beaconID = 2;
-  bytes chain_hash = 3;
-}
-
-// https://github.com/drand/drand/blob/v2.1.7/protobuf/drand/common.proto#L10-L15
-message NodeVersion {
-  uint32 major = 1;
-  uint32 minor = 2;
-  uint32 patch = 3;
-  optional string prerelease = 4;
 }
