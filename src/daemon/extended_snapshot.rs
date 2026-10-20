@@ -82,6 +82,8 @@ async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<E
     Ok(metadata.snapshot.extended)
 }
 
+/// Downloads the extended snapshot `file`, published next to `snapshot_url`, into `temp_dir`
+/// and verifies it against the SHA-256 from the snapshot metadata.
 async fn download_extended_snapshot(
     snapshot_url: &Url,
     file: &ExtendedSnapshotFile,
@@ -186,12 +188,21 @@ async fn backfill_receipts_events(
     };
     let result = run_backfill(state_manager, head, RangeSpec::To(to), options, &guard).await;
     let report = guard.finish(result)?;
-    info!(
-        "Indexed {} tipsets from epoch {} to {to} (skipped: {})",
-        report.indexed,
-        head.epoch(),
-        report.skipped
-    );
+    // The head is always skipped: its receipts are only known once its child is synced.
+    if report.skipped > 1 {
+        warn!(
+            "Indexed {} tipsets from epoch {} to {to}, {} could not be indexed",
+            report.indexed,
+            head.epoch(),
+            report.skipped
+        );
+    } else {
+        info!(
+            "Indexed {} tipsets from epoch {} to {to}",
+            report.indexed,
+            head.epoch()
+        );
+    }
     Ok(())
 }
 
@@ -218,7 +229,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
             return;
         }
         Err(e) => {
-            warn!("Failed to fetch snapshot metadata for {snapshot_url}: {e:#}");
+            warn!("No snapshot metadata available for {snapshot_url}: {e:#}");
             return;
         }
     };
