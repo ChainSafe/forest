@@ -65,7 +65,6 @@ impl FakeDrandSigner {
         PublicRandResponse {
             round,
             signature: signature.to_vec(),
-            ..Default::default()
         }
         .write_message(&mut Writer::new(&mut out))
         .unwrap();
