@@ -14,8 +14,8 @@ use crate::networks::{NetworkChain, calculate_expected_epoch};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::utils::net::global_http_client;
 
-use crate::networks::mainnet::GENESIS_TIMESTAMP as MAINNET_GENESIS_TIMESTAMP;
 use crate::networks::calibnet::GENESIS_TIMESTAMP as CALIBNET_GENESIS_TIMESTAMP;
+use crate::networks::mainnet::GENESIS_TIMESTAMP as MAINNET_GENESIS_TIMESTAMP;
 
 const LIST_BASE: &str = "https://forest-archive.chainsafe.dev/list";
 
