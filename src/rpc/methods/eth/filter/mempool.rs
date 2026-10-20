@@ -160,14 +160,15 @@ mod tests {
     const TEST_CHAIN_ID: EthChainIdType = 314;
 
     fn make_smsg(seq: u64) -> SignedMessage {
-        SignedMessage::mock_bls_signed_message(ShimMessage {
-            from: Address::new_id(1),
-            to: Address::new_id(2),
-            sequence: seq,
-            gas_premium: TokenAmount::from_atto(100u64),
-            gas_limit: 1_000_000,
-            ..ShimMessage::default()
-        })
+        SignedMessage::mock_bls_signed_message(
+            ShimMessage::builder()
+                .from(Address::new_id(1))
+                .to(Address::new_id(2))
+                .sequence(seq)
+                .gas_premium(TokenAmount::from_atto(100u64))
+                .gas_limit(1_000_000)
+                .build(),
+        )
     }
 
     fn hash_of(seq: u64) -> EthHash {

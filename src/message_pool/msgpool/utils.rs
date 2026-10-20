@@ -29,11 +29,12 @@ pub(in crate::message_pool) fn get_gas_reward(
     msg: &SignedMessage,
     base_fee: &TokenAmount,
 ) -> TokenAmount {
-    let mut max_prem = msg.gas_fee_cap() - base_fee;
-    if max_prem < msg.gas_premium() {
-        max_prem = msg.gas_premium();
+    let max_prem = msg.gas_fee_cap() - base_fee;
+    if max_prem < *msg.gas_premium() {
+        msg.gas_premium() * msg.gas_limit()
+    } else {
+        max_prem * msg.gas_limit()
     }
-    max_prem * msg.gas_limit()
 }
 
 pub(in crate::message_pool) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: u64) -> f64 {

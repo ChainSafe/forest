@@ -424,8 +424,8 @@ async fn prefill_rpc_caches_for_tipset(
                 }
             }
             {
-                // Warms both the FVM-replay cache and the parity-trace cache,
-                // since `eth_trace_block` calls `execution_trace` internally.
+                // Warms both the FVM-replay cache and the eth-trace cache,
+                // since `eth_tipset_traces` calls `execution_trace` internally.
                 // Note that we do not block the loop here as the trace computation can be expensive.
                 // Also, we skip this tipset when it has already been superseded
                 if state_manager.chain_store().heaviest_tipset().key() == ts.key() {
@@ -434,14 +434,14 @@ async fn prefill_rpc_caches_for_tipset(
                         let ts = ts.shallow_clone();
                         async move {
                             if let Some(Err(e)) = cancellation_token
-                                .run_until_cancelled(crate::rpc::eth::eth_trace_block(
+                                .run_until_cancelled(crate::rpc::eth::eth_tipset_traces(
                                     &state_manager,
                                     &ts,
                                     CallSource::Internal,
                                 ))
                                 .await
                             {
-                                warn!("failed to call `eth_trace_block` for cache warmup: {e:#}");
+                                warn!("failed to call `eth_tipset_traces` for cache warmup: {e:#}");
                             }
                         }
                     });

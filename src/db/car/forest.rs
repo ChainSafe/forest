@@ -379,6 +379,9 @@ impl Encoder {
         tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.write_all(&footer.to_le_bytes()))
             .await
             .context("footer `sink.write_all` timed out")??;
+        tokio::time::timeout(ASYNC_OPS_TIMEOUT, sink.flush())
+            .await
+            .context("`sink.flush` timed out")??;
         tracing::info!("Finished writing zstd CAR footer frame");
         Ok(())
     }

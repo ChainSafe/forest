@@ -211,13 +211,14 @@ mod tests {
     };
 
     fn make_smsg(from: Address, seq: u64, premium: u64) -> SignedMessage {
-        SignedMessage::mock_bls_signed_message(ShimMessage {
-            from,
-            sequence: seq,
-            gas_premium: TokenAmount::from_atto(premium),
-            gas_limit: 1_000_000,
-            ..ShimMessage::default()
-        })
+        SignedMessage::mock_bls_signed_message(
+            ShimMessage::builder()
+                .from(from)
+                .sequence(seq)
+                .gas_premium(TokenAmount::from_atto(premium))
+                .gas_limit(1_000_000)
+                .build(),
+        )
     }
 
     fn assert_add(update: MpoolUpdate, expected_seq: u64) {

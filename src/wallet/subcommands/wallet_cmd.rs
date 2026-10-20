@@ -549,31 +549,33 @@ impl WalletCommands {
                     params_hex.as_deref(),
                 )?;
 
-                let message = Message {
-                    from,
-                    to,
-                    value: amount,
-                    method_num: invocation.method_num,
-                    params: invocation.params,
-                    gas_limit: gas_limit as u64,
-                    gas_fee_cap: gas_feecap,
-                    gas_premium,
-                    ..Default::default()
-                };
+                let message = Message::builder()
+                    .from(from)
+                    .to(to)
+                    .value(amount)
+                    .method_num(invocation.method_num)
+                    .params(invocation.params)
+                    .gas_limit(gas_limit as u64)
+                    .gas_fee_cap(gas_feecap)
+                    .gas_premium(gas_premium)
+                    .build();
 
                 let signed_msg = if let Some(keystore) = &backend.local {
                     let spec = None;
-                    let mut message = GasEstimateMessageGas::call(
+                    let message = GasEstimateMessageGas::call(
                         &backend.remote,
                         (message, spec, ApiTipsetKey(None)),
                     )
                     .await?;
 
-                    if message.gas_premium > message.gas_fee_cap {
+                    if message.gas_premium() > message.gas_fee_cap() {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
+                    let message = message
+                        .into_builder()
+                        .sequence(MpoolGetNonce::call(&backend.remote, (from,)).await?)
+                        .build();
 
                     let key = crate::key_management::try_find_key(&from, keystore)?;
                     let eth_chain_id: u64 = crate::utils::encoding::hex::parse_prefixed_int(

@@ -484,8 +484,7 @@ where
         }
 
         balance -= required;
-        let value = m.value();
-        balance -= value;
+        balance -= m.value();
 
         let gas_reward = get_gas_reward(m, base_fee);
         rewards.push(gas_reward);

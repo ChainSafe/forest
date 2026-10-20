@@ -853,7 +853,7 @@ where
                 utils::remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs);
             }
             for msg in msgs {
-                utils::remove_from_selected_msgs(&msg.from, msg.sequence, rmsgs);
+                utils::remove_from_selected_msgs(&msg.from(), msg.sequence(), rmsgs);
             }
         }
     }
@@ -1110,14 +1110,15 @@ mod test_selection {
             .await
             .unwrap();
 
-        let pending_msg = SignedMessage::mock_bls_signed_message(ShimMessage {
-            from: id_addr,
-            sequence: 0,
-            gas_limit: TEST_GAS_LIMIT as u64,
-            gas_fee_cap: TokenAmount::from_atto(200),
-            gas_premium: TokenAmount::from_atto(100),
-            ..ShimMessage::default()
-        });
+        let pending_msg = SignedMessage::mock_bls_signed_message(
+            ShimMessage::builder()
+                .from(id_addr)
+                .sequence(0)
+                .gas_limit(TEST_GAS_LIMIT as u64)
+                .gas_fee_cap(TokenAmount::from_atto(200))
+                .gas_premium(TokenAmount::from_atto(100))
+                .build(),
+        );
         mpool
             .add_to_pool_unchecked(
                 &head,
@@ -1541,11 +1542,11 @@ mod test_selection {
         for (next_nonce, m) in msgs.into_iter().enumerate() {
             assert_eq!(m.from(), a1, "Expected message from a1");
             assert_eq!(
-                m.message().sequence,
+                m.message().sequence(),
                 next_nonce as u64,
                 "expected nonce {} but got {}",
                 next_nonce,
-                m.message().sequence
+                m.message().sequence()
             );
         }
     }
@@ -1611,19 +1612,21 @@ mod test_selection {
 
         for m in msgs {
             if m.from() == a1 {
-                if m.message.sequence != next_nonce1 {
+                if m.message().sequence() != next_nonce1 {
                     panic!(
                         "Expected nonce {}, but got {}",
-                        next_nonce1, m.message.sequence
+                        next_nonce1,
+                        m.message().sequence()
                     );
                 }
                 next_nonce1 += 1;
                 n_from1 += 1;
             } else {
-                if m.message.sequence != next_nonce2 {
+                if m.message().sequence() != next_nonce2 {
                     panic!(
                         "Expected nonce {}, but got {}",
-                        next_nonce2, m.message.sequence
+                        next_nonce2,
+                        m.message().sequence()
                     );
                 }
                 next_nonce2 += 1;
@@ -1712,10 +1715,11 @@ mod test_selection {
             }
 
             let next_nonce: u64 = nonces[who];
-            if m.message.sequence != next_nonce {
+            if m.message().sequence() != next_nonce {
                 panic!(
                     "expected nonce {} but got {}",
-                    next_nonce, m.message.sequence
+                    next_nonce,
+                    m.message().sequence()
                 );
             }
             nonces[who] += 1;

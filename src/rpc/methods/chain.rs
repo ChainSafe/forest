@@ -1803,7 +1803,7 @@ async fn load_api_messages_from_tipset(
             if seen.insert(cid) {
                 messages.push(ApiMessage {
                     cid,
-                    message: msg.message,
+                    message: msg.into_message(),
                 });
             }
         }

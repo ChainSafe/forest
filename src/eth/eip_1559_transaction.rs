@@ -141,7 +141,7 @@ impl EthEip1559TxArgs {
     ) -> anyhow::Result<SignedMessage> {
         let message = self.get_unsigned_message(from, eth_chain_id)?;
         let signature = self.signature()?;
-        Ok(SignedMessage { message, signature })
+        Ok(SignedMessage::new_unchecked(message, signature))
     }
 
     /// Constructs an unsigned message using EIP-1559 transaction args
@@ -157,18 +157,18 @@ impl EthEip1559TxArgs {
             eth_chain_id
         );
         let method_info = get_filecoin_method_info(self.to.as_ref(), &self.input)?;
-        Ok(Message {
-            version: 0,
-            from,
-            to: method_info.to,
-            sequence: self.nonce,
-            value: self.value.clone().into(),
-            method_num: method_info.method,
-            params: method_info.params.into(),
-            gas_limit: self.gas_limit,
-            gas_fee_cap: self.max_fee_per_gas.clone().into(),
-            gas_premium: self.max_priority_fee_per_gas.clone().into(),
-        })
+        Ok(Message::builder()
+            .version(0)
+            .from(from)
+            .to(method_info.to)
+            .sequence(self.nonce)
+            .value(self.value.clone().into())
+            .method_num(method_info.method)
+            .params(method_info.params.into())
+            .gas_limit(self.gas_limit)
+            .gas_fee_cap(self.max_fee_per_gas.clone().into())
+            .gas_premium(self.max_priority_fee_per_gas.clone().into())
+            .build())
     }
 }
 
@@ -176,11 +176,11 @@ impl EthEip1559TxArgsBuilder {
     pub fn unsigned_message(&mut self, message: &Message) -> anyhow::Result<&mut Self> {
         let (params, to) = get_eth_params_and_recipient(message)?;
         Ok(self
-            .nonce(message.sequence)
-            .value(message.value.clone())
-            .max_fee_per_gas(message.gas_fee_cap.clone())
-            .max_priority_fee_per_gas(message.gas_premium.clone())
-            .gas_limit(message.gas_limit)
+            .nonce(message.sequence())
+            .value(message.value().atto().clone())
+            .max_fee_per_gas(message.gas_fee_cap().atto().clone())
+            .max_priority_fee_per_gas(message.gas_premium().atto().clone())
+            .gas_limit(message.gas_limit())
             .to(to)
             .input(params))
     }

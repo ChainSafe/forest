@@ -114,7 +114,7 @@ pub fn sign_message(
             key.key_info.private_key(),
             &eth_tx.rlp_unsigned_message(eth_chain_id)?,
         )?;
-        let unsigned_msg = eth_tx.get_unsigned_message(message.from, eth_chain_id)?;
+        let unsigned_msg = eth_tx.get_unsigned_message(message.from(), eth_chain_id)?;
         Ok(SignedMessage::new_unchecked(unsigned_msg, sig))
     } else {
         let sig = sign(
@@ -138,30 +138,28 @@ mod tests {
     const TEST_CHAIN_ID: EthChainId = calibnet::ETH_CHAIN_ID;
 
     fn make_secp_message(from: Address) -> Message {
-        Message {
-            from,
-            to: Address::new_id(1),
-            value: TokenAmount::from_whole(1),
-            gas_limit: 10_000_000,
-            gas_fee_cap: TokenAmount::from_nano(1500),
-            gas_premium: TokenAmount::from_nano(1500),
-            ..Message::default()
-        }
+        Message::builder()
+            .from(from)
+            .to(Address::new_id(1))
+            .value(TokenAmount::from_whole(1))
+            .gas_limit(10_000_000)
+            .gas_fee_cap(TokenAmount::from_nano(1500))
+            .gas_premium(TokenAmount::from_nano(1500))
+            .build()
     }
 
     fn make_delegated_message(from: Address) -> Message {
         let to_eth = RpcEthAddress::from(ethereum_types::H160::from_low_u64_be(42));
         let to = to_eth.to_filecoin_address().unwrap();
-        Message {
-            from,
-            to,
-            value: TokenAmount::from_whole(1),
-            method_num: EVMMethod::InvokeContract as u64,
-            gas_limit: 10_000_000,
-            gas_fee_cap: TokenAmount::from_nano(1500),
-            gas_premium: TokenAmount::from_nano(1500),
-            ..Message::default()
-        }
+        Message::builder()
+            .from(from)
+            .to(to)
+            .value(TokenAmount::from_whole(1))
+            .method_num(EVMMethod::InvokeContract as u64)
+            .gas_limit(10_000_000)
+            .gas_fee_cap(TokenAmount::from_nano(1500))
+            .gas_premium(TokenAmount::from_nano(1500))
+            .build()
     }
 
     #[test]

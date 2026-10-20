@@ -57,6 +57,7 @@ impl StateManager {
     pub fn clear_tipset_state_caches(&self) {
         self.cache.clear();
         self.trace_cache.clear();
+        self.eth_trace_cache.clear();
     }
 
     /// Verifies and repairs the tipset lookup table (see `ChainStore::repair_tipset_lookup`)
@@ -813,12 +814,7 @@ mod tests {
     fn tipset_message_receipts_iter_pairs_in_order() {
         let msg_count = 3u64;
         let messages = (0..msg_count)
-            .map(|i| {
-                ChainMessage::Unsigned(Arc::new(Message {
-                    sequence: i,
-                    ..Default::default()
-                }))
-            })
+            .map(|i| ChainMessage::Unsigned(Arc::new(Message::builder().sequence(i).build())))
             .collect_vec();
         let receipts = (0..msg_count)
             .map(|i| Receipt::with_gas_used((i + 1) * 10))
@@ -841,7 +837,7 @@ mod tests {
         for variant in [&executed, &stored] {
             let got = variant
                 .iter()
-                .map(|(m, r)| (m.message().sequence, r.gas_used()))
+                .map(|(m, r)| (m.message().sequence(), r.gas_used()))
                 .collect_vec();
             assert_eq!(got, expected);
         }

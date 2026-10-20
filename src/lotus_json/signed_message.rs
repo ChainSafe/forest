@@ -61,23 +61,20 @@ impl HasLotusJson for SignedMessage {
                     "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
                 },
             }),
-            SignedMessage {
-                message: Message::default(),
-                signature: Signature {
+            SignedMessage::new_unchecked(Message::default(), Signature {
                     sig_type: crate::shim::crypto::SignatureType::Bls,
                     bytes: Vec::from_iter(*b"hello world!"),
-                },
-            },
+                }),
         )]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
         let cid = Some(self.cid());
-        let Self { message, signature } = self;
+        let (message, signature) = self.into_parts();
         Self::LotusJson {
+            cid,
             message,
             signature,
-            cid,
         }
     }
 
@@ -87,6 +84,6 @@ impl HasLotusJson for SignedMessage {
             signature,
             cid: _ignored, // See notes on Message
         } = lotus_json;
-        Self { message, signature }
+        Self::new_unchecked(message, signature)
     }
 }

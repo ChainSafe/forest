@@ -478,8 +478,10 @@ mod tests {
 
     #[test]
     fn authenticate_tampered_signature() {
-        let (addr, mut signed_msg) = create_signed_message(SignatureType::Delegated);
-        signed_msg.signature.bytes[32] = signed_msg.signature.bytes[32].wrapping_add(1);
+        let (addr, signed_msg) = create_signed_message(SignatureType::Delegated);
+        let (message, mut signature) = signed_msg.into_parts();
+        signature.bytes[32] = signature.bytes[32].wrapping_add(1);
+        let signed_msg = SignedMessage::new_unchecked(message, signature);
 
         let result = signed_msg
             .signature()

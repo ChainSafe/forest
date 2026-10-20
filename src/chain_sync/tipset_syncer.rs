@@ -393,7 +393,7 @@ impl MessageChecker {
         let msg = msg.vm_message();
         valid_for_block_inclusion(msg, min_gas.total(), self.network_version)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
-        self.sum_gas_limit += msg.gas_limit;
+        self.sum_gas_limit += msg.gas_limit();
         anyhow::ensure!(
             self.sum_gas_limit <= BLOCK_GAS_LIMIT,
             "block gas limit exceeded"
@@ -404,7 +404,7 @@ impl MessageChecker {
         let sequence: u64 = match self.account_sequences.get(&msg.from()) {
             Some(sequence) => *sequence,
             None => {
-                let actor = self.tree.get_actor(&msg.from)?.ok_or_else(|| {
+                let actor = self.tree.get_actor(&msg.from())?.ok_or_else(|| {
                     anyhow::anyhow!(
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )
@@ -419,10 +419,10 @@ impl MessageChecker {
 
         // Sequence equality check
         anyhow::ensure!(
-            sequence == msg.sequence,
+            sequence == msg.sequence(),
             "Message has incorrect sequence (exp: {} got: {})",
             sequence,
-            msg.sequence
+            msg.sequence()
         );
         self.account_sequences.insert(msg.from(), sequence + 1);
         Ok(())
@@ -456,7 +456,7 @@ async fn check_block_messages(
         let mut cids = Vec::with_capacity(block.bls_msgs().len());
         let db = state_manager.db();
         for m in block.bls_msgs() {
-            let pk = StateManager::get_bls_public_key(db, m.from, *base_tipset.parent_state())?;
+            let pk = StateManager::get_bls_public_key(db, m.from(), *base_tipset.parent_state())?;
             pub_keys.push(pk);
             cids.push(m.cid().to_bytes());
         }
@@ -530,7 +530,7 @@ async fn check_block_messages(
             .await
             .map_err(|e| TipsetSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
-        msg.signature
+        msg.signature()
             .authenticate_msg(eth_chain_id, msg, &key_addr)
             .map_err(|e| TipsetSyncerError::MessageSignatureInvalid(e.to_string()))?;
     }
@@ -635,12 +635,11 @@ mod tests {
 
         fn signed_message(gas_limit: u64, signature: Signature) -> SignedMessage {
             SignedMessage::new_unchecked(
-                Message {
-                    to: Address::new_id(1),
-                    from: Address::new_id(2),
-                    gas_limit,
-                    ..Default::default()
-                },
+                Message::builder()
+                    .to(Address::new_id(1))
+                    .from(Address::new_id(2))
+                    .gas_limit(gas_limit)
+                    .build(),
                 signature,
             )
         }

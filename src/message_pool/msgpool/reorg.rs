@@ -74,7 +74,7 @@ where
                     }
                 }
                 for msg in msgs {
-                    self.remove_applied_from_pool(&msg.from, msg.sequence, &mut rmsgs, &ts)
+                    self.remove_applied_from_pool(&msg.from(), msg.sequence(), &mut rmsgs, &ts)
                         .await?;
                     if !repub && self.republish.was_republished(&msg.cid()) {
                         repub = true;

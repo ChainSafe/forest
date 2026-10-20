@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::message::MessageReadWrite;
+use crate::message::MessageRead;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
@@ -81,8 +81,8 @@ where
         let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
         for m in bls_msgs
             .iter()
-            .map(|m| m as &dyn MessageReadWrite)
-            .chain(secp_msgs.iter().map(|m| m as &dyn MessageReadWrite))
+            .map(|m| m as &dyn MessageRead)
+            .chain(secp_msgs.iter().map(|m| m as &dyn MessageRead))
         {
             if seen.insert((m.from(), m.sequence())) {
                 limits.push(m.gas_limit());
@@ -122,9 +122,9 @@ where
     // Add all unique messages' gas limit to get the total for the Tipset.
     for b in ts.block_headers() {
         let (bls_msgs, secp_msgs) = crate::chain::block_messages(db, b)?;
-        for m in bls_msgs.iter().chain(secp_msgs.iter().map(|m| &m.message)) {
+        for m in bls_msgs.iter().chain(secp_msgs.iter().map(|m| m.message())) {
             if seen.insert(m.cid()) {
-                total_limit += m.gas_limit;
+                total_limit += m.gas_limit();
             }
         }
     }

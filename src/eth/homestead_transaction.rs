@@ -189,24 +189,24 @@ impl EthLegacyHomesteadTxArgs {
     pub fn get_signed_message(&self, from: Address) -> anyhow::Result<SignedMessage> {
         let message = self.get_unsigned_message(from)?;
         let signature = self.signature()?;
-        Ok(SignedMessage { message, signature })
+        Ok(SignedMessage::new_unchecked(message, signature))
     }
 
     /// Constructs an unsigned message using legacy homestead transaction args
     pub fn get_unsigned_message(&self, from: Address) -> anyhow::Result<Message> {
         let method_info = get_filecoin_method_info(self.to.as_ref(), &self.input)?;
-        Ok(Message {
-            version: 0,
-            from,
-            to: method_info.to,
-            sequence: self.nonce,
-            value: self.value.clone().into(),
-            method_num: method_info.method,
-            params: method_info.params.into(),
-            gas_limit: self.gas_limit,
-            gas_fee_cap: self.gas_price.clone().into(),
-            gas_premium: self.gas_price.clone().into(),
-        })
+        Ok(Message::builder()
+            .version(0)
+            .from(from)
+            .to(method_info.to)
+            .sequence(self.nonce)
+            .value(self.value.clone().into())
+            .method_num(method_info.method)
+            .params(method_info.params.into())
+            .gas_limit(self.gas_limit)
+            .gas_fee_cap(self.gas_price.clone().into())
+            .gas_premium(self.gas_price.clone().into())
+            .build())
     }
 }
 
@@ -214,10 +214,10 @@ impl EthLegacyHomesteadTxArgsBuilder {
     pub fn unsigned_message(&mut self, message: &Message) -> anyhow::Result<&mut Self> {
         let (params, to) = get_eth_params_and_recipient(message)?;
         Ok(self
-            .nonce(message.sequence)
-            .value(message.value.clone())
-            .gas_price(message.gas_fee_cap.clone())
-            .gas_limit(message.gas_limit)
+            .nonce(message.sequence())
+            .value(message.value().atto().clone())
+            .gas_price(message.gas_fee_cap().atto().clone())
+            .gas_limit(message.gas_limit())
             .to(to)
             .input(params))
     }

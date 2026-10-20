@@ -155,7 +155,7 @@ where
             // check the baseFee lower bound -- only republish messages that can be included
             // in the chain within the next 20 blocks.
             for m in chain.msgs.iter() {
-                if m.gas_fee_cap() < base_fee_lower_bound {
+                if *m.gas_fee_cap() < base_fee_lower_bound {
                     let key = chains.get_key_at(i);
                     chains.invalidate(key);
                     continue 'l;

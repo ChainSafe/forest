@@ -346,9 +346,21 @@ impl AddAssign for TokenAmount {
     }
 }
 
+impl AddAssign<&TokenAmount> for TokenAmount {
+    fn add_assign(&mut self, other: &Self) {
+        self.0.add_assign(&other.0)
+    }
+}
+
 impl SubAssign for TokenAmount {
     fn sub_assign(&mut self, other: Self) {
         self.0.sub_assign(other.0)
+    }
+}
+
+impl SubAssign<&TokenAmount> for TokenAmount {
+    fn sub_assign(&mut self, other: &Self) {
+        self.0.sub_assign(&other.0)
     }
 }
 

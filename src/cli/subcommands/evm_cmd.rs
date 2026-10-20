@@ -125,13 +125,12 @@ async fn deploy(
 
     let params = RawBytes::serialize(CreateExternalParams(initcode))
         .context("failed to serialize Create params")?;
-    let msg = Message {
-        to: Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
-        from,
-        method_num: EAMMethod::CreateExternal as u64,
-        params,
-        ..Default::default()
-    };
+    let msg = Message::builder()
+        .to(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR)
+        .from(from)
+        .method_num(EAMMethod::CreateExternal as u64)
+        .params(params)
+        .build();
 
     println!("sending message...");
     let smsg = MpoolPushMessage::call(&client, (msg, None))
@@ -192,14 +191,13 @@ async fn invoke(
     let from = resolve_from(&client, from).await?;
     let params = RawBytes::new(encode_evm_params(&calldata.0)?);
 
-    let msg = Message {
-        to: address,
-        from,
-        value,
-        method_num: EVMMethod::InvokeContract as u64,
-        params,
-        ..Default::default()
-    };
+    let msg = Message::builder()
+        .to(address)
+        .from(from)
+        .value(value)
+        .method_num(EVMMethod::InvokeContract as u64)
+        .params(params)
+        .build();
 
     println!("sending message...");
     let smsg = MpoolPushMessage::call(&client, (msg, None))
