@@ -7,7 +7,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
 use crate::daemon::db_util::{
-    BackfillGuard, BackfillOptions, RangeSpec, path_as_url, run_backfill,
+    BackfillGuard, BackfillOptions, RangeSpec, SnapshotImportPath, run_backfill,
 };
 use crate::db::EthMappingsStore;
 use crate::db::car::AnyCar;
@@ -64,7 +64,9 @@ struct ExtendedSnapshotFile {
 
 /// Fetches the `.metadata.json` published next to `snapshot_url` and returns its extended
 /// snapshots, if any.
-async fn fetch_extended_snapshots(snapshot_url: &Url) -> anyhow::Result<Option<ExtendedSnapshots>> {
+async fn fetch_extended_snapshots_info(
+    snapshot_url: &Url,
+) -> anyhow::Result<Option<ExtendedSnapshots>> {
     let metadata_url = Url::parse(&format!("{snapshot_url}.metadata.json"))?;
     let response = crate::utils::net::global_http_client()
         .get(metadata_url.clone())
@@ -211,16 +213,16 @@ pub async fn maybe_import_extended_snapshots<DB>(
     db: &Arc<DB>,
     state_manager: &StateManager,
     head: &Tipset,
-    snapshot_path: &Path,
+    snapshot_path: &SnapshotImportPath,
     temp_dir: &Path,
 ) where
     DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
 {
     // Extended snapshots are only published next to remote snapshots.
-    let Some(snapshot_url) = path_as_url(snapshot_path) else {
+    let SnapshotImportPath::Url(snapshot_url) = snapshot_path else {
         return;
     };
-    let extended = match fetch_extended_snapshots(&snapshot_url).await {
+    let extended = match fetch_extended_snapshots_info(snapshot_url).await {
         Ok(Some(extended)) => extended,
         Ok(None) => {
             info!("No extended snapshots advertised for {snapshot_url}");
@@ -234,7 +236,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
 
     if let Some(file) = &extended.receipts_events {
         let result = async {
-            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
             import_receipts_events_snapshot(db, &path).await
         }
         .await;
@@ -257,7 +259,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
 
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
-            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
             let db = db.clone();
             tokio::task::spawn_blocking(move || import_tipset_lookup_snapshot(&*db, &path, || {}))
                 .await?
