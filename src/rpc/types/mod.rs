@@ -19,6 +19,8 @@ mod tests;
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::lotus_json::{LotusJson, lotus_json_with_self};
+use crate::shim::fvm_shared_latest::piece::PaddedPieceSize;
+use crate::shim::state_tree::ActorID;
 use crate::shim::{
     actors::{
         market::{AllocationID, DealProposal, DealState},
@@ -37,8 +39,6 @@ use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared4::ActorID;
-use fvm_shared4::piece::PaddedPieceSize;
 use ipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;

@@ -107,7 +107,6 @@ pub fn valid_for_block_inclusion(
 mod tests {
     mod builder_test;
 
-    use itertools::Itertools;
     use rstest::rstest;
 
     use super::*;
@@ -191,40 +190,26 @@ mod tests {
         assert_eq!(signed.vm_message(), &message);
     }
 
-    #[test]
-    fn test_effective_gas_premium() {
-        // Test cases from the FIP-0115
-        // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#premium>>
-        let test_cases = vec![
-            // (base_fee, gas_fee_cap, gas_premium, expected)
-            (8, 8, 8, 0),
-            (8, 16, 7, 7),
-            (8, 19, 10, 10),
-            (123456, 123455, 123455, 0),
-            (123456, 1234567, 1111112, 1111111),
-        ]
-        .into_iter()
-        .map(|(base_fee, gas_fee_cap, gas_premium, expected)| {
-            (
-                TokenAmount::from_atto(base_fee),
-                TokenAmount::from_atto(gas_fee_cap),
-                TokenAmount::from_atto(gas_premium),
-                TokenAmount::from_atto(expected),
-            )
-        })
-        .collect_vec();
+    // Test cases from the FIP-0115
+    // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#premium>>
+    #[rstest]
+    #[case::fee_cap_equals_base_fee(8, 8, 8, 0)]
+    #[case::premium_below_headroom(8, 16, 7, 7)]
+    #[case::premium_well_below_headroom(8, 19, 10, 10)]
+    #[case::fee_cap_below_base_fee(123456, 123455, 123455, 0)]
+    #[case::premium_capped_by_headroom(123456, 1234567, 1111112, 1111111)]
+    fn test_effective_gas_premium(
+        #[case] base_fee: u64,
+        #[case] gas_fee_cap: u64,
+        #[case] gas_premium: u64,
+        #[case] expected: u64,
+    ) {
+        let msg = Message::builder()
+            .gas_fee_cap(TokenAmount::from_atto(gas_fee_cap))
+            .gas_premium(TokenAmount::from_atto(gas_premium))
+            .build();
 
-        for (base_fee, gas_fee_cap, gas_premium, expected) in test_cases.into_iter() {
-            let msg = Message::builder()
-                .gas_fee_cap(gas_fee_cap.clone())
-                .gas_premium(gas_premium.clone())
-                .build();
-
-            let result = msg.effective_gas_premium(&base_fee);
-            assert_eq!(
-                result, expected,
-                "base_fee={base_fee} gas_fee_cap={gas_fee_cap} gas_premium={gas_premium} expected={expected} got={result}"
-            );
-        }
+        let result = msg.effective_gas_premium(&TokenAmount::from_atto(base_fee));
+        assert_eq!(result, TokenAmount::from_atto(expected));
     }
 }

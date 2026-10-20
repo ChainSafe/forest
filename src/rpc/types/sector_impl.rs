@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actor_miner_state::v13::SectorOnChainInfoFlags;
+use crate::shim::actors::miner::SectorOnChainInfoFlags;
 
 use super::*;
 

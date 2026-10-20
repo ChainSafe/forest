@@ -36,7 +36,7 @@ impl HasLotusJson for ExtendedSectorInfo {
                 }
             }),
             Self {
-                proof: fvm_shared3::sector::RegisteredSealProof::StackedDRG2KiBV1.into(),
+                proof: crate::shim::sector::RegisteredSealProofV3::StackedDRG2KiBV1.into(),
                 sector_number: 0,
                 sector_key: None,
                 sealed_cid: ::cid::Cid::default(),

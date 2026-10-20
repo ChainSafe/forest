@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::shim::sector::RegisteredSealProof;
-use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
+use crate::shim::sector::RegisteredSealProofV4;
 
 impl HasLotusJson for RegisteredSealProof {
     type LotusJson = i64;

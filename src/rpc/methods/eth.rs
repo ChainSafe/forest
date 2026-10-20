@@ -56,15 +56,13 @@ use crate::shim::actors::{eam, is_evm_actor, system};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::Signature;
 use crate::shim::econ::{BLOCK_GAS_LIMIT, TokenAmount};
-use crate::shim::executor::Receipt;
+use crate::shim::executor::{ApplyRet, Receipt};
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
+use crate::shim::fvm_shared_latest::error::ExitCode;
 use crate::shim::gas::GasOutputs;
 use crate::shim::message::Message;
-use crate::shim::{
-    clock::ChainEpoch,
-    state_tree::{ActorState, StateTree},
-};
+use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_manager::{
     Error as StateManagerError, ExecutedMessage, ExecutedTipset, SenderValidation, StateManager,
     TipsetState, VMFlush,
@@ -81,7 +79,7 @@ use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW, RawBytes};
 use get_size2::GetSize;
 use ipld_core::ipld::Ipld;
 use nonzero_ext::nonzero;
-use num::BigInt;
+use num::{BigInt, Zero};
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -1444,23 +1442,22 @@ pub async fn eth_logs_for_block_and_transaction(
 }
 
 /// Collects all Ethereum logs produced by a tipset's already-executed messages, in tipset order.
-async fn collect_block_logs(
+fn collect_block_logs(
     ctx: &Ctx,
     tipset: &Tipset,
-    executed_messages: &[ExecutedMessage],
+    executed_tipset: &ExecutedTipset,
     revert_status: EventRevertStatus,
 ) -> anyhow::Result<Vec<EthLog>> {
     let mut events = vec![];
     EthEventHandler::collect_events_from_messages(
         &ctx.state_manager,
         tipset,
-        executed_messages,
+        executed_tipset,
         None::<&ParsedFilter>,
         SkipEvent::OnUnresolvedAddress,
         revert_status,
         &mut events,
-    )
-    .await?;
+    )?;
     eth_filter_logs_from_events(ctx, &events)
 }
 
@@ -1485,7 +1482,7 @@ pub(in crate::rpc) async fn eth_logs_for_head_change(
         .state_manager
         .load_executed_tipset_with_receipt(&msg_ts, receipt_ts)
         .await?;
-    collect_block_logs(ctx, &msg_ts, &executed_ts.executed_messages, revert_status).await
+    collect_block_logs(ctx, &msg_ts, &executed_ts, revert_status)
 }
 
 fn get_signed_message(ctx: &Ctx, message_cid: Cid) -> Result<SignedMessage> {
@@ -1576,17 +1573,16 @@ async fn get_block_receipts(
     let ts_key = ts_ref.key();
 
     // Execute the tipset to get the messages and receipts
-    let ExecutedTipset {
-        state_root,
-        executed_messages,
-        ..
-    } = ctx
+    let executed_tipset = ctx
         .state_manager
         .load_executed_tipset_for_rpc(&ts_ref)
         .await?;
+    let executed_messages = &executed_tipset.executed_messages;
 
     // Load the state tree
-    let state_tree = ctx.state_manager.get_state_tree(&state_root)?;
+    let state_tree = ctx
+        .state_manager
+        .get_state_tree(&executed_tipset.state_root)?;
 
     // Collect the whole tipset's logs in a single pass and scatter them back to their messages.
     let heaviest_epoch = ctx.chain_store().heaviest_tipset().epoch();
@@ -1599,9 +1595,7 @@ async fn get_block_receipts(
     }
 
     let mut logs_by_msg: Vec<Vec<EthLog>> = vec![Vec::new(); executed_messages.len()];
-    for log in
-        collect_block_logs(ctx, &ts_ref, &executed_messages, EventRevertStatus::Applied).await?
-    {
+    for log in collect_block_logs(ctx, &ts_ref, &executed_tipset, EventRevertStatus::Applied)? {
         // `transaction_index` is the message's index in `executed_messages` (this loop's slice), always a valid bucket.
         if let Some(bucket) = logs_by_msg.get_mut(log.transaction_index.0 as usize) {
             bucket.push(log);
@@ -1629,22 +1623,6 @@ async fn get_block_receipts(
     Ok(eth_receipts)
 }
 
-// Reject null-round `eth_getBlockReceipts*` by default (matches lotus#13694); set this flag for
-// the legacy previous-tipset behavior. See https://github.com/ChainSafe/forest/issues/7270.
-crate::def_is_env_truthy!(
-    legacy_null_round_block_receipts,
-    "FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND"
-);
-
-/// `Fail` (default) or legacy `TakeOlder` for `eth_getBlockReceipts*` on a null round.
-fn block_receipts_null_round() -> ResolveNullTipset {
-    if legacy_null_round_block_receipts() {
-        ResolveNullTipset::TakeOlder
-    } else {
-        ResolveNullTipset::Fail
-    }
-}
-
 pub enum EthGetBlockReceipts {}
 impl RpcMethod<1> for EthGetBlockReceipts {
     const NAME: &'static str = "Filecoin.EthGetBlockReceipts";
@@ -1665,7 +1643,7 @@ impl RpcMethod<1> for EthGetBlockReceipts {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, block_receipts_null_round())
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         get_block_receipts(&ctx, ts, None)
             .await
@@ -1693,7 +1671,7 @@ impl RpcMethod<2> for EthGetBlockReceiptsLimited {
     ) -> Result<Self::Ok, ServerError> {
         let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
         let ts = resolver
-            .tipset_by_block_number_or_hash(block_param, block_receipts_null_round())
+            .tipset_by_block_number_or_hash(block_param, ResolveNullTipset::Fail)
             .await?;
         get_block_receipts(&ctx, ts, Some(limit))
             .await
@@ -1885,6 +1863,9 @@ impl RpcMethod<2> for EthEstimateGas {
         (tx, block_param): Self::Params,
         ext: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let price = tx.max_gas_price()?;
+        let caller_cap = tx.gas_cap().unwrap_or(BLOCK_GAS_LIMIT);
+        let msg = Message::try_from(tx)?;
         let tipset = if let Some(block_param) = block_param {
             let resolver = TipsetResolver::new(&ctx, Self::api_path(ext)?);
             resolver
@@ -1893,114 +1874,144 @@ impl RpcMethod<2> for EthEstimateGas {
         } else {
             ctx.chain_store().heaviest_tipset()
         };
-        eth_estimate_gas(&ctx, tx, tipset).await
+        eth_estimate_gas(&ctx, msg, price, caller_cap, tipset).await
     }
 }
 
+/// Estimates the gas limit `msg` needs on `tipset`, never above `caller_cap` or, with a `price`,
+/// the gas the sender can pay for.
+///
+/// `msg`'s own gas limit is not used: the measurement runs at the block gas limit.
+///
+/// Mirrors Lotus's `EthEstimateGas`:
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.0/node/impl/eth/gas.go#L193-L307>
 async fn eth_estimate_gas(
     ctx: &Ctx,
-    tx: EthCallMessage,
+    msg: Message,
+    price: Option<TokenAmount>,
+    caller_cap: u64,
     tipset: Tipset,
 ) -> Result<EthUint64, ServerError> {
-    let msg = Message::try_from(tx)?;
-    // Set the gas limit to the zero sentinel value, which makes
-    // gas estimation actually run.
-    let msg = msg.into_builder().gas_limit(0).build();
-
-    if sender_is_evm_contract(
-        ctx.state_manager
-            .get_actor(&msg.from(), *tipset.parent_state()),
-    ) {
-        return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
-    }
-
-    match gas::estimate_message_gas(ctx, msg.clone(), None, tipset.key().clone().into()).await {
-        Err(err) => {
-            if matches!(
-                err.downcast_ref(),
-                Some(StateManagerError::SenderValidationFailed(_))
-            ) {
-                return eth_estimate_gas_skip_sender(ctx, msg, &tipset).await;
-            }
-
-            // Return reverts as-is to preserve the JSON-RPC error codec.
-            if matches!(
-                err.downcast_ref(),
-                Some(EthErrors::ExecutionReverted { .. })
-            ) {
-                return Err(err.into());
-            }
-            Err(err.context("failed to estimate gas").into())
+    // The sender as it is after `tipset`'s messages, so one funded in that block counts.
+    let TipsetState { state_root, .. } = ctx.state_manager.load_tipset_state(&tipset).await?;
+    let sender = ctx.state_manager.get_actor(&msg.from(), state_root)?;
+    // An EVM contract fails the FVM's sender check, so it is estimated on the skip-sender path from
+    // the start; any other sender the check rejects, such as one that does not exist, is retried there.
+    let sender_validation = match &sender {
+        Some(actor) if is_evm_actor(&actor.code) => SenderValidation::Skip,
+        _ => SenderValidation::Enforce,
+    };
+    let gas_cap = match price {
+        Some(price) => {
+            let balance = sender
+                .map(|actor| TokenAmount::from(&actor.balance))
+                .unwrap_or_default();
+            caller_cap.min(gas_allowance(&balance, msg.value(), &price)?)
         }
-        Ok(gassed_msg) => {
-            let expected_gas =
-                eth_gas_search(ctx, gassed_msg, &tipset, SenderValidation::Enforce).await?;
-            Ok(expected_gas.into())
-        }
-    }
-}
-
-fn sender_is_evm_contract(actor: anyhow::Result<Option<ActorState>>) -> bool {
-    matches!(actor, Ok(Some(actor)) if is_evm_actor(&actor.code))
-}
-
-/// Estimates gas for a sender that is a contract or doesn't exist on chain.
-async fn eth_estimate_gas_skip_sender(
-    ctx: &Ctx,
-    msg: Message,
-    tipset: &Tipset,
-) -> Result<EthUint64, ServerError> {
-    let gas_limit = match gas::GasEstimateGasLimit::estimate_gas_limit(
-        ctx,
-        msg.clone(),
-        tipset,
-        SenderValidation::Skip,
-    )
-    .await
-    {
-        Ok(gas_limit) => gas_limit,
-        Err(estimate_err) => {
-            return Err(recover_estimate_gas_error(ctx, msg, tipset, estimate_err).await);
-        }
+        None => caller_cap,
     };
 
-    let gas_limit = (gas_limit as f64 * ctx.mpool.gas_limit_overestimation()) as u64;
+    let measure = |sender_validation| {
+        gas::GasEstimateGasLimit::estimate_gas_limit(ctx, msg.clone(), &tipset, sender_validation)
+    };
+    let (sender_validation, measured) = match measure(sender_validation).await {
+        Err(err) if is_sender_validation_failed(&err) => (
+            SenderValidation::Skip,
+            measure(SenderValidation::Skip).await,
+        ),
+        result => (sender_validation, result),
+    };
+    let gas_used = measured.map_err(|err| estimate_gas_error(err, gas_cap))?;
+
+    let gas_limit = (gas_used as f64 * ctx.mpool.gas_limit_overestimation()) as u64;
     let msg = msg
         .into_builder()
         .gas_limit(gas_limit.min(BLOCK_GAS_LIMIT))
         .build();
-
-    let expected_gas = eth_gas_search(ctx, msg, tipset, SenderValidation::Skip).await?;
-    Ok(expected_gas.into())
+    let gas = eth_gas_search(ctx, msg, &tipset, sender_validation, gas_cap).await?;
+    Ok(gas.into())
 }
 
-/// Re-execute to recover an `ExecutionReverted` from a failed gas estimate.
-async fn recover_estimate_gas_error(
-    ctx: &Ctx,
-    msg: Message,
-    tipset: &Tipset,
-    estimate_err: anyhow::Error,
-) -> ServerError {
-    let msg = msg.into_builder().gas_limit(BLOCK_GAS_LIMIT).build();
-    if let Err(e) = apply_message(ctx, Some(tipset), &msg).await
-        && matches!(e.downcast_ref(), Some(EthErrors::ExecutionReverted { .. }))
-    {
-        return e.into();
+/// Maps an estimate that failed at the block gas limit to the error returned to the caller.
+///
+/// Out of gas there cannot fit `gas_cap` either, so it is reported against `gas_cap`; typed errors
+/// keep their JSON-RPC codes, any other error keeps its cause.
+fn estimate_gas_error(err: anyhow::Error, gas_cap: u64) -> ServerError {
+    match err.downcast_ref::<EthErrors>() {
+        Some(EthErrors::OutOfGas) => EthErrors::InsufficientGasLimit { gas_limit: gas_cap }.into(),
+        Some(_) => err.into(),
+        None => ServerError::internal_error(format!("failed to estimate gas: {err:#}"), None),
     }
-    estimate_err.context("failed to estimate gas").into()
+}
+
+/// Returns the gas the sender can pay for at `price` after sending `value`, up to the block gas limit.
+///
+/// `price` must be non-zero.
+///
+/// # Errors
+///
+/// [`EthErrors::InsufficientFunds`] when `balance` is below `value`;
+/// [`EthErrors::GasRequiredExceedsAllowance`] when the sender affords no gas at all.
+fn gas_allowance(
+    balance: &TokenAmount,
+    value: &TokenAmount,
+    price: &TokenAmount,
+) -> Result<u64, EthErrors> {
+    debug_assert!(!price.is_zero(), "gas price must be positive");
+    if balance < value {
+        return Err(EthErrors::InsufficientFunds {
+            balance: balance.clone(),
+            value: value.clone(),
+        });
+    }
+    let gas = (balance - value).atto() / price.atto();
+    let allowance = u64::try_from(gas).unwrap_or(u64::MAX).min(BLOCK_GAS_LIMIT);
+    if allowance == 0 {
+        return Err(EthErrors::GasRequiredExceedsAllowance { gas_limit: 0 });
+    }
+    Ok(allowance)
+}
+
+fn is_sender_validation_failed(err: &anyhow::Error) -> bool {
+    matches!(
+        err.downcast_ref(),
+        Some(StateManagerError::SenderValidationFailed(_))
+    )
 }
 
 fn needs_skip_sender(result: &Result<(ApiInvocResult, Option<Cid>), Error>) -> bool {
     match result {
-        Err(e) => matches!(
-            e.downcast_ref(),
-            Some(StateManagerError::SenderValidationFailed(_))
-        ),
+        Err(e) => is_sender_validation_failed(e),
         Ok((invoc_res, _)) => invoc_res
             .msg_rct
             .as_ref()
-            .is_some_and(|rct| rct.exit_code() == fvm_shared4::error::ExitCode::SYS_SENDER_INVALID),
+            .is_some_and(|rct| rct.exit_code() == ExitCode::SYS_SENDER_INVALID),
     }
+}
+
+/// Applies `msg` with sender validation, then again without it if the sender was rejected.
+/// A contract or missing `from` still runs, same as `eth_call`
+/// ([lotus#13724](https://github.com/filecoin-project/lotus/pull/13724)).
+async fn apply_on_state_accepting_any_sender(
+    ctx: &Ctx,
+    tipset: Option<&Tipset>,
+    msg: &Message,
+    vm_flush: VMFlush,
+    vm_trace: VMTrace,
+) -> Result<(ApiInvocResult, Option<Cid>), Error> {
+    let result = ctx
+        .state_manager
+        .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Enforce)
+        .await;
+
+    if !needs_skip_sender(&result) {
+        return result.context("failed to apply on state with gas");
+    }
+
+    ctx.state_manager
+        .apply_on_state_with_gas(tipset, msg, vm_flush, vm_trace, SenderValidation::Skip)
+        .await
+        .context("failed to apply on state with gas (skipping sender validation)")
 }
 
 async fn apply_message(
@@ -2017,31 +2028,9 @@ async fn apply_message(
         return Err(crate::state_manager::Error::ExpensiveFork { epoch: ts.epoch() }.into());
     }
 
-    let result = ctx
-        .state_manager
-        .apply_on_state_with_gas(
-            tipset,
-            msg,
-            VMFlush::Skip,
-            VMTrace::NotTraced,
-            SenderValidation::Enforce,
-        )
-        .await;
-
-    let (invoc_res, _) = if needs_skip_sender(&result) {
-        ctx.state_manager
-            .apply_on_state_with_gas(
-                tipset,
-                msg,
-                VMFlush::Skip,
-                VMTrace::NotTraced,
-                SenderValidation::Skip,
-            )
-            .await
-            .context("failed to apply on state with gas (skipping sender validation)")?
-    } else {
-        result.context("failed to apply on state with gas")?
-    };
+    let (invoc_res, _) =
+        apply_on_state_accepting_any_sender(ctx, tipset, msg, VMFlush::Skip, VMTrace::NotTraced)
+            .await?;
 
     // Extract receipt or return early if none
     match &invoc_res.msg_rct {
@@ -2061,111 +2050,121 @@ async fn apply_message(
     Ok(invoc_res)
 }
 
-pub async fn eth_gas_search(
-    data: &Ctx,
+/// Maps a message that failed within `gas_cap` to the error returned to the caller.
+///
+/// Execution failures are blamed on `gas_cap`, since the measurement already succeeded at the
+/// block gas limit.
+fn gas_cap_error(apply_ret: &ApplyRet, gas_cap: u64) -> EthErrors {
+    let exit_code = apply_ret.exit_code();
+    // Preflight rejects without executing anything, so it charges no gas.
+    let preflight = apply_ret.gas_used() == 0;
+    if preflight && exit_code == ExitCode::SYS_OUT_OF_GAS {
+        EthErrors::GasRequiredExceedsAllowance { gas_limit: gas_cap }
+    } else if preflight {
+        EthErrors::execution_reverted_from_apply_ret(apply_ret)
+    } else {
+        EthErrors::InsufficientGasLimit { gas_limit: gas_cap }
+    }
+}
+
+/// Searches for the gas limit `msg` needs, never exceeding `gas_cap`.
+async fn eth_gas_search(
+    ctx: &Ctx,
     msg: Message,
-    curr_ts: &Tipset,
+    tipset: &Tipset,
     sender_validation: SenderValidation,
+    gas_cap: u64,
 ) -> anyhow::Result<u64> {
-    // Probe the message as the caller specified it: the question is whether *its* limit
-    // suffices, which the block maximum would always answer yes to.
-    let (apply_ret, prior_messages, ts, from) = gas::GasEstimateGasLimit::probe_as_specified(
-        data,
+    let gas_limit = msg.gas_limit().min(gas_cap);
+    let msg = gas::without_fees(msg, gas_limit);
+    // Probe the message at its own limit: the question is whether *that* limit suffices, which the
+    // block maximum would always answer yes to.
+    let (apply_ret, prior_messages, head, from) = gas::GasEstimateGasLimit::probe_as_specified(
+        ctx,
         msg.clone(),
-        curr_ts,
+        tipset,
         VMTrace::NotTraced,
         sender_validation,
     )
     .await?;
     if apply_ret.exit_code().is_success() {
-        return Ok(msg.gas_limit());
+        return Ok(gas_limit);
+    }
+    let err = gas_cap_error(&apply_ret, gas_cap);
+    // At the cap any failure is final; below it, only a preflight rejection unrelated to gas is.
+    if gas_limit == gas_cap || matches!(err, EthErrors::ExecutionReverted { .. }) {
+        return Err(err.into());
     }
 
-    // Only the trace tells "needs a higher limit" from "fails at any limit", and it is worth one
-    // re-execution here against the ~30 the search below would spend. The statement keeps the
-    // trace, one event per gas charge, from outliving the check.
-    let out_of_gas = data
-        .state_manager
-        .call_with_gas(
-            msg.clone(),
-            from.protocol(),
-            prior_messages.shallow_clone(),
-            Some(ts.shallow_clone()),
-            VMFlush::Skip,
-            VMTrace::Traced,
-            sender_validation,
-        )
-        .await?
-        .0
-        .trace_has_call_return_exit_code(fvm_shared4::error::ExitCode::SYS_OUT_OF_GAS);
-    if !out_of_gas {
-        // Match Lotus: a code-3 `ExecutionReverted` with the decoded revert data, so eth tooling
-        // gets the code and can ABI-decode the reason.
-        let vm_error = apply_ret.failure_info().unwrap_or_default();
-        return Err(EthErrors::execution_reverted_from_result(
-            apply_ret.exit_code(),
-            apply_ret.return_data(),
-            &vm_error,
-        )
-        .with_message_prefix("gas search failed")
-        .into());
-    }
-
-    let ret = gas_search(
-        data,
-        &msg,
-        from.protocol(),
-        prior_messages,
-        ts,
-        sender_validation,
+    let apply = |limit: u64| {
+        let msg = msg.clone().into_builder().gas_limit(limit).build();
+        let (prior_messages, head) = (prior_messages.shallow_clone(), head.shallow_clone());
+        async move {
+            let (apply_ret, ..) = ctx
+                .state_manager
+                .call_with_gas(
+                    msg,
+                    from.protocol(),
+                    prior_messages,
+                    Some(head),
+                    VMFlush::Skip,
+                    VMTrace::NotTraced,
+                    sender_validation,
+                )
+                .await?;
+            anyhow::Ok(apply_ret)
+        }
+    };
+    gas_search(
+        gas_limit,
+        gas_cap,
+        ctx.mpool.gas_limit_overestimation(),
+        apply,
     )
-    .await?;
-    Ok((ret as f64 * data.mpool.gas_limit_overestimation()) as u64)
+    .await
 }
 
-/// `gas_search` does an exponential search to find a gas value to execute the
-/// message with. It first finds a high gas limit that allows the message to execute
-/// by doubling the previous gas limit until it succeeds then does a binary
-/// search till it gets within a range of 1%
-async fn gas_search(
-    data: &Ctx,
-    msg: &Message,
-    from_protocol: Protocol,
-    prior_messages: Arc<Vec<ChainMessage>>,
-    ts: Tipset,
-    sender_validation: SenderValidation,
-) -> anyhow::Result<u64> {
-    // `max(1)` keeps the doubling below able to make progress.
-    let mut high = msg.gas_limit().max(1);
-    let mut low = high;
+/// Finds the gas limit `apply` needs: the lowest limit, within 1%, at which it succeeds, plus the
+/// `overestimation` margin when `apply` still succeeds with it; never above `gas_cap`.
+///
+/// The gas a run *uses* is not a limit it can run with: a nested `CALL` forwards at most 63/64 of
+/// the remaining gas, and a contract can `revert` on `gasleft()`, so only runs at other limits
+/// tell which limits work. `start` is a limit the caller already saw fail.
+///
+/// # Errors
+///
+/// [`EthErrors`] from [`gas_cap_error`] when the message does not fit in `gas_cap`.
+async fn gas_search<F>(
+    start: u64,
+    gas_cap: u64,
+    overestimation: f64,
+    apply: impl Fn(u64) -> F,
+) -> anyhow::Result<u64>
+where
+    F: Future<Output = anyhow::Result<ApplyRet>>,
+{
+    let can_succeed = async |limit: u64| anyhow::Ok(apply(limit).await?.exit_code().is_success());
+    let mut low = start;
+    // A floor of 1 keeps the doubling below able to make progress.
+    let mut high = start.saturating_mul(2).max(1).min(gas_cap);
 
-    let can_succeed = async |limit: u64| {
-        let msg = msg.clone();
-        let msg = msg.into_builder().gas_limit(limit).build();
-        let (apply_ret, ..) = data
-            .state_manager
-            .call_with_gas(
-                msg,
-                from_protocol,
-                prior_messages.shallow_clone(),
-                Some(ts.shallow_clone()),
-                VMFlush::Skip,
-                VMTrace::NotTraced,
-                sender_validation,
-            )
-            .await?;
-        anyhow::Ok(apply_ret.exit_code().is_success())
-    };
-
-    while high < BLOCK_GAS_LIMIT {
+    while high < gas_cap {
         if can_succeed(high).await? {
             break;
         }
         low = high;
-        high = high.saturating_mul(2).min(BLOCK_GAS_LIMIT);
+        high = high.saturating_mul(2).min(gas_cap);
+    }
+    // The doubling stops at the cap without trying it.
+    if high == gas_cap {
+        let apply_ret = apply(gas_cap).await?;
+        if !apply_ret.exit_code().is_success() {
+            return Err(gas_cap_error(&apply_ret, gas_cap).into());
+        }
     }
 
-    let mut check_threshold = high / 100;
+    // At least 1, or bisection below 100 gas never terminates once `high` and `low` are adjacent.
+    let mut check_threshold = (high / 100).max(1);
     while (high - low) > check_threshold {
         let median = (high + low) / 2;
         if can_succeed(median).await? {
@@ -2173,10 +2172,16 @@ async fn gas_search(
         } else {
             low = median;
         }
-        check_threshold = median / 100;
+        check_threshold = (median / 100).max(1);
     }
 
-    Ok(high)
+    // A contract that checks `gasleft()` can fail with more gas, so keep the tested limit if the
+    // margin breaks the call.
+    let with_margin = ((high as f64 * overestimation) as u64).min(gas_cap);
+    if with_margin == high || !can_succeed(with_margin).await? {
+        return Ok(high);
+    }
+    Ok(with_margin)
 }
 
 pub enum EthFeeHistory {}
@@ -2644,7 +2649,8 @@ async fn get_eth_transaction_by_hash(
     limit: Option<ChainEpoch>,
     cancellation_token: &CancellationToken,
 ) -> Result<Option<ApiEthTx>, ServerError> {
-    let message_cid = ctx.chain_store().get_mapping(tx_hash)?.unwrap_or_else(|| {
+    let mapping = ctx.chain_store().get_mapping(tx_hash)?;
+    let message_cid = mapping.unwrap_or_else(|| {
         tracing::debug!(
             "could not find transaction hash {} in Ethereum mapping",
             tx_hash
@@ -2676,21 +2682,44 @@ async fn get_eth_transaction_by_hash(
     // If not found, try to get it from the mempool
     let (pending, _) = ctx.mpool.pending();
 
-    if let Some(smsg) = pending.iter().find(|item| item.cid() == message_cid) {
-        // We only return pending eth-account messages because we can't guarantee
-        // that the from/to addresses of other messages are conversable to 0x-style
-        // addresses. So we just ignore them.
-        //
-        // This should be "fine" as anyone using an "Ethereum-centric" block
-        // explorer shouldn't care about seeing pending messages from native
-        // accounts.
-        if let Ok(eth_tx) = EthTx::from_signed_message(ctx.chain_config().eth_chain_id, smsg) {
-            return Ok(Some(eth_tx.into()));
-        }
-    }
+    // We only return pending eth-account messages because we can't guarantee
+    // that the from/to addresses of other messages are conversable to 0x-style
+    // addresses. So we just ignore them.
+    //
+    // This should be "fine" as anyone using an "Ethereum-centric" block
+    // explorer shouldn't care about seeing pending messages from native
+    // accounts.
+    let eth_chain_id = ctx.chain_config().eth_chain_id;
+    let pending_tx = match mapping {
+        Some(cid) => pending
+            .iter()
+            .find(|smsg| smsg.cid() == cid)
+            .and_then(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok()),
+        // Without a mapping `tx_hash.to_cid()` never matches a delegated message's CID, so those
+        // are found by their Ethereum hash.
+        None => pending
+            .iter()
+            .filter_map(|smsg| eth_tx_from_delegated_message(smsg, eth_chain_id).ok())
+            .find(|tx| tx.hash == *tx_hash),
+    };
 
     // Ethereum clients expect an empty response when the message was not found
-    Ok(None)
+    Ok(pending_tx)
+}
+
+/// The API transaction of a delegated message, with its sender and hash; fails when it is not an
+/// Ethereum transaction.
+fn eth_tx_from_delegated_message(
+    smsg: &SignedMessage,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<ApiEthTx> {
+    let (from, tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id)?;
+    let hash = tx.eth_hash()?.into();
+    Ok(ApiEthTx {
+        from,
+        hash,
+        ..tx.into()
+    })
 }
 
 pub enum EthGetTransactionHashByCid {}
@@ -3349,22 +3378,30 @@ pub(crate) fn eth_tx_hash_from_signed_message(
     }
 }
 
+/// Returns the Ethereum transaction hash of the message at `message_cid`.
+///
+/// # Errors
+/// Fails when the message can be read neither as a signed nor as an unsigned message. The error
+/// names the CID and carries both read failures.
 fn eth_tx_hash_from_message_cid<DB: Blockstore>(
     blockstore: &DB,
     message_cid: &Cid,
     eth_chain_id: EthChainIdType,
-) -> anyhow::Result<Option<EthHash>> {
-    if let Ok(smsg) = crate::chain::message_from_cid(blockstore, message_cid) {
-        // This is an Eth Tx, Secp message, Or BLS message in the mpool
-        return Ok(Some(eth_tx_hash_from_signed_message(&smsg, eth_chain_id)?));
-    }
-    let result: Result<Message, _> = crate::chain::message_from_cid(blockstore, message_cid);
-    if result.is_ok() {
+) -> anyhow::Result<EthHash> {
+    let signed_err =
+        match crate::chain::message_from_cid::<_, SignedMessage>(blockstore, message_cid) {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            Ok(smsg) => return eth_tx_hash_from_signed_message(&smsg, eth_chain_id),
+            Err(e) => e,
+        };
+    // An unsigned/BLS message fails signed decoding, so always try the fallback.
+    match crate::chain::message_from_cid::<_, Message>(blockstore, message_cid) {
         // This is a BLS message
-        let hash: EthHash = (*message_cid).into();
-        return Ok(Some(hash));
+        Ok(_) => Ok((*message_cid).into()),
+        Err(unsigned_err) => Err(anyhow!(
+            "failed to load event message {message_cid}: {signed_err}; {unsigned_err}"
+        )),
     }
-    Ok(None)
 }
 
 fn eth_filter_logs_from_tipsets(events: &[CollectedEvent]) -> anyhow::Result<Vec<EthHash>> {
@@ -3396,16 +3433,9 @@ fn eth_filter_logs_from_events(
         let transaction_hash = if let Some(h) = tx_hash_by_msg.get(&event.msg_cid) {
             *h
         } else {
-            match eth_tx_hash_from_message_cid(ctx.db(), &event.msg_cid, chain_id)? {
-                Some(h) => {
-                    tx_hash_by_msg.insert(event.msg_cid, h);
-                    h
-                }
-                None => {
-                    tracing::debug!("Ignoring event");
-                    continue;
-                }
-            }
+            let h = eth_tx_hash_from_message_cid(ctx.db(), &event.msg_cid, chain_id)?;
+            tx_hash_by_msg.insert(event.msg_cid, h);
+            h
         };
 
         let block_hash = if let Some(h) = block_hash_by_tipset.get(&event.tipset_key) {
@@ -3920,17 +3950,14 @@ impl RpcMethod<3> for EthTraceCall {
             .context("failed to get tipset state")?;
         let pre_state = StateTree::new_from_root(ctx.db(), &pre_state_root)?;
 
-        let (invoke_result, post_state_root) = ctx
-            .state_manager
-            .apply_on_state_with_gas(
-                Some(&ts),
-                &msg,
-                VMFlush::Flush,
-                VMTrace::Traced,
-                SenderValidation::Enforce,
-            )
-            .await
-            .context("failed to apply message")?;
+        let (invoke_result, post_state_root) = apply_on_state_accepting_any_sender(
+            &ctx,
+            Some(&ts),
+            &msg,
+            VMFlush::Flush,
+            VMTrace::Traced,
+        )
+        .await?;
         let post_state_root =
             post_state_root.context("post-execution state root required for trace call")?;
         let post_state = StateTree::new_from_root(ctx.db(), &post_state_root)?;
@@ -4233,12 +4260,14 @@ mod test {
     use super::*;
     use crate::rpc::eth::EventEntry;
     use crate::rpc::state::{ExecutionTrace, MessageTrace, ReturnTrace};
+    use crate::shim::actors::evm::EVM_CONTRACT_REVERTED;
+    use crate::shim::fvm_shared_latest::event::Flags;
     use crate::shim::{econ::TokenAmount, error::ExitCode};
     use crate::{
         db::MemoryDB,
         test_utils::{construct_bls_messages, construct_eth_messages, construct_messages},
     };
-    use fvm_shared4::event::Flags;
+    use jsonrpsee::types::error::INTERNAL_ERROR_CODE;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use rstest::rstest;
@@ -4259,7 +4288,7 @@ mod test {
         let return_data =
             RawBytes::new(fvm_ipld_encoding::to_vec(&RawBytes::new(payload.clone())).unwrap());
         let receipt = Receipt::V4(fvm_shared4::receipt::Receipt {
-            exit_code: fvm_shared4::error::ExitCode::new(33),
+            exit_code: EVM_CONTRACT_REVERTED.into(),
             return_data,
             gas_used: 0,
             events_root: None,
@@ -4325,22 +4354,127 @@ mod test {
         assert!(!needs_skip_sender(&Ok((ApiInvocResult::default(), None))));
     }
 
-    #[test]
-    fn only_an_evm_sender_skips_validation() {
-        use crate::rpc::methods::eth::trace::test_helpers::{
-            create_test_actor, get_evm_actor_code_cid,
-        };
+    /// An `ApplyRet` that exited with `exit_code` after charging `gas_used`; zero gas means preflight
+    /// rejected it before it ran.
+    fn apply_ret(exit_code: u32, gas_used: u64) -> ApplyRet {
+        use crate::shim::fvm_shared_latest;
+        let mut ret = crate::shim::fvm_latest::executor::ApplyRet::prevalidation_fail(
+            fvm_shared_latest::error::ExitCode::new(exit_code),
+            "",
+            fvm_shared_latest::econ::TokenAmount::default(),
+        );
+        ret.msg_receipt.gas_used = gas_used;
+        ApplyRet::V4(ret)
+    }
 
-        let evm_code = get_evm_actor_code_cid().expect("EVM actor code CID should be available");
-        let mut evm_actor = create_test_actor(0, 0);
-        evm_actor.code = evm_code;
-        assert!(sender_is_evm_contract(Ok(Some(evm_actor))));
+    #[rstest]
+    #[case::below_inclusion_cost(ExitCode::SYS_OUT_OF_GAS.value(), 0, errors::INVALID_INPUT_CODE)]
+    #[case::non_gas_preflight_rejection(ExitCode::SYS_INSUFFICIENT_FUNDS.value(), 0, errors::EXECUTION_REVERTED_CODE)]
+    #[case::out_of_gas_while_executing(ExitCode::SYS_OUT_OF_GAS.value(), 1, errors::TRANSACTION_REJECTED_CODE)]
+    #[case::revert_while_executing(EVM_CONTRACT_REVERTED.value(), 1, errors::TRANSACTION_REJECTED_CODE)]
+    fn gas_cap_error_tells_preflight_from_execution(
+        #[case] exit_code: u32,
+        #[case] gas_used: u64,
+        #[case] expected_code: i32,
+    ) {
+        let err: ServerError = gas_cap_error(&apply_ret(exit_code, gas_used), 1000).into();
+        assert_eq!(err.code(), expected_code);
+    }
 
-        assert!(!sender_is_evm_contract(Ok(Some(create_test_actor(0, 0)))));
-        assert!(!sender_is_evm_contract(Ok(None)));
-        assert!(!sender_is_evm_contract(Err(anyhow::anyhow!(
-            "blockstore read failed"
-        ))));
+    #[rstest]
+    #[case::out_of_gas(EthErrors::OutOfGas.into(), errors::TRANSACTION_REJECTED_CODE, "out of gas: gas required exceeds: 1000")]
+    #[case::revert(EthErrors::execution_reverted(EVM_CONTRACT_REVERTED, "", "", &[]).into(), errors::EXECUTION_REVERTED_CODE, "message execution failed (exit=[33], vm error=[])")]
+    #[case::untyped_keeps_the_cause_chain(anyhow::anyhow!("blockstore read failed").context("gas estimation failed"), INTERNAL_ERROR_CODE, "failed to estimate gas: gas estimation failed: blockstore read failed")]
+    fn estimate_gas_error_keeps_codes_and_causes(
+        #[case] err: anyhow::Error,
+        #[case] code: i32,
+        #[case] message: &str,
+    ) {
+        let err = estimate_gas_error(err, 1000);
+        assert_eq!(err.code(), code);
+        assert_eq!(err.message(), message);
+    }
+
+    #[rstest]
+    #[case::affordable(1_000_000, 0, 1, 1_000_000)]
+    #[case::value_reduces_allowance(1_000_000, 400_000, 2, 300_000)] // (1_000_000 - 400_000) / 2
+    #[case::capped_at_block_gas_limit(u128::from(BLOCK_GAS_LIMIT) * 2, 0, 1, BLOCK_GAS_LIMIT)]
+    #[case::beyond_u64(u128::MAX, 0, 1, BLOCK_GAS_LIMIT)]
+    fn gas_allowance_limits_gas_to_what_the_sender_can_pay(
+        #[case] balance: u128,
+        #[case] value: u128,
+        #[case] price: u64,
+        #[case] gas: u64,
+    ) {
+        let allowance = gas_allowance(
+            &TokenAmount::from_atto(balance),
+            &TokenAmount::from_atto(value),
+            &TokenAmount::from_atto(price),
+        );
+        assert_eq!(allowance.unwrap(), gas);
+    }
+
+    #[rstest]
+    #[case::nothing_affordable(1, 0, 2, "gas required exceeds allowance (0)")] // 1 / 2 = 0 gas
+    #[case::all_spent_on_value(100, 100, 1, "gas required exceeds allowance (0)")]
+    #[case::price_above_balance(1_000_000, 0, u64::MAX, "gas required exceeds allowance (0)")]
+    #[case::value_above_balance(
+        100,
+        101,
+        1,
+        "insufficient funds for gas * price + value: have 100 want 101"
+    )]
+    fn gas_allowance_rejects_a_sender_that_cannot_pay(
+        #[case] balance: u128,
+        #[case] value: u128,
+        #[case] price: u64,
+        #[case] message: &str,
+    ) {
+        let err = gas_allowance(
+            &TokenAmount::from_atto(balance),
+            &TokenAmount::from_atto(value),
+            &TokenAmount::from_atto(price),
+        )
+        .unwrap_err();
+        assert_eq!(err.to_string(), message);
+    }
+
+    /// Searches with a fake run that succeeds exactly at the limits `succeeds` accepts.
+    async fn search(start: u64, gas_cap: u64, succeeds: fn(u64) -> bool) -> anyhow::Result<u64> {
+        gas_search(start, gas_cap, 1.25, |limit| {
+            let exit_code = if succeeds(limit) {
+                0
+            } else {
+                EVM_CONTRACT_REVERTED.value()
+            };
+            async move { Ok(apply_ret(exit_code, 1)) }
+        })
+        .await
+    }
+
+    #[rstest]
+    #[case::margin_added(100, BLOCK_GAS_LIMIT, |limit| limit >= 1000, 1250)] // 1000 found, ×1.25
+    #[case::margin_clamped_to_cap(100, 1100, |limit| limit >= 1000, 1100)] // 1001 found, 1251 is above the cap
+    #[case::margin_breaks_the_call(500, BLOCK_GAS_LIMIT, |limit| limit >= 1000 && !(1100..=1500).contains(&limit), 1000)] // 1000 found, 1250 fails
+    #[case::below_100_gas(1, BLOCK_GAS_LIMIT, |limit| limit >= 70, 87)] // 70 found, ×1.25 = 87.5
+    #[tokio::test]
+    async fn gas_search_adds_the_margin_only_when_it_fits(
+        #[case] start: u64,
+        #[case] gas_cap: u64,
+        #[case] succeeds: fn(u64) -> bool,
+        #[case] gas: u64,
+    ) {
+        assert_eq!(search(start, gas_cap, succeeds).await.unwrap(), gas);
+    }
+
+    #[tokio::test]
+    async fn gas_search_fails_when_the_cap_is_too_low() {
+        let err: ServerError = search(100, 10_000, |limit| limit >= 20_000)
+            .await
+            .unwrap_err()
+            .into();
+        assert_eq!(err.code(), errors::TRANSACTION_REJECTED_CODE);
+        assert_eq!(err.message(), "out of gas: gas required exceeds: 10000");
     }
 
     #[rstest]
@@ -4610,8 +4744,8 @@ mod test {
 
         let mut init_state =
             fil_actor_init_state::v18::State::new(db, "calibrationnet".to_string()).unwrap();
-        let robust_addr = fvm_shared4::address::Address::new_actor(b"eth-send-raw-tx-test");
-        let delegated_addr = fvm_shared4::address::Address::from(sender);
+        let robust_addr = VmAddress::new_actor(b"eth-send-raw-tx-test");
+        let delegated_addr = VmAddress::from(sender);
         let (sender_id, _) = init_state
             .map_addresses_to_id(db, &robust_addr, Some(&delegated_addr))
             .unwrap();
@@ -4658,13 +4792,9 @@ mod test {
         RPCState::for_tests(cs).unwrap()
     }
 
-    // Regression test for the historical "EthSendRawTransaction returns the
-    // hash of the Filecoin message CID, not of the raw tx" bug: a delegated
-    // (eth account) transaction's own hash must never coincide with
-    // `EthHash::from(message_cid)` - the two are unrelated hashing schemes.
-    #[tokio::test]
-    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
-        use crate::eth::{EthEip1559TxArgsBuilder, EthTx};
+    /// A signed calibnet EIP-1559 transaction, as `eth_sendRawTransaction` receives it.
+    fn signed_calibnet_tx() -> EthTx {
+        use crate::eth::EthEip1559TxArgsBuilder;
         use std::str::FromStr as _;
 
         let mut tx_args = EthEip1559TxArgsBuilder::default()
@@ -4691,7 +4821,12 @@ mod test {
             "7820796778417228639067439047870612492553874254089570360061550763595363987236",
         )
         .unwrap();
-        let tx = EthTx::from(tx_args);
+        EthTx::from(tx_args)
+    }
+
+    #[tokio::test]
+    async fn test_eth_send_raw_transaction_hash_is_not_message_cid() {
+        let tx = signed_calibnet_tx();
         let raw_tx = EthBytes(tx.rlp_signed_message().unwrap());
 
         let expected_hash = "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f";
@@ -4737,6 +4872,59 @@ mod test {
         );
     }
 
+    /// A pending delegated message is found by its Ethereum hash with and without a tx-hash
+    /// mapping, and comes back with its hash and sender. A transaction gossiped from another node
+    /// has no mapping until it is mined.
+    #[tokio::test]
+    async fn test_eth_get_transaction_by_hash_finds_pending_tx() {
+        let tx = signed_calibnet_tx();
+        let tx_hash: EthHash = tx.eth_hash().unwrap().into();
+        let smsg = tx
+            .get_signed_message(crate::networks::calibnet::ETH_CHAIN_ID)
+            .unwrap();
+        // The mapping miss falls back to the hash as a CID, which is never the message's CID.
+        assert_ne!(tx_hash.to_cid(), smsg.cid());
+
+        let (from, sequence) = (smsg.message().from(), smsg.message().sequence());
+        let (ctx, _network_rx) = funded_calibnet_ctx(&from, sequence);
+        let cid = ctx.mpool.push(smsg).await.unwrap();
+        let cancellation_token = CancellationToken::new();
+        let lookup = |hash: EthHash| {
+            let ctx = ctx.clone();
+            let cancellation_token = cancellation_token.clone();
+            async move {
+                get_eth_transaction_by_hash(&ctx, &hash, None, &cancellation_token)
+                    .await
+                    .unwrap()
+            }
+        };
+
+        // (case, mapping): the mapping is what `eth_sendRawTransaction` on this node writes.
+        for (case, mapping) in [("mapping miss", None), ("mapping hit", Some(cid))] {
+            if let Some(cid) = mapping {
+                ctx.chain_store().put_mapping(tx_hash, cid, 0).unwrap();
+            }
+            assert_eq!(ctx.chain_store().get_mapping(&tx_hash).unwrap(), mapping);
+            let found = lookup(tx_hash)
+                .await
+                .unwrap_or_else(|| panic!("{case}: the pending tx must be found by its hash"));
+            assert_eq!(found.hash, tx_hash, "{case}");
+            assert_eq!(
+                found.from,
+                EthAddress::from_filecoin_address(&from).unwrap(),
+                "{case}"
+            );
+            assert_eq!(
+                found.block_hash,
+                EthHash::default(),
+                "{case}: pending, not mined"
+            );
+        }
+
+        let unknown = lookup(EthHash::default()).await;
+        assert!(unknown.is_none(), "{unknown:?}");
+    }
+
     #[test]
     fn test_eth_tx_hash_from_message_cid() {
         let blockstore = Arc::new(MemoryDB::default());
@@ -4749,13 +4937,78 @@ mod test {
         crate::chain::persist_objects(&blockstore, [&secp0, &bls0].into_iter()).unwrap();
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp0.cid(), 0).unwrap();
-        assert!(tx_hash.is_some());
+        assert_eq!(tx_hash, eth_tx_hash_from_signed_message(&secp0, 0).unwrap());
 
         let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &msg2.cid(), 0).unwrap();
-        assert!(tx_hash.is_some());
+        assert_eq!(tx_hash, EthHash::from(msg2.cid()));
 
-        let tx_hash = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap();
-        assert!(tx_hash.is_none());
+        let err = eth_tx_hash_from_message_cid(&blockstore, &secp1.cid(), 0).unwrap_err();
+        let missing = secp1.cid();
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "failed to load event message {missing}: Invalid tipset: {missing}; Invalid tipset: {missing}"
+            )
+        );
+    }
+
+    /// One unreadable event message fails the whole conversion instead of dropping the event;
+    /// readable ones still convert, through the unsigned fallback too.
+    #[tokio::test]
+    async fn test_eth_filter_logs_from_events_fails_on_unreadable_message() {
+        let (ctx, _network_rx) =
+            crate::rpc::RPCState::for_tests(crate::rpc::test_utils::chain_store()).unwrap();
+        let (readable, _) = construct_bls_messages();
+        let (_, missing) = construct_eth_messages(0);
+        crate::chain::persist_objects(ctx.db(), std::iter::once(&readable)).unwrap();
+        let (readable, missing) = (readable.cid(), missing.cid());
+        let tipset_key = ctx.chain_store().genesis_tipset().key().clone();
+        let event = |msg_cid: Cid, codec: u64| CollectedEvent {
+            entries: vec![EventEntry {
+                flags: (Flags::FLAG_INDEXED_ALL).bits(),
+                key: "d".into(),
+                codec,
+                value: vec![1].into(),
+            }],
+            emitter_addr: FilecoinAddress::new_id(1),
+            event_idx: 0,
+            reverted: false,
+            height: 0,
+            tipset_key: tipset_key.clone(),
+            msg_idx: 0,
+            msg_cid,
+        };
+
+        // (case, events, expected log count; `None` expects the error naming the missing message)
+        let cases = [
+            ("BLS fallback", vec![event(readable, IPLD_RAW)], Some(1)),
+            ("missing message", vec![event(missing, IPLD_RAW)], None),
+            (
+                "readable then missing",
+                vec![event(readable, IPLD_RAW), event(missing, IPLD_RAW)],
+                None,
+            ),
+            ("empty", vec![], Some(0)),
+            ("non-Ethereum", vec![event(missing, DAG_CBOR)], Some(0)),
+        ];
+        for (case, events, want_logs) in cases {
+            let result = eth_filter_logs_from_events(&ctx, &events);
+            let Some(want_logs) = want_logs else {
+                let err = result.expect_err(case).to_string();
+                assert!(
+                    err.contains(&format!("failed to load event message {missing}")),
+                    "{case}: {err}"
+                );
+                continue;
+            };
+            let logs = result.unwrap_or_else(|e| panic!("{case}: {e:#}"));
+            assert_eq!(logs.len(), want_logs, "{case}");
+            assert!(
+                logs.iter()
+                    .all(|log| log.transaction_hash == EthHash::from(readable)),
+                "{case}: {logs:?}"
+            );
+        }
     }
 
     #[test]

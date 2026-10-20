@@ -323,3 +323,181 @@ pub struct SectorLocation {
     pub partition: u64,
 }
 lotus_json_with_self!(SectorLocation);
+
+/// Block rewards allocated while executing one tipset.
+///
+/// All token amounts are in attoFIL.
+// See <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/api/v2api/types.go#L12-L100>
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct RewardDistribution {
+    #[serde(rename = "TipSetKey", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TipsetKey>")]
+    pub tipset_key: TipsetKey,
+    pub height: ChainEpoch,
+    /// Common denominator of stream weights and recipient shares.
+    #[serde(with = "crate::lotus_json::stringify")]
+    #[schemars(with = "String")]
+    pub denom: u64,
+    /// Sums of the corresponding `Amounts` fields across `Blocks`.
+    pub totals: RewardAmounts,
+    /// One entry per block, in execution order.
+    pub blocks: Vec<BlockReward>,
+}
+
+lotus_json_with_self!(RewardDistribution);
+
+/// Reward award of one block and the distribution it used.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct BlockReward {
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    #[get_size(ignore)]
+    pub block: Cid,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub miner: Address,
+    pub win_count: i64,
+    pub amounts: RewardAmounts,
+    /// Fraction assigned to no stream. `BurnAllocation` also includes integer rounding and the
+    /// burn shares of explicit streams.
+    #[serde(with = "crate::lotus_json::stringify")]
+    #[schemars(with = "String")]
+    pub burn_weight: u64,
+    pub streams: Vec<StreamReward>,
+}
+
+/// Reward allocations and transfers of one block, or their sums over a tipset.
+///
+/// `MintedReward = MinerReward + ExplicitReward + BurnAllocation`.
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct RewardAmounts {
+    /// Block subsidy released from the reward actor's reserve. Zero for a block with a positive
+    /// `WinCount` means the block received only its gas reward, the reward actor's fallback when
+    /// it cannot award normally.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub minted_reward: TokenAmount,
+    /// Minted reward allocated to the implicit miner stream.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub miner_reward: TokenAmount,
+    /// Reward funded by message fees and allocated to the miner.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub message_reward: TokenAmount,
+    /// Minted reward retained for explicit stream recipients.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub explicit_reward: TokenAmount,
+    /// Minted reward allocated to burn by the distribution.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub burn_allocation: TokenAmount,
+    /// Amount successfully transferred to miner actors, including message rewards.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub miner_paid: TokenAmount,
+    /// Amount successfully transferred to the burnt funds actor by reward awards, including
+    /// earlier rounding dust settled during the award and a miner payment redirected to burn on
+    /// failure. Excludes burns from separate messages and nested transfers from miner actors.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub burn_paid: TokenAmount,
+}
+
+/// Fraction and allocation of one reward stream in one block's award.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct StreamReward {
+    #[serde(rename = "ID", with = "crate::lotus_json::stringify")]
+    #[schemars(with = "String")]
+    pub id: u64,
+    #[serde(with = "crate::lotus_json::stringify")]
+    #[schemars(with = "String")]
+    pub weight: u64,
+    /// Gross minted reward allocated to this stream.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub amount: TokenAmount,
+    /// `null` for the implicit stream, whose recipient is the block's miner.
+    pub distribution: Option<ExplicitRewardDistribution>,
+}
+
+/// Recipients of an explicit stream's award.
+///
+/// The stream's `Amount = sum(Recipients.EarnedAmount) + BurnAmount + RoundingAdjustment`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExplicitRewardDistribution {
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub writer: Address,
+    pub recipients: Vec<RecipientReward>,
+    /// Fraction of the stream assigned to no recipient.
+    #[serde(with = "crate::lotus_json::stringify")]
+    #[schemars(with = "String")]
+    pub burn_share: u64,
+    /// Stream allocation burned for this award.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub burn_amount: TokenAmount,
+    /// Reconciles the stream allocation with recipient earnings and burn. Negative when earlier
+    /// rounding dust becomes earned, because earnings are differences of rounded cumulative
+    /// entitlements. Not an additional payment or burn.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub rounding_adjustment: TokenAmount,
+}
+
+/// Share and earnings of one recipient from a stream award.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, GetSize)]
+#[serde(rename_all = "PascalCase")]
+pub struct RecipientReward {
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub recipient: Address,
+    #[serde(with = "crate::lotus_json::stringify")]
+    #[schemars(with = "String")]
+    pub share: u64,
+    /// Increase of the recipient's entitlement from this award. Excludes earnings from earlier
+    /// awards and does not subtract later claims.
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    pub earned_amount: TokenAmount,
+}
+
+/// Asserts the sums that hold for every award.
+///
+/// Minted = miner + explicit + burn. Weights + burn weight = 100%. For an explicit stream,
+/// shares + burn share = 100% and portion = earned + burned + rounding adjustment.
+#[cfg(test)]
+pub fn assert_award_conserved(streams: &[StreamReward], burn_weight: u64, amounts: &RewardAmounts) {
+    use fil_actor_reward_state::v19::DENOM;
+
+    assert_eq!(
+        amounts.minted_reward,
+        &amounts.miner_reward + &amounts.explicit_reward + &amounts.burn_allocation
+    );
+    let weights: u64 = streams.iter().map(|stream| stream.weight).sum();
+    assert_eq!(weights + burn_weight, DENOM);
+
+    for stream in streams {
+        let Some(distribution) = &stream.distribution else {
+            continue;
+        };
+        let mut shares = 0;
+        let mut earned = TokenAmount::zero();
+        for recipient in &distribution.recipients {
+            shares += recipient.share;
+            earned += recipient.earned_amount.clone();
+        }
+        assert_eq!(shares + distribution.burn_share, DENOM);
+        assert_eq!(
+            stream.amount,
+            earned + &distribution.burn_amount + &distribution.rounding_adjustment
+        );
+    }
+}

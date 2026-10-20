@@ -9,7 +9,9 @@ use spire_enum::prelude::delegated_enum;
 pub const ADDRESS: Address = Address::new_id(1);
 
 /// Init actor method.
-pub type Method = fil_actor_init_state::v8::Method;
+pub type Method = fil_actor_init_state::v15::Method;
+
+pub use fil_actor_init_state::v12::ExecReturn;
 
 /// Init actor state.
 #[delegated_enum(impl_conversions)]

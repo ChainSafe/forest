@@ -27,25 +27,65 @@
 
 ### Breaking
 
-- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
+- [#7270](https://github.com/ChainSafe/forest/issues/7270): Removed the `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND` environment variable. `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now always return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number, matching Lotus since v1.36.2 ([lotus#13694](https://github.com/filecoin-project/lotus/pull/13694)).
+
+- [#7737](https://github.com/ChainSafe/forest/pull/7737): `Filecoin.MinerCreateBlock` now requires the `sign` permission instead of `write`, since it signs the block with the node's wallet. Matches Lotus ([lotus#13871](https://github.com/filecoin-project/lotus/pull/13871)).
+
+### Added
+
+### Changed
+
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): `eth_estimateGas` matches Lotus v1.38.0 and reth. The estimate never exceeds the call's `gas` or, with `gasPrice` or `maxFeePerGas` set, the gas the sender can pay for after the value; without a price the sender's balance does not limit the gas. A revert that more gas fixes is searched past, and failures use the Ethereum codes: `-32000` when the cap is below the message inclusion cost or the sender affords no gas, `-32003` when the call runs out of gas within the cap or, with a price, the value exceeds the balance, `-32602` when both prices are set. See [lotus#13911](https://github.com/filecoin-project/lotus/pull/13911).
+
+- [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall` runs the message at its own `GasLimit` instead of an effectively unlimited one. A `GasLimit` of `0` selects the node's cap, the block gas limit unless the new `FOREST_STATE_CALL_GAS_LIMIT` is set, and a larger `GasLimit` is rejected ([lotus#13910](https://github.com/filecoin-project/lotus/pull/13910)).
+
+### Removed
+
+### Fixed
+
+- [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
+
+- [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall`, `Filecoin.StateReplay` and `Filecoin.StateCompute` report `unknown error (RetCode=<code>)` for a failed message the FVM attaches no failure info to, such as one that runs out of gas, instead of an empty error. Matches Lotus.
+
+- [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getLogs`, `eth_getFilterLogs`, `eth_getFilterChanges`, `eth_getTransactionReceipt`, `eth_getBlockReceipts` and their `Limited` variants return an error instead of partial logs when an event's message cannot be read. Matches Lotus ([lotus#13926](https://github.com/filecoin-project/lotus/pull/13926)).
+
+- [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getTransactionByHash` and `eth_getTransactionByHashLimited` return a pending Ethereum transaction received from another node instead of `null` until it is mined. Matches Lotus ([lotus#13677](https://github.com/filecoin-project/lotus/pull/13677)).
+
+- [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getTransactionByHash` and `eth_getTransactionByHashLimited` report the `hash` and `from` of a pending transaction instead of zeros.
+
+- [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed DHT crawlers such as ProbeLab's Nebula being banned and disconnected mid-crawl despite the crawler whitelist, which made Forest nodes appear undialable in network measurements.
+
+## Forest v0.38.0 "Ayanant"
+
+Mandatory release for mainnet node operators. It includes support for the NV29 _Solstice_ network upgrade for mainnet, which is set to activate at epoch `6470279` (2026-10-19T12:59:30Z). Note the breaking change below: JSON-RPC batch requests are now limited to 100 entries by default. There are also other changes and improvements; see below.
+
+### Breaking
+
+- [#7697](https://github.com/ChainSafe/forest/pull/7697): JSON-RPC batch requests are now limited to 100 entries; larger batches are rejected with error `-32010`. The limit can be raised with `FOREST_RPC_MAX_BATCH_LEN`.
 
 ### Added
 
 - [#7676](https://github.com/ChainSafe/forest/pull/7676): Added `FOREST_TIPSET_TRACE_CACHE_SIZE`, sizing the cache of traced tipset executions behind `Filecoin.StateReplay`, `trace_block`, `trace_transaction`, `trace_filter`, `trace_replayBlockTransactions` and `debug_traceTransaction`, and `FOREST_ETH_TRACE_BLOCK_CACHE_SIZE`, sizing the Ethereum trace cache in front of it, used by `trace_block`, `trace_transaction`, `trace_filter` and `trace_replayBlockTransactions`. Defaults are unchanged; the RPC fine-tuning guide suggests values for nodes serving trace traffic.
 
+- [#7550](https://github.com/ChainSafe/forest/issues/7550): Set the mainnet NV29 _Solstice_ network upgrade epoch to `6470279` which corresponds to `Mon Oct 19 12:59:30 PM UTC 2026`.
+
+- [#7658](https://github.com/ChainSafe/forest/issues/7658): Implemented `Filecoin.StateRewardDistribution` for API v2. For each block of the selected tipset and in total, it reports how the block reward was split between the miner, the reward stream recipients and burn, and what was actually paid. It is available from NV29.
+
 ### Changed
 
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
 
-### Removed
-
 ### Fixed
+
+- [#7528](https://github.com/ChainSafe/forest/issues/7528): `trace_call` now accepts a `from` address that is an EVM contract or that does not exist on chain, matching `eth_call`.
 
 - [#7661](https://github.com/ChainSafe/forest/pull/7661): Fixed snapshot GC occasionally leaving a gap in the chain right above the exported snapshot.
 
 - [#7677](https://github.com/ChainSafe/forest/pull/7677): Fixed the same state migration running several times in parallel when multiple tipsets at the upgrade epoch share a parent, which is redundant.
 
 - [#7700](https://github.com/ChainSafe/forest/issues/7700): Fixed `eth_call` and `trace_call` ignoring the `gas` field of the call. The given gas limit is now honored (capped at the block gas limit), so calls with insufficient gas fail as they would on-chain.
+
+- [#7702](https://github.com/ChainSafe/forest/issues/7702): Fixed `eth_estimateGas` ignoring the `gas` field of the call. The given gas limit (capped at the block gas limit) is now the upper bound of the estimate; a call that does not fit fails with `out of gas: gas required exceeds: <gas>` (code `-32003`), or with `gas required exceeds allowance (<gas>)` (code `-32000`) when `gas` is below the message inclusion cost. Omitting `gas` keeps the previous estimate.
 
 ## Forest v0.37.0 "Sharad Sampat"
 

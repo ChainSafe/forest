@@ -24,7 +24,7 @@
 //!
 //! # CARv1 layout and seeking
 //!
-//! The first varint frame is a _header frame_, where the frame body is a [`CarHeader`] encoded
+//! The first varint frame is a _header frame_, where the frame body is a [`CarV1Header`] encoded
 //! using [`ipld_dagcbor`](serde_ipld_dagcbor).
 //!
 //! Subsequent varint frames are _block frames_, where the frame body is a concatenation of a
@@ -394,7 +394,7 @@ fn read_v1_header(mut reader: impl Read) -> io::Result<CarV1Header> {
 /// Importantly, we seek `block data length`, rather than read any in.
 /// This allows us to keep indexing fast.
 ///
-/// [`Ok(None)`] on EOF
+/// `Ok(None)` on EOF
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_block_data_location_and_skip(
     mut reader: impl Read + Seek,
@@ -443,7 +443,7 @@ fn read_block_data_location_and_skip(
 }
 
 /// Reads `body length`, leaving the reader at the start of a varint frame,
-/// or returns [`Ok(None)`] if we've reached EOF
+/// or returns `Ok(None)` if we've reached EOF
 /// ```text
 /// start ►│
 ///        ├───────────┬─────────────┐

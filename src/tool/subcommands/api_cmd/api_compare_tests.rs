@@ -29,12 +29,13 @@ use crate::rpc::{Permission, prelude::*};
 use crate::shim::actors::MarketActorStateLoad as _;
 use crate::shim::actors::market;
 use crate::shim::clock::ChainEpoch;
+use crate::shim::crypto::DomainSeparationTag;
 use crate::shim::executor::Receipt;
 use crate::shim::sector::SectorSize;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
-    econ::TokenAmount,
+    econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::{METHOD_SEND, Message},
     state_tree::StateTree,
 };
@@ -50,7 +51,6 @@ use bls_signatures::Serialize as _;
 use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_ipld_blockstore::Blockstore;
 use ipld_core::ipld::Ipld;
 use itertools::Itertools as _;
@@ -783,6 +783,22 @@ fn event_tests_with_tipset<DB: Blockstore + ShallowClone>(
             addresses: vec![],
             fields: Default::default(),
             from_height: None,
+            to_height: Some(epoch),
+            tipset_key: None,
+        }),))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(GetActorEventsRaw::request((Some(ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: Some(epoch - 3000),
+            to_height: Some(epoch),
+            tipset_key: None,
+        }),))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        RpcTest::identity(GetActorEventsRaw::request((Some(ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height: None,
             to_height: None,
             tipset_key: Some(tipset.key().clone().into()),
         }),))?)
@@ -930,6 +946,12 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                 ..Default::default()
             },
         ))?),
+        // Both nodes reject a tipset executed before NV29 with the same error.
+        RpcTest::identity(StateRewardDistribution::request((TipsetSelector {
+            key: tipset.key().into(),
+            ..Default::default()
+        },))?)
+        .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         RpcTest::identity(StateGetRandomnessFromTickets::request((
             DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),
@@ -1328,6 +1350,20 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
                     tipset.epoch(),
                 ))?),
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
+                // A zero gas limit selects the StateCall gas cap; above the block gas limit both
+                // nodes reject the message.
+                RpcTest::identity(StateCall::request((
+                    msg.clone().into_builder().gas_limit(0).build(),
+                    tipset.key().into(),
+                ))?),
+                RpcTest::identity(StateCall::request((
+                    msg.clone()
+                        .into_builder()
+                        .gas_limit(BLOCK_GAS_LIMIT + 1)
+                        .build(),
+                    tipset.key().into(),
+                ))?)
+                .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
             ]);
         }
     }
@@ -1708,15 +1744,22 @@ fn eth_skip_sender_revert_tests(epoch: ChainEpoch) -> anyhow::Result<Vec<RpcTest
     let revert_initcode = EthBytes::from_str(
         include_str!("./contracts/arithmetic_err/arithmetic_overflow_err.hex").trim(),
     )?;
-    eth_call_and_estimate_gas_tests(
-        epoch,
-        PolicyOnRejected::PassWithIdenticalError,
-        [EthCallMessage {
-            from: Some(generate_eth_random_address()?),
-            data: Some(revert_initcode),
-            ..Default::default()
-        }],
-    )
+    let msg = EthCallMessage {
+        from: Some(generate_eth_random_address()?),
+        data: Some(revert_initcode),
+        ..Default::default()
+    };
+    let block = BlockNumberOrHash::from_block_number(epoch);
+    Ok(vec![
+        RpcTest::identity(EthCall::request((msg.clone(), block.clone()))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+        // The revert's backtrace names the contract that failed to deploy, and its ID is the next
+        // free one in the Init actor of the state the node simulated on. `eth_call` runs at the
+        // requested block on both nodes, so the IDs agree; the estimate runs at each node's own
+        // head, so they differ as soon as calibnet creates an actor in between.
+        RpcTest::identity(EthEstimateGas::request((msg, Some(block)))?)
+            .policy_on_rejected(PolicyOnRejected::Pass),
+    ])
 }
 
 /// Contract creation that both nodes must refuse or report as reverting.
@@ -2479,7 +2522,7 @@ fn eth_null_round_tests<DB: Blockstore + ShallowClone>(
                 .with_api_path(api_path),
             )
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
-            // `eth_getBlockReceipts*` reject null rounds by default (lotus#13694).
+            // `eth_getBlockReceipts*` reject null rounds (lotus#13694).
             RpcTest::identity(
                 EthGetBlockReceipts::request((BlockNumberOrHash::from_block_number(null_epoch),))?
                     .with_api_path(api_path),
@@ -2746,14 +2789,6 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
         RpcTest::identity(EthCall::request((
             EthCallMessage::default(),
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
-        ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
-        RpcTest::identity(EthEstimateGas::request((
-            EthCallMessage {
-                from: Some(generate_eth_random_address()?),
-                ..Default::default()
-            },
-            Some(BlockNumberOrHash::from_block_number(expensive_fork_epoch)),
         ))?)
         .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
     ])

@@ -134,8 +134,8 @@ impl RpcMethod<1> for SyncSubmitBlock {
         let block_cid = *block_msg.header.cid();
         let block = Block {
             header: block_msg.header,
-            bls_messages,
-            secp_messages,
+            bls_messages: bls_messages.into_iter().map(Arc::new).collect(),
+            secp_messages: secp_messages.into_iter().map(Arc::new).collect(),
         };
         let ts = FullTipset::from(block);
         let genesis_ts = ctx.chain_store().genesis_tipset();

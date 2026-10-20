@@ -7,6 +7,7 @@ use crate::chain::ChainStore;
 use crate::networks::{ACTOR_BUNDLES_METADATA, ActorBundleMetadata, Height, NetworkChain};
 use crate::rpc::test_utils::chain_store_with_config;
 use crate::rpc::{DbImpl, RPCState};
+use crate::shim::actors::reward::RewardDistributionError;
 use crate::shim::machine::BuiltinActor;
 use crate::shim::sector::RegisteredSealProofV4;
 use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
@@ -544,4 +545,99 @@ async fn initial_pledge_fails_on_an_unknown_state_root() {
     }));
 
     assert!(compute_initial_pledge_for_power(&ctx, &unknown, &qa_sector_power()).is_err());
+}
+
+/// Lotus allocates every list, so an empty one is `[]` and never `null`:
+/// <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/chain/stmgr/rewards.go#L38-L78>
+/// The rounding adjustment keeps its sign.
+#[test]
+fn reward_distribution_json_keeps_empty_lists_and_negative_rounding() {
+    use serde_json::{from_value, json};
+
+    let amounts = json!({
+        "MintedReward": "0", "MinerReward": "0", "MessageReward": "0", "ExplicitReward": "0",
+        "BurnAllocation": "0", "MinerPaid": "0", "BurnPaid": "0",
+    });
+    let no_blocks = json!({
+        "TipSetKey": [{"/": "baeaaaaa"}], "Height": 101, "Denom": "1000000000000000000",
+        "Totals": amounts, "Blocks": [],
+    });
+    let no_streams = json!({
+        "Block": {"/": "baeaaaaa"}, "Miner": "f01000", "WinCount": 1, "Amounts": amounts,
+        "BurnWeight": "1000000000000000000", "Streams": [],
+    });
+    let no_recipients = json!({
+        "Writer": "f01001", "Recipients": [], "BurnShare": "1000000000000000000",
+        "BurnAmount": "10", "RoundingAdjustment": "-1",
+    });
+
+    let distribution: RewardDistribution = from_value(no_blocks.clone()).unwrap();
+    let block: BlockReward = from_value(no_streams.clone()).unwrap();
+    let explicit: ExplicitRewardDistribution = from_value(no_recipients.clone()).unwrap();
+
+    assert_eq!(json!(distribution), no_blocks);
+    assert_eq!(json!(block), no_streams);
+    assert_eq!(json!(explicit), no_recipients);
+    assert_eq!(explicit.rounding_adjustment, TokenAmount::from_atto(-1));
+}
+
+/// The tipset at the upgrade epoch is the last one executed by the v18 reward actor.
+#[tokio::test]
+async fn reward_distribution_is_refused_at_the_solstice_epoch() {
+    let config = ChainConfig::calibnet();
+    let (ctx, head) = ctx_at(
+        config.clone(),
+        config.epoch(Height::Solstice),
+        &Default::default(),
+    );
+
+    let error = ctx
+        .state_manager
+        .reward_distribution(&head)
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error.downcast_ref(),
+        Some(RewardDistributionError::RewardActorBeforeV19)
+    ));
+}
+
+/// The next tipset is the first one executed by the v19 reward actor.
+#[tokio::test]
+async fn reward_distribution_is_not_refused_after_the_solstice_epoch() {
+    let config = ChainConfig::calibnet();
+    let epoch = first_epoch_of(&config, Height::Solstice);
+    let (ctx, head) = ctx_at(config, epoch, &Default::default());
+
+    let error = ctx
+        .state_manager
+        .reward_distribution(&head)
+        .await
+        .unwrap_err();
+
+    // The fixture chain has no parent tipset to execute on, so the call fails past the check.
+    assert!(error.downcast_ref::<RewardDistributionError>().is_none());
+}
+
+/// A tipset at epoch 0 is not executed, so it has no block rewards. Lotus reports the same:
+/// <https://github.com/filecoin-project/lotus/blob/v1.37.0-rc2/chain/consensus/compute_state.go#L357-L363>
+#[tokio::test]
+async fn reward_distribution_at_epoch_0_has_no_blocks() {
+    // A network that runs the v19 reward actor from its first epoch, as a devnet can.
+    let mut config = ChainConfig::calibnet();
+    config.genesis_network = NetworkVersion::V29;
+    let (ctx, genesis) = ctx_at(config, 0, &Default::default());
+    let selector = TipsetSelector {
+        key: genesis.key().into(),
+        ..Default::default()
+    };
+
+    let distribution = StateRewardDistribution::handle(ctx, (selector,), &Default::default())
+        .await
+        .unwrap();
+
+    assert_eq!(distribution.height, 0);
+    assert!(distribution.blocks.is_empty());
+    assert_eq!(distribution.totals, RewardAmounts::default());
 }

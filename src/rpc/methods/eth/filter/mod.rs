@@ -50,6 +50,7 @@ use anyhow::{Error, anyhow, bail, ensure};
 use futures::{TryStreamExt as _, stream::FuturesOrdered};
 use fvm_ipld_encoding::IPLD_RAW;
 use serde::*;
+use std::cell::OnceCell;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 use std::time::Duration;
@@ -403,9 +404,7 @@ impl EthEventHandler {
         skip_event: SkipEvent,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
-        let ExecutedTipset {
-            executed_messages, ..
-        } = match receipt_ts {
+        let executed_tipset = match receipt_ts {
             Some(receipt_ts) => {
                 state_manager
                     .load_executed_tipset_with_receipt(tipset, receipt_ts)
@@ -416,27 +415,32 @@ impl EthEventHandler {
         Self::collect_events_from_messages(
             state_manager,
             tipset,
-            &executed_messages,
+            &executed_tipset,
             spec,
             skip_event,
             EventRevertStatus::Applied,
             collected_events,
         )
-        .await
     }
 
-    /// Collects the tipset's events from already-loaded executed messages, keeping those that
-    /// match `spec` and tagging each with `revert_status`. Use [`Self::collect_events`] instead
-    /// when the executed messages still need to be loaded.
-    pub async fn collect_events_from_messages(
+    /// Collects the tipset's events from its already-loaded execution, keeping those that match `spec` and tagging each with `revert_status`. Use [`Self::collect_events`] instead when the execution still needs to be loaded.
+    ///
+    /// An emitter is reported by its delegated (f4) address in the post-execution state, or by its ID address if it has none.
+    pub fn collect_events_from_messages(
         state_manager: &StateManager,
         tipset: &Tipset,
-        executed_messages: &[ExecutedMessage],
+        executed_tipset: &ExecutedTipset,
         spec: Option<&impl Matcher>,
         skip_event: SkipEvent,
         revert_status: EventRevertStatus,
         collected_events: &mut Vec<CollectedEvent>,
     ) -> anyhow::Result<()> {
+        let ExecutedTipset {
+            state_root,
+            executed_messages,
+            ..
+        } = executed_tipset;
+        let state_tree = OnceCell::new();
         let msg_cid_filter = spec.and_then(|s| s.msg_cid_filter()).copied();
         let height = tipset.epoch();
         let tipset_key = tipset.key();
@@ -467,23 +471,17 @@ impl EthEventHandler {
                 event_count += events.len();
                 for (event_idx, event) in (event_idx_base..).zip(events.iter()) {
                     let emitter = event.emitter();
-                    let id_addr = Address::new_id(emitter);
-                    let resolved_opt = if let Some(r) = resolved_id_addrs.get(&emitter) {
-                        *r
-                    } else {
-                        let r = state_manager
-                            .resolve_to_deterministic_address(id_addr, tipset)
-                            .await
-                            .ok();
-                        resolved_id_addrs.insert(emitter, r);
-                        r
-                    };
-                    let resolved = if let Some(resolved) = resolved_opt {
-                        resolved
-                    } else if matches!(skip_event, SkipEvent::OnUnresolvedAddress) {
-                        continue;
-                    } else {
-                        id_addr
+                    // A failed lookup leaves the emitter unresolved instead of failing the call.
+                    let delegated = *resolved_id_addrs.entry(emitter).or_insert_with(|| {
+                        state_tree
+                            .get_or_init(|| state_manager.get_state_tree(state_root).ok())
+                            .as_ref()
+                            .and_then(|st| st.get_delegated_address(emitter).ok().flatten())
+                    });
+                    let resolved = match (delegated, skip_event) {
+                        (Some(delegated), _) => delegated,
+                        (None, SkipEvent::OnUnresolvedAddress) => continue,
+                        (None, SkipEvent::Never) => Address::new_id(emitter),
                     };
 
                     let entries = event.entries();
@@ -819,20 +817,33 @@ impl ParsedFilter {
         }
     }
 
+    /// Returns [`None`] when the filter has no lower height bound, as there is no
+    /// history to look up.
     pub fn from_actor_event_filter(
         chain_height: ChainEpoch,
-        _max_filter_height_range: ChainEpoch,
+        max_filter_height_range: ChainEpoch,
         filter: ActorEventFilter,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Option<Self>> {
         let tipsets = if let Some(tsk) = &filter.tipset_key {
             if filter.from_height.is_some() || filter.to_height.is_some() {
-                bail!("must not specify block hash and from/to block");
+                bail!("must not specify tipset key and from/to height");
             }
             ParsedFilterTipsets::Key(tsk.0.clone())
         } else {
-            let min = filter.from_height.unwrap_or(0);
-            let max = filter.to_height.unwrap_or(chain_height);
-            ParsedFilterTipsets::Range(RangeInclusive::new(min, max))
+            validate_height_range(
+                chain_height,
+                filter.from_height,
+                filter.to_height,
+                max_filter_height_range,
+            )?;
+            let Some(min) = filter.from_height else {
+                return Ok(None);
+            };
+            ensure!(
+                min <= chain_height,
+                "range end is in the future, highest epoch: {chain_height}"
+            );
+            ParsedFilterTipsets::Range(RangeInclusive::new(min, filter.to_height.unwrap_or(-1)))
         };
 
         let addresses = filter.addresses.iter().map(|addr| addr.0).collect_vec();
@@ -849,13 +860,54 @@ impl ParsedFilter {
             keys.insert(k, data);
         }
 
-        Ok(ParsedFilter {
+        Ok(Some(ParsedFilter {
             tipsets,
             addresses,
             keys,
             msg_cid: None,
-        })
+        }))
     }
+}
+
+/// Validates an actor event height range against the node's maximum filter range.
+///
+/// Reference: <https://github.com/filecoin-project/lotus/blob/0065aa70bb20bf87801b6e96ecb7e7fe707566bd/node/impl/full/actor_events.go#L168>
+fn validate_height_range(
+    heaviest: ChainEpoch,
+    from_height: Option<ChainEpoch>,
+    to_height: Option<ChainEpoch>,
+    max_range: ChainEpoch,
+) -> anyhow::Result<()> {
+    ensure!(
+        from_height.is_none_or(|h| h >= 0),
+        "range 'from' must be greater than or equal to 0"
+    );
+    ensure!(
+        to_height.is_none_or(|h| h >= 0),
+        "range 'to' must be greater than or equal to 0"
+    );
+    match (from_height, to_height) {
+        (None, Some(to)) => ensure!(
+            to - heaviest <= max_range,
+            "invalid epoch range: 'to' height is too far in the future (maximum: {max_range})"
+        ),
+        (Some(from), None) => ensure!(
+            heaviest - from <= max_range,
+            "invalid epoch range: 'from' height is too far in the past (maximum: {max_range})"
+        ),
+        (Some(from), Some(to)) => {
+            ensure!(
+                from <= to,
+                "invalid epoch range: 'to' height ({to}) must be after 'from' height ({from})"
+            );
+            ensure!(
+                to - from <= max_range,
+                "invalid epoch range: range between to and 'from' heights is too large (maximum: {max_range})"
+            );
+        }
+        (None, None) => {}
+    }
+    Ok(())
 }
 
 impl Matcher for ParsedFilter {
@@ -908,12 +960,95 @@ impl Matcher for EventFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lotus_json::LotusJson;
     use crate::rpc::eth::{EthAddress, EthFilterSpec, EthTopicSpec};
+    use crate::shim::fvm_shared_latest::event::Flags;
     use base64::{Engine, prelude::BASE64_STANDARD};
     use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_shared4::event::Flags;
+    use nunny::vec as nonempty;
     use rstest::rstest;
     use std::str::FromStr;
+
+    #[rstest]
+    #[case::open_range(None, None, true)]
+    #[case::from_at_range_limit(Some(900), None, true)]
+    #[case::from_too_far_in_past(Some(899), None, false)]
+    #[case::from_zero(Some(0), Some(50), true)]
+    #[case::to_at_range_limit(None, Some(1100), true)]
+    #[case::to_too_far_in_future(None, Some(1101), false)]
+    #[case::single_epoch(Some(10), Some(10), true)]
+    #[case::bounded_at_range_limit(Some(10), Some(110), true)]
+    #[case::bounded_too_large(Some(10), Some(111), false)]
+    #[case::bounded_inverted(Some(20), Some(10), false)]
+    #[case::negative_from(Some(-1), Some(10), false)]
+    #[case::negative_to(Some(10), Some(-1), false)]
+    fn test_validate_height_range(
+        #[case] from_height: Option<ChainEpoch>,
+        #[case] to_height: Option<ChainEpoch>,
+        #[case] valid: bool,
+    ) {
+        assert_eq!(
+            validate_height_range(1000, from_height, to_height, 100).is_ok(),
+            valid
+        );
+    }
+
+    fn actor_event_filter(
+        from_height: Option<ChainEpoch>,
+        to_height: Option<ChainEpoch>,
+        tipset_key: Option<TipsetKey>,
+    ) -> ActorEventFilter {
+        ActorEventFilter {
+            addresses: vec![],
+            fields: Default::default(),
+            from_height,
+            to_height,
+            tipset_key: tipset_key.map(LotusJson),
+        }
+    }
+
+    #[rstest]
+    #[case::no_lower_bound(None, Some(1000), None)]
+    #[case::bounded(Some(950), Some(999), Some(ParsedFilterTipsets::Range(950..=999)))]
+    #[case::from_only(Some(950), None, Some(ParsedFilterTipsets::Range(RangeInclusive::new(950, -1))))]
+    #[case::from_at_head(Some(1000), None, Some(ParsedFilterTipsets::Range(RangeInclusive::new(1000, -1))))]
+    fn test_from_actor_event_filter(
+        #[case] from_height: Option<ChainEpoch>,
+        #[case] to_height: Option<ChainEpoch>,
+        #[case] expected: Option<ParsedFilterTipsets>,
+    ) {
+        let parsed = ParsedFilter::from_actor_event_filter(
+            1000,
+            100,
+            actor_event_filter(from_height, to_height, None),
+        )
+        .unwrap();
+        assert_eq!(parsed.map(|f| f.tipsets), expected);
+    }
+
+    #[rstest]
+    #[case::from_genesis_exceeds_range(Some(0), None, None)]
+    #[case::from_in_future(Some(1001), None, None)]
+    #[case::tipset_key_with_from(Some(950), None, Some(TipsetKey::from(nonempty![Cid::default()])))]
+    #[case::tipset_key_with_to(None, Some(950), Some(TipsetKey::from(nonempty![Cid::default()])))]
+    fn test_from_actor_event_filter_rejects(
+        #[case] from_height: Option<ChainEpoch>,
+        #[case] to_height: Option<ChainEpoch>,
+        #[case] tipset_key: Option<TipsetKey>,
+    ) {
+        let filter = actor_event_filter(from_height, to_height, tipset_key);
+        assert!(ParsedFilter::from_actor_event_filter(1000, 100, filter).is_err());
+    }
+
+    #[test]
+    fn test_from_actor_event_filter_tipset_key() {
+        let tsk = TipsetKey::from(nonempty![Cid::default()]);
+        let filter = actor_event_filter(None, None, Some(tsk.clone()));
+        let parsed = ParsedFilter::from_actor_event_filter(1000, 100, filter)
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.tipsets, ParsedFilterTipsets::Key(tsk));
+    }
 
     #[test]
     fn test_parse_eth_filter_spec() {
@@ -1746,8 +1881,113 @@ mod tests {
         (state_manager, tipset)
     }
 
-    #[tokio::test]
-    async fn test_collect_events_from_messages_sets_revert_status() {
+    /// An [`ExecutedTipset`] whose post-execution state holds `actors` (ID, delegated address).
+    fn executed_tipset(
+        state_manager: &StateManager,
+        actors: &[(u64, Option<Address>)],
+        executed_messages: Vec<ExecutedMessage>,
+    ) -> ExecutedTipset {
+        use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
+
+        let mut state_tree = StateTree::new(state_manager.db(), StateTreeVersion::V5).unwrap();
+        for &(id, delegated) in actors {
+            state_tree
+                .set_actor(
+                    &Address::new_id(id),
+                    ActorState::new_empty(Cid::default(), delegated),
+                )
+                .unwrap();
+        }
+        ExecutedTipset {
+            state_root: state_tree.flush().unwrap(),
+            receipt_root: Cid::default(),
+            executed_messages: Arc::new(executed_messages),
+        }
+    }
+
+    #[rstest]
+    #[case::delegated_skip_unresolved(true, SkipEvent::OnUnresolvedAddress)]
+    #[case::delegated(true, SkipEvent::Never)]
+    #[case::keyless_skip_unresolved(false, SkipEvent::OnUnresolvedAddress)]
+    #[case::keyless(false, SkipEvent::Never)]
+    fn test_collect_events_from_messages_emitter_address(
+        #[case] has_delegated: bool,
+        #[case] skip_event: SkipEvent,
+    ) {
+        use crate::message::ChainMessage;
+        use crate::shim::executor::Receipt;
+        use crate::shim::message::Message;
+
+        const EMITTER: u64 = 1234;
+        let (state_manager, tipset) = test_state_manager();
+        let delegated = Address::new_delegated(10, &[7u8; 20]).unwrap();
+        let executed_tipset = executed_tipset(
+            &state_manager,
+            &[(EMITTER, has_delegated.then_some(delegated))],
+            vec![ExecutedMessage {
+                message: ChainMessage::Unsigned(Message::default().into()),
+                receipt: Receipt::empty_success(),
+                events: Some(vec![StampedEvent::new_indexed(EMITTER, "t1")]),
+            }],
+        );
+
+        let mut events = vec![];
+        EthEventHandler::collect_events_from_messages(
+            &state_manager,
+            &tipset,
+            &executed_tipset,
+            None::<&ParsedFilter>,
+            skip_event,
+            EventRevertStatus::Applied,
+            &mut events,
+        )
+        .unwrap();
+        let expected = match (has_delegated, skip_event) {
+            (true, _) => vec![delegated],
+            (false, SkipEvent::OnUnresolvedAddress) => vec![],
+            (false, SkipEvent::Never) => vec![Address::new_id(EMITTER)],
+        };
+        assert_eq!(
+            events.iter().map(|e| e.emitter_addr).collect_vec(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_collect_events_from_messages_missing_state_root() {
+        use crate::message::ChainMessage;
+        use crate::shim::executor::Receipt;
+        use crate::shim::message::Message;
+
+        let (state_manager, tipset) = test_state_manager();
+        let executed_tipset = ExecutedTipset {
+            state_root: Cid::default(),
+            receipt_root: Cid::default(),
+            executed_messages: Arc::new(vec![ExecutedMessage {
+                message: ChainMessage::Unsigned(Message::default().into()),
+                receipt: Receipt::empty_success(),
+                events: Some(vec![StampedEvent::new_indexed(1234, "t1")]),
+            }]),
+        };
+        let mut events = vec![];
+        EthEventHandler::collect_events_from_messages(
+            &state_manager,
+            &tipset,
+            &executed_tipset,
+            None::<&ParsedFilter>,
+            SkipEvent::Never,
+            EventRevertStatus::Applied,
+            &mut events,
+        )
+        .unwrap();
+        assert_eq!(
+            events.iter().map(|e| e.emitter_addr).collect_vec(),
+            vec![Address::new_id(1234)]
+        );
+    }
+
+    #[test]
+    fn test_collect_events_from_messages_sets_revert_status() {
         use crate::message::ChainMessage;
         use crate::shim::executor::Receipt;
         use crate::shim::message::Message;
@@ -1755,11 +1995,15 @@ mod tests {
         let (state_manager, tipset) = test_state_manager();
 
         let event = StampedEvent::new_indexed(1234, "t1");
-        let executed_messages = vec![ExecutedMessage {
-            message: ChainMessage::Unsigned(Message::default().into()),
-            receipt: Receipt::empty_success(),
-            events: Some(vec![event]),
-        }];
+        let executed_tipset = executed_tipset(
+            &state_manager,
+            &[],
+            vec![ExecutedMessage {
+                message: ChainMessage::Unsigned(Message::default().into()),
+                receipt: Receipt::empty_success(),
+                events: Some(vec![event]),
+            }],
+        );
 
         for (revert_status, expected_reverted) in [
             (EventRevertStatus::Applied, false),
@@ -1769,15 +2013,12 @@ mod tests {
             EthEventHandler::collect_events_from_messages(
                 &state_manager,
                 &tipset,
-                &executed_messages,
+                &executed_tipset,
                 None::<&ParsedFilter>,
-                // The test genesis has no state tree, so the emitter cannot be resolved;
-                // fall back to its ID address instead of skipping the event.
                 SkipEvent::Never,
                 revert_status,
                 &mut events,
             )
-            .await
             .unwrap();
             assert_eq!(events.len(), 1);
             let event = events.first().unwrap();
@@ -1789,8 +2030,8 @@ mod tests {
     /// `eth_getBlockReceipts` relies on `CollectedEvent::msg_idx` (and hence the derived
     /// `EthLog::transaction_index`) being the event's message index within `executed_messages`.
     /// This locks that invariant, plus the globally-monotonic `event_idx` across the tipset.
-    #[tokio::test]
-    async fn test_collect_events_from_messages_indexing() {
+    #[test]
+    fn test_collect_events_from_messages_indexing() {
         use crate::message::ChainMessage;
         use crate::shim::executor::Receipt;
         use crate::shim::message::Message;
@@ -1812,23 +2053,26 @@ mod tests {
         // Message 1 emits nothing (and, having no events, must not perturb the indices of later
         // messages' events).
         let events_per_msg = [2usize, 0, 3, 1];
-        let executed_messages: Vec<_> = events_per_msg
-            .iter()
-            .enumerate()
-            .map(|(idx, &n)| exec_msg(idx as u64, n))
-            .collect();
+        let executed_tipset = executed_tipset(
+            &state_manager,
+            &[],
+            events_per_msg
+                .iter()
+                .enumerate()
+                .map(|(idx, &n)| exec_msg(idx as u64, n))
+                .collect(),
+        );
 
         let mut events = vec![];
         EthEventHandler::collect_events_from_messages(
             &state_manager,
             &tipset,
-            &executed_messages,
+            &executed_tipset,
             None::<&ParsedFilter>,
             SkipEvent::Never,
             EventRevertStatus::Applied,
             &mut events,
         )
-        .await
         .unwrap();
 
         // The collected events must be exactly this sequence: each message contributes `n` events

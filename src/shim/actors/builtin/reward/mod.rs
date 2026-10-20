@@ -24,6 +24,9 @@ use fil_actor_miner_state::v16::initial_pledge_for_power as initial_pledge_for_p
 use fil_actor_miner_state::v17::initial_pledge_for_power as initial_pledge_for_power_v17;
 use fil_actor_miner_state::v18::initial_pledge_for_power as initial_pledge_for_power_v18;
 use fil_actor_miner_state::v19::initial_pledge_for_power as initial_pledge_for_power_v19;
+
+mod award_distribution;
+pub use award_distribution::{RewardDistributionError, award_distribution};
 use fvm_shared2::TOTAL_FILECOIN;
 use fvm_shared2::bigint::Integer;
 use fvm_shared2::smooth::FilterEstimate;

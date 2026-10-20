@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::state_tree::ActorID;
 use ::cid::Cid;
-use fvm_shared4::ActorID;
 use pastey::paste;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]

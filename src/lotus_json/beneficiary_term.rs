@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::actors::miner::BeneficiaryTerm;
 use crate::shim::{clock::ChainEpoch, econ::TokenAmount};
-use fil_actor_miner_state::v12::BeneficiaryTerm;
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

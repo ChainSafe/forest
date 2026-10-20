@@ -469,8 +469,8 @@ mod tests {
 
         // Build the receipt: `Return` is itself valid dag-cbor encoding a tag-42 link to the
         // `embedded` block.
-        let receipt = fvm_shared4::receipt::Receipt {
-            exit_code: fvm_shared4::error::ExitCode::OK,
+        let receipt = crate::shim::fvm_shared_latest::receipt::Receipt {
+            exit_code: crate::shim::fvm_shared_latest::error::ExitCode::OK,
             return_data: RawBytes::new(serde_ipld_dagcbor::to_vec(&Ipld::Link(embedded))?),
             gas_used: 0,
             events_root: Some(events_root),

@@ -6,7 +6,7 @@
 //! See [`crate::db::car::plain`] for details on the CAR format.
 //!
 //! The `forest.car.zst` format wraps multiple CAR blocks in small (usually 8 KiB)
-//! zstd frames, and has an index in one ore more skippable zstd frames (each
+//! zstd frames, and has an index in one or more skippable zstd frames (each
 //! skippable frame contains up to `u32::MAX` bytes). At the end of the data, there
 //! has to be a fixed-size skippable frame containing magic numbers and meta
 //! information about the archive. CAR blocks may not span multiple z-frames

@@ -6,9 +6,13 @@ use super::*;
 use crate::interpreter::{ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM, VMTrace};
 use crate::rpc::state::{ApiInvocResult, MessageGasCost};
 use crate::shim::address::Protocol;
+use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::executor::ApplyRet;
 use crate::shim::message::{METHOD_SEND, Message};
 use crate::state_migration::run_state_migrations;
+use crate::utils::misc::env::env_or_default_logged;
+use std::num::NonZeroU64;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tracing::instrument;
 
@@ -20,6 +24,7 @@ impl StateManager {
         msg: &Message,
         tipset: Option<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
+        let gas_limit = state_call_gas_limit(msg.gas_limit(), state_call_gas_cap())?;
         let chain_config = self.chain_config();
 
         let tipset = if let Some(ts) = tipset {
@@ -69,57 +74,59 @@ impl StateManager {
         };
 
         let height = tipset.epoch();
-        let mut vm = VM::new(
-            ExecutionContext {
-                heaviest_tipset: tipset.shallow_clone(),
-                state_tree_root: state_cid,
-                epoch: height,
-                rand: Box::new(self.chain_rand(tipset.shallow_clone())),
-                base_fee: tipset.block_headers().first().parent_base_fee.clone(),
-                circ_supply: self.genesis_info().get_vm_circulating_supply(
-                    height,
-                    self.db(),
-                    &state_cid,
-                )?,
-                chain_config: self.chain_config().shallow_clone(),
-                chain_index: self.chain_index().shallow_clone(),
-                timestamp: tipset.min_timestamp(),
-            },
-            &self.engine,
-            VMTrace::Traced,
-        )?;
+        let (apply_ret, duration, msg) = with_fvm_stack(|| -> Result<_, Error> {
+            let mut vm = VM::new(
+                ExecutionContext {
+                    heaviest_tipset: tipset.shallow_clone(),
+                    state_tree_root: state_cid,
+                    epoch: height,
+                    rand: Box::new(self.chain_rand(tipset.shallow_clone())),
+                    base_fee: tipset.block_headers().first().parent_base_fee.clone(),
+                    circ_supply: self.genesis_info().get_vm_circulating_supply(
+                        height,
+                        self.db(),
+                        &state_cid,
+                    )?,
+                    chain_config: self.chain_config().shallow_clone(),
+                    chain_index: self.chain_index().shallow_clone(),
+                    timestamp: tipset.min_timestamp(),
+                },
+                &self.engine,
+                VMTrace::Traced,
+            )?;
 
-        let tipset_messages = self
-            .chain_store()
-            .messages_for_tipset(&tipset)
-            .map_err(|err| Error::Other(err.to_string()))?;
+            let tipset_messages = self
+                .chain_store()
+                .messages_for_tipset(&tipset)
+                .map_err(|err| Error::Other(err.to_string()))?;
 
-        let prior_messsages = tipset_messages
-            .iter()
-            .filter(|ts_msg| ts_msg.message().from() == msg.from());
+            let prior_messsages = tipset_messages
+                .iter()
+                .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
-        for m in prior_messsages {
-            vm.apply_message(m)?;
-        }
+            for m in prior_messsages {
+                vm.apply_message(m)?;
+            }
 
-        // We flush to get the VM's view of the state tree after applying the above messages
-        // This is needed to get the correct nonce from the actor state to match the VM
-        let state_cid = vm.flush()?;
+            // We flush to get the VM's view of the state tree after applying the above messages
+            // This is needed to get the correct nonce from the actor state to match the VM
+            let state_cid = vm.flush()?;
 
-        let state = StateTree::new_from_root(self.db(), &state_cid)?;
+            let state = StateTree::new_from_root(self.db(), &state_cid)?;
 
-        let from_actor = state
-            .get_actor(&msg.from())?
-            .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
-        // Implicit messages need a special gas limit.
-        let msg = msg
-            .clone()
-            .into_builder()
-            .sequence(from_actor.sequence)
-            .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
-            .build();
+            let from_actor = state
+                .get_actor(&msg.from())?
+                .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
+            let msg = msg
+                .clone()
+                .into_builder()
+                .sequence(from_actor.sequence)
+                .gas_limit(gas_limit)
+                .build();
 
-        let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
+            let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
+            Ok((apply_ret, duration, msg))
+        })?;
 
         let msg_cid = msg.cid();
         Ok(ApiInvocResult {
@@ -133,8 +140,14 @@ impl StateManager {
         })
     }
 
-    /// runs the given message and returns its result without any persisted
-    /// changes.
+    /// Runs the given message and returns its result without any persisted changes.
+    ///
+    /// The message runs at its own gas limit; `0` selects the `StateCall` gas cap
+    /// (`FOREST_STATE_CALL_GAS_LIMIT`, the block gas limit by default).
+    ///
+    /// # Errors
+    ///
+    /// The message's gas limit is above the cap.
     pub async fn call(
         &self,
         message: Arc<Message>,
@@ -216,9 +229,7 @@ impl StateManager {
         let epoch = ts.epoch() + 1;
         let this = self.shallow_clone();
         tokio::task::spawn_blocking(move || {
-            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-            // FVM, but that introduces some constraints, and possible deadlocks.
-            let (ret, duration, state_cid) = stacker::grow(64 << 20, || -> Result<_, Error> {
+            let (ret, duration, state_cid) = with_fvm_stack(|| -> Result<_, Error> {
                 let mut vm = VM::new(
                     ExecutionContext {
                         heaviest_tipset: ts.clone(),
@@ -268,6 +279,27 @@ impl StateManager {
             Ok((ret, duration, state_cid))
         })
         .await?
+    }
+}
+
+/// The most gas a `StateCall` simulation may run with: `FOREST_STATE_CALL_GAS_LIMIT`, or the block
+/// gas limit when it is unset or not a positive integer.
+fn state_call_gas_cap() -> u64 {
+    static CAP: LazyLock<NonZeroU64> = LazyLock::new(|| {
+        env_or_default_logged("FOREST_STATE_CALL_GAS_LIMIT", nonzero!(BLOCK_GAS_LIMIT))
+    });
+    CAP.get()
+}
+
+/// Returns the gas limit a `StateCall` simulation runs with: `requested`, or `cap` when
+/// `requested` is `0`.
+fn state_call_gas_limit(requested: u64, cap: u64) -> Result<u64, Error> {
+    match requested {
+        0 => Ok(cap),
+        limit if limit > cap => Err(Error::Other(format!(
+            "StateCall gas limit {limit} exceeds configured cap {cap}"
+        ))),
+        limit => Ok(limit),
     }
 }
 
@@ -327,4 +359,24 @@ fn placeholder_send(to: Address) -> Message {
         .method_num(METHOD_SEND)
         .gas_limit(IMPLICIT_MESSAGE_GAS_LIMIT as u64)
         .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::zero_selects_the_cap(0, 10, Ok(10))]
+    #[case::below_the_cap(1, 10, Ok(1))]
+    #[case::at_the_cap(10, 10, Ok(10))]
+    #[case::above_the_cap(11, 10, Err("StateCall gas limit 11 exceeds configured cap 10"))]
+    fn state_call_gas_limit_respects_the_cap(
+        #[case] requested: u64,
+        #[case] cap: u64,
+        #[case] expected: Result<u64, &str>,
+    ) {
+        let actual = state_call_gas_limit(requested, cap).map_err(|e| e.to_string());
+        assert_eq!(actual, expected.map_err(str::to_string));
+    }
 }

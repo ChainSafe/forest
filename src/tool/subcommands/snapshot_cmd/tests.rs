@@ -3,9 +3,33 @@
 
 use super::*;
 use crate::chain::index::tests::{genesis_tipset, persist_tipset, tipset_child};
+use rstest::rstest;
 
-#[test]
-fn test_validate_tipset_lookup_hamt_success() {
+enum HamtEntries {
+    Checkpoints,
+    All,
+    Empty,
+}
+
+#[rstest]
+#[case::success(HamtEntries::Checkpoints, None, None)]
+#[case::non_checkpoint_entry(HamtEntries::All, None, Some("non checkpoint entries"))]
+#[case::missing_checkpoint_entry(HamtEntries::Empty, None, Some("checkpoint epoch 40 with key"))]
+#[case::bad_checkpoint_entry(
+    HamtEntries::Checkpoints,
+    Some(40),
+    Some("tipset mismatch, checkpoint epoch: 40")
+)]
+#[case::null_checkpoint_entry(
+    HamtEntries::Checkpoints,
+    Some(20),
+    Some("tipset mismatch, checkpoint epoch: 20")
+)]
+fn test_validate_tipset_lookup_hamt(
+    #[case] entries: HamtEntries,
+    #[case] genesis_at: Option<ChainEpoch>,
+    #[case] expected_err: Option<&str>,
+) {
     let db = Arc::new(MemoryDB::default());
     let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
         Hamt::new_with_bit_width(db.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
@@ -15,92 +39,27 @@ fn test_validate_tipset_lookup_hamt_success() {
     let mut prev = genesis.shallow_clone();
     for epoch in [10, 19, 21, 30, 40, 41] {
         let ts = tipset_child(&prev, epoch);
-        if ChainIndex::is_tipset_lookup_checkpoint(epoch) {
+        let set = match entries {
+            HamtEntries::Checkpoints => ChainIndex::is_tipset_lookup_checkpoint(epoch),
+            HamtEntries::All => true,
+            HamtEntries::Empty => false,
+        };
+        if set {
             hamt.set(epoch, ts.key().clone()).unwrap();
         }
         persist_tipset(&ts, &db);
         prev = ts;
     }
-    let head = prev;
-    let hamt_root = hamt.flush().unwrap();
-    validate_tipset_lookup_hamt(&db, hamt_root, head).unwrap();
-}
-
-#[test]
-fn test_validate_tipset_lookup_hamt_non_checkpoint_entry() {
-    let db = Arc::new(MemoryDB::default());
-    let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
-        Hamt::new_with_bit_width(db.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
-    let genesis = genesis_tipset();
-    persist_tipset(&genesis, &db);
-    // Epoch 20 is a null round: 19 is followed directly by 21.
-    let mut prev = genesis.shallow_clone();
-    for epoch in [10, 19, 21, 30, 40, 41] {
-        let ts = tipset_child(&prev, epoch);
-        hamt.set(epoch, ts.key().clone()).unwrap();
-        persist_tipset(&ts, &db);
-        prev = ts;
+    if let Some(epoch) = genesis_at {
+        hamt.set(epoch, genesis.key().clone()).unwrap();
     }
-    let head = prev;
     let hamt_root = hamt.flush().unwrap();
-    validate_tipset_lookup_hamt(&db, hamt_root, head).unwrap_err();
-}
-
-#[test]
-fn test_validate_tipset_lookup_hamt_missing_checkpoint_entry() {
-    let db = Arc::new(MemoryDB::default());
-    let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
-        Hamt::new_with_bit_width(db.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
-    let genesis = genesis_tipset();
-    persist_tipset(&genesis, &db);
-    // Epoch 20 is a null round: 19 is followed directly by 21.
-    let mut prev = genesis.shallow_clone();
-    for epoch in [10, 19, 21, 30, 40, 41] {
-        let ts = tipset_child(&prev, epoch);
-        persist_tipset(&ts, &db);
-        prev = ts;
+    let result = validate_tipset_lookup_hamt(&db, hamt_root, prev);
+    match expected_err {
+        None => result.unwrap(),
+        Some(expected) => {
+            let err = format!("{:#}", result.unwrap_err());
+            assert!(err.contains(expected), "{err}");
+        }
     }
-    let head = prev;
-    let hamt_root = hamt.flush().unwrap();
-    validate_tipset_lookup_hamt(&db, hamt_root, head).unwrap_err();
-}
-
-#[test]
-fn test_validate_tipset_lookup_hamt_bad_checkpoint_entry() {
-    let db = Arc::new(MemoryDB::default());
-    let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
-        Hamt::new_with_bit_width(db.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
-    let genesis = genesis_tipset();
-    persist_tipset(&genesis, &db);
-    hamt.set(40, genesis.key().clone()).unwrap();
-    // Epoch 20 is a null round: 19 is followed directly by 21.
-    let mut prev = genesis.shallow_clone();
-    for epoch in [10, 19, 21, 30, 40, 41] {
-        let ts = tipset_child(&prev, epoch);
-        persist_tipset(&ts, &db);
-        prev = ts;
-    }
-    let head = prev;
-    let hamt_root = hamt.flush().unwrap();
-    validate_tipset_lookup_hamt(&db, hamt_root, head).unwrap_err();
-}
-
-#[test]
-fn test_validate_tipset_lookup_hamt_null_checkpoint_entry() {
-    let db = Arc::new(MemoryDB::default());
-    let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
-        Hamt::new_with_bit_width(db.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
-    let genesis = genesis_tipset();
-    persist_tipset(&genesis, &db);
-    hamt.set(20, genesis.key().clone()).unwrap();
-    // Epoch 20 is a null round: 19 is followed directly by 21.
-    let mut prev = genesis.shallow_clone();
-    for epoch in [10, 19, 21, 30, 40, 41] {
-        let ts = tipset_child(&prev, epoch);
-        persist_tipset(&ts, &db);
-        prev = ts;
-    }
-    let head = prev;
-    let hamt_root = hamt.flush().unwrap();
-    validate_tipset_lookup_hamt(&db, hamt_root, head).unwrap_err();
 }

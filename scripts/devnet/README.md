@@ -71,12 +71,14 @@ Under the hood this sources `test_harness.sh`, which reads the admin token and
 the funded genesis key from the running `forest` container, exports
 `FULLNODE_API_INFO` (Forest RPC on port 3456) and `FOREST_TEST_PRELOADED_ADDRESS`,
 then runs `forest-dev tests mpool`, `forest-dev tests wallet`,
-`forest-dev devnet eth-gas` and `forest-dev devnet eth-skip-sender`.
+`forest-dev devnet eth-gas`, `forest-dev devnet eth-skip-sender`,
+`forest-dev devnet state-call` and `forest-dev devnet eth-pending-tx`.
 
-The `devnet` suites (unlike `tests`) need both nodes reachable: `eth-gas`
-compares Forest against Lotus, and `eth-skip-sender` deploys contracts and
-submits transactions, so they run pre-flight checks and fail early if the
-devnet or harness environment is missing.
+The `devnet` suites (unlike `tests`) need both nodes reachable: `eth-gas` and
+`state-call` compare Forest against Lotus, `eth-skip-sender` deploys
+contracts and submits transactions, and `eth-pending-tx` submits a transaction
+through Lotus and looks it up on Forest, so they run pre-flight checks and fail
+early if the devnet or harness environment is missing.
 
 ## Local devnet development
 

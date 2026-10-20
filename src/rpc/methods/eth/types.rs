@@ -345,6 +345,8 @@ pub struct EthCallMessage {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub gas_price: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_fee_per_gas: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<EthBigInt>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub data: Option<EthBytes>,
@@ -357,6 +359,32 @@ impl EthCallMessage {
     /// Returns the effective calldata, preferring `input` over `data` when both are set.
     pub fn effective_input(&self) -> Option<&EthBytes> {
         self.input.as_ref().or(self.data.as_ref())
+    }
+
+    /// Returns the caller-supplied gas limit capped at the block gas limit, treating `0` as unset like Lotus.
+    pub fn gas_cap(&self) -> Option<u64> {
+        match self.gas {
+            Some(EthUint64(gas)) if gas > 0 => Some(gas.min(BLOCK_GAS_LIMIT)),
+            _ => None,
+        }
+    }
+
+    /// Returns the most the caller pays per unit of gas: `maxFeePerGas` when present, else `gasPrice`.
+    ///
+    /// `None` when that price is absent or zero. A zero `gasPrice` counts as absent.
+    ///
+    /// # Errors
+    ///
+    /// [`errors::EthErrors::ConflictingGasPrices`] when `maxFeePerGas` comes with a non-zero `gasPrice`.
+    pub fn max_gas_price(&self) -> Result<Option<TokenAmount>, errors::EthErrors> {
+        if self.max_fee_per_gas.is_some() && self.gas_price.is_some_and(|price| !price.is_zero()) {
+            return Err(errors::EthErrors::ConflictingGasPrices);
+        }
+        Ok(self
+            .max_fee_per_gas
+            .or(self.gas_price)
+            .map(TokenAmount::from)
+            .filter(|price| !price.is_zero()))
     }
 
     pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
@@ -404,17 +432,13 @@ impl TryFrom<EthCallMessage> for Message {
                 EAMMethod::CreateExternal as MethodNum,
             )
         };
-        let gas_limit = match tx.gas {
-            Some(EthUint64(gas)) if gas > 0 => gas.min(BLOCK_GAS_LIMIT),
-            _ => BLOCK_GAS_LIMIT,
-        };
         Ok(Message::builder()
             .from(from)
             .to(to)
             .value(tx.value.unwrap_or_default().into())
             .method_num(method_num)
             .params(params)
-            .gas_limit(gas_limit)
+            .gas_limit(tx.gas_cap().unwrap_or(BLOCK_GAS_LIMIT))
             .build())
     }
 }
@@ -665,6 +689,58 @@ mod tests {
         assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT)), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(BLOCK_GAS_LIMIT + 1)), BLOCK_GAS_LIMIT);
         assert_eq!(gas_limit(Some(u64::MAX)), BLOCK_GAS_LIMIT);
+    }
+
+    #[rstest::rstest]
+    #[case::neither(None, None, None)]
+    #[case::gas_price_only(Some(7), None, Some(7))]
+    #[case::max_fee_only(None, Some(9), Some(9))]
+    #[case::max_fee_wins_over_zero_gas_price(Some(0), Some(9), Some(9))]
+    #[case::zero_gas_price_is_absent(Some(0), None, None)]
+    #[case::zero_max_fee_is_absent(None, Some(0), None)]
+    fn eth_call_message_max_gas_price(
+        #[case] gas_price: Option<u64>,
+        #[case] max_fee_per_gas: Option<u64>,
+        #[case] price: Option<u64>,
+    ) {
+        let msg = EthCallMessage {
+            gas_price: gas_price.map(EthBigInt::from),
+            max_fee_per_gas: max_fee_per_gas.map(EthBigInt::from),
+            ..Default::default()
+        };
+        assert_eq!(
+            msg.max_gas_price().unwrap(),
+            price.map(TokenAmount::from_atto)
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::both_set(7, 9)]
+    #[case::zero_max_fee_still_conflicts(7, 0)]
+    fn eth_call_message_rejects_both_prices(#[case] gas_price: u64, #[case] max_fee_per_gas: u64) {
+        let msg = EthCallMessage {
+            gas_price: Some(gas_price.into()),
+            max_fee_per_gas: Some(max_fee_per_gas.into()),
+            ..Default::default()
+        };
+        assert!(matches!(
+            msg.max_gas_price(),
+            Err(errors::EthErrors::ConflictingGasPrices)
+        ));
+    }
+
+    #[rstest::rstest]
+    #[case(None, None)]
+    #[case(Some(0), None)]
+    #[case(Some(1000), Some(1000))]
+    #[case(Some(BLOCK_GAS_LIMIT + 1), Some(BLOCK_GAS_LIMIT))]
+    #[case(Some(u64::MAX), Some(BLOCK_GAS_LIMIT))]
+    fn eth_call_message_gas_cap(#[case] gas: Option<u64>, #[case] expected: Option<u64>) {
+        let msg = EthCallMessage {
+            gas: gas.map(EthUint64),
+            ..Default::default()
+        };
+        assert_eq!(msg.gas_cap(), expected);
     }
 
     #[test]

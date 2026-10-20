@@ -5,9 +5,10 @@ use super::*;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::sector::SectorNumber;
+use crate::shim::state_tree::ActorID;
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared4::{ActorID, bigint::BigInt};
+use num::BigInt;
 use pastey::paste;
 use serde::{Deserialize, Serialize};
 

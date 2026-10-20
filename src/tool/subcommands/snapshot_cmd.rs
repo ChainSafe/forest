@@ -705,7 +705,7 @@ mod structured {
         called_at: CalledAt,
         duration: Duration,
     ) -> anyhow::Result<serde_json::Value> {
-        let is_explicit = matches!(called_at.apply_kind(), fvm3::executor::ApplyKind::Explicit);
+        let is_explicit = matches!(called_at, CalledAt::Applied);
 
         let chain_message_cid = chain_message.cid();
         let unsigned_message_cid = chain_message.message().cid();

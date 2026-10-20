@@ -19,13 +19,11 @@ use super::utils::trace_to_address;
 use crate::eth::{EAMMethod, EVMMethod};
 use crate::prelude::*;
 use crate::rpc::methods::state::ExecutionTrace;
+use crate::shim::actors::init::{ExecReturn, Method as InitMethod};
+use crate::shim::actors::{eam, evm};
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{actors::is_evm_actor, address::Address, error::ExitCode, state_tree::StateTree};
 use anyhow::bail;
-use fil_actor_eam_state::v12 as eam12;
-use fil_actor_evm_state::v15 as evm12;
-use fil_actor_init_state::v12::ExecReturn;
-use fil_actor_init_state::v15::Method as InitMethod;
 use fvm_ipld_blockstore::Blockstore;
 use num::FromPrimitive;
 use tracing::debug;
@@ -60,21 +58,21 @@ fn trace_err_msg(trace: &ExecutionTrace) -> Option<TraceError> {
     }
 
     if trace_is_evm_or_eam(trace) {
-        match code.into() {
-            evm12::EVM_CONTRACT_REVERTED => return Some(TraceError::Reverted),
-            evm12::EVM_CONTRACT_INVALID_INSTRUCTION => {
+        match code {
+            evm::EVM_CONTRACT_REVERTED => return Some(TraceError::Reverted),
+            evm::EVM_CONTRACT_INVALID_INSTRUCTION => {
                 return Some(TraceError::InvalidInstruction);
             }
-            evm12::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
+            evm::EVM_CONTRACT_UNDEFINED_INSTRUCTION => {
                 return Some(TraceError::UndefinedInstruction);
             }
-            evm12::EVM_CONTRACT_STACK_UNDERFLOW => return Some(TraceError::StackUnderflow),
-            evm12::EVM_CONTRACT_STACK_OVERFLOW => return Some(TraceError::StackOverflow),
-            evm12::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
+            evm::EVM_CONTRACT_STACK_UNDERFLOW => return Some(TraceError::StackUnderflow),
+            evm::EVM_CONTRACT_STACK_OVERFLOW => return Some(TraceError::StackOverflow),
+            evm::EVM_CONTRACT_ILLEGAL_MEMORY_ACCESS => {
                 return Some(TraceError::IllegalMemoryAccess);
             }
-            evm12::EVM_CONTRACT_BAD_JUMPDEST => return Some(TraceError::BadJumpDest),
-            evm12::EVM_CONTRACT_SELFDESTRUCT_FAILED => {
+            evm::EVM_CONTRACT_BAD_JUMPDEST => return Some(TraceError::BadJumpDest),
+            evm::EVM_CONTRACT_SELFDESTRUCT_FAILED => {
                 return Some(TraceError::SelfDestructFailed);
             }
             _ => (),
@@ -401,11 +399,11 @@ fn trace_native_create(
 fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, Option<EthAddress>)> {
     let init_code = match EAMMethod::from_u64(trace.msg.method) {
         Some(EAMMethod::Create) => {
-            let params = decode_params::<eam12::CreateParams>(&trace.msg)?;
+            let params = decode_params::<eam::CreateParams>(&trace.msg)?;
             params.initcode
         }
         Some(EAMMethod::Create2) => {
-            let params = decode_params::<eam12::Create2Params>(&trace.msg)?;
+            let params = decode_params::<eam::Create2Params>(&trace.msg)?;
             params.initcode
         }
         Some(EAMMethod::CreateExternal) => {
@@ -415,7 +413,7 @@ fn decode_create_via_eam(trace: &ExecutionTrace) -> anyhow::Result<(Vec<u8>, Opt
     };
 
     let create_addr = if trace.msg_rct.exit_code.is_success() {
-        let ret = decode_return::<eam12::CreateReturn>(&trace.msg_rct)?;
+        let ret = decode_return::<eam::CreateReturn>(&trace.msg_rct)?;
         Some(ret.eth_address.0.into())
     } else {
         None
@@ -574,7 +572,7 @@ fn trace_evm_private(
                 }
             }
 
-            let dp = decode_params::<evm12::DelegateCallParams>(&trace.msg)?;
+            let dp = decode_params::<evm::DelegateCallParams>(&trace.msg)?;
 
             let output = decode_payload(&trace.msg_rct.r#return, trace.msg_rct.return_codec)
                 .map_err(|e| anyhow::anyhow!("failed to decode delegate-call return: {e}"))?;
@@ -642,10 +640,10 @@ mod tests {
     use super::{decode_create_via_eam, trace_err_msg, trace_is_evm_or_eam};
     use crate::eth::EAMMethod;
     use crate::rpc::methods::state::{ActorTrace, ExecutionTrace, MessageTrace, ReturnTrace};
+    use crate::shim::actors::evm;
     use crate::shim::address::Address;
     use crate::shim::econ::TokenAmount;
     use crate::shim::error::ExitCode;
-    use fil_actor_evm_state::v15 as evm15;
     use fvm_ipld_encoding::{CBOR, RawBytes};
     use rstest::rstest;
 
@@ -688,14 +686,14 @@ mod tests {
 
     #[rstest]
     #[case::eam(Some(actor(eam_actor_id())), true, Some(TraceError::Reverted))]
-    #[case::native_actor(Some(actor(1234)), false, Some(TraceError::ActorError(evm15::EVM_CONTRACT_REVERTED.value())))]
-    #[case::no_actor(None, false, Some(TraceError::ActorError(evm15::EVM_CONTRACT_REVERTED.value())))]
+    #[case::native_actor(Some(actor(1234)), false, Some(TraceError::ActorError(evm::EVM_CONTRACT_REVERTED.value())))]
+    #[case::no_actor(None, false, Some(TraceError::ActorError(evm::EVM_CONTRACT_REVERTED.value())))]
     fn actor_kind_decides_trace_error(
         #[case] invoked_actor: Option<ActorTrace>,
         #[case] is_evm_or_eam: bool,
         #[case] classified: Option<TraceError>,
     ) {
-        let trace = trace_with(invoked_actor, evm15::EVM_CONTRACT_REVERTED.value());
+        let trace = trace_with(invoked_actor, evm::EVM_CONTRACT_REVERTED.value());
         assert_eq!(trace_is_evm_or_eam(&trace), is_evm_or_eam);
         assert_eq!(trace_err_msg(&trace), classified);
     }
@@ -714,7 +712,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut trace = trace_with(None, evm15::EVM_CONTRACT_REVERTED.value());
+        let mut trace = trace_with(None, evm::EVM_CONTRACT_REVERTED.value());
         trace.msg.method = EAMMethod::CreateExternal as u64;
         trace.msg.params = RawBytes::new(params);
         trace.msg.params_codec = CBOR;

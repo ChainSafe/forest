@@ -3,8 +3,8 @@
 
 use super::*;
 
+use crate::shim::actors::miner::PendingBeneficiaryChange;
 use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount};
-use fil_actor_miner_state::v12::PendingBeneficiaryChange;
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

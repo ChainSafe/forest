@@ -5,7 +5,7 @@ mod decoder;
 use std::{io, marker::PhantomData, time::Duration};
 
 use async_trait::async_trait;
-use decoder::DagCborDecodingReader;
+use decoder::{DagCborDecodingReader, DecodeMode};
 use futures::prelude::*;
 use libp2p::request_response::{self, OutboundFailure};
 use serde::{Serialize, de::DeserializeOwned};
@@ -108,7 +108,13 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        timed_decode(io, C::MAX_REQUEST_BYTES, C::DECODE_TIMEOUT).await
+        timed_decode(
+            io,
+            C::MAX_REQUEST_BYTES,
+            C::DECODE_TIMEOUT,
+            DecodeMode::PerRead,
+        )
+        .await
     }
 
     async fn read_response<T>(
@@ -119,7 +125,13 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        timed_decode(io, C::MAX_RESPONSE_BYTES, C::DECODE_TIMEOUT).await
+        timed_decode(
+            io,
+            C::MAX_RESPONSE_BYTES,
+            C::DECODE_TIMEOUT,
+            DecodeMode::AtEof,
+        )
+        .await
     }
 
     async fn write_request<T>(
@@ -167,15 +179,24 @@ where
 //
 // `io` is essentially [yamux::Stream](https://docs.rs/yamux/0.11.0/yamux/struct.Stream.html)
 //
+// `read_request` decodes incrementally (`DecodeMode::PerRead`): a requesting peer keeps the stream
+// open until it has our response, so no `FIN` arrives first. `read_response` decodes once the
+// responder's `FIN` closes the stream (`DecodeMode::AtEof`).
+//
 /// Decodes a CBOR value from `io` with a timeout. Used by both `read_request`
 /// and `read_response` to prevent hanging on a peer that fails to send `FIN`
 /// in a timely manner.
-async fn timed_decode<IO, T>(io: &mut IO, max_bytes: usize, timeout: Duration) -> io::Result<T>
+async fn timed_decode<IO, T>(
+    io: &mut IO,
+    max_bytes: usize,
+    timeout: Duration,
+    mode: DecodeMode,
+) -> io::Result<T>
 where
     IO: AsyncRead + Unpin,
     T: serde::de::DeserializeOwned,
 {
-    match tokio::time::timeout(timeout, DagCborDecodingReader::new(io, max_bytes)).await {
+    match tokio::time::timeout(timeout, DagCborDecodingReader::new(io, max_bytes, mode)).await {
         Ok(r) => r,
         Err(_) => {
             let err = io::Error::from(io::ErrorKind::TimedOut);

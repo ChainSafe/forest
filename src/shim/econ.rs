@@ -51,6 +51,17 @@ impl GetSize for TokenAmount {
 }
 
 #[cfg(test)]
+impl TokenAmount {
+    /// The amount in attoFIL as an `i64`.
+    ///
+    /// # Panics
+    /// When the amount does not fit.
+    pub fn expect_i64(&self) -> i64 {
+        self.atto().try_into().expect("amount fits i64")
+    }
+}
+
+#[cfg(test)]
 impl quickcheck::Arbitrary for TokenAmount {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         use fvm_shared4::bigint::MAX_BIGINT_SIZE;

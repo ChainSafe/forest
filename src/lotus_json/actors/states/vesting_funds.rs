@@ -47,7 +47,7 @@ macro_rules! impl_vesting_funds_lotus_json {
 
                     #[cfg(test)]
                     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-                        use fvm_shared4::bigint::BigInt;
+                        use num::BigInt;
 
                         vec![
                             (

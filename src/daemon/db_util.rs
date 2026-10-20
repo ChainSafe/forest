@@ -495,7 +495,7 @@ impl BackfillStatus {
 pub static BACKFILL_STATUS: LazyLock<BackfillStatus> = LazyLock::new(BackfillStatus::default);
 
 /// Single-flight guard for an index backfill. Holds the [`BACKFILL_STATUS`] slot for progress and
-/// cancellation, and nests a [`ChainExportGuard`] so backfill never overlaps snapshot exports or
+/// cancellation, and nests a [`ChainExportGuard`](crate::ipld::ChainExportGuard) so backfill never overlaps snapshot exports or
 /// the snapshot GC (all three share the chain-export slot).
 pub struct BackfillGuard {
     cancellation_token: CancellationToken,
@@ -862,6 +862,7 @@ pub async fn run_backfill(
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
 
     // The backfill guard shares the chain-export single-flight slot, so serialize with the export
     // tests that also touch it.
@@ -965,96 +966,60 @@ mod test {
         assert_eq!(read_backfill_checkpoint(&sm).unwrap(), None);
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn import_snapshot_from_file_valid() {
-        for import_mode in [ImportMode::Auto, ImportMode::Copy, ImportMode::Move] {
-            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
-                .await
-                .unwrap();
-        }
-
-        // Linking is not supported for raw CAR files.
-        for import_mode in [ImportMode::Symlink, ImportMode::Hardlink] {
-            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
-                .await
-                .unwrap_err();
-        }
+    async fn import_snapshot_from_file_valid(
+        #[values(
+            "test-snapshots/chain4.car",
+            "test-snapshots/chain4.car.zst",
+            "test-snapshots/chain4.forest.car.zst"
+        )]
+        file_path: &str,
+        #[values(ImportMode::Auto, ImportMode::Copy, ImportMode::Move)] import_mode: ImportMode,
+    ) {
+        import_snapshot_from_file(file_path, import_mode)
+            .await
+            .unwrap();
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn import_snapshot_from_compressed_file_valid() {
-        for import_mode in [ImportMode::Auto, ImportMode::Copy, ImportMode::Move] {
-            import_snapshot_from_file("test-snapshots/chain4.car.zst", import_mode)
-                .await
-                .unwrap();
-        }
-
-        // Linking is not supported for raw CAR files.
-        for import_mode in [ImportMode::Symlink, ImportMode::Hardlink] {
-            import_snapshot_from_file("test-snapshots/chain4.car", import_mode)
-                .await
-                .unwrap_err();
-        }
+    async fn import_snapshot_from_forest_car_via_link(
+        #[values(ImportMode::Symlink, ImportMode::Hardlink)] import_mode: ImportMode,
+    ) {
+        import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", import_mode)
+            .await
+            .unwrap();
     }
 
+    #[rstest]
     #[tokio::test]
-    async fn import_snapshot_from_forest_car_valid() {
-        for import_mode in [
+    async fn import_snapshot_from_plain_car_via_link_fails(
+        #[values("test-snapshots/chain4.car", "test-snapshots/chain4.car.zst")] file_path: &str,
+        #[values(ImportMode::Symlink, ImportMode::Hardlink)] import_mode: ImportMode,
+    ) {
+        import_snapshot_from_file(file_path, import_mode)
+            .await
+            .unwrap_err();
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn import_snapshot_from_file_invalid(
+        #[values("Cargo.toml", "dummy.car", "https://forest.chainsafe.io/dummy.car")]
+        file_path: &str,
+        #[values(
             ImportMode::Auto,
             ImportMode::Copy,
             ImportMode::Move,
             ImportMode::Symlink,
-            ImportMode::Hardlink,
-        ] {
-            import_snapshot_from_file("test-snapshots/chain4.forest.car.zst", import_mode)
-                .await
-                .unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_file_invalid() {
-        for import_mode in &[
-            ImportMode::Auto,
-            ImportMode::Copy,
-            ImportMode::Move,
-            ImportMode::Symlink,
-            ImportMode::Hardlink,
-        ] {
-            import_snapshot_from_file("Cargo.toml", *import_mode)
-                .await
-                .unwrap_err();
-        }
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_file_not_found() {
-        for import_mode in &[
-            ImportMode::Auto,
-            ImportMode::Copy,
-            ImportMode::Move,
-            ImportMode::Symlink,
-            ImportMode::Hardlink,
-        ] {
-            import_snapshot_from_file("dummy.car", *import_mode)
-                .await
-                .unwrap_err();
-        }
-    }
-
-    #[tokio::test]
-    async fn import_snapshot_from_url_not_found() {
-        for import_mode in &[
-            ImportMode::Auto,
-            ImportMode::Copy,
-            ImportMode::Move,
-            ImportMode::Symlink,
-            ImportMode::Hardlink,
-        ] {
-            import_snapshot_from_file("https://forest.chainsafe.io/dummy.car", *import_mode)
-                .await
-                .unwrap_err();
-        }
+            ImportMode::Hardlink
+        )]
+        import_mode: ImportMode,
+    ) {
+        import_snapshot_from_file(file_path, import_mode)
+            .await
+            .unwrap_err();
     }
 
     async fn import_snapshot_from_file(

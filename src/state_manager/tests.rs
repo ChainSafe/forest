@@ -112,7 +112,7 @@ fn test_events_same_content_same_cid() {
 fn test_events_empty_list() {
     let db = MemoryDB::default();
 
-    let events: Vec<fvm_shared4::event::StampedEvent> = vec![];
+    let events: Vec<crate::shim::fvm_shared_latest::event::StampedEvent> = vec![];
     let events_root =
         Amt::new_from_iter_with_bit_width(&db, EVENTS_AMT_BITWIDTH, events.iter()).unwrap();
 
@@ -198,14 +198,26 @@ fn clear_tipset_state_caches_evicts_all_cached_results() {
     sm.trace_cache
         .insert(tsk.clone(), (Cid::default().into(), vec![]));
     sm.eth_trace_cache.insert(tsk.clone(), Arc::new(vec![]));
+    sm.reward_distribution_cache.insert(
+        tsk.clone(),
+        Arc::new(RewardDistribution {
+            tipset_key: tsk.clone(),
+            height: 0,
+            denom: 0,
+            totals: Default::default(),
+            blocks: vec![],
+        }),
+    );
     assert!(sm.cache.get(&tsk).is_some());
     assert!(sm.trace_cache.get(&tsk).is_some());
     assert!(sm.eth_trace_cache.get(&tsk).is_some());
+    assert!(sm.reward_distribution_cache.get(&tsk).is_some());
 
     sm.clear_tipset_state_caches();
     assert!(sm.cache.get(&tsk).is_none());
     assert!(sm.trace_cache.get(&tsk).is_none());
     assert!(sm.eth_trace_cache.get(&tsk).is_none());
+    assert!(sm.reward_distribution_cache.get(&tsk).is_none());
 }
 
 #[test]

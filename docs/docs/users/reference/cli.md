@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.37.0
+forest-filecoin 0.38.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -105,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.37.0
+forest-filecoin 0.38.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -352,7 +352,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.37.0
+forest-filecoin 0.38.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1437,7 +1437,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.37.0
+forest-filecoin 0.38.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2679,7 +2679,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.37.0
+forest-filecoin 0.38.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2928,7 +2928,9 @@ Usage: forest-dev devnet <COMMAND>
 
 Commands:
   eth-gas          `eth_estimateGas` parity tests
+  eth-pending-tx   `eth_getTransactionByHash` pending transaction tests
   eth-skip-sender  Skip-sender integration tests that need a private chain with a miner
+  state-call       `Filecoin.StateCall` gas limit parity tests
   help             Print this message or the help of the given subcommand(s)
 
 Options:
@@ -2952,6 +2954,28 @@ Options:
 Skip-sender integration tests that need a private chain with a miner
 
 Usage: forest-dev devnet eth-skip-sender
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev devnet state-call`
+
+```
+`Filecoin.StateCall` gas limit parity tests
+
+Usage: forest-dev devnet state-call
+
+Options:
+  -h, --help  Print help
+```
+
+### `forest-dev devnet eth-pending-tx`
+
+```
+`eth_getTransactionByHash` pending transaction tests
+
+Usage: forest-dev devnet eth-pending-tx
 
 Options:
   -h, --help  Print help

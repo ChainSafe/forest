@@ -372,6 +372,10 @@ mod tests {
         }
     }
 
+    const SWA: Address = Address::new_id(100);
+    const SRA: Address = Address::new_id(101);
+    const ORCHESTRATOR: Address = Address::new_id(102);
+
     fn bootstrap_params() -> SolsticeRewardBootstrapParams {
         SolsticeRewardBootstrapParams {
             swa_timelock_epochs: 20_160,
@@ -379,9 +383,9 @@ mod tests {
             consensus_weight_ramp_duration_epochs: 45,
             consensus_weight: weight(95, 50, 95),
             service_weight: weight(5, 5, 10),
-            swa_actor: Some(Address::new_id(100)),
-            sra_actor: Some(Address::new_id(101)),
-            initial_orchestrator: Some(Address::new_id(102)),
+            swa_actor: Some(SWA),
+            sra_actor: Some(SRA),
+            initial_orchestrator: Some(ORCHESTRATOR),
         }
     }
 
@@ -487,204 +491,71 @@ mod tests {
         assert!(migrator.accrued.is_empty());
     }
 
-    #[test]
-    fn rejects_incomplete_or_invalid_bootstrap_params() {
-        let valid = bootstrap_params();
-        let delegated = Some(Address::new_delegated(10, &[1]).unwrap());
-        for (case, params, expected_error) in [
-            (
-                "unset SWA",
-                SolsticeRewardBootstrapParams {
-                    swa_actor: None,
-                    ..valid.clone()
-                },
-                "SWA actor is not set",
-            ),
-            (
-                "unset SRA",
-                SolsticeRewardBootstrapParams {
-                    sra_actor: None,
-                    ..valid.clone()
-                },
-                "SRA actor is not set",
-            ),
-            (
-                "unset orchestrator",
-                SolsticeRewardBootstrapParams {
-                    initial_orchestrator: None,
-                    ..valid.clone()
-                },
-                "initial orchestrator is not set",
-            ),
-            (
-                "non-ID SWA",
-                SolsticeRewardBootstrapParams {
-                    swa_actor: delegated,
-                    ..valid.clone()
-                },
-                "SWA actor is not an ID address",
-            ),
-            (
-                "non-ID SRA",
-                SolsticeRewardBootstrapParams {
-                    sra_actor: delegated,
-                    ..valid.clone()
-                },
-                "distribution writer f410",
-            ),
-            (
-                "non-ID orchestrator",
-                SolsticeRewardBootstrapParams {
-                    initial_orchestrator: delegated,
-                    ..valid.clone()
-                },
-                "share recipient f410",
-            ),
-            (
-                "negative timelock",
-                SolsticeRewardBootstrapParams {
-                    swa_timelock_epochs: -1,
-                    ..valid.clone()
-                },
-                "SWA timelock is negative",
-            ),
-            (
-                "negative ramp",
-                SolsticeRewardBootstrapParams {
-                    consensus_weight_ramp_duration_epochs: -1,
-                    ..valid.clone()
-                },
-                "ramp duration is negative",
-            ),
-            (
-                "zero ramp with split weights",
-                SolsticeRewardBootstrapParams {
-                    consensus_weight_ramp_duration_epochs: 0,
-                    ..valid.clone()
-                },
-                "zero-duration Solstice bootstrap must have constant DENOM consensus weight and zero service weight",
-            ),
-            (
-                "consensus start not above its floor",
-                SolsticeRewardBootstrapParams {
-                    consensus_weight: weight(50, 50, 95),
-                    ..valid.clone()
-                },
-                "must exceed its floor",
-            ),
-            (
-                "starting weights do not sum to DENOM",
-                SolsticeRewardBootstrapParams {
-                    service_weight: weight(6, 5, 10),
-                    ..valid.clone()
-                },
-                "starting weights must sum to denominator",
-            ),
-            (
-                "service cap above what the consensus floor leaves",
-                SolsticeRewardBootstrapParams {
-                    service_weight: weight(5, 5, 60),
-                    ..valid.clone()
-                },
-                "stream weights exceed DENOM",
-            ),
-            (
-                "weight start above its cap",
-                SolsticeRewardBootstrapParams {
-                    consensus_weight: weight(95, 50, 94),
-                    ..valid
-                },
-                "weight v_start exceeds cap",
-            ),
-        ] {
-            let error = RewardMigrator::new(&params, 100, Cid::default())
-                .err()
-                .unwrap_or_else(|| panic!("{case}: accepted"));
-            assert!(
-                format!("{error:#}").contains(expected_error),
-                "{case}: {error:#}"
-            );
-        }
+    fn delegated() -> Option<Address> {
+        Some(Address::new_delegated(10, &[1]).unwrap())
     }
 
-    #[test]
-    fn rejects_malformed_bootstrap_streams() {
-        type Damage = fn(&mut Vec<RegisterStreamParams>);
-        let cases: [(&str, Damage, &str); 11] = [
-            (
-                "three streams",
-                |p| p.push(p.last().cloned().unwrap()),
-                "bootstrap requires one or two streams",
-            ),
-            (
-                "activation epoch mismatch",
-                |p| p.first_mut().unwrap().activation_epoch += 1,
-                "activation epoch 101 does not match upgrade epoch 100",
-            ),
-            (
-                "weight start mismatch",
-                |p| p.first_mut().unwrap().weight.t_start += 1,
-                "weight start 101 does not match upgrade epoch 100",
-            ),
-            (
-                "single stream that is not neutral",
-                |p| p.truncate(1),
-                "single-stream bootstrap must be implicit stream 1 at constant DENOM",
-            ),
-            (
-                "service stream ID 3",
-                |p| p.last_mut().unwrap().id = 3,
-                "split bootstrap stream IDs must be 1 and 2",
-            ),
-            (
-                "two implicit streams",
-                |p| p.last_mut().unwrap().distribution = None,
-                "split bootstrap distribution forms are invalid",
-            ),
-            (
-                "starting weights under-sum",
-                |p| p.last_mut().unwrap().weight.v_start -= 1,
-                "bootstrap starting weights must sum to denominator",
-            ),
-            (
-                "unequal slopes",
-                |p| p.last_mut().unwrap().weight.slope += 1,
-                "bootstrap weight slopes are invalid",
-            ),
-            (
-                "partial share",
-                |p| {
-                    let distribution = p.last_mut().unwrap().distribution.as_mut().unwrap();
-                    distribution.shares.first_mut().unwrap().share -= 1;
-                },
-                "explicit bootstrap requires one full-share recipient",
-            ),
-            (
-                "delegated writer",
-                |p| {
-                    let distribution = p.last_mut().unwrap().distribution.as_mut().unwrap();
-                    distribution.writer = Address_v4::new_delegated(10, &[1]).unwrap();
-                },
-                "distribution writer f410",
-            ),
-            (
-                "service cap above what the consensus floor leaves",
-                |p| p.last_mut().unwrap().weight.cap = 60 * PERCENT,
-                "stream weights exceed DENOM",
-            ),
-        ];
+    #[rstest]
+    #[case::unset_swa(SolsticeRewardBootstrapParams { swa_actor: None, ..bootstrap_params() }, "SWA actor is not set")]
+    #[case::unset_sra(SolsticeRewardBootstrapParams { sra_actor: None, ..bootstrap_params() }, "SRA actor is not set")]
+    #[case::unset_orchestrator(SolsticeRewardBootstrapParams { initial_orchestrator: None, ..bootstrap_params() }, "initial orchestrator is not set")]
+    #[case::non_id_swa(SolsticeRewardBootstrapParams { swa_actor: delegated(), ..bootstrap_params() }, "SWA actor is not an ID address")]
+    #[case::non_id_sra(SolsticeRewardBootstrapParams { sra_actor: delegated(), ..bootstrap_params() }, "distribution writer f410")]
+    #[case::non_id_orchestrator(SolsticeRewardBootstrapParams { initial_orchestrator: delegated(), ..bootstrap_params() }, "share recipient f410")]
+    #[case::negative_timelock(SolsticeRewardBootstrapParams { swa_timelock_epochs: -1, ..bootstrap_params() }, "SWA timelock is negative")]
+    #[case::negative_ramp(SolsticeRewardBootstrapParams { consensus_weight_ramp_duration_epochs: -1, ..bootstrap_params() }, "ramp duration is negative")]
+    #[case::zero_ramp_with_split_weights(
+        SolsticeRewardBootstrapParams { consensus_weight_ramp_duration_epochs: 0, ..bootstrap_params() },
+        "zero-duration Solstice bootstrap must have constant DENOM consensus weight and zero service weight"
+    )]
+    #[case::consensus_start_not_above_its_floor(SolsticeRewardBootstrapParams { consensus_weight: weight(50, 50, 95), ..bootstrap_params() }, "must exceed its floor")]
+    #[case::starting_weights_do_not_sum_to_denom(SolsticeRewardBootstrapParams { service_weight: weight(6, 5, 10), ..bootstrap_params() }, "starting weights must sum to denominator")]
+    #[case::service_cap_above_what_the_consensus_floor_leaves(SolsticeRewardBootstrapParams { service_weight: weight(5, 5, 60), ..bootstrap_params() }, "stream weights exceed DENOM")]
+    #[case::weight_start_above_its_cap(SolsticeRewardBootstrapParams { consensus_weight: weight(95, 50, 94), ..bootstrap_params() }, "weight v_start exceeds cap")]
+    fn rejects_incomplete_or_invalid_bootstrap_params(
+        #[case] params: SolsticeRewardBootstrapParams,
+        #[case] expected_error: &str,
+    ) {
+        let error = RewardMigrator::new(&params, 100, Cid::default())
+            .err()
+            .expect("accepted");
+        assert!(format!("{error:#}").contains(expected_error), "{error:#}");
+    }
 
-        for (case, damage, expected_error) in cases {
-            let mut params = bootstrap_streams(&bootstrap_params(), 100).unwrap();
-            damage(&mut params);
-            let error = validate_migration_streams(&params, 100)
-                .err()
-                .unwrap_or_else(|| panic!("{case}: accepted"));
-            assert!(
-                format!("{error:#}").contains(expected_error),
-                "{case}: {error:#}"
-            );
-        }
+    type Streams = Vec<RegisterStreamParams>;
+
+    #[rstest]
+    #[case::three_streams(|p: &mut Streams| p.push(p.last().cloned().unwrap()), "bootstrap requires one or two streams")]
+    #[case::activation_epoch_mismatch(|p: &mut Streams| p.first_mut().unwrap().activation_epoch += 1, "activation epoch 101 does not match upgrade epoch 100")]
+    #[case::weight_start_mismatch(|p: &mut Streams| p.first_mut().unwrap().weight.t_start += 1, "weight start 101 does not match upgrade epoch 100")]
+    #[case::single_stream_that_is_not_neutral(|p: &mut Streams| p.truncate(1), "single-stream bootstrap must be implicit stream 1 at constant DENOM")]
+    #[case::service_stream_id_3(|p: &mut Streams| p.last_mut().unwrap().id = 3, "split bootstrap stream IDs must be 1 and 2")]
+    #[case::two_implicit_streams(|p: &mut Streams| p.last_mut().unwrap().distribution = None, "split bootstrap distribution forms are invalid")]
+    #[case::starting_weights_under_sum(|p: &mut Streams| p.last_mut().unwrap().weight.v_start -= 1, "bootstrap starting weights must sum to denominator")]
+    #[case::unequal_slopes(|p: &mut Streams| p.last_mut().unwrap().weight.slope += 1, "bootstrap weight slopes are invalid")]
+    #[case::partial_share(
+        |p: &mut Streams| {
+            let distribution = p.last_mut().unwrap().distribution.as_mut().unwrap();
+            distribution.shares.first_mut().unwrap().share -= 1;
+        },
+        "explicit bootstrap requires one full-share recipient"
+    )]
+    #[case::delegated_writer(
+        |p: &mut Streams| {
+            let distribution = p.last_mut().unwrap().distribution.as_mut().unwrap();
+            distribution.writer = Address_v4::new_delegated(10, &[1]).unwrap();
+        },
+        "distribution writer f410"
+    )]
+    #[case::service_cap_above_what_the_consensus_floor_leaves(|p: &mut Streams| p.last_mut().unwrap().weight.cap = 60 * PERCENT, "stream weights exceed DENOM")]
+    fn rejects_malformed_bootstrap_streams(
+        #[case] damage: fn(&mut Streams),
+        #[case] expected_error: &str,
+    ) {
+        let mut params = bootstrap_streams(&bootstrap_params(), 100).unwrap();
+        damage(&mut params);
+        let error = validate_migration_streams(&params, 100).expect_err("accepted");
+        assert!(format!("{error:#}").contains(expected_error), "{error:#}");
     }
 
     #[rstest]
@@ -702,9 +573,9 @@ mod tests {
         );
         // The migration resolves the addresses on chain; stand-ins leave the weights to check.
         let params = SolsticeRewardBootstrapParams {
-            swa_actor: Some(Address::new_id(100)),
-            sra_actor: Some(Address::new_id(101)),
-            initial_orchestrator: Some(Address::new_id(102)),
+            swa_actor: Some(SWA),
+            sra_actor: Some(SRA),
+            initial_orchestrator: Some(ORCHESTRATOR),
             ..params
         };
         let activation_epoch = config.epoch(Height::Solstice) + 1;
@@ -712,167 +583,127 @@ mod tests {
         RewardMigrator::new(&params, activation_epoch, Cid::default()).unwrap();
     }
 
-    #[test]
-    fn validates_every_actor_the_bootstrap_references() {
-        let account = Cid::from_cbor_blake2b256(&"account code").unwrap();
-        let paych = Cid::from_cbor_blake2b256(&"paych code").unwrap();
-        // The SWA, SRA and orchestrator of `bootstrap_params`.
-        let (swa, sra, orchestrator) = (
-            Address::new_id(100),
-            Address::new_id(101),
-            Address::new_id(102),
-        );
-        let burn = Some(Address::BURNT_FUNDS_ACTOR);
-        let system = Some(Address::SYSTEM_ACTOR);
+    const BURN: Option<Address> = Some(Address::BURNT_FUNDS_ACTOR);
+    const SYSTEM: Option<Address> = Some(Address::SYSTEM_ACTOR);
 
-        // On-chain actors: all three as accounts, minus `missing`, with `channel` as a paych.
-        let on_chain =
-            |missing: Option<Address>, channel: Option<Address>| -> Vec<(Address, Cid)> {
-                [swa, sra, orchestrator]
-                    .into_iter()
-                    .filter(|address| Some(*address) != missing)
-                    .map(|address| {
-                        let code = if Some(address) == channel {
-                            paych
-                        } else {
-                            account
-                        };
-                        (address, code)
-                    })
-                    .collect()
-            };
-        let split = bootstrap_params();
-        let neutral = SolsticeRewardBootstrapParams {
+    fn account() -> Cid {
+        Cid::from_cbor_blake2b256(&"account code").unwrap()
+    }
+
+    fn paych() -> Cid {
+        Cid::from_cbor_blake2b256(&"paych code").unwrap()
+    }
+
+    // On-chain actors: all three as accounts, minus `missing`, with `channel` as a paych.
+    fn on_chain(missing: Option<Address>, channel: Option<Address>) -> Vec<(Address, Cid)> {
+        [SWA, SRA, ORCHESTRATOR]
+            .into_iter()
+            .filter(|address| Some(*address) != missing)
+            .map(|address| {
+                let code = if Some(address) == channel {
+                    paych()
+                } else {
+                    account()
+                };
+                (address, code)
+            })
+            .collect()
+    }
+
+    fn neutral() -> SolsticeRewardBootstrapParams {
+        SolsticeRewardBootstrapParams {
             consensus_weight_ramp_duration_epochs: 0,
             consensus_weight: NEUTRAL_CONSENSUS_WEIGHT,
             service_weight: NO_SERVICE_WEIGHT,
             ..bootstrap_params()
-        };
+        }
+    }
 
-        for (case, params, actors, paych_code, expected) in [
-            (
-                "account references",
-                split.clone(),
-                on_chain(None, None),
-                Some(paych),
-                Ok(()),
-            ),
-            (
-                "system actor references",
-                SolsticeRewardBootstrapParams {
-                    swa_actor: system,
-                    sra_actor: system,
-                    ..split.clone()
-                },
-                vec![(Address::SYSTEM_ACTOR, account), (orchestrator, account)],
-                Some(paych),
-                Ok(()),
-            ),
-            (
-                "neutral bootstrap needs only its SWA",
-                neutral.clone(),
-                vec![(swa, account)],
-                Some(paych),
-                Ok(()),
-            ),
-            (
-                "payment channel SWA",
-                split.clone(),
-                on_chain(None, Some(swa)),
-                Some(paych),
-                Err("SWA actor f0100 is a payment channel"),
-            ),
-            (
-                "payment channel distribution writer",
-                split.clone(),
-                on_chain(None, Some(sra)),
-                Some(paych),
-                Err("distribution writer f0101 is a payment channel"),
-            ),
-            (
-                "payment channel recipient",
-                split.clone(),
-                on_chain(None, Some(orchestrator)),
-                Some(paych),
-                Err("reward recipient f0102 is a payment channel"),
-            ),
-            (
-                "missing SWA",
-                split.clone(),
-                on_chain(Some(swa), None),
-                Some(paych),
-                Err("SWA actor f0100 does not exist"),
-            ),
-            (
-                "missing SWA of a neutral bootstrap",
-                neutral,
-                vec![],
-                Some(paych),
-                Err("SWA actor f0100 does not exist"),
-            ),
-            (
-                "missing distribution writer",
-                split.clone(),
-                on_chain(Some(sra), None),
-                Some(paych),
-                Err("distribution writer f0101 does not exist"),
-            ),
-            (
-                "missing recipient",
-                split.clone(),
-                on_chain(Some(orchestrator), None),
-                Some(paych),
-                Err("reward recipient f0102 does not exist"),
-            ),
-            (
-                "burn SWA",
-                SolsticeRewardBootstrapParams {
-                    swa_actor: burn,
-                    ..split.clone()
-                },
-                on_chain(None, None),
-                Some(paych),
-                Err("SWA actor is the burn actor"),
-            ),
-            (
-                "burn distribution writer",
-                SolsticeRewardBootstrapParams {
-                    sra_actor: burn,
-                    ..split.clone()
-                },
-                on_chain(None, None),
-                Some(paych),
-                Err("distribution writer is the burn actor"),
-            ),
-            (
-                "no payment channel code in the old manifest",
-                split,
-                on_chain(None, None),
-                None,
-                Err("code cid for payment channel actor not found in old manifest"),
-            ),
-        ] {
-            let mut tree =
-                StateTree::new(&Arc::new(MemoryDB::default()), StateTreeVersion::V5).unwrap();
-            for (address, code) in actors {
-                let actor =
-                    ActorState::new(code, Cid::default(), TokenAmount::zero().into(), 0, None);
-                tree.set_actor(&address, actor).unwrap();
-            }
-            let migrator = RewardMigrator::new(&params, 100, Cid::default())
-                .unwrap_or_else(|e| panic!("{case}: {e:#}"));
+    #[rstest]
+    #[case::account_references(bootstrap_params(), on_chain(None, None), Some(paych()), Ok(()))]
+    #[case::system_actor_references(
+        SolsticeRewardBootstrapParams { swa_actor: SYSTEM, sra_actor: SYSTEM, ..bootstrap_params() },
+        vec![(Address::SYSTEM_ACTOR, account()), (ORCHESTRATOR, account())],
+        Some(paych()),
+        Ok(())
+    )]
+    #[case::neutral_bootstrap_needs_only_its_swa(neutral(), vec![(SWA, account())], Some(paych()), Ok(()))]
+    #[case::payment_channel_swa(
+        bootstrap_params(),
+        on_chain(None, Some(SWA)),
+        Some(paych()),
+        Err("SWA actor f0100 is a payment channel")
+    )]
+    #[case::payment_channel_distribution_writer(
+        bootstrap_params(),
+        on_chain(None, Some(SRA)),
+        Some(paych()),
+        Err("distribution writer f0101 is a payment channel")
+    )]
+    #[case::payment_channel_recipient(
+        bootstrap_params(),
+        on_chain(None, Some(ORCHESTRATOR)),
+        Some(paych()),
+        Err("reward recipient f0102 is a payment channel")
+    )]
+    #[case::missing_swa(
+        bootstrap_params(),
+        on_chain(Some(SWA), None),
+        Some(paych()),
+        Err("SWA actor f0100 does not exist")
+    )]
+    #[case::missing_swa_of_a_neutral_bootstrap(neutral(), vec![], Some(paych()), Err("SWA actor f0100 does not exist"))]
+    #[case::missing_distribution_writer(
+        bootstrap_params(),
+        on_chain(Some(SRA), None),
+        Some(paych()),
+        Err("distribution writer f0101 does not exist")
+    )]
+    #[case::missing_recipient(
+        bootstrap_params(),
+        on_chain(Some(ORCHESTRATOR), None),
+        Some(paych()),
+        Err("reward recipient f0102 does not exist")
+    )]
+    #[case::burn_swa(
+        SolsticeRewardBootstrapParams { swa_actor: BURN, ..bootstrap_params() },
+        on_chain(None, None),
+        Some(paych()),
+        Err("SWA actor is the burn actor")
+    )]
+    #[case::burn_distribution_writer(
+        SolsticeRewardBootstrapParams { sra_actor: BURN, ..bootstrap_params() },
+        on_chain(None, None),
+        Some(paych()),
+        Err("distribution writer is the burn actor")
+    )]
+    #[case::no_payment_channel_code_in_the_old_manifest(
+        bootstrap_params(),
+        on_chain(None, None),
+        None,
+        Err("code cid for payment channel actor not found in old manifest")
+    )]
+    fn validates_every_actor_the_bootstrap_references(
+        #[case] params: SolsticeRewardBootstrapParams,
+        #[case] actors: Vec<(Address, Cid)>,
+        #[case] paych_code: Option<Cid>,
+        #[case] expected: Result<(), &str>,
+    ) {
+        let mut tree =
+            StateTree::new(&Arc::new(MemoryDB::default()), StateTreeVersion::V5).unwrap();
+        for (address, code) in actors {
+            let actor = ActorState::new(code, Cid::default(), TokenAmount::zero().into(), 0, None);
+            tree.set_actor(&address, actor).unwrap();
+        }
+        let migrator = RewardMigrator::new(&params, 100, Cid::default()).unwrap();
 
-            let result = migrator.validate_recipients(&tree, paych_code);
+        let result = migrator.validate_recipients(&tree, paych_code);
 
-            match expected {
-                Ok(()) => result.unwrap_or_else(|e| panic!("{case}: {e:#}")),
-                Err(message) => {
-                    let error = result
-                        .err()
-                        .unwrap_or_else(|| panic!("{case}: accepted"))
-                        .to_string();
-                    assert!(error.contains(message), "{case}: {error}");
-                }
+        match expected {
+            Ok(()) => result.unwrap(),
+            Err(message) => {
+                let error = result.expect_err("accepted").to_string();
+                assert!(error.contains(message), "{error}");
             }
         }
     }

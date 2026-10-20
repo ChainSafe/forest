@@ -5,6 +5,7 @@ use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
 use fvm_ipld_encoding::tuple::*;
+use std::sync::Arc;
 
 use super::CachingBlockHeader;
 
@@ -16,8 +17,8 @@ pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub header: CachingBlockHeader,
-    pub bls_messages: Vec<Message>,
-    pub secp_messages: Vec<SignedMessage>,
+    pub bls_messages: Vec<Arc<Message>>,
+    pub secp_messages: Vec<Arc<SignedMessage>>,
 }
 
 impl std::hash::Hash for Block {
@@ -30,10 +31,10 @@ impl Block {
     pub fn header(&self) -> &CachingBlockHeader {
         &self.header
     }
-    pub fn bls_msgs(&self) -> &[Message] {
+    pub fn bls_msgs(&self) -> &[Arc<Message>] {
         &self.bls_messages
     }
-    pub fn secp_msgs(&self) -> &[SignedMessage] {
+    pub fn secp_msgs(&self) -> &[Arc<SignedMessage>] {
         &self.secp_messages
     }
     /// Returns block header's CID.

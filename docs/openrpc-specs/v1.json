@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.37.0"
+    "version": "0.38.0"
   },
   "methods": [
     {
@@ -9475,6 +9475,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/EthBytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxFeePerGas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EthBigInt"
               },
               {
                 "type": "null"

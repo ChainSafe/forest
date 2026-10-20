@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::shim::state_tree::ActorID;
 use crate::{
     blocks::{Tipset, TipsetKey},
     lotus_json::{HasLotusJson, LotusJson, base64_standard, lotus_json_with_self},
@@ -14,7 +15,6 @@ use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use flate2::read::DeflateDecoder;
 use fvm_ipld_encoding::tuple::*;
-use fvm_shared4::ActorID;
 use libp2p::PeerId;
 use num::Zero as _;
 use nunny::Vec as NonEmpty;

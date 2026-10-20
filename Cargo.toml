@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.37.0"
+version = "0.38.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2024"
@@ -27,7 +27,7 @@ libp2p-swarm-test = { version = "0.6", default-features = false, features = ["to
 multihash-codetable = { version = "0.2", features = ["blake2b", "blake2s", "blake3", "sha2", "sha3", "strobe"] }
 rust2go = "0.4"
 serde = { version = "1", default-features = false, features = ["derive", "rc"] }
-serde_yaml = "0.9"
+serde-saphyr = { version = "2", default-features = false, features = ["deserialize"] }
 tokio = "1"
 
 [dependencies]
@@ -77,22 +77,22 @@ ethereum-types = { version = "0.16", features = ["ethbloom"] }
 ez-jsonrpc-types = "0.5"
 # Renamed so direct use fails to compile; go through `crate::utils::encoding::hex`.
 faster-hex-private = { package = "faster-hex", version = "0.10", default-features = false, features = ["std"] }
-fil_actor_account_state = { version = "27.1.0" }
-fil_actor_cron_state = { version = "27.1.0" }
-fil_actor_datacap_state = { version = "27.1.0" }
-fil_actor_eam_state = { version = "27.1.0" }
-fil_actor_ethaccount_state = { version = "27.1.0" }
-fil_actor_evm_state = { version = "27.1.0" }
-fil_actor_init_state = { version = "27.1.0" }
-fil_actor_market_state = { version = "27.1.0" }
-fil_actor_miner_state = { version = "27.1.0" }
-fil_actor_multisig_state = { version = "27.1.0" }
-fil_actor_paych_state = { version = "27.1.0" }
-fil_actor_power_state = { version = "27.1.0" }
-fil_actor_reward_state = { version = "27.1.0" }
-fil_actor_system_state = { version = "27.1.0" }
-fil_actor_verifreg_state = { version = "27.1.0" }
-fil_actors_shared = { version = "27.1.0", features = ["json"] }
+fil_actor_account_state = { version = "27.2.0" }
+fil_actor_cron_state = { version = "27.2.0" }
+fil_actor_datacap_state = { version = "27.2.0" }
+fil_actor_eam_state = { version = "27.2.0" }
+fil_actor_ethaccount_state = { version = "27.2.0" }
+fil_actor_evm_state = { version = "27.2.0" }
+fil_actor_init_state = { version = "27.2.0" }
+fil_actor_market_state = { version = "27.2.0" }
+fil_actor_miner_state = { version = "27.2.0" }
+fil_actor_multisig_state = { version = "27.2.0" }
+fil_actor_paych_state = { version = "27.2.0" }
+fil_actor_power_state = { version = "27.2.0" }
+fil_actor_reward_state = { version = "27.2.0" }
+fil_actor_system_state = { version = "27.2.0" }
+fil_actor_verifreg_state = { version = "27.2.0" }
+fil_actors_shared = { version = "27.2.0", features = ["json"] }
 flate2 = "1"
 flume = { workspace = true }
 fs_extra = "1"
@@ -197,11 +197,11 @@ schemars = { version = "1", features = ["chrono04", "uuid1"] }
 scopeguard = "1"
 semver = "1"
 serde = { workspace = true }
+serde-saphyr = { workspace = true }
 serde_ignored = "0.1"
 serde_ipld_dagcbor = "0.6"
 serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono_0_4"] }
-serde_yaml = { workspace = true }
 sha2 = { version = "0.11", default-features = false }
 similar = "3"
 slotmap = "1"
@@ -273,7 +273,7 @@ tokio-test = "0.4"
 ahash = { workspace = true }
 rust2go = { workspace = true, features = ["build"] }
 serde = { workspace = true }
-serde_yaml = { workspace = true }
+serde-saphyr = { workspace = true }
 
 # https://doc.rust-lang.org/stable/cargo/guide/build-performance.html#reduce-amount-of-generated-debug-information
 [profile.dev]
@@ -310,6 +310,7 @@ opt-level = 1
 lto = "off"
 incremental = true
 codegen-units = 256
+overflow-checks = true
 
 [profile.quick-test]
 inherits = "quick"

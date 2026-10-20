@@ -147,65 +147,44 @@ mod tests {
     use crate::db::MemoryDB;
     use crate::networks::{ChainConfig, Height};
     use crate::shim::address::Address;
+    use rstest::rstest;
 
     use super::*;
 
-    fn construct_tests() -> Vec<(i64, u64, usize, i64, i64)> {
-        // (base_fee, limit_used, no_of_blocks, output)
-        vec![
-            (100_000_000, 0, 1, 87_500_000, 87_500_000),
-            (100_000_000, 0, 5, 87_500_000, 87_500_000),
-            (100_000_000, BLOCK_GAS_TARGET, 1, 103_125_000, 100_000_000),
-            (
-                100_000_000,
-                BLOCK_GAS_TARGET * 2,
-                2,
-                103_125_000,
-                100_000_000,
-            ),
-            (
-                100_000_000,
-                BLOCK_GAS_LIMIT * 2,
-                2,
-                112_500_000,
-                112_500_000,
-            ),
-            (
-                100_000_000,
-                BLOCK_GAS_LIMIT * 15 / 10,
-                2,
-                110_937_500,
-                106_250_000,
-            ),
-        ]
-    }
-
-    #[test]
-    fn run_base_fee_tests() {
+    #[rstest]
+    #[case::no_gas_one_block(100_000_000, 0, 1, 87_500_000, 87_500_000)]
+    #[case::no_gas_five_blocks(100_000_000, 0, 5, 87_500_000, 87_500_000)]
+    #[case::target_gas_one_block(100_000_000, BLOCK_GAS_TARGET, 1, 103_125_000, 100_000_000)]
+    #[case::target_gas_two_blocks(100_000_000, BLOCK_GAS_TARGET * 2, 2, 103_125_000, 100_000_000)]
+    #[case::full_gas_two_blocks(100_000_000, BLOCK_GAS_LIMIT * 2, 2, 112_500_000, 112_500_000)]
+    #[case::three_quarters_gas_two_blocks(100_000_000, BLOCK_GAS_LIMIT * 15 / 10, 2, 110_937_500, 106_250_000)]
+    fn run_base_fee_tests(
+        #[case] base_fee: i64,
+        #[case] limit_used: u64,
+        #[case] no_of_blocks: usize,
+        #[case] expected_pre_smoke: i64,
+        #[case] expected_post_smoke: i64,
+    ) {
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        let cases = construct_tests();
+        let base_fee = TokenAmount::from_atto(base_fee);
 
-        for case in cases {
-            // Pre smoke
-            let output = compute_next_base_fee(
-                &TokenAmount::from_atto(case.0),
-                case.1,
-                case.2,
-                smoke_height - 1,
-                smoke_height,
-            );
-            assert_eq!(TokenAmount::from_atto(case.3), output);
+        let output = compute_next_base_fee(
+            &base_fee,
+            limit_used,
+            no_of_blocks,
+            smoke_height - 1,
+            smoke_height,
+        );
+        assert_eq!(TokenAmount::from_atto(expected_pre_smoke), output);
 
-            // Post smoke
-            let output = compute_next_base_fee(
-                &TokenAmount::from_atto(case.0),
-                case.1,
-                case.2,
-                smoke_height + 1,
-                smoke_height,
-            );
-            assert_eq!(TokenAmount::from_atto(case.4), output);
-        }
+        let output = compute_next_base_fee(
+            &base_fee,
+            limit_used,
+            no_of_blocks,
+            smoke_height + 1,
+            smoke_height,
+        );
+        assert_eq!(TokenAmount::from_atto(expected_post_smoke), output);
     }
 
     #[test]
@@ -221,48 +200,40 @@ mod tests {
         assert!(compute_base_fee(&blockstore, &ts, smoke_height, firehorse_height).is_err());
     }
 
-    #[test]
-    fn test_next_base_fee_from_premium() {
-        // Test cases from the FIP-0115
-        // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#basefee_next>
-        let test_cases = vec![
-            (100, 0, 100),
-            (100, 13, 100),
-            (100, 14, 101),
-            (100, 26, 113),
-            (801, 0, 700),
-            (801, 20, 720),
-            (801, 40, 740),
-            (801, 60, 760),
-            (801, 80, 780),
-            (801, 100, 800),
-            (801, 120, 820),
-            (801, 140, 840),
-            (801, 160, 860),
-            (801, 180, 880),
-            (801, 200, 900),
-            (801, 201, 901),
-            (808, 0, 707),
-            (808, 1, 708),
-            (808, 201, 908),
-            (808, 202, 909),
-            (808, 203, 909),
-        ];
-
-        for (base_fee, premium_p, expected) in test_cases {
-            let base_fee = TokenAmount::from_atto(base_fee);
-            let premium = TokenAmount::from_atto(premium_p);
-
-            let result = compute_next_base_fee_from_premium(&base_fee, premium);
-
-            assert_eq!(
-                result,
-                TokenAmount::from_atto(expected),
-                "Failed for base_fee={}, premium_p={}",
-                base_fee.atto(),
-                premium_p
-            );
-        }
+    // Test cases from the FIP-0115
+    // <https://github.com/filecoin-project/FIPs/blob/b84b89a34ccb3d239493392a7867d6b082193b38/FIPS/fip-0115.md#basefee_next>
+    #[rstest]
+    #[case(100, 0, 100)]
+    #[case(100, 13, 100)]
+    #[case(100, 14, 101)]
+    #[case(100, 26, 113)]
+    #[case(801, 0, 700)]
+    #[case(801, 20, 720)]
+    #[case(801, 40, 740)]
+    #[case(801, 60, 760)]
+    #[case(801, 80, 780)]
+    #[case(801, 100, 800)]
+    #[case(801, 120, 820)]
+    #[case(801, 140, 840)]
+    #[case(801, 160, 860)]
+    #[case(801, 180, 880)]
+    #[case(801, 200, 900)]
+    #[case(801, 201, 901)]
+    #[case(808, 0, 707)]
+    #[case(808, 1, 708)]
+    #[case(808, 201, 908)]
+    #[case(808, 202, 909)]
+    #[case(808, 203, 909)]
+    fn test_next_base_fee_from_premium(
+        #[case] base_fee: u64,
+        #[case] premium: u64,
+        #[case] expected: u64,
+    ) {
+        let result = compute_next_base_fee_from_premium(
+            &TokenAmount::from_atto(base_fee),
+            TokenAmount::from_atto(premium),
+        );
+        assert_eq!(result, TokenAmount::from_atto(expected));
     }
 
     mod quickcheck_tests {

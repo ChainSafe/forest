@@ -12,7 +12,7 @@ use crate::prelude::*;
 use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::actors::power;
 use crate::shim::crypto::{
-    TICKET_RANDOMNESS_LOOKBACK, cid_to_replica_commitment_v1, verify_bls_sig,
+    DomainSeparationTag, TICKET_RANDOMNESS_LOOKBACK, cid_to_replica_commitment_v1, verify_bls_sig,
 };
 use crate::shim::sector::RegisteredSealProof;
 use crate::shim::{
@@ -24,7 +24,6 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::utils::encoding::prover_id_from_u64;
 use fil_actors_shared::filecoin_proofs_api::{PublicReplicaInfo, SectorId, post};
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_ipld_encoding::{bytes_32, to_vec};
 use nunny::Vec as NonEmpty;
 use tokio::task::JoinSet;

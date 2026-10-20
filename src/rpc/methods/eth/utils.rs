@@ -251,7 +251,7 @@ const EVM_UINT_PADDING_LENGTH: usize = 24;
 /// Handles both `Error(string)` and `Panic(uint256)` formats according to
 /// Solidity's revert conventions.
 ///
-/// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
+/// See <https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require>
 pub(crate) fn parse_eth_revert(data: &[u8]) -> String {
     // If it's not long enough to contain an ABI encoded response, return immediately.
     if data.len() < EVM_FUNC_SELECTOR_LENGTH + EVM_WORD_LENGTH {

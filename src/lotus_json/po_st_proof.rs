@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::sector::{PoStProof, RegisteredPoStProof};
-use fvm_shared4::sector::PoStProof as PoStProofV4;
+use crate::shim::sector::PoStProofV4;
 
 use super::*;
 

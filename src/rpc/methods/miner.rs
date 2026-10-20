@@ -92,7 +92,7 @@ impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
     const PARAM_NAMES: [&'static str; 1] = ["blockTemplate"];
     const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
-    const PERMISSION: Permission = Permission::Write;
+    const PERMISSION: Permission = Permission::Sign;
     const DESCRIPTION: &'static str = "Fills and signs a block template on behalf of the given miner, returning a suitable block header.";
 
     type Params = (BlockTemplate,);

@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use flume::Sender;
 use futures::{select, stream::StreamExt as _};
 pub use libp2p::gossipsub::{IdentTopic, Topic};
+use libp2p::gossipsub::{MessageAcceptance, MessageId};
 use libp2p::{
     PeerId, Swarm, SwarmBuilder,
     autonat::NatStatus,
@@ -651,55 +652,76 @@ async fn handle_discovery_event(
     }
 }
 
-async fn handle_gossip_event(
+/// Verdict for a gossiped message.
+#[derive(Debug)]
+pub(in crate::libp2p) struct Verdict {
+    pub(in crate::libp2p) message_id: MessageId,
+    pub(in crate::libp2p) source: PeerId,
+    pub(in crate::libp2p) acceptance: MessageAcceptance,
+}
+
+/// Decodes a `gossipsub` message, emits it and returns its verdict.
+pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
-) {
-    if let gossipsub::Event::Message {
+) -> Option<Verdict> {
+    let gossipsub::Event::Message {
         propagation_source: source,
+        message_id,
         message,
-        ..
     } = e
-    {
-        let topic = message.topic.as_str();
-        let message = message.data;
-        trace!("Got a Gossip Message from {:?}", source);
-        if topic == pubsub_block_str {
-            match from_slice_with_fallback::<GossipBlock>(&message) {
-                Ok(b) => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Block(b),
-                        },
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
-                }
+    else {
+        return None;
+    };
+    let topic = message.topic.as_str();
+    let message = message.data;
+
+    trace!("Got a Gossip Message from {:?}", source);
+    let acceptance = if topic == pubsub_block_str {
+        match from_slice_with_fallback::<GossipBlock>(&message) {
+            Ok(b) => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::PubsubMessage {
+                        message: PubsubMessage::Block(b),
+                    },
+                )
+                .await;
+                MessageAcceptance::Accept
             }
-        } else if topic == pubsub_msg_str {
-            match from_slice_with_fallback::<SignedMessage>(&message) {
-                Ok(m) => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::PubsubMessage {
-                            message: PubsubMessage::Message(m),
-                        },
-                    )
-                    .await;
-                }
-                Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
-                }
+            Err(e) => {
+                warn!("Gossip Block from peer {source:?} could not be deserialized: {e:#}",);
+                MessageAcceptance::Ignore
             }
-        } else {
-            warn!("Getting gossip messages from unknown topic: {topic}");
         }
-    }
+    } else if topic == pubsub_msg_str {
+        match from_slice_with_fallback::<SignedMessage>(&message) {
+            Ok(m) => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::PubsubMessage {
+                        message: PubsubMessage::Message(m),
+                    },
+                )
+                .await;
+                MessageAcceptance::Accept
+            }
+            Err(e) => {
+                warn!("Gossip Message from peer {source:?} could not be deserialized: {e:#}");
+                MessageAcceptance::Ignore
+            }
+        }
+    } else {
+        warn!("Getting gossip messages from unknown topic: {topic}");
+        MessageAcceptance::Ignore
+    };
+    Some(Verdict {
+        message_id,
+        source,
+        acceptance,
+    })
 }
 
 /// Saturating: these timestamps only feed peer latency estimates, so a skewed clock should degrade
@@ -771,18 +793,8 @@ async fn handle_hello_event(
             ..
         } => {
             hello.on_outbound_failure(&request_id);
-            match error {
-                request_response::OutboundFailure::UnsupportedProtocols => {
-                    peer_manager
-                        .ban_peer_with_default_duration(peer, "Hello protocol unsupported", |p| {
-                            get_user_agent(peer_info_map, p)
-                        })
-                        .await;
-                }
-                _ => {
-                    peer_manager.mark_peer_bad(peer, format!("Hello outbound failure {error}"));
-                }
-            }
+            // Not banned here: this can fail before identify arrives, and only identify can tell crawlers apart.
+            peer_manager.mark_peer_bad(peer, format!("Hello outbound failure {error}"));
         }
         request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),
@@ -934,7 +946,19 @@ async fn handle_forest_behaviour_event(
             .await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
-            handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
+            if let Some(Verdict {
+                message_id,
+                source,
+                acceptance,
+            }) =
+                handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
+            {
+                swarm.behaviour_mut().report_message_validation_result(
+                    &message_id,
+                    &source,
+                    acceptance,
+                );
+            }
         }
         ForestBehaviourEvent::Hello(rr_event) => {
             let behaviour_mut = swarm.behaviour_mut();
@@ -984,4 +1008,39 @@ fn get_user_agent(peer_info_map: &HashMap<PeerId, PeerInfo>, peer: &PeerId) -> O
         .get(peer)
         .and_then(|i| i.identify_info.as_ref())
         .map(|i| i.agent_version.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libp2p::swarm::ConnectionId;
+
+    #[tokio::test]
+    async fn hello_unsupported_protocol_does_not_ban() {
+        let peer_manager = Arc::new(PeerManager::default());
+        let mut hello =
+            HelloBehaviour::new(request_response::Config::default(), peer_manager.clone());
+        let peer = PeerId::random();
+        let (response_channel, _) = flume::bounded(1);
+        let request_id = hello.send_request(&peer, HelloRequest::default(), response_channel);
+        let (network_sender_out, _) = flume::unbounded();
+
+        handle_hello_event(
+            &HashMap::default(),
+            &mut hello,
+            request_response::Event::OutboundFailure {
+                peer,
+                connection_id: ConnectionId::new_unchecked(0),
+                request_id,
+                error: request_response::OutboundFailure::UnsupportedProtocols,
+            },
+            &peer_manager,
+            &Cid::default(),
+            &network_sender_out,
+        )
+        .await;
+
+        assert!(peer_manager.peer_ops_rx().is_empty());
+        assert!(!peer_manager.is_peer_new(&peer));
+    }
 }
