@@ -20,7 +20,7 @@ const LITE_INTERVAL: ChainEpoch = 30_000;
 const DIFF_INTERVAL: ChainEpoch = 3_000;
 
 /// Well-known genesis timestamps (Unix seconds).
-const MAINNET_GENESIS_TIMESTAMP: u64 = 1598306400; // 2020-08-24T22:00:00Z
+use crate::networks::mainnet::GENESIS_TIMESTAMP as MAINNET_GENESIS_TIMESTAMP;
 const CALIBNET_GENESIS_TIMESTAMP: u64 = 1667326380; // 2022-11-01T14:13:00Z
 
 #[derive(Debug, Args)]
