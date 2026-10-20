@@ -12,7 +12,11 @@ use crate::{
         Beacon, BeaconEntry, BeaconPoint, BeaconSchedule, ChainInfo, DrandBeacon, DrandConfig,
         DrandNetwork,
     },
-    shim::{clock::ChainEpoch, version::NetworkVersion},
+    networks::{QUICKNET_CHAIN_INFO, mainnet},
+    shim::{
+        clock::{ChainEpoch, EPOCH_DURATION_SECONDS},
+        version::NetworkVersion,
+    },
 };
 use quickcheck_macros::quickcheck;
 use rstest::rstest;
@@ -20,18 +24,14 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 use std::time::Duration;
 
-/// Filecoin mainnet genesis timestamp and epoch duration, which the test beacons map rounds to.
-pub const FIL_GENESIS_TIME: u64 = 1598306400;
-pub const FIL_BLOCK_DELAY: u64 = 30;
-
 /// Serves recorded `quicknet` responses, so no test below reaches a public relay.
 static FAKE_DRAND: LazyLock<FakeDrandServer> =
     LazyLock::new(|| FakeDrandServer::start(vec![FakeDrandChain::quicknet()]));
 
 fn new_beacon_mainnet() -> DrandBeacon {
     DrandBeacon::new(
-        FIL_GENESIS_TIME,
-        FIL_BLOCK_DELAY,
+        mainnet::GENESIS_TIMESTAMP,
+        EPOCH_DURATION_SECONDS as u64,
         &DrandConfig {
             servers: vec![],
             // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
@@ -56,24 +56,11 @@ fn new_beacon_mainnet() -> DrandBeacon {
 
 pub fn new_beacon_quicknet() -> DrandBeacon {
     DrandBeacon::new(
-        FIL_GENESIS_TIME,
-        FIL_BLOCK_DELAY,
+        mainnet::GENESIS_TIMESTAMP,
+        EPOCH_DURATION_SECONDS as u64,
         &DrandConfig {
             servers: vec![FAKE_DRAND.url().clone()],
-            // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
-            chain_info: ChainInfo {
-                public_key: Cow::Borrowed(
-                    "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
-                ),
-                period: 3,
-                genesis_time: 1692803367,
-                hash: Cow::Borrowed(
-                    "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
-                ),
-                group_hash: Cow::Borrowed(
-                    "f477d5c89f21a17c863a7f937c6a6d15859414d2be09cd448d4279af331c5d3e",
-                ),
-            },
+            chain_info: QUICKNET_CHAIN_INFO,
             network_type: DrandNetwork::Quicknet,
             register_metrics: false,
         },
