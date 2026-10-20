@@ -10,7 +10,6 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
 use tracing::warn;
-use url::Url;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
@@ -287,12 +286,6 @@ pub struct ChainConfig {
     pub f3_initial_power_table: Option<Cid>,
     pub enable_indexer: bool,
     pub default_max_fee: TokenAmount,
-
-    // used for test snapshot as we define a custom fake drand that we should reach
-    // instead of the real drand endpoints
-    #[serde(skip)]
-    #[cfg_attr(test, arbitrary(gen(|_| None)))]
-    pub custom_server_urls: Option<Vec<Url>>,
 }
 
 impl ChainConfig {
@@ -326,7 +319,6 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             default_max_fee: TokenAmount::zero(),
-            custom_server_urls: None,
         }
     }
 
@@ -367,7 +359,6 @@ impl ChainConfig {
             ),
             enable_indexer: false,
             default_max_fee: TokenAmount::zero(),
-            custom_server_urls: None,
         }
     }
 
@@ -398,7 +389,6 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             default_max_fee: TokenAmount::zero(),
-            custom_server_urls: None,
         }
     }
 
@@ -435,7 +425,6 @@ impl ChainConfig {
             f3_initial_power_table: None,
             enable_indexer: false,
             default_max_fee: TokenAmount::zero(),
-            custom_server_urls: None,
         }
     }
 
@@ -449,13 +438,6 @@ impl ChainConfig {
                 ..Self::devnet()
             },
         }
-    }
-
-    // define a set of custom server urls
-    // used by testing to define a fake drand server we should reach
-    pub fn with_custom_server_urls(mut self, urls: Vec<Url>) -> Self {
-        self.custom_server_urls = Some(urls);
-        self
     }
 
     fn network_height(&self, epoch: ChainEpoch) -> Option<Height> {
@@ -520,20 +502,10 @@ impl ChainConfig {
         BeaconSchedule(
             ds_iter
                 .map(|dc| {
-                    let interval = u64::from(self.block_delay_secs);
-                    let beacon = match &self.custom_server_urls {
-                        Some(servers) => DrandBeacon::new(
-                            genesis_ts,
-                            interval,
-                            &DrandConfig {
-                                servers: servers.clone(),
-                                register_metrics: false,
-                                ..DrandConfig::clone(dc.config)
-                            },
-                        ),
-                        None => DrandBeacon::new(genesis_ts, interval, dc.config),
-                    };
-                    BeaconPoint::new(dc.height, beacon)
+                    BeaconPoint::new(
+                        dc.height,
+                        DrandBeacon::new(genesis_ts, u64::from(self.block_delay_secs), dc.config),
+                    )
                 })
                 .collect(),
         )
