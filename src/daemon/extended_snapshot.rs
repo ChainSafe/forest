@@ -102,9 +102,11 @@ async fn download_extended_snapshot(
     download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
 
     let actual: [u8; 32] = Sha256::digest(tokio::fs::read(&path).await?).into();
-    if actual != file.sha256 {
-        anyhow::bail!("checksum mismatch for {}", file.filename);
-    }
+    anyhow::ensure!(
+        actual == file.sha256,
+        "checksum mismatch for {}",
+        file.filename
+    );
     Ok(path)
 }
 
