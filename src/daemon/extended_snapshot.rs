@@ -111,17 +111,15 @@ async fn download_extended_snapshot(
 }
 
 /// Imports message receipts and events from a receipts and events snapshot into `db`.
-async fn import_receipts_events_snapshot<DB>(db: &DB, path: &Path) -> anyhow::Result<usize>
+async fn import_receipts_events_snapshot<DB>(db: &DB, path: &Path) -> anyhow::Result<()>
 where
     DB: Blockstore,
 {
     let mut car_stream = CarStream::new_from_path(path).await?;
-    let mut n_blocks = 0;
     while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
         db.put_keyed(&cid, &data)?;
-        n_blocks += 1;
     }
-    Ok(n_blocks)
+    Ok(())
 }
 
 /// Populates the tipset lookup table in `db` from a tipset lookup snapshot, calling
@@ -144,7 +142,6 @@ where
     let hamt: Hamt<_, TipsetKey, ChainEpoch> =
         Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
             .context("failed to load tipset lookup HAMT")?;
-    let mut n_entries = 0;
     hamt.for_each_cacheless(|&epoch, tsk| {
         anyhow::ensure!(
             ChainIndex::is_tipset_lookup_checkpoint(epoch),
@@ -156,7 +153,6 @@ where
             "epochs do not match, {epoch} in hamt, {} in database",
             ts.epoch()
         );
-        n_entries += 1;
         Ok(())
     })?;
     hamt.for_each_cacheless(|&epoch, tsk| {
@@ -243,9 +239,9 @@ pub async fn maybe_import_extended_snapshots<DB>(
         }
         .await;
         match result {
-            Ok(n) => {
+            Ok(()) => {
                 info!(
-                    "Imported {n} message receipt and event blocks from {}",
+                    "Imported message receipts and events from {}",
                     file.filename
                 );
                 if let Err(e) = backfill_receipts_events(state_manager, head).await {
