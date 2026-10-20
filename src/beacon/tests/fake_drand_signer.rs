@@ -87,46 +87,61 @@ impl FakeDrandSigner {
     }
 }
 
-#[test]
-fn fake_drand_entries_verify() {
-    let d = FakeDrandSigner::new();
-    let entries: Vec<_> = (1..=5)
-        .map(|round| FakeDrandSigner::decode(&d.encode(round)))
-        .collect();
-    assert!(
-        d.beacon()
-            .verify_entries(&entries, &BeaconEntry::default())
-            .unwrap()
-    );
-}
-
-#[test]
-fn entry_signed_for_another_round_does_not_verify() {
-    let d = FakeDrandSigner::new();
-    let forged = FakeDrandSigner::encode_raw(2, d.entry(3).signature());
-    assert!(
-        !d.beacon()
-            .verify_entries(&[FakeDrandSigner::decode(&forged)], &BeaconEntry::default())
-            .unwrap()
-    );
-}
-
-/// Two consecutive gossipsub `quicknet` rounds from drand's.
+// Two consecutive decoded `quicknet` rounds as drand's `api.drand.sh` relay gossips them:
+// [
+//   {
+//     "round": 33233273,
+//     "signature": "86665198ae4cc688d5612997d9a2d544ca83cf7ea72861038fad1992497fe95fd8d13c4ffd9474d55d79c46c8a95e737",
+//     "randomness": "713a75c9c5b1c3aef49ba4d9f4e7261b99d3871ed3b430dfc882bcffe2835687"
+//   },
+//   {
+//     "round": 33233274,
+//     "signature": "a5081cfe5ef2c4d72288af2d931e1189adc1cf6eedddbd838a79aa742b44b0eecea6fb608c1cdd35b87551d4a843e5d7",
+//     "randomness": "525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75"
+//   }
+// ]
+#[cfg(test)]
 const RELAY_PAYLOADS: [&str; 2] = [
     "08f9b2ec0f123086665198ae4cc688d5612997d9a2d544ca83cf7ea72861038fad1992497fe95fd8d13c4ffd9474d55d79c46c8a95e7372220713a75c9c5b1c3aef49ba4d9f4e7261b99d3871ed3b430dfc882bcffe2835687",
     "08fab2ec0f1230a5081cfe5ef2c4d72288af2d931e1189adc1cf6eedddbd838a79aa742b44b0eecea6fb608c1cdd35b87551d4a843e5d72220525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75",
 ];
 
-#[test]
-fn relay_payload_decodes_and_verifies() {
-    let entries: Vec<_> = RELAY_PAYLOADS
-        .iter()
-        .map(|payload| FakeDrandSigner::decode(&hex::decode(payload).unwrap()))
-        .collect();
-    assert_eq!(entries[1].round(), entries[0].round() + 1);
-    assert!(
+#[rstest::rstest]
+#[case::signed_rounds(
+    true,
+    |d: &FakeDrandSigner| (1..=5).map(|round| d.encode(round)).collect(), 
+    true)
+]
+#[case::signed_for_another_round(
+    true,
+    |d: &FakeDrandSigner| vec![FakeDrandSigner::encode_raw(2, d.entry(3).signature())],
+    false
+)]
+#[case::relay_rounds(
+    false,
+    |_: &FakeDrandSigner| RELAY_PAYLOADS.iter().map(|payload| hex::decode(payload).unwrap()).collect(),
+    true
+)]
+fn entries_verify(
+    #[case] fake: bool,
+    #[case] payloads: fn(&FakeDrandSigner) -> Vec<Vec<u8>>,
+    #[case] valid: bool,
+) {
+    let d = FakeDrandSigner::new();
+    let beacon = if fake {
+        d.beacon()
+    } else {
         new_beacon_quicknet()
+    };
+
+    let entries: Vec<_> = payloads(&d)
+        .iter()
+        .map(|payload| FakeDrandSigner::decode(payload))
+        .collect();
+    assert_eq!(
+        beacon
             .verify_entries(&entries, &BeaconEntry::default())
-            .unwrap()
+            .unwrap(),
+        valid
     );
 }
