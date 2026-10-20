@@ -23,13 +23,10 @@ use futures::TryStreamExt;
 use regex::Regex;
 use serde::Deserialize;
 use std::path::Path;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
 use url::Url;
-
-static FILENAME_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[A-Za-z0-9_.-]+\.forest\.car\.zst$").expect("valid regex"));
 
 /// The subset of the snapshot `.metadata.json` file published in the Forest archive
 /// that is needed to locate the extended snapshots.
@@ -91,8 +88,9 @@ async fn download_extended_snapshot(
 ) -> anyhow::Result<tempfile::TempPath> {
     use sha2::{Digest as _, Sha256};
 
+    let filename_re = Regex::new(r"^[A-Za-z0-9_.-]+\.forest\.car\.zst$")?;
     anyhow::ensure!(
-        FILENAME_RE.is_match(&file.filename),
+        filename_re.is_match(&file.filename),
         "invalid extended snapshot filename: {}",
         file.filename
     );
