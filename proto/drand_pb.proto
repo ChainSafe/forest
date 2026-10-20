@@ -2,6 +2,9 @@ syntax = "proto3";
 
 package drand_pb;
 
+// Only unchained networks, such as `quicknet` are supported,
+// chained ones, like the legacy `drand` mainnet, are not taken from gossip.
+
 // https://github.com/drand/drand/blob/v2.1.7/protobuf/drand/api.proto#L42-L53
 message PublicRandResponse {
   uint64 round = 1;
