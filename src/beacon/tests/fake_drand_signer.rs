@@ -163,16 +163,42 @@ const RELAY_PAYLOADS: [&str; 2] = [
     "08fab2ec0f1230a5081cfe5ef2c4d72288af2d931e1189adc1cf6eedddbd838a79aa742b44b0eecea6fb608c1cdd35b87551d4a843e5d72220525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75",
 ];
 
-#[test]
-fn relay_payload_decodes_and_verifies() {
-    let entries: Vec<_> = RELAY_PAYLOADS
-        .iter()
-        .map(|payload| FakeDrandSigner::decode(&hex::decode(payload).unwrap()))
-        .collect();
-    assert_eq!(entries[1].round(), entries[0].round() + 1);
-    assert!(
+#[rstest::rstest]
+#[case::signed_rounds(
+    true,
+    |d: &FakeDrandSigner| (1..=5).map(|round| d.encode(round)).collect(), 
+    true)
+]
+#[case::signed_for_another_round(
+    true,
+    |d: &FakeDrandSigner| vec![FakeDrandSigner::encode_raw(2, d.entry(3).signature())],
+    false
+)]
+#[case::relay_rounds(
+    false,
+    |_: &FakeDrandSigner| RELAY_PAYLOADS.iter().map(|payload| hex::decode(payload).unwrap()).collect(),
+    true
+)]
+fn entries_verify(
+    #[case] fake: bool,
+    #[case] payloads: fn(&FakeDrandSigner) -> Vec<Vec<u8>>,
+    #[case] valid: bool,
+) {
+    let d = FakeDrandSigner::new();
+    let beacon = if fake {
+        d.beacon()
+    } else {
         new_beacon_quicknet()
+    };
+
+    let entries: Vec<_> = payloads(&d)
+        .iter()
+        .map(|payload| FakeDrandSigner::decode(payload))
+        .collect();
+    assert_eq!(
+        beacon
             .verify_entries(&entries, &BeaconEntry::default())
-            .unwrap()
+            .unwrap(),
+        valid
     );
 }
