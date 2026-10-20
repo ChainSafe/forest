@@ -109,7 +109,7 @@ const RELAY_PAYLOADS: [&str; 2] = [
 #[rstest::rstest]
 #[case::signed_rounds(
     true,
-    |d: &FakeDrandSigner| (1..=5).map(|round| d.encode(round)).collect(), 
+    |d: &FakeDrandSigner| (1..=5).map(|round| d.encode(round)).collect(),
     true)
 ]
 #[case::signed_for_another_round(
