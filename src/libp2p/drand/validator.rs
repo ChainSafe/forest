@@ -88,22 +88,28 @@ impl DrandGossipValidator {
         };
         let entry = BeaconEntry::new(response.round, response.signature);
         let round = entry.round();
-
-        let Some(beacon) = self.schedule.unchained_beacon() else {
-            return verdict(MessageAcceptance::Ignore, Reason::NoBeacon);
-        };
+        
         if round == 0 || entry.signature().is_empty() {
             return verdict(MessageAcceptance::Reject, Reason::Malformed);
         }
-        if let Some(round_ts) = beacon.beacon_round_timestamp(round) {
-            if round_ts > now.saturating_add(MAX_CLOCK_SKEW_SECS) {
-                debug!(round, %source, "ignoring drand entry: round is in the future");
-                return verdict(MessageAcceptance::Ignore, Reason::Future);
-            }
-            if round_ts.saturating_add(MAX_ROUND_AGE_SECS) < now {
-                debug!(round, %source, "ignoring drand entry: round is stale");
-                return verdict(MessageAcceptance::Ignore, Reason::Stale);
-            }
+
+        let beacon = self
+            .schedule
+            .unchained_beacon()
+            .expect("drand gossip requires an unchained beacon");
+        
+        // Always `Some` for a `DrandBeacon`; a round that can't be timed is ignored, never let
+        // through without the time window.
+        let Some(round_ts) = beacon.beacon_round_timestamp(round) else {
+            return verdict(MessageAcceptance::Ignore, Reason::Future);
+        };
+        if round_ts > now.saturating_add(MAX_CLOCK_SKEW_SECS) {
+            debug!(round, %source, "ignoring drand entry: round is in the future");
+            return verdict(MessageAcceptance::Ignore, Reason::Future);
+        }
+        if round_ts.saturating_add(MAX_ROUND_AGE_SECS) < now {
+            debug!(round, %source, "ignoring drand entry: round is stale");
+            return verdict(MessageAcceptance::Ignore, Reason::Stale);
         }
 
         let Ok(permit) = Arc::clone(&self.limiter).try_acquire_owned() else {
@@ -117,15 +123,15 @@ impl DrandGossipValidator {
         let verdicts = self.verdicts.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            let checked = schedule.unchained_beacon().map(|beacon| {
-                match beacon.verify_entries(std::slice::from_ref(&entry), &BeaconEntry::default()) {
-                    Ok(true) => (MessageAcceptance::Accept, Reason::Verified),
-                    Ok(false) => (MessageAcceptance::Reject, Reason::InvalidSignature),
-                    Err(_) => (MessageAcceptance::Reject, Reason::Malformed),
-                }
-            });
-            let (acceptance, reason) =
-                checked.unwrap_or((MessageAcceptance::Reject, Reason::InvalidSignature));
+            let (acceptance, reason) = match schedule
+                .unchained_beacon()
+                .expect("drand gossip requires an unchained beacon")
+                .verify_entries(std::slice::from_ref(&entry), &BeaconEntry::default())
+            {
+                Ok(true) => (MessageAcceptance::Accept, Reason::Verified),
+                Ok(false) => (MessageAcceptance::Reject, Reason::InvalidSignature),
+                Err(_) => (MessageAcceptance::Reject, Reason::Malformed),
+            };
             debug!(round, %source, ?reason, "checked drand entry from gossipsub");
             report(&verdicts, message_id, source, acceptance, reason);
         });
