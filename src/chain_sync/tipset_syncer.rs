@@ -400,11 +400,19 @@ impl MessageChecker {
         );
 
         // Phase 2: (Partial) Semantic validation
-        // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match self.account_sequences.get(&msg.from()) {
+        // Send exists and is an account actor, and sequence is correct.
+        // From nv13 the sender is keyed by its resolved ID, as Lotus `checkBlockMessages`.
+        // https://github.com/filecoin-project/lotus/blob/0065aa70bb20bf87801b6e96ecb7e7fe707566bd/chain/consensus/common.go#L234-L261
+        let sender = if self.network_version >= NetworkVersion::V13 {
+            self.tree.lookup_required_id_address(&msg.from())?
+        } else {
+            msg.from()
+        };
+
+        let sequence: u64 = match self.account_sequences.get(&sender) {
             Some(sequence) => *sequence,
             None => {
-                let actor = self.tree.get_actor(&msg.from())?.ok_or_else(|| {
+                let actor = self.tree.get_actor(&sender)?.ok_or_else(|| {
                     anyhow::anyhow!(
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )
@@ -424,7 +432,7 @@ impl MessageChecker {
             sequence,
             msg.sequence()
         );
-        self.account_sequences.insert(msg.from(), sequence + 1);
+        self.account_sequences.insert(sender, sequence + 1);
         Ok(())
     }
 }
@@ -536,9 +544,12 @@ async fn check_block_messages(
     }
 
     // Validate message root from header matches message root
-    let msg_root =
-        TipsetValidator::compute_msg_root(state_manager.db(), block.bls_msgs(), block.secp_msgs())
-            .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
+    let msg_root = TipsetValidator::compute_msg_root(
+        state_manager.db(),
+        block.bls_msgs().iter().map(|m| m.cid()),
+        block.secp_msgs().iter().map(|m| m.signed_cid()),
+    )
+    .map_err(|err| TipsetSyncerError::ComputingMessageRoot(err.to_string()))?;
     if block.header().messages != msg_root {
         return Err(TipsetSyncerError::BlockMessageRootInvalid(
             format!("{:?}", block.header().messages),
@@ -597,6 +608,71 @@ mod tests {
         let concatenated =
             TipsetSyncerError::concat(nunny::vec![TipsetSyncerError::Validation("a".into())]);
         assert!(matches!(concatenated, TipsetSyncerError::Validation(_)));
+    }
+
+    mod nonce_keying {
+        use super::*;
+        use crate::db::{DbImpl, MemoryDB};
+        use crate::shim::econ::TokenAmount;
+        use crate::shim::message::Message;
+        use crate::shim::state_tree::{ActorState, StateTree};
+        use crate::test_utils::{account_actor_code, resolving_state_tree};
+        use rstest::rstest;
+
+        /// Builds a state tree where `f1` resolves (via the init actor's address map) to an account
+        /// at an ID address with nonce `base`. Returns the tree and that ID address.
+        fn tree_with_account(db: &DbImpl, f1: Address, base: u64) -> (StateTree<DbImpl>, Address) {
+            let (mut tree, id) = resolving_state_tree(db, f1);
+            tree.set_actor(
+                &id,
+                ActorState::new(
+                    account_actor_code(),
+                    Cid::default(),
+                    TokenAmount::default(),
+                    base,
+                    None,
+                ),
+            )
+            .unwrap();
+            let root = tree.flush().unwrap();
+            (StateTree::new_from_root(db, &root).unwrap(), id)
+        }
+
+        fn msg(from: Address, sequence: u64) -> Message {
+            Message::builder()
+                .to(Address::new_id(99))
+                .from(from)
+                .sequence(sequence)
+                .gas_limit(BLOCK_GAS_LIMIT / 4)
+                .build()
+        }
+
+        /// One account sends under its key address then its ID address at consecutive nonces. From
+        /// nv13 the resolved ID keys both as one sender and the second is accepted; below the gate
+        /// raw keying treats them as two senders and the second is rejected.
+        #[rstest]
+        #[case::nv17_resolves_id(NetworkVersion::V17, true)]
+        #[case::nv12_keys_raw_sender(NetworkVersion::V12, false)]
+        fn sender_keyed_by_resolved_id_from_nv13(
+            #[case] nv: NetworkVersion,
+            #[case] second_form_accepted: bool,
+        ) {
+            let db: DbImpl = Arc::new(MemoryDB::default()).into();
+            let f1 = Address::new_secp256k1(&[0x04; 65]).unwrap();
+            let (tree, f0) = tree_with_account(&db, f1, 7);
+            // The fixture is only meaningful if `f1` actually resolves to the account's ID.
+            assert_eq!(tree.lookup_required_id_address(&f1).unwrap(), f0);
+
+            let mut checker = MessageChecker {
+                price_list: price_list_by_network_version(nv),
+                network_version: nv,
+                tree,
+                sum_gas_limit: 0,
+                account_sequences: HashMap::default(),
+            };
+            checker.check(&msg(f1, 7)).unwrap();
+            assert_eq!(checker.check(&msg(f0, 8)).is_ok(), second_form_accepted);
+        }
     }
 
     mod block_messages {
@@ -683,7 +759,7 @@ mod tests {
                     ..Default::default()
                 }),
                 bls_messages: vec![],
-                secp_messages: vec![secp_message],
+                secp_messages: vec![Arc::new(secp_message)],
             })
         }
 

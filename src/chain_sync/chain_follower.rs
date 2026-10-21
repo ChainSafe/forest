@@ -680,8 +680,8 @@ pub fn load_full_tipset(
             let (bls_msgs, secp_msgs) = crate::chain::block_messages(chain_store.db(), header)?;
             Ok(Block {
                 header: header.clone(),
-                bls_messages: bls_msgs,
-                secp_messages: secp_msgs,
+                bls_messages: bls_msgs.into_iter().map(Arc::new).collect(),
+                secp_messages: secp_msgs.into_iter().map(Arc::new).collect(),
             })
         })
         .try_collect()?;

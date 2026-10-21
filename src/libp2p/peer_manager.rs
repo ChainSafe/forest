@@ -26,7 +26,7 @@ const LOCAL_INV_ALPHA: u32 = 5;
 const GLOBAL_INV_ALPHA: u32 = 20;
 
 #[derive(Debug, Default)]
-/// Contains info about the peer's head [Tipset], as well as the request stats.
+/// Contains info about the peer's head [`Tipset`](crate::blocks::Tipset), as well as the request stats.
 struct PeerInfo {
     /// Number of successful requests.
     successes: u32,

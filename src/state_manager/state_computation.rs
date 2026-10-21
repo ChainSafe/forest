@@ -344,7 +344,7 @@ impl StateManager {
     /// After execution, the message has a _receipt_, showing how much gas was spent.
     /// This is similarly a [`Cid`] into the block store.
     ///
-    /// For details, see the documentation for [`apply_block_messages`].
+    /// For details, see the documentation for [`apply_block_messages_blocking`].
     ///
     pub async fn compute_tipset_state(
         &self,
@@ -567,7 +567,7 @@ impl<'a> TipsetExecutor<'a> {
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
                 let timestamp = genesis_timestamp + (block_delay_secs * epoch_i as u64);
-                parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
+                parent_state = with_fvm_stack(|| -> anyhow::Result<Cid> {
                     let mut vm =
                         self.create_vm(parent_state, epoch_i, timestamp, null_epoch_trace)?;
                     if let Err(e) = vm.run_cron(epoch_i, cron_callback.as_mut()) {
@@ -587,7 +587,8 @@ impl<'a> TipsetExecutor<'a> {
             }
         }
 
-        let block_messages = BlockMessages::for_tipset(self.chain_index.db(), &self.tipset)?;
+        let block_messages =
+            BlockMessages::for_tipset(self.chain_index.db(), &self.tipset, &self.chain_config)?;
         Ok((parent_state, epoch, block_messages))
     }
 }
@@ -715,9 +716,7 @@ pub fn apply_block_messages_blocking(
     let (parent_state, epoch, block_messages) =
         exec.prepare_parent_state_blocking(genesis_timestamp, enable_tracing, &mut callback)?;
 
-    // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
-    // FVM, but that introduces some constraints, and possible deadlocks.
-    stacker::grow(64 << 20, || -> anyhow::Result<ExecutedTipset> {
+    with_fvm_stack(|| -> anyhow::Result<ExecutedTipset> {
         let mut vm = exec.create_vm(parent_state, epoch, tipset.min_timestamp(), enable_tracing)?;
 
         // step 4: apply tipset messages

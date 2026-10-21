@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Official documentation for the Ethereum pubsub protocol is available at:
-//! https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub
+//! <https://geth.ethereum.org/docs/interacting-with-geth/rpc/pubsub>
 //!
 //! Note that Filecoin uses this protocol without modifications.
 //!

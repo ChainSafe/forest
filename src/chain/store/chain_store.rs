@@ -488,7 +488,7 @@ impl ChainStore {
         Ok(self
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
-                let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
+                let bmsgs = BlockMessages::for_tipset(self.db(), ts, self.chain_config())?;
                 anyhow::Ok(
                     bmsgs
                         .into_iter()
@@ -777,10 +777,7 @@ where
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
-/// A cache structure mapping tipset keys to messages. The regular [`messages_for_tipset`], based
-/// on performance measurements, is resource-intensive and can be a bottleneck for certain
-/// use-cases. This cache is intended to be used with a complementary function;
-/// [`messages_for_tipset_with_cache`].
+/// Cache of tipset messages, used by [`ChainStore::messages_for_tipset`] since loading them is a bottleneck for some use-cases.
 #[derive(derive_more::Deref)]
 pub struct MessagesInTipsetCache(SizeTrackingCache<TipsetKey, Arc<Vec<ChainMessage>>>);
 

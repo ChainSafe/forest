@@ -793,18 +793,8 @@ async fn handle_hello_event(
             ..
         } => {
             hello.on_outbound_failure(&request_id);
-            match error {
-                request_response::OutboundFailure::UnsupportedProtocols => {
-                    peer_manager
-                        .ban_peer_with_default_duration(peer, "Hello protocol unsupported", |p| {
-                            get_user_agent(peer_info_map, p)
-                        })
-                        .await;
-                }
-                _ => {
-                    peer_manager.mark_peer_bad(peer, format!("Hello outbound failure {error}"));
-                }
-            }
+            // Not banned here: this can fail before identify arrives, and only identify can tell crawlers apart.
+            peer_manager.mark_peer_bad(peer, format!("Hello outbound failure {error}"));
         }
         request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),
@@ -1018,4 +1008,39 @@ fn get_user_agent(peer_info_map: &HashMap<PeerId, PeerInfo>, peer: &PeerId) -> O
         .get(peer)
         .and_then(|i| i.identify_info.as_ref())
         .map(|i| i.agent_version.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libp2p::swarm::ConnectionId;
+
+    #[tokio::test]
+    async fn hello_unsupported_protocol_does_not_ban() {
+        let peer_manager = Arc::new(PeerManager::default());
+        let mut hello =
+            HelloBehaviour::new(request_response::Config::default(), peer_manager.clone());
+        let peer = PeerId::random();
+        let (response_channel, _) = flume::bounded(1);
+        let request_id = hello.send_request(&peer, HelloRequest::default(), response_channel);
+        let (network_sender_out, _) = flume::unbounded();
+
+        handle_hello_event(
+            &HashMap::default(),
+            &mut hello,
+            request_response::Event::OutboundFailure {
+                peer,
+                connection_id: ConnectionId::new_unchecked(0),
+                request_id,
+                error: request_response::OutboundFailure::UnsupportedProtocols,
+            },
+            &peer_manager,
+            &Cid::default(),
+            &network_sender_out,
+        )
+        .await;
+
+        assert!(peer_manager.peer_ops_rx().is_empty());
+        assert!(!peer_manager.is_peer_new(&peer));
+    }
 }

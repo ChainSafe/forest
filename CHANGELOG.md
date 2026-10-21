@@ -27,11 +27,25 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.39.0 "Vijayadashami"
+
+Non-mandatory release for all node operators. It includes fixes and improvements, notably around the Ethereum and state RPC methods. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
+
+### Breaking
+
 - [#7270](https://github.com/ChainSafe/forest/issues/7270): Removed the `FOREST_ETH_GET_BLOCK_RECEIPTS_LEGACY_NULL_ROUND` environment variable. `eth_getBlockReceipts` and `eth_getBlockReceiptsLimited` now always return an `ErrNullRound` error (JSON-RPC code `12`) for a null-round block number, matching Lotus since v1.36.2 ([lotus#13694](https://github.com/filecoin-project/lotus/pull/13694)).
 
 - [#7737](https://github.com/ChainSafe/forest/pull/7737): `Filecoin.MinerCreateBlock` now requires the `sign` permission instead of `write`, since it signs the block with the node's wallet. Matches Lotus ([lotus#13871](https://github.com/filecoin-project/lotus/pull/13871)).
 
-### Added
+- [#7780](https://github.com/ChainSafe/forest/pull/7780): Removed the unused `chunk_size`, `buffer_size` and `skip_load` keys from the `[client]` config section. A config file that still sets them is rejected at startup; delete them from the file. The `--skip-load` flag is unchanged.
 
 ### Changed
 
@@ -39,11 +53,11 @@
 
 - [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall` runs the message at its own `GasLimit` instead of an effectively unlimited one. A `GasLimit` of `0` selects the node's cap, the block gas limit unless the new `FOREST_STATE_CALL_GAS_LIMIT` is set, and a larger `GasLimit` is rejected ([lotus#13910](https://github.com/filecoin-project/lotus/pull/13910)).
 
-### Removed
-
 ### Fixed
 
 - [#7733](https://github.com/ChainSafe/forest/pull/7733): Fixed `Filecoin.GetActorEventsRaw` ignoring the maximum filter height range. The height range is now correctly validated, and a filter without `fromHeight` returns no events.
+
+- [#7528](https://github.com/ChainSafe/forest/issues/7528): `trace_call` now accepts a `from` address that is an EVM contract or that does not exist on chain, matching `eth_call`.
 
 - [#7754](https://github.com/ChainSafe/forest/pull/7754): `Filecoin.StateCall`, `Filecoin.StateReplay` and `Filecoin.StateCompute` report `unknown error (RetCode=<code>)` for a failed message the FVM attaches no failure info to, such as one that runs out of gas, instead of an empty error. Matches Lotus.
 
@@ -52,6 +66,10 @@
 - [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getTransactionByHash` and `eth_getTransactionByHashLimited` return a pending Ethereum transaction received from another node instead of `null` until it is mined. Matches Lotus ([lotus#13677](https://github.com/filecoin-project/lotus/pull/13677)).
 
 - [#7761](https://github.com/ChainSafe/forest/pull/7761): `eth_getTransactionByHash` and `eth_getTransactionByHashLimited` report the `hash` and `from` of a pending transaction instead of zeros.
+
+- [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed DHT crawlers such as ProbeLab's Nebula being banned and disconnected mid-crawl despite the crawler whitelist, which made Forest nodes appear undialable in network measurements.
+
+- [#7774](https://github.com/ChainSafe/forest/pull/7774): Fixed block message validation when one account sends under two of its address forms.
 
 ## Forest v0.38.0 "Ayanant"
 
@@ -74,8 +92,6 @@ Mandatory release for mainnet node operators. It includes support for the NV29 _
 - [#7650](https://github.com/ChainSafe/forest/pull/7650): `forest-cli wait-api` now exits with an error when it times out instead of reporting success.
 
 ### Fixed
-
-- [#7528](https://github.com/ChainSafe/forest/issues/7528): `trace_call` now accepts a `from` address that is an EVM contract or that does not exist on chain, matching `eth_call`.
 
 - [#7661](https://github.com/ChainSafe/forest/pull/7661): Fixed snapshot GC occasionally leaving a gap in the chain right above the exported snapshot.
 
