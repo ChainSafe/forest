@@ -61,6 +61,15 @@ at least one must be given.
 
 ## Importing into Forest
 
+### Automatically on startup
+
+When Forest imports a snapshot from a URL on startup, with `--auto-download-snapshot` or
+`--import-snapshot <url>`, it imports the enriched snapshot too. 
+This step is best-effort: if a companion file can't be downloaded, verified, or
+imported, Forest logs a warning and starts without it.
+
+### Manually
+
 `--import-snapshot` accepts a single file and the companion CARs have no chain
 spine of their own, so only the base goes through it. The companions are loaded
 with `forest-tool db`, which writes directly into the node's key-value store and
