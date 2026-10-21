@@ -18,6 +18,7 @@ use enumflags2::BitFlags;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -298,14 +299,25 @@ impl RpcMethod<2> for MpoolPushMessage {
             .resolve_to_deterministic_address(from, &heaviest_tipset)
             .await?;
 
+        let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
+
+        // Under the sender lock so an overlapping retry sees the record, and before the checks
+        // a retry can fail.
+        let msg_uuid = send_spec
+            .as_ref()
+            .map_or_else(Uuid::nil, |spec| spec.msg_uuid);
+        if let Some(smsg) = ctx.nonce_tracker.pushed_message(msg_uuid) {
+            tracing::warn!("MsgUuid {msg_uuid} already pushed as {}", smsg.cid());
+            return Ok(smsg);
+        }
+
         if message.sequence() != 0 {
             return Err(anyhow::anyhow!(
-                "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
+                "MpoolPushMessage expects message nonce to be 0, was {}",
+                message.sequence()
             )
             .into());
         }
-
-        let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
 
         let message = estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
         if message.gas_premium() > message.gas_fee_cap() {
@@ -343,6 +355,8 @@ impl RpcMethod<2> for MpoolPushMessage {
             .sign_and_push(&ctx.mpool, message, &key, eth_chain_id)
             .await?;
 
+        // No `.await` between the push and this, or a dropped call pushes without recording.
+        ctx.nonce_tracker.record_pushed(msg_uuid, &smsg);
         Ok(smsg)
     }
 }
@@ -356,6 +370,7 @@ mod tests {
     use crate::rpc::RPCState;
     use crate::rpc::test_utils::chain_store;
     use crate::shim::crypto::{SECP_SIG_LEN, Signature};
+    use crate::shim::econ::TokenAmount;
     use crate::test_utils::dummy_ticket;
     use fvm_ipld_blockstore::Blockstore;
 
@@ -363,7 +378,7 @@ mod tests {
     fn secp_message(sequence: u64) -> SignedMessage {
         SignedMessage::new_unchecked(
             Message::builder()
-                .from(Address::new_id(100))
+                .from(Address::new_secp256k1(&[1; 65]).unwrap())
                 .to(Address::new_id(101))
                 .sequence(sequence)
                 .build(),
@@ -532,5 +547,37 @@ mod tests {
 
         let ctx = ctx_on(cs, &mpool_ts);
         assert_eq!(pending_at(ctx, &fork_ts).await, vec![only_in_fork]);
+    }
+
+    /// Every step after the lookup fails for this message (nonce 1, no actor state), so this
+    /// passes only if the lookup runs right after the sender lock.
+    #[tokio::test]
+    async fn retry_waiting_on_sender_lock_returns_recorded_message() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let ctx = ctx_on(cs, &genesis);
+
+        let recorded = secp_message(1);
+        let sender = recorded.message().from();
+        let uuid = crate::utils::rand::new_uuid_v4();
+        let spec = MessageSendSpec {
+            max_fee: TokenAmount::default(),
+            msg_uuid: uuid,
+            maximize_fee_cap: false,
+        };
+
+        let in_flight = ctx.mpool_locker.take_lock(sender).await;
+        let extensions = http::Extensions::default();
+        let mut retry = std::pin::pin!(MpoolPushMessage::handle(
+            ctx.clone(),
+            (recorded.message().clone(), Some(spec)),
+            &extensions,
+        ));
+        assert!(futures::poll!(retry.as_mut()).is_pending());
+
+        ctx.nonce_tracker.record_pushed(uuid, &recorded);
+        drop(in_flight);
+
+        assert_eq!(retry.await.unwrap(), recorded);
     }
 }
