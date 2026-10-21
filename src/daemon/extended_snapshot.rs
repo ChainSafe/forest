@@ -227,33 +227,37 @@ pub async fn maybe_import_extended_snapshots<DB>(
             return;
         }
         Err(e) => {
-            warn!("No snapshot metadata available for {snapshot_url}: {e:#}");
+            warn!("Failed to fetch extended snapshots for {snapshot_url}: {e:#}");
             return;
         }
     };
 
-    if let Some(file) = &extended.receipts_events {
-        let result = async {
-            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
-            import_receipts_events_snapshot(db, &path).await
-        }
-        .await;
-        match result {
-            Ok(()) => {
-                info!(
-                    "Imported message receipts and events from {}",
-                    file.filename
-                );
-                if let Err(e) = backfill_receipts_events(state_manager, head).await {
-                    warn!("Failed to index imported receipts and events: {e:#}");
+    let receipts_events_imported = match &extended.receipts_events {
+        Some(file) => {
+            let result = async {
+                let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+                import_receipts_events_snapshot(db, &path).await
+            }
+            .await;
+            match result {
+                Ok(()) => {
+                    info!(
+                        "Imported message receipts and events from {}",
+                        file.filename
+                    );
+                    true
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to import receipts and events snapshot {}: {e:#}",
+                        file.filename
+                    );
+                    false
                 }
             }
-            Err(e) => warn!(
-                "Failed to import receipts and events snapshot {}: {e:#}",
-                file.filename
-            ),
         }
-    }
+        None => false,
+    };
 
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
@@ -270,6 +274,12 @@ pub async fn maybe_import_extended_snapshots<DB>(
                 file.filename
             ),
         }
+    }
+
+    // Index once both snapshots are imported, so each import's logs stay together.
+    if receipts_events_imported && let Err(e) = backfill_receipts_events(state_manager, head).await
+    {
+        warn!("Failed to index imported receipts and events: {e:#}");
     }
 }
 
