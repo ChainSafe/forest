@@ -31,6 +31,8 @@
 
 - [#7737](https://github.com/ChainSafe/forest/pull/7737): `Filecoin.MinerCreateBlock` now requires the `sign` permission instead of `write`, since it signs the block with the node's wallet. Matches Lotus ([lotus#13871](https://github.com/filecoin-project/lotus/pull/13871)).
 
+- [#7780](https://github.com/ChainSafe/forest/pull/7780): Removed the unused `chunk_size`, `buffer_size` and `skip_load` keys from the `[client]` config section. A config file that still sets them is rejected at startup; delete them from the file. The `--skip-load` flag is unchanged.
+
 ### Added
 
 ### Changed
