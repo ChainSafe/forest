@@ -15,7 +15,7 @@ use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
-use crate::utils::db::car_stream::{CarBlock, CarStream};
+use crate::utils::db::car_stream::CarStream;
 use crate::utils::net::{DownloadFileOption, download_to};
 use anyhow::Context;
 use fil_actors_shared::fvm_ipld_hamt::Hamt;
@@ -116,8 +116,9 @@ where
     DB: Blockstore,
 {
     let mut car_stream = CarStream::new_from_path(path).await?;
-    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        db.put_keyed(&cid, &data)?;
+    while let Some(block) = car_stream.try_next().await? {
+        block.validate()?;
+        db.put_keyed(&block.cid, &block.data)?;
     }
     Ok(())
 }
