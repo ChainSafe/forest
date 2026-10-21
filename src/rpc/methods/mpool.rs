@@ -291,6 +291,15 @@ impl RpcMethod<2> for MpoolPushMessage {
         (message, send_spec): Self::Params,
         extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
+        let msg_uuid = send_spec
+            .as_ref()
+            .map_or_else(Uuid::nil, |spec| spec.msg_uuid);
+        // Sender resolution can fail on a retry. Return the recorded message before that.
+        if let Some(smsg) = ctx.nonce_tracker.pushed_message(msg_uuid) {
+            tracing::warn!("Message already processed. cid={}", smsg.cid());
+            return Ok(smsg);
+        }
+
         let from = message.from();
 
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
@@ -303,12 +312,9 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         // Under the sender lock, then this UUID lock through the record, and before the checks
         // a retry can fail. Different senders do not share the sender lock.
-        let msg_uuid = send_spec
-            .as_ref()
-            .map_or_else(Uuid::nil, |spec| spec.msg_uuid);
         let _uuid_guard = ctx.nonce_tracker.lock_uuid(msg_uuid).await;
         if let Some(smsg) = ctx.nonce_tracker.pushed_message(msg_uuid) {
-            tracing::warn!("MsgUuid {msg_uuid} already pushed as {}", smsg.cid());
+            tracing::warn!("Message already processed. cid={}", smsg.cid());
             return Ok(smsg);
         }
 
@@ -610,5 +616,36 @@ mod tests {
         drop(in_flight);
 
         assert_eq!(retry.await.unwrap(), recorded);
+    }
+
+    /// Unknown ID sender, so this passes only if the recorded UUID is returned before resolution.
+    #[tokio::test]
+    async fn recorded_uuid_returns_before_sender_resolution() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let ctx = ctx_on(cs, &genesis);
+
+        let unsigned = Message::builder()
+            .from(Address::new_id(999_999))
+            .to(Address::new_id(101))
+            .sequence(1)
+            .build();
+        let recorded = SignedMessage::new_unchecked(
+            unsigned.clone(),
+            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+        );
+        let uuid = crate::utils::rand::new_uuid_v4();
+        ctx.nonce_tracker.record_pushed(uuid, &recorded);
+        let spec = MessageSendSpec {
+            max_fee: TokenAmount::default(),
+            msg_uuid: uuid,
+            maximize_fee_cap: false,
+        };
+
+        let extensions = http::Extensions::default();
+        let returned = MpoolPushMessage::handle(ctx, (unsigned, Some(spec)), &extensions)
+            .await
+            .unwrap();
+        assert_eq!(returned, recorded);
     }
 }
