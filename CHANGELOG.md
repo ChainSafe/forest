@@ -55,6 +55,8 @@
 
 - [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed DHT crawlers such as ProbeLab's Nebula being banned and disconnected mid-crawl despite the crawler whitelist, which made Forest nodes appear undialable in network measurements.
 
+- [#7774](https://github.com/ChainSafe/forest/pull/7774): Fixed block message validation when one account sends under two of its address forms.
+
 ## Forest v0.38.0 "Ayanant"
 
 Mandatory release for mainnet node operators. It includes support for the NV29 _Solstice_ network upgrade for mainnet, which is set to activate at epoch `6470279` (2026-10-19T12:59:30Z). Note the breaking change below: JSON-RPC batch requests are now limited to 100 entries by default. There are also other changes and improvements; see below.
