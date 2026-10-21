@@ -88,7 +88,7 @@ impl DrandGossipValidator {
         };
         let entry = BeaconEntry::new(response.round, response.signature);
         let round = entry.round();
-        
+
         if round == 0 || entry.signature().is_empty() {
             return verdict(MessageAcceptance::Reject, Reason::Malformed);
         }
@@ -97,7 +97,7 @@ impl DrandGossipValidator {
             .schedule
             .unchained_beacon()
             .expect("drand gossip requires an unchained beacon");
-        
+
         // Always `Some` for a `DrandBeacon`; a round that can't be timed is ignored, never let
         // through without the time window.
         let Some(round_ts) = beacon.beacon_round_timestamp(round) else {
