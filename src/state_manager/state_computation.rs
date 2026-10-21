@@ -588,7 +588,8 @@ impl<'a> TipsetExecutor<'a> {
             }
         }
 
-        let block_messages = BlockMessages::for_tipset(self.chain_index.db(), &self.tipset)?;
+        let block_messages =
+            BlockMessages::for_tipset(self.chain_index.db(), &self.tipset, &self.chain_config)?;
         Ok((parent_state, epoch, block_messages))
     }
 }
