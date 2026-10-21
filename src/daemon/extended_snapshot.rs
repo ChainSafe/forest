@@ -170,7 +170,8 @@ async fn backfill_receipts_events(
     head: &Tipset,
 ) -> anyhow::Result<()> {
     let db = state_manager.db();
-    let Some(to) = head
+    let from = Tipset::load_required(db, head.parents())?;
+    let Some(to) = from
         .shallow_clone()
         .chain(db)
         .take_while(|ts| db.has(ts.parent_state()).unwrap_or_default())
@@ -184,21 +185,20 @@ async fn backfill_receipts_events(
         allow_recompute: false,
         ..Default::default()
     };
-    let result = run_backfill(state_manager, head, RangeSpec::To(to), options, &guard).await;
+    let result = run_backfill(state_manager, &from, RangeSpec::To(to), options, &guard).await;
     let report = guard.finish(result)?;
-    // The head is always skipped: its receipts are only known once its child is synced.
-    if report.skipped > 1 {
+    if report.skipped > 0 {
         warn!(
             "Indexed {} tipsets from epoch {} to {to}, {} could not be indexed",
             report.indexed,
-            head.epoch(),
+            from.epoch(),
             report.skipped
         );
     } else {
         info!(
             "Indexed {} tipsets from epoch {} to {to}",
             report.indexed,
-            head.epoch()
+            from.epoch()
         );
     }
     Ok(())
