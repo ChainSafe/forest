@@ -175,7 +175,6 @@ async fn maybe_import_snapshot(
             car_db_path.display(),
         );
         maybe_import_extended_snapshots(
-            &ctx.db,
             &ctx.state_manager,
             &ts,
             path,

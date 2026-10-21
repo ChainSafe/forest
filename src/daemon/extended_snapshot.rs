@@ -23,7 +23,6 @@ use futures::TryStreamExt;
 use regex::Regex;
 use serde::Deserialize;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
 use url::Url;
@@ -206,17 +205,14 @@ async fn backfill_receipts_events(
 }
 
 /// Downloads the extended snapshots (message receipts and events, tipset lookup table)
-/// advertised in the metadata of the snapshot at `snapshot_path` and imports them into `db`.
-/// Does nothing when `snapshot_path` is a local file rather than a URL.
-pub async fn maybe_import_extended_snapshots<DB>(
-    db: &Arc<DB>,
+/// advertised in the metadata of the snapshot at `snapshot_path` and imports them into the
+/// database of `state_manager`. Does nothing when `snapshot_path` is a local file rather than a URL.
+pub(super) async fn maybe_import_extended_snapshots(
     state_manager: &StateManager,
     head: &Tipset,
     snapshot_path: &Path,
     temp_dir: &Path,
-) where
-    DB: Blockstore + EthMappingsStore + Send + Sync + 'static,
-{
+) {
     // Extended snapshots are only published next to remote snapshots.
     let Some(snapshot_url) = path_as_url(snapshot_path) else {
         return;
@@ -237,7 +233,7 @@ pub async fn maybe_import_extended_snapshots<DB>(
         Some(file) => {
             let result = async {
                 let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
-                import_receipts_events_snapshot(db, &path).await
+                import_receipts_events_snapshot(state_manager.db(), &path).await
             }
             .await;
             match result {
@@ -263,8 +259,8 @@ pub async fn maybe_import_extended_snapshots<DB>(
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
             let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
-            let db = db.clone();
-            tokio::task::spawn_blocking(move || import_tipset_lookup_snapshot(&*db, &path, || {}))
+            let db = state_manager.db_owned();
+            tokio::task::spawn_blocking(move || import_tipset_lookup_snapshot(&db, &path, || {}))
                 .await?
         }
         .await;
