@@ -301,11 +301,12 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
 
-        // Under the sender lock so an overlapping retry sees the record, and before the checks
-        // a retry can fail.
+        // Under the sender lock, then this UUID lock through the record, and before the checks
+        // a retry can fail. Different senders do not share the sender lock.
         let msg_uuid = send_spec
             .as_ref()
             .map_or_else(Uuid::nil, |spec| spec.msg_uuid);
+        let _uuid_guard = ctx.nonce_tracker.lock_uuid(msg_uuid).await;
         if let Some(smsg) = ctx.nonce_tracker.pushed_message(msg_uuid) {
             tracing::warn!("MsgUuid {msg_uuid} already pushed as {}", smsg.cid());
             return Ok(smsg);
@@ -550,7 +551,7 @@ mod tests {
     }
 
     /// Every step after the lookup fails for this message (nonce 1, no actor state), so this
-    /// passes only if the lookup runs right after the sender lock.
+    /// passes only if the lookup runs after the sender lock is taken.
     #[tokio::test]
     async fn retry_waiting_on_sender_lock_returns_recorded_message() {
         let cs = chain_store();
@@ -567,6 +568,36 @@ mod tests {
         };
 
         let in_flight = ctx.mpool_locker.take_lock(sender).await;
+        let extensions = http::Extensions::default();
+        let mut retry = std::pin::pin!(MpoolPushMessage::handle(
+            ctx.clone(),
+            (recorded.message().clone(), Some(spec)),
+            &extensions,
+        ));
+        assert!(futures::poll!(retry.as_mut()).is_pending());
+
+        ctx.nonce_tracker.record_pushed(uuid, &recorded);
+        drop(in_flight);
+
+        assert_eq!(retry.await.unwrap(), recorded);
+    }
+
+    /// Nonce 1, so this passes only if the lookup runs after the UUID lock.
+    #[tokio::test]
+    async fn retry_waiting_on_uuid_lock_returns_recorded_message() {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        let ctx = ctx_on(cs, &genesis);
+
+        let recorded = secp_message(1);
+        let uuid = crate::utils::rand::new_uuid_v4();
+        let spec = MessageSendSpec {
+            max_fee: TokenAmount::default(),
+            msg_uuid: uuid,
+            maximize_fee_cap: false,
+        };
+
+        let in_flight = ctx.nonce_tracker.lock_uuid(uuid).await.unwrap();
         let extensions = http::Extensions::default();
         let mut retry = std::pin::pin!(MpoolPushMessage::handle(
             ctx.clone(),

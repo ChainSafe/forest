@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use crate::eth::EthChainId;
 use crate::key_management::{Key, sign_message};
@@ -10,8 +11,9 @@ use crate::message_pool::MessagePool;
 use crate::message_pool::msgpool::provider::Provider;
 use crate::shim::message::Message;
 use crate::utils::cache::SizeTrackingCache;
+use ahash::HashMap;
 use nonzero_ext::nonzero;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OwnedMutexGuard};
 use uuid::Uuid;
 
 /// Lotus Miner retries a lost push for about 15 s.
@@ -26,6 +28,7 @@ const PUSHED_BY_UUID_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 pub struct NonceTracker {
     lock: Mutex<()>,
     pushed_by_uuid: SizeTrackingCache<u128, SignedMessage>,
+    uuid_locks: parking_lot::Mutex<HashMap<u128, Arc<Mutex<()>>>>,
 }
 
 impl NonceTracker {
@@ -36,7 +39,24 @@ impl NonceTracker {
                 "pushed_by_uuid",
                 PUSHED_BY_UUID_CACHE_SIZE,
             ),
+            uuid_locks: parking_lot::Mutex::new(HashMap::default()),
         }
+    }
+
+    /// Lock for one non-nil `MsgUuid`, held from the lookup through [`Self::record_pushed`].
+    /// A nil UUID returns [`None`] and takes no lock.
+    pub async fn lock_uuid(&self, uuid: Uuid) -> Option<OwnedMutexGuard<()>> {
+        if uuid.is_nil() {
+            return None;
+        }
+        let mutex = {
+            let mut map = self.uuid_locks.lock();
+            map.retain(|_, v| Arc::strong_count(v) > 1);
+            map.entry(uuid.as_u128())
+                .or_insert_with(|| Arc::new(Mutex::new(())))
+                .clone()
+        };
+        Some(mutex.lock_owned().await)
     }
 
     pub fn pushed_message(&self, uuid: Uuid) -> Option<SignedMessage> {
