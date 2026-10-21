@@ -201,11 +201,11 @@ mod tests {
     /// Entries rejected or ignored without being cached.
     #[rstest::rstest]
     #[case::undecodable(|_: &FakeDrandSigner| vec![0xff, 0xff, 0xff], 0, MessageAcceptance::Reject)]
-    #[case::round_zero(|d: &FakeDrandSigner| d.encode_raw(0, d.entry(1).signature()), 0, MessageAcceptance::Reject)]
-    #[case::empty_signature(|d: &FakeDrandSigner| d.encode_raw(EPOCH_ROUND, &[]), 0, MessageAcceptance::Reject)]
+    #[case::round_zero(|d: &FakeDrandSigner| FakeDrandSigner::encode_raw(0, d.entry(1).signature()), 0, MessageAcceptance::Reject)]
+    #[case::empty_signature(|_: &FakeDrandSigner| FakeDrandSigner::encode_raw(EPOCH_ROUND, &[]), 0, MessageAcceptance::Reject)]
     // An epoch round with the next round's signature.
     #[case::forged_signature(
-        |d: &FakeDrandSigner| d.encode_raw(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature()),
+        |d: &FakeDrandSigner| FakeDrandSigner::encode_raw(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature()),
         0,
         MessageAcceptance::Reject
     )]
