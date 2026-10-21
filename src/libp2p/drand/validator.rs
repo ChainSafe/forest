@@ -117,19 +117,16 @@ impl DrandGossipValidator {
         let verdicts = self.verdicts.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            let verified = schedule.unchained_beacon().is_some_and(|beacon| {
-                matches!(
-                    beacon.verify_entries(std::slice::from_ref(&entry), &BeaconEntry::default()),
-                    Ok(true)
-                )
+            let checked = schedule.unchained_beacon().map(|beacon| {
+                match beacon.verify_entries(std::slice::from_ref(&entry), &BeaconEntry::default()) {
+                    Ok(true) => (MessageAcceptance::Accept, Reason::Verified),
+                    Ok(false) => (MessageAcceptance::Reject, Reason::InvalidSignature),
+                    Err(_) => (MessageAcceptance::Reject, Reason::Malformed),
+                }
             });
-            let (acceptance, reason) = if verified {
-                debug!(round, "verified drand entry from gossipsub");
-                (MessageAcceptance::Accept, Reason::Verified)
-            } else {
-                debug!(round, %source, "received invalid drand entry over gossipsub");
-                (MessageAcceptance::Reject, Reason::InvalidSignature)
-            };
+            let (acceptance, reason) =
+                checked.unwrap_or((MessageAcceptance::Reject, Reason::InvalidSignature));
+            debug!(round, %source, ?reason, "checked drand entry from gossipsub");
             report(&verdicts, message_id, source, acceptance, reason);
         });
     }
@@ -203,6 +200,7 @@ mod tests {
     #[case::undecodable(|_: &FakeDrandSigner| vec![0xff, 0xff, 0xff], 0, MessageAcceptance::Reject)]
     #[case::round_zero(|d: &FakeDrandSigner| FakeDrandSigner::encode_raw(0, d.entry(1).signature()), 0, MessageAcceptance::Reject)]
     #[case::empty_signature(|_: &FakeDrandSigner| FakeDrandSigner::encode_raw(EPOCH_ROUND, &[]), 0, MessageAcceptance::Reject)]
+    #[case::wrong_length_signature(|_: &FakeDrandSigner| FakeDrandSigner::encode_raw(EPOCH_ROUND, &[1, 2, 3]), 0, MessageAcceptance::Reject)]
     // An epoch round with the next round's signature.
     #[case::forged_signature(
         |d: &FakeDrandSigner| FakeDrandSigner::encode_raw(EPOCH_ROUND, d.entry(EPOCH_ROUND + 1).signature()),
@@ -231,9 +229,56 @@ mod tests {
     async fn entry_ignored_when_verifications_saturated() {
         let (drand, schedule) = fake_drand_schedule();
         let now = time_of(&schedule, EPOCH_ROUND);
+        let (verdicts_tx, verdicts) = flume::unbounded();
+        let validator = DrandGossipValidator::with_max_verifications(schedule, verdicts_tx, 1);
+        let _busy = Arc::clone(&validator.limiter)
+            .try_acquire_owned()
+            .expect("the only verification slot");
 
-        let verdict = verdict_for(&schedule, &drand.encode(EPOCH_ROUND), now, 0).await;
+        validator.handle(
+            &drand.encode(EPOCH_ROUND),
+            MessageId::new(b"drand"),
+            PeerId::random(),
+            now,
+        );
 
+        let verdict = verdicts
+            .try_recv()
+            .expect("an immediate verdict")
+            .acceptance;
         assert_verdict(&verdict, MessageAcceptance::Ignore);
+    }
+
+    /// Another relay, or an HTTP fetch, may already have cached the round.
+    #[tokio::test]
+    async fn cached_round_is_accepted_again() {
+        let (drand, schedule) = fake_drand_schedule();
+        let now = time_of(&schedule, EPOCH_ROUND);
+        let payload = drand.encode(EPOCH_ROUND);
+
+        for _ in 0..2 {
+            let verdict = verdict_for(&schedule, &payload, now, 1).await;
+            assert_verdict(&verdict, MessageAcceptance::Accept);
+        }
+    }
+
+    #[tokio::test]
+    async fn cached_round_with_another_signature_is_rejected() {
+        let (drand, schedule) = fake_drand_schedule();
+        let now = time_of(&schedule, EPOCH_ROUND);
+        let forged =
+            FakeDrandSigner::encode_raw(EPOCH_ROUND, drand.entry(EPOCH_ROUND + 1).signature());
+
+        let verdict = verdict_for(&schedule, &drand.encode(EPOCH_ROUND), now, 1).await;
+        assert_verdict(&verdict, MessageAcceptance::Accept);
+        let verdict = verdict_for(&schedule, &forged, now, 1).await;
+        assert_verdict(&verdict, MessageAcceptance::Reject);
+
+        let beacon = schedule.unchained_beacon().expect("unchained beacon");
+        assert_eq!(
+            beacon.entry(EPOCH_ROUND).await.unwrap(),
+            drand.entry(EPOCH_ROUND),
+            "the cache keeps the valid entry"
+        );
     }
 }
