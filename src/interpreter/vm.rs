@@ -9,18 +9,18 @@ use crate::db::DbImpl;
 use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExternsV3, fvm4::ForestExternsV4};
 use crate::message::ChainMessage;
 use crate::message::MessageRead as _;
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::prelude::*;
 use crate::shim::actors::{AwardBlockRewardParams, cron, reward};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
-    address::Address,
+    address::{Address, Protocol},
     econ::TokenAmount,
     executor::{ApplyRet, Receipt, StampedEvent},
     externs::Rand,
     machine::MultiEngine,
     message::{Message, Message_v3},
-    state_tree::ActorState,
+    state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use ahash::{HashMap, HashSet};
@@ -85,21 +85,73 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
+/// How tipset message senders are keyed for dedup, mirroring Lotus's lazy ID resolution.
+enum Keying<'a, DB> {
+    /// Pre-Hyperdrive: key by the raw sender address, never resolving.
+    Raw,
+    /// Hyperdrive era with no ID-form sender yet: key by the raw address, but resolve every sender
+    /// to its ID address as soon as one appears.
+    Lazy { db: &'a DB, parent_state: &'a Cid },
+    /// An ID-form sender has appeared: key by the resolved ID address.
+    Resolved(Box<StateTree<DB>>),
+}
+
+impl<DB: Blockstore + ShallowClone> Keying<'_, DB> {
+    /// The dedup key for `from`. On the first ID-form sender, loads the parent state, re-keys the
+    /// `applied` entries so far to their ID addresses, and switches to [`Keying::Resolved`].
+    fn sender_key(
+        &mut self,
+        from: Address,
+        applied: &mut HashMap<Address, u64>,
+    ) -> Result<Address, Error> {
+        match self {
+            Keying::Raw => Ok(from),
+            Keying::Resolved(state) => Ok(state.lookup_required_id_address(&from)?),
+            Keying::Lazy { db, parent_state } if from.protocol() == Protocol::ID => {
+                let (db, parent_state) = (*db, *parent_state);
+                let state = StateTree::new_from_root(db, parent_state)?;
+                for (robust, nonce) in std::mem::take(applied) {
+                    applied.insert(state.lookup_required_id_address(&robust)?, nonce);
+                }
+                let id = state.lookup_required_id_address(&from)?;
+                *self = Keying::Resolved(Box::new(state));
+                Ok(id)
+            }
+            Keying::Lazy { .. } => Ok(from),
+        }
+    }
+}
+
 impl BlockMessages {
     /// Retrieves block messages to be passed through the VM and removes duplicate messages which appear in multiple blocks.
-    pub fn for_tipset(db: &impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
-        let mut applied = HashMap::new();
-        let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
+    pub fn for_tipset<DB: Blockstore + ShallowClone>(
+        db: &DB,
+        ts: &Tipset,
+        chain_config: &ChainConfig,
+    ) -> Result<Vec<BlockMessages>, Error> {
+        // From Hyperdrive, dedup keys on the sender's resolved ID, lazily as in Lotus `BlockMsgsForTipset`.
+        // https://github.com/filecoin-project/lotus/blob/0065aa70bb20bf87801b6e96ecb7e7fe707566bd/chain/store/messages.go#L126-L182
+        let mut applied: HashMap<Address, u64> = HashMap::new();
+        let mut keying = if ts.epoch() >= chain_config.epoch(Height::Hyperdrive) {
+            Keying::Lazy {
+                db,
+                parent_state: ts.parent_state(),
+            }
+        } else {
+            Keying::Raw
+        };
+        let mut select_msg = |m: ChainMessage| -> Result<Option<ChainMessage>, Error> {
+            let sender = keying.sender_key(m.from(), &mut applied)?;
             // The first match for a sender is guaranteed to have correct nonce
             // the block isn't valid otherwise.
-            let entry = applied.entry(m.from()).or_insert_with(|| m.sequence());
+            let entry = applied.entry(sender).or_insert_with(|| m.sequence());
 
             if *entry != m.sequence() {
-                return None;
+                return Ok(None);
             }
 
             *entry += 1;
-            Some(m)
+            Ok(Some(m))
         };
 
         ts.block_headers()
@@ -108,8 +160,12 @@ impl BlockMessages {
                 let (usm, sm) = block_messages(db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
-                messages.extend(usm.into_iter().filter_map(|m| select_msg(m.into())));
-                messages.extend(sm.into_iter().filter_map(|m| select_msg(m.into())));
+                for m in usm {
+                    messages.extend(select_msg(m.into())?);
+                }
+                for m in sm {
+                    messages.extend(select_msg(m.into())?);
+                }
 
                 Ok(BlockMessages {
                     miner: b.miner_address,
@@ -598,5 +654,118 @@ impl VMTrace {
     /// Should tracing be collected?
     pub fn is_traced(&self) -> bool {
         matches!(self, VMTrace::Traced)
+    }
+}
+
+#[cfg(test)]
+mod for_tipset_tests {
+    use super::*;
+    use crate::blocks::{Block, CachingBlockHeader, FullTipset, RawBlockHeader, Tipset};
+    use crate::chain_sync::TipsetValidator;
+    use crate::db::{DbImpl, MemoryDB};
+    use crate::message::SignedMessage;
+    use crate::shim::crypto::Signature;
+    use crate::shim::message::Message_v3;
+    use crate::test_utils::{dummy_ticket, resolving_state_tree};
+    use rstest::rstest;
+
+    fn secp(from: Address, nonce: u64) -> SignedMessage {
+        let m: Message = Message_v3 {
+            to: Address::new_id(99).into(),
+            from: from.into(),
+            sequence: nonce,
+            ..Default::default()
+        }
+        .into();
+        SignedMessage::new_unchecked(m, Signature::new_secp256k1(vec![0]))
+    }
+
+    fn selected_message_count(
+        db: &DbImpl,
+        secp_messages: Vec<SignedMessage>,
+        state_root: Cid,
+        epoch: ChainEpoch,
+    ) -> usize {
+        let config = ChainConfig::default();
+        let secp_cids = secp_messages.iter().map(SignedMessage::signed_cid);
+        let msg_root =
+            TipsetValidator::compute_msg_root(&db, std::iter::empty(), secp_cids).unwrap();
+        let header = CachingBlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(1000),
+            ticket: dummy_ticket(0),
+            epoch,
+            state_root,
+            messages: msg_root,
+            ..Default::default()
+        });
+        let block = Block {
+            header,
+            bls_messages: vec![],
+            secp_messages: secp_messages.into_iter().map(Arc::new).collect(),
+        };
+        let fts = FullTipset::new([block]).unwrap();
+        fts.persist(&db).unwrap();
+        let tipset = Tipset::from(fts);
+
+        BlockMessages::for_tipset(db, &tipset, &config)
+            .unwrap()
+            .iter()
+            .map(|bm| bm.messages.len())
+            .sum()
+    }
+
+    #[rstest]
+    #[case::from_hyperdrive_dedups(0, 1)]
+    #[case::before_hyperdrive_keeps_both(-1, 2)]
+    fn one_account_under_two_address_forms(
+        #[case] epoch_offset: ChainEpoch,
+        #[case] expected: usize,
+    ) {
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
+        let f1 = Address::new_secp256k1(&[0x04; 65]).unwrap();
+        let (mut tree, f0) = resolving_state_tree(&db, f1);
+        let state_root = tree.flush().unwrap();
+
+        let count = selected_message_count(
+            &db,
+            vec![secp(f1, 7), secp(f0, 7)],
+            state_root,
+            ChainConfig::default().epoch(Height::Hyperdrive) + epoch_offset,
+        );
+        assert_eq!(count, expected);
+    }
+
+    #[test]
+    fn re_key_preserves_nonces() {
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
+        let f1 = Address::new_secp256k1(&[0x04; 65]).unwrap();
+        let (mut tree, f0) = resolving_state_tree(&db, f1);
+        let state_root = tree.flush().unwrap();
+
+        // Re-keying to the ID must carry the nonce advanced under `f1`, leaving only `f0` as the
+        // duplicate.
+        let count = selected_message_count(
+            &db,
+            vec![secp(f1, 7), secp(f1, 8), secp(f0, 8)],
+            state_root,
+            ChainConfig::default().epoch(Height::Hyperdrive),
+        );
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn robust_only_senders_need_no_state() {
+        let db: DbImpl = Arc::new(MemoryDB::default()).into();
+        let f1 = Address::new_secp256k1(&[0x04; 65]).unwrap();
+
+        // The state root is absent from the store; lazy keying must not load it while every sender
+        // is in robust form, as happens for a pruned tipset.
+        let count = selected_message_count(
+            &db,
+            vec![secp(f1, 7), secp(f1, 8)],
+            Cid::default(),
+            ChainConfig::default().epoch(Height::Hyperdrive),
+        );
+        assert_eq!(count, 2);
     }
 }

@@ -301,6 +301,11 @@ where
             .with_context(|| format!("actor id not found for address {addr}"))
     }
 
+    /// Resolve any address to its ID-protocol [`Address`].
+    pub fn lookup_required_id_address(&self, addr: &Address) -> anyhow::Result<Address> {
+        Ok(Address::new_id(self.lookup_required_id(addr)?))
+    }
+
     /// Use [`Self::for_each_cacheless`] instead unless cache is really needed.
     /// Note that this method caches all HAMT nodes and can be memory-intensive.
     pub fn for_each<F>(&self, mut f: F) -> anyhow::Result<()>
