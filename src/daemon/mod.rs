@@ -19,7 +19,7 @@ use crate::cli_shared::{
 };
 use crate::daemon::{
     context::AppContext,
-    db_util::{SnapshotImportPath, import_chain_as_forest_car},
+    db_util::{import_chain_as_forest_car, path_as_url},
     extended_snapshot::maybe_import_extended_snapshots,
 };
 use crate::db::gc::SnapshotGarbageCollector;
@@ -43,7 +43,7 @@ use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -148,9 +148,12 @@ async fn maybe_import_snapshot(
     if !opts.skip_load.unwrap_or_default()
         && let Some(path) = &config.client.snapshot_path
     {
-        let path = SnapshotImportPath::parse(path.clone()).await?;
+        let path = &match path_as_url(path) {
+            Some(url) => PathBuf::from(snapshot::peek_url(url).await?.as_str()),
+            None => path.clone(),
+        };
         let (car_db_path, ts) = import_chain_as_forest_car(
-            &path,
+            path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
             config.client.import_mode,
             config.client.rpc_v1_endpoint()?,
@@ -175,7 +178,7 @@ async fn maybe_import_snapshot(
             &ctx.db,
             &ctx.state_manager,
             &ts,
-            &path,
+            path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
         )
         .await;
