@@ -18,7 +18,6 @@ pub(super) enum Reason {
     Future,
     Stale,
     NoSlot,
-    NoBeacon,
 }
 
 impl Reason {
@@ -30,7 +29,6 @@ impl Reason {
             Self::Future => "future",
             Self::Stale => "stale",
             Self::NoSlot => "no_slot",
-            Self::NoBeacon => "no_beacon",
         }
     }
 }
