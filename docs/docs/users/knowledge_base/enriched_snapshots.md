@@ -64,7 +64,7 @@ at least one must be given.
 ### Automatically on startup
 
 When Forest imports a snapshot from a URL on startup, with `--auto-download-snapshot` or
-`--import-snapshot <url>`, it imports the enriched snapshot too. 
+`--import-snapshot <url>`, it imports the enriched snapshot too.
 This step is best-effort: if a companion file can't be downloaded, verified, or
 imported, Forest logs a warning and starts without it.
 
