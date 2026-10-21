@@ -362,7 +362,6 @@ impl RpcMethod<2> for MpoolPushMessage {
             .sign_and_push(&ctx.mpool, message, &key, eth_chain_id)
             .await?;
 
-        // No `.await` between the push and this, or a dropped call pushes without recording.
         ctx.nonce_tracker.record_pushed(msg_uuid, &smsg);
         Ok(smsg)
     }
