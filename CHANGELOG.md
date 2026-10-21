@@ -71,6 +71,8 @@ Non-mandatory release for all node operators. It includes fixes and improvements
 
 - [#7774](https://github.com/ChainSafe/forest/pull/7774): Fixed block message validation when one account sends under two of its address forms.
 
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Downloaded actor bundles are now rejected if a block does not match its CID or actor code is missing.
+
 ## Forest v0.38.0 "Ayanant"
 
 Mandatory release for mainnet node operators. It includes support for the NV29 _Solstice_ network upgrade for mainnet, which is set to activate at epoch `6470279` (2026-10-19T12:59:30Z). Note the breaking change below: JSON-RPC batch requests are now limited to 100 entries by default. There are also other changes and improvements; see below.

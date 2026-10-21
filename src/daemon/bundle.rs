@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::db::PersistentStore;
+use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::net::http_get;
 use crate::{
     networks::{ACTOR_BUNDLES, ActorBundleInfo, NetworkChain},
@@ -10,7 +11,8 @@ use crate::{
 use ahash::HashSet;
 use cid::Cid;
 use directories::ProjectDirs;
-use futures::{TryStreamExt, stream::FuturesUnordered};
+use futures::{Stream, TryStreamExt, stream::FuturesUnordered};
+use fvm_ipld_blockstore::Blockstore;
 use std::mem::discriminant;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -48,10 +50,10 @@ pub async fn load_actor_bundles_from_path(
         "Bundle file not found at {}",
         bundle_path.as_ref().display()
     );
-    let mut car_stream = CarStream::new_from_path(bundle_path.as_ref()).await?;
+    let car_stream = CarStream::new_from_path(bundle_path.as_ref()).await?;
 
     // Validate the bundle
-    let roots = HashSet::from_iter(car_stream.header_v1.roots.iter());
+    let roots: HashSet<Cid> = car_stream.header_v1.roots.iter().copied().collect();
     for ActorBundleInfo {
         manifest, network, ..
     } in ACTOR_BUNDLES.iter().filter(|bundle| {
@@ -66,9 +68,9 @@ pub async fn load_actor_bundles_from_path(
         );
     }
 
-    // Load into DB
-    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        db.put_keyed_persistent(&cid, &data)?;
+    persist_validated_blocks(db, car_stream).await?;
+    for manifest in &roots {
+        ensure_bundle_loaded(db, manifest)?;
     }
 
     Ok(())
@@ -92,7 +94,7 @@ pub async fn load_actor_bundles_from_server(
         bundles
             .iter()
             .filter(|bundle| {
-                !db.has(&bundle.manifest).unwrap_or(false) &&
+                ensure_bundle_loaded(db, &bundle.manifest).is_err() &&
                 // Comparing only the discriminant is enough. All devnets share the same
                 // actor bundle.
                 discriminant(network) == discriminant(&bundle.network)
@@ -116,13 +118,11 @@ pub async fn load_actor_bundles_from_server(
                         };
 
                         let bytes = response.bytes().await?;
-                        let mut stream = CarStream::new(Cursor::new(bytes)).await?;
-                        while let Some(block) = stream.try_next().await? {
-                            db.put_keyed_persistent(&block.cid, &block.data)?;
-                        }
-                        let header = stream.header_v1;
-                        anyhow::ensure!(header.roots.len() == 1);
-                        anyhow::ensure!(header.roots.first() == root);
+                        let stream = CarStream::new(Cursor::new(bytes)).await?;
+                        anyhow::ensure!(stream.header_v1.roots.len() == 1);
+                        anyhow::ensure!(stream.header_v1.roots.first() == root);
+                        persist_validated_blocks(db, stream).await?;
+                        ensure_bundle_loaded(db, root)?;
                         Ok(*root)
                     }
                 }
@@ -130,4 +130,78 @@ pub async fn load_actor_bundles_from_server(
     )
     .try_collect::<Vec<_>>()
     .await
+}
+
+async fn persist_validated_blocks(
+    db: &impl PersistentStore,
+    mut blocks: impl Stream<Item = std::io::Result<CarBlock>> + Unpin,
+) -> anyhow::Result<()> {
+    while let Some(block) = blocks.try_next().await? {
+        block.validate()?;
+        db.put_keyed_persistent(&block.cid, &block.data)?;
+    }
+    Ok(())
+}
+
+/// A bundle counts as loaded only if its manifest decodes and all of its actor code is in `db`, so a partial or interrupted load is retried.
+fn ensure_bundle_loaded(db: &impl Blockstore, manifest: &Cid) -> anyhow::Result<()> {
+    for (actor, code) in BuiltinActorManifest::load_manifest(db, manifest)?.builtin_actors() {
+        anyhow::ensure!(
+            db.has(&code)?,
+            "actor bundle {manifest} is missing code {code} for {}",
+            actor.name()
+        );
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::MemoryDB;
+    use crate::shim::crypto::IPLD_RAW;
+    use crate::utils::cid::CidCborExt as _;
+    use crate::utils::multihash::prelude::*;
+    use bytes::Bytes;
+    use rstest::rstest;
+
+    fn raw_block(data: &'static [u8]) -> CarBlock {
+        CarBlock {
+            cid: Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(data)),
+            data: Bytes::from_static(data),
+        }
+    }
+
+    fn cbor_block(obj: &impl serde::Serialize) -> CarBlock {
+        CarBlock {
+            cid: Cid::from_cbor_blake2b256(obj).unwrap(),
+            data: fvm_ipld_encoding::to_vec(obj).unwrap().into(),
+        }
+    }
+
+    #[rstest]
+    #[case::genuine(|_: &mut Vec<CarBlock>| {}, true)]
+    #[case::tampered_code(|blocks: &mut Vec<CarBlock>| blocks.last_mut().unwrap().data = Bytes::from_static(b"malicious"), false)]
+    #[case::missing_code(|blocks: &mut Vec<CarBlock>| { blocks.pop(); }, false)]
+    #[tokio::test]
+    async fn bundle_is_loaded_only_when_intact(
+        #[case] corrupt: fn(&mut Vec<CarBlock>),
+        #[case] intact: bool,
+    ) {
+        let (system, init) = (raw_block(b"system code"), raw_block(b"init code"));
+        let actor_list = cbor_block(&vec![
+            ("system".to_string(), system.cid),
+            ("init".to_string(), init.cid),
+        ]);
+        let manifest = cbor_block(&(1u32, actor_list.cid));
+        let manifest_cid = manifest.cid;
+        let mut blocks = vec![manifest, actor_list, system, init];
+        corrupt(&mut blocks);
+
+        let db = MemoryDB::default();
+        let _ =
+            persist_validated_blocks(&db, futures::stream::iter(blocks.into_iter().map(Ok))).await;
+
+        assert_eq!(ensure_bundle_loaded(&db, &manifest_cid).is_ok(), intact);
+    }
 }
