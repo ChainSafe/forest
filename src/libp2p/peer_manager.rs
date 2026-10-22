@@ -85,6 +85,11 @@ impl PeerManager {
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
     }
 
+    /// Returns true if the peer is a candidate for sync requests.
+    pub(in crate::libp2p) fn is_full_peer(&self, peer_id: &PeerId) -> bool {
+        self.peers.read().full_peers.contains_key(peer_id)
+    }
+
     /// Mark peer as active even if we haven't communicated with it yet.
     #[cfg(test)]
     pub fn touch_peer(&self, peer_id: &PeerId) {

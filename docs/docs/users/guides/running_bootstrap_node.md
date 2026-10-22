@@ -45,8 +45,30 @@ The default peer count is likely too small for a bootstrap node. You can set the
 example:
 
 ```bash
-forest --stateless --target-peer-count 10000
+forest --stateless --target-peer-count 5000
 ```
+
+The target peer count controls more than the number of peers Forest dials:
+
+- Forest keeps discovering and dialing new peers while it has fewer than
+  `target-peer-count` peers. With a large value, a bootstrap node keeps dialing
+  every peer it discovers.
+- Above `4 × target-peer-count` connections, Forest disconnects the least useful
+  peers until it is back at `3 × target-peer-count`. It never refuses new peers
+  because of this. Peers connected for less than 30 seconds, bootstrap peers,
+  peers protected via `Filecoin.NetProtectAdd` and gossipsub mesh peers are
+  kept.
+- Incoming connections are refused only above `8 × target-peer-count`, as a
+  safety limit.
+
+With `--target-peer-count 5000`, trimming starts at 20,000 connections, which a
+bootstrap node is unlikely to reach. Size the machine's memory and file
+descriptor limits for the number of connections you expect, as each connection
+uses memory.
+
+A bootstrap node must also be reachable at the address listed in the clients'
+bootstrap lists. Use a fixed port, for example
+`--p2p-listen-address /ip4/0.0.0.0/tcp/34000`, and open it in the firewall.
 
 ## Migrating from/to Lotus
 
