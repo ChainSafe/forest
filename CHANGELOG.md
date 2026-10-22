@@ -71,7 +71,7 @@ Non-mandatory release for all node operators. It includes fixes and improvements
 
 - [#7774](https://github.com/ChainSafe/forest/pull/7774): Fixed block message validation when one account sends under two of its address forms.
 
-- [#7781](https://github.com/ChainSafe/forest/pull/7781): Downloaded actor bundles are now rejected if a block does not match its CID or actor code is missing.
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
 
 ## Forest v0.38.0 "Ayanant"
 
