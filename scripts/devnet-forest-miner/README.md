@@ -16,12 +16,3 @@ validates and follows.
 ```shell
 mise run test:devnet:forest-miner
 ```
-
-On this devnet the runner also runs `forest-dev devnet miner-onboarding`:
-
-- `create_miner` — `lotus-miner init` through Forest; Forest and Lotus must agree on creation
-  deposit, VM circulating supply, and the new miner's info.
-- `pledge_sector` — real 2 KiB CC seal to `Proving`. The chain verifies the seal proof, so wrong
-  Forest randomness fails prove-commit. Sector info must then match on Forest and Lotus.
-
-Skips `../devnet` (Lotus Miner would talk to Lotus, not Forest).

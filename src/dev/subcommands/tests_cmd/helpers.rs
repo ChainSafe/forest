@@ -405,10 +405,14 @@ fn api() -> anyhow::Result<&'static (String, String)> {
         .map_err(|e| anyhow::anyhow!("FULLNODE_API_INFO unavailable: {e}"))
 }
 
+/// Reads a variable that sourcing the devnet test harness sets.
+pub fn harness_env(name: &str) -> anyhow::Result<String> {
+    std::env::var(name).with_context(|| format!("{name} not set; source the devnet test harness"))
+}
+
 /// Typed client for the Lotus node on the docker devnet, whose read methods need no token.
 pub fn lotus_client() -> anyhow::Result<crate::rpc::Client> {
-    let port = std::env::var("LOTUS_RPC_PORT")
-        .context("LOTUS_RPC_PORT not set; source the devnet test harness")?;
+    let port = harness_env("LOTUS_RPC_PORT")?;
     Ok(crate::rpc::Client::from_url(
         format!("http://127.0.0.1:{port}/").parse()?,
     ))

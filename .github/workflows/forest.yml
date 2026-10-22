@@ -488,13 +488,7 @@ jobs:
           export DEVNET_DIR=${{ matrix.dir }}
           source ./scripts/devnet/test_harness.sh
           devnet_test_env_init
-          forest-dev tests mpool
-          forest-dev tests wallet
-          forest-dev devnet eth-gas
-          forest-dev devnet eth-skip-sender
-          forest-dev devnet state-call
-          forest-dev devnet miner-onboarding
-          forest-dev devnet eth-pending-tx
+          devnet_integration_tests
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()

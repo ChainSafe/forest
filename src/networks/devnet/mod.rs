@@ -3,7 +3,9 @@
 
 use cid::Cid;
 use indexmap::IndexMap;
+use itertools::Itertools as _;
 use std::sync::LazyLock;
+use strum::IntoEnumIterator as _;
 
 use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
@@ -33,7 +35,7 @@ pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| 
 /// Defaults follow
 /// <https://github.com/filecoin-project/lotus/blob/v1.38.0/build/buildconstants/params_2k.go>.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
-    IndexMap::from_iter([
+    let height_infos: IndexMap<Height, HeightInfo> = IndexMap::from_iter([
         make_height!(
             Breeze,
             get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-1)
@@ -177,7 +179,20 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
             get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(200),
             get_bundle_cid("v19.0.1")
         ),
-    ])
+    ]);
+    for ((prev, prev_info), (next, next_info)) in Height::iter()
+        .filter_map(|height| Some((height, height_infos.get(&height)?)))
+        .filter(|(_, info)| info.epoch >= 0)
+        .tuple_windows()
+    {
+        assert!(
+            prev_info.epoch < next_info.epoch,
+            "upgrade heights must be strictly increasing: {prev} at {}, followed by {next} at {}",
+            prev_info.epoch,
+            next_info.epoch
+        );
+    }
+    height_infos
 });
 
 fn get_bundle_cid(version: &str) -> Cid {
@@ -200,7 +215,7 @@ pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 1]> = LazyLock:
 macro_rules! make_devnet_policy {
     (v11) => {
         fil_actors_shared::v11::runtime::Policy {
-            minimum_consensus_power: 2040.into(),
+            minimum_consensus_power: 2048.into(),
             minimum_verified_allocation_size: 256.into(),
             pre_commit_challenge_delay: 10,
             valid_pre_commit_proof_type: {
@@ -224,7 +239,7 @@ macro_rules! make_devnet_policy {
     };
     ($version:tt) => {
         fil_actors_shared::$version::runtime::Policy {
-            minimum_consensus_power: 2040.into(),
+            minimum_consensus_power: 2048.into(),
             minimum_verified_allocation_size: 256.into(),
             pre_commit_challenge_delay: 10,
             valid_pre_commit_proof_type: {
