@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
+
 ### Changed
 
 ### Removed
@@ -70,8 +72,6 @@ Non-mandatory release for all node operators. It includes fixes and improvements
 - [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed DHT crawlers such as ProbeLab's Nebula being banned and disconnected mid-crawl despite the crawler whitelist, which made Forest nodes appear undialable in network measurements.
 
 - [#7774](https://github.com/ChainSafe/forest/pull/7774): Fixed block message validation when one account sends under two of its address forms.
-
-- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
 
 ## Forest v0.38.0 "Ayanant"
 
