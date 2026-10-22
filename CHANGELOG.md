@@ -39,9 +39,7 @@
 
 ### Fixed
 
-- [#7759](https://github.com/ChainSafe/forest/pull/7759): An upgrade with a negative epoch is disabled, matching Lotus.
-
-- [#7759](https://github.com/ChainSafe/forest/pull/7759): An enabled devnet upgrade keeps its own network version when that version is below the genesis version, matching Lotus.
+- [#7759](https://github.com/ChainSafe/forest/pull/7759): An upgrade with a negative epoch is disabled, and an enabled devnet upgrade keeps its own network version when that version is below the genesis version, matching Lotus.
 
 ## Forest v0.39.0 "Vijayadashami"
 
