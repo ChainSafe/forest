@@ -31,9 +31,13 @@
 
 ### Changed
 
+- [#7759](https://github.com/ChainSafe/forest/pull/7759): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28 and the upgrade heights follow Lotus.
+
 ### Removed
 
 ### Fixed
+
+- [#7759](https://github.com/ChainSafe/forest/pull/7759): An upgrade with a negative epoch is disabled, matching Lotus.
 
 ## Forest v0.39.0 "Vijayadashami"
 

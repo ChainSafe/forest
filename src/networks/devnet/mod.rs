@@ -25,12 +25,12 @@ pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| 
                 .expect("Invalid genesis network version"),
         )
     } else {
-        NetworkVersion::V21
+        NetworkVersion::V28
     }
 });
 
 /// Height epochs.
-/// Environment variable names follow
+/// Defaults follow
 /// <https://github.com/filecoin-project/lotus/blob/v1.38.0/build/buildconstants/params_2k.go>.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
     IndexMap::from_iter([
@@ -131,47 +131,50 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         ),
         make_height!(
             Watermelon,
-            get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-1),
+            get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-24),
             get_bundle_cid("v12.0.0")
         ),
         make_height!(
             Dragon,
-            get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(20),
+            get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(-25),
             get_bundle_cid("v13.0.0")
         ),
-        make_height!(Phoenix, i64::MIN),
+        make_height!(
+            Phoenix,
+            get_upgrade_height_from_env("FOREST_PHOENIX_HEIGHT").unwrap_or(-26)
+        ),
         make_height!(
             Waffle,
-            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(-27),
             get_bundle_cid("v14.0.0-rc.1")
         ),
         make_height!(
             TukTuk,
-            get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(-28),
             get_bundle_cid("v15.0.0-rc1")
         ),
         make_height!(
             Teep,
-            get_upgrade_height_from_env("FOREST_TEEP_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_TEEP_HEIGHT").unwrap_or(-29),
             get_bundle_cid("v16.0.1")
         ),
         make_height!(
             Tock,
-            get_upgrade_height_from_env("FOREST_TOCK_HEIGHT").unwrap_or(9999999999)
+            get_upgrade_height_from_env("FOREST_TOCK_HEIGHT").unwrap_or(-30)
         ),
         make_height!(
             GoldenWeek,
-            get_upgrade_height_from_env("FOREST_GOLDEN_WEEK_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_GOLDEN_WEEK_HEIGHT").unwrap_or(-31),
             get_bundle_cid("v17.0.0")
         ),
         make_height!(
             FireHorse,
-            get_upgrade_height_from_env("FOREST_FIREHORSE_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_FIREHORSE_HEIGHT").unwrap_or(-32),
             get_bundle_cid("v18.0.0")
         ),
         make_height!(
             Solstice,
-            get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(200),
             get_bundle_cid("v19.0.1")
         ),
     ])

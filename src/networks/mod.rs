@@ -444,6 +444,8 @@ impl ChainConfig {
         self.height_infos
             .iter()
             .rev()
+            // A negative epoch disables the upgrade.
+            .filter(|(_, info)| info.epoch >= 0)
             .find(|(_, info)| epoch > info.epoch)
             .map(|(height, _)| *height)
     }
@@ -457,6 +459,8 @@ impl ChainConfig {
             .height_infos
             .iter()
             .rev()
+            // A negative epoch disables the upgrade.
+            .filter(|(_, info)| info.epoch >= 0)
             .filter_map(|(height, info)| info.bundle.map(|bundle| (*height, info, bundle)))
             .find(|(_, info, _)| epoch > info.epoch)
         {
