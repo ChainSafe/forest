@@ -1,19 +1,14 @@
 # frozen_string_literal: true
 
-# Blocks until the node's head is past the given epoch: the snapshot heads mid-day, and the
-# checks need every epoch of the day executed, with the last one's receipts stored by its child.
-# Waits for that epoch rather than for the network head (`forest-cli sync wait`, /readyz)
-# because the scheduled run starts hours after the day ended, and catching up to the network
-# head first would roughly triple the sync before the checks.
-# Gives up when the head stops advancing for STALL_SECONDS, which must outlast the cold start
-# (peer discovery and header fetching took ~5 minutes locally); the workflow timeout is the
-# hard cap.
+# Blocks until the node's head is past the given epoch.
+# Gives up when the head stops advancing for STALL_SECONDS
+# place a buffer for peer discovery and header fetching
 
 require 'json'
 require 'net/http'
 
 POLL_SECONDS = 15
-STALL_SECONDS = 20 * 60
+STALL_SECONDS = 600
 
 $stdout.sync = true
 

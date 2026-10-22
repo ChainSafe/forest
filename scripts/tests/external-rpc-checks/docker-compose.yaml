@@ -78,7 +78,6 @@ services:
       - ./verify.rb:/verify.rb:ro
     entrypoint: ["ruby", "/verify.rb"]
 
-  # Not an rpc-client: ./setup.sh probes the dataset with it before the node is up.
   rpc-checks:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest
     environment:
