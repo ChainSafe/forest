@@ -1,7 +1,6 @@
 name: Miner integration tests
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -141,6 +140,9 @@ jobs:
   # One issue per failed scheduled run, including a failed build.
   report-failure:
     name: Report failure
+    permissions:
+      contents: read
+      issues: write
     needs: [build, miner-tests]
     if: ${{ failure() && github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
