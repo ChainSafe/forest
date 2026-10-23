@@ -8,6 +8,7 @@ use std::{
 
 use super::{
     PeerManager,
+    connection_manager::HIGH_WATER_PER_TARGET_PEER,
     discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo},
 };
 use crate::libp2p_bitswap::BitswapBehaviour;
@@ -183,10 +184,12 @@ impl ForestBehaviour {
                         .target_peer_count
                         .saturating_mul(MAX_ESTABLISHED_PER_PEER),
                 ))
+                // Twice the connection manager's high-water mark, which trims excess peers instead of refusing new ones.
                 .with_max_established_incoming(Some(
                     config
                         .target_peer_count
-                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                        .saturating_mul(HIGH_WATER_PER_TARGET_PEER)
+                        .saturating_mul(2),
                 ))
                 .with_max_established_outgoing(Some(
                     config
@@ -258,5 +261,9 @@ impl ForestBehaviour {
 
     pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
         self.discovery.peer_info(peer_id)
+    }
+
+    pub fn mesh_peers(&self) -> HashSet<PeerId> {
+        self.gossipsub.all_mesh_peers().copied().collect()
     }
 }

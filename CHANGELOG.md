@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed well-connected nodes refusing all new inbound connections, including ProbeLab's crawler, once the incoming connection limit was reached. Forest now admits new peers and trims the least useful ones above `4 × target_peer_count` connections.
+
 ## Forest v0.39.0 "Vijayadashami"
 
 Non-mandatory release for all node operators. It includes fixes and improvements, notably around the Ethereum and state RPC methods. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
