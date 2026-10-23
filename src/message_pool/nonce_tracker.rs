@@ -1,26 +1,76 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+
 use crate::eth::EthChainId;
 use crate::key_management::{Key, sign_message};
+use crate::message::SignedMessage;
 use crate::message_pool::MessagePool;
 use crate::message_pool::msgpool::provider::Provider;
 use crate::shim::message::Message;
-use tokio::sync::Mutex;
+use crate::utils::cache::SizeTrackingCache;
+use ahash::HashMap;
+use nonzero_ext::nonzero;
+use tokio::sync::{Mutex, OwnedMutexGuard};
+use uuid::Uuid;
+
+/// Lotus Miner retries a lost push for about 15 s.
+const PUSHED_BY_UUID_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
 /// Serializes nonce assignment globally. The global mutex prevents concurrent
 /// nonce assignment across all senders, ensuring sequential nonce values.
 ///
+/// Also records the [`SignedMessage`] pushed for each non-nil `MsgUuid`.
+///
 /// See also [`MpoolLocker`](super::MpoolLocker), the outer per-sender lock.
 pub struct NonceTracker {
     lock: Mutex<()>,
+    pushed_by_uuid: SizeTrackingCache<u128, SignedMessage>,
+    uuid_locks: parking_lot::Mutex<HashMap<u128, Arc<Mutex<()>>>>,
 }
 
 impl NonceTracker {
     pub fn new() -> Self {
         Self {
             lock: Mutex::new(()),
+            pushed_by_uuid: SizeTrackingCache::new_oldest_first_with_metrics(
+                "pushed_by_uuid",
+                PUSHED_BY_UUID_CACHE_SIZE,
+            ),
+            uuid_locks: parking_lot::Mutex::new(HashMap::default()),
         }
+    }
+
+    /// Lock for one non-nil `MsgUuid`, held from the lookup through [`Self::record_pushed`].
+    /// A nil UUID returns [`None`] and takes no lock.
+    pub async fn lock_uuid(&self, uuid: Uuid) -> Option<OwnedMutexGuard<()>> {
+        if uuid.is_nil() {
+            return None;
+        }
+        let mutex = {
+            let mut map = self.uuid_locks.lock();
+            map.retain(|_, v| Arc::strong_count(v) > 1);
+            map.entry(uuid.as_u128())
+                .or_insert_with(|| Arc::new(Mutex::new(())))
+                .clone()
+        };
+        Some(mutex.lock_owned().await)
+    }
+
+    pub fn pushed_message(&self, uuid: Uuid) -> Option<SignedMessage> {
+        if uuid.is_nil() {
+            return None;
+        }
+        self.pushed_by_uuid.get(&uuid.as_u128())
+    }
+
+    pub fn record_pushed(&self, uuid: Uuid, smsg: &SignedMessage) {
+        if uuid.is_nil() {
+            return;
+        }
+        self.pushed_by_uuid.insert(uuid.as_u128(), smsg.clone());
     }
 
     /// Acquire the global lock, assign a nonce, sign, and push to `mpool`.
@@ -30,7 +80,7 @@ impl NonceTracker {
         message: Message,
         key: &Key,
         eth_chain_id: EthChainId,
-    ) -> anyhow::Result<crate::message::SignedMessage> {
+    ) -> anyhow::Result<SignedMessage> {
         let _guard = self.lock.lock().await;
 
         let nonce = mpool.get_sequence(&message.from()).await?;
@@ -141,5 +191,25 @@ mod tests {
 
         let expected: Vec<u64> = (0..N as u64).collect();
         assert_eq!(nonces, expected, "nonces must be contiguous 0..{N}");
+    }
+
+    #[test]
+    fn keeps_recent_records_once_full() {
+        let tracker = NonceTracker::new();
+        let smsg = SignedMessage::mock_bls_signed_message(Message::default());
+        let cap = PUSHED_BY_UUID_CACHE_SIZE.get();
+        let uuids: Vec<Uuid> = (1..=2 * cap as u128).map(Uuid::from_u128).collect();
+        for &uuid in &uuids {
+            tracker.record_pushed(uuid, &smsg);
+        }
+
+        // Shards evict independently, so only the newest quarter is reliably kept.
+        let missing = uuids
+            .iter()
+            .rev()
+            .take(cap / 4)
+            .filter(|&&uuid| tracker.pushed_message(uuid).is_none())
+            .count();
+        assert_eq!(missing, 0);
     }
 }
