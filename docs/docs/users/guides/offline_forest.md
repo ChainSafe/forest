@@ -117,7 +117,7 @@ Sample output:
   "result": {
     "NetworkName": "localnet-55c7758d-c91a-41eb-94a2-718cb4601bc5",
     "BlockDelaySecs": 4,
-    "ConsensusMinerMinPower": "2040",
+    "ConsensusMinerMinPower": "2048",
     "SupportedProofTypes": [
       0,
       1
