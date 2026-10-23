@@ -54,10 +54,11 @@ The target peer count controls more than the number of peers Forest dials:
   `target-peer-count` peers. With a large value, a bootstrap node keeps dialing
   every peer it discovers.
 - Above `4 × target-peer-count` connections, Forest disconnects the least useful
-  peers until it is back at `3 × target-peer-count`. It never refuses new peers
-  because of this. Peers connected for less than 30 seconds, bootstrap peers,
-  peers protected via `Filecoin.NetProtectAdd` and gossipsub mesh peers are
-  kept.
+  peers, down to `3 × target-peer-count`. It never refuses new peers because of
+  this. Peers connected for less than 30 seconds, bootstrap peers, peers
+  protected via `Filecoin.NetProtectAdd` and gossipsub mesh peers are never
+  disconnected, so the total can stay above `4 × target-peer-count`, for example
+  during a burst of new connections.
 - Incoming connections are refused only above `8 × target-peer-count`, as a
   safety limit.
 

@@ -23,9 +23,9 @@ const LOW_WATER_PER_TARGET_PEER: u32 = 3;
 /// How much a connected peer is worth keeping. Lower values are pruned first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(in crate::libp2p) enum PeerValue {
-    /// Not (yet) a useful Filecoin peer, e.g. no completed hello.
+    /// Never answered our requests, e.g. no completed hello.
     Low,
-    /// A peer we sync from.
+    /// A Filecoin peer that answered our requests.
     High,
     /// Never pruned.
     Protected,

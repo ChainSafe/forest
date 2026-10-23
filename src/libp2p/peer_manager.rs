@@ -85,9 +85,13 @@ impl PeerManager {
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
     }
 
-    /// Returns true if the peer is a candidate for sync requests.
-    pub(in crate::libp2p) fn is_full_peer(&self, peer_id: &PeerId) -> bool {
-        self.peers.read().full_peers.contains_key(peer_id)
+    /// Returns true if the peer answered at least one of our requests.
+    pub(in crate::libp2p) fn has_responded(&self, peer_id: &PeerId) -> bool {
+        self.peers
+            .read()
+            .full_peers
+            .get(peer_id)
+            .is_some_and(|info| info.successes > 0)
     }
 
     /// Mark peer as active even if we haven't communicated with it yet.
@@ -375,5 +379,18 @@ mod tests {
         assert!(!is_crawler("forest"));
         assert!(!is_crawler("lotus"));
         assert!(!is_crawler("venus"));
+    }
+
+    #[test]
+    fn has_responded_requires_a_success() {
+        let peer_manager = PeerManager::default();
+        let peer = PeerId::random();
+        assert!(!peer_manager.has_responded(&peer));
+        peer_manager.touch_peer(&peer);
+        assert!(!peer_manager.has_responded(&peer));
+        peer_manager.log_failure(&peer, Duration::from_secs(1));
+        assert!(!peer_manager.has_responded(&peer));
+        peer_manager.log_success(&peer, Duration::from_secs(1));
+        assert!(peer_manager.has_responded(&peer));
     }
 }

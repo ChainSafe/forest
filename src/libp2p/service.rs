@@ -454,7 +454,7 @@ fn prune_excess_peers(
             || mesh_peers.contains(peer)
         {
             PeerValue::Protected
-        } else if peer_manager.is_full_peer(peer) {
+        } else if peer_manager.has_responded(peer) {
             PeerValue::High
         } else {
             PeerValue::Low
