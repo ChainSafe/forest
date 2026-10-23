@@ -252,7 +252,7 @@ mod tests {
     use crate::test_utils::dummy_ticket;
     use rstest::rstest;
 
-    const MAINNET_GENESIS_TIMESTAMP: u64 = 1598306400;
+    use crate::networks::mainnet::GENESIS_TIMESTAMP as MAINNET_GENESIS_TIMESTAMP;
 
     fn tipset_at(parent: Option<&Tipset>, epoch: ChainEpoch, rounds: &[u64]) -> Tipset {
         Tipset::from(CachingBlockHeader::new(RawBlockHeader {

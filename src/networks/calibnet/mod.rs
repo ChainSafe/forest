@@ -51,6 +51,9 @@ pub const ETH_CHAIN_ID: EthChainId = 314159;
 
 pub const BREEZE_GAS_TAMPING_DURATION: ChainEpoch = 120;
 
+// 2022-11-01T14:13:00Z
+pub const GENESIS_TIMESTAMP: u64 = 1598306400;
+
 /// Height epochs.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
     IndexMap::from_iter([
