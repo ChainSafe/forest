@@ -66,9 +66,38 @@ bootstrap node is unlikely to reach. Size the machine's memory and file
 descriptor limits for the number of connections you expect, as each connection
 uses memory.
 
-A bootstrap node must also be reachable at the address listed in the clients'
-bootstrap lists. Use a fixed port, for example
-`--p2p-listen-address /ip4/0.0.0.0/tcp/34000`, and open it in the firewall.
+## Network reachability
+
+A bootstrap node must be reachable at the addresses listed in the clients'
+bootstrap lists. Listen on fixed ports for both TCP and QUIC. Setting
+`--p2p-listen-address` replaces the default listen addresses, so pass both:
+
+```bash
+forest --stateless \
+  --p2p-listen-address /ip4/0.0.0.0/tcp/34000 \
+  --p2p-listen-address /ip4/0.0.0.0/udp/34000/quic-v1
+```
+
+QUIC runs over UDP, so the firewall must allow both TCP and UDP on the port.
+Many clients, including Lotus, prefer QUIC when dialing, so a node that is
+reachable over TCP only still slows down every peer that bootstraps from it.
+
+If a host has its own `iptables` rules next to `ufw`, check their order with
+`sudo iptables-save`. A `DROP` rule in the `INPUT` chain placed before the jump
+to the `ufw` chains makes `ufw allow 34000/udp` ineffective, even though
+`ufw status` lists the port as allowed. Connections that the node itself
+initiated still work in that case, so QUIC can look healthy for a few minutes
+after a restart and then stop accepting new peers.
+
+Verify reachability from a different machine, over both transports:
+
+```bash
+forest-tool net ping -c 2 /ip4/<public-ip>/tcp/34000/p2p/<peer-id>
+forest-tool net ping -c 2 /ip4/<public-ip>/udp/34000/quic-v1/p2p/<peer-id>
+```
+
+Both commands must report a `Pong`. The peer ID is printed in the logs at
+startup (`p2p network peer id`).
 
 ## Migrating from/to Lotus
 

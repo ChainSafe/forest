@@ -1,4 +1,4 @@
-301
+303
 ABI
 Algorand/M
 API's
@@ -209,6 +209,7 @@ PoSt
 precommit
 preloaded
 pubsub
+QUIC
 R2
 RAII
 RBF
@@ -270,6 +271,7 @@ traceback
 trie
 truthy
 TTY
+UDP
 UI
 unclutter
 uncompress
