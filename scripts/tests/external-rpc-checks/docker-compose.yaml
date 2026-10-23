@@ -9,6 +9,15 @@ x-forest-service: &forest-service
     - FOREST_PATH=/data
   user: 0:0
 
+# Talks to the node from inside the compose network, so its RPC port is never published.
+x-rpc-client: &rpc-client
+  image: ghcr.io/chainsafe/forest-rpc-checks:latest
+  depends_on:
+    forest:
+      condition: service_healthy
+  environment:
+    FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
+
 services:
   resolve:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest
@@ -18,7 +27,6 @@ services:
     entrypoint: ["ruby", "/resolve.rb"]
     environment:
       - FOREST_CHAIN=${FOREST_CHAIN}
-      - FOREST_CHECK_EPOCHS=${FOREST_CHECK_EPOCHS}
 
   init:
     <<: *forest-service
@@ -56,17 +64,19 @@ services:
       start_period: 5m
       start_interval: 5s
 
+  # Waits for the node to sync past the day the checks cover.
+  wait:
+    <<: *rpc-client
+    volumes:
+      - ./wait.rb:/wait.rb:ro
+    entrypoint: ["ruby", "/wait.rb"]
+
   # Probes the node for the epochs the checks are about to query.
   verify:
-    image: ghcr.io/chainsafe/forest-rpc-checks:latest
-    depends_on:
-      forest:
-        condition: service_healthy
+    <<: *rpc-client
     volumes:
       - ./verify.rb:/verify.rb:ro
     entrypoint: ["ruby", "/verify.rb"]
-    environment:
-      FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
 
   rpc-checks:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest
