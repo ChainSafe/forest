@@ -13,6 +13,7 @@ use crate::db::EthMappingsStore;
 use crate::db::car::AnyCar;
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::prelude::*;
+use crate::rpc::sync::SnapshotProgressTracker;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
@@ -86,6 +87,7 @@ async fn download_extended_snapshot(
     snapshot_url: &Url,
     file: &ExtendedSnapshotFile,
     temp_dir: &Path,
+    snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<tempfile::TempPath> {
     use sha2::{Digest as _, Sha256};
 
@@ -98,7 +100,14 @@ async fn download_extended_snapshot(
     let url = snapshot_url.join(&file.filename)?;
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
-    download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
+    download_to(
+        &url,
+        &path,
+        DownloadFileOption::Resumable,
+        snapshot_progress_tracker.create_callback(),
+    )
+    .await?;
+    snapshot_progress_tracker.completed();
 
     let actual: [u8; 32] = Sha256::digest(tokio::fs::read(&path).await?).into();
     anyhow::ensure!(
@@ -212,6 +221,7 @@ pub(super) async fn maybe_import_extended_snapshots(
     head: &Tipset,
     snapshot_path: &Path,
     temp_dir: &Path,
+    snapshot_progress_tracker: &SnapshotProgressTracker,
 ) {
     // Extended snapshots are only published next to remote snapshots.
     let Some(snapshot_url) = path_as_url(snapshot_path) else {
@@ -232,7 +242,13 @@ pub(super) async fn maybe_import_extended_snapshots(
     let receipts_events_imported = match &extended.receipts_events {
         Some(file) => {
             let result = async {
-                let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+                let path = download_extended_snapshot(
+                    &snapshot_url,
+                    file,
+                    temp_dir,
+                    snapshot_progress_tracker,
+                )
+                .await?;
                 import_receipts_events_snapshot(state_manager.db(), &path).await
             }
             .await;
@@ -258,7 +274,13 @@ pub(super) async fn maybe_import_extended_snapshots(
 
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
-            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+            let path = download_extended_snapshot(
+                &snapshot_url,
+                file,
+                temp_dir,
+                snapshot_progress_tracker,
+            )
+            .await?;
             let db = state_manager.db_owned();
             tokio::task::spawn_blocking(move || import_tipset_lookup_snapshot(&db, &path, || {}))
                 .await?
