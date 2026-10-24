@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # Picks the ${FOREST_CHAIN} snapshot published DAYS_AGO days ago (UTC), by the date in its name,
-# and records under /data what the rest of the harness needs: its URL, its head epoch, and the
-# chain plus the ${FOREST_CHECK_EPOCHS}-epoch range the checks cover.
+# and records under /data what the rest of the harness needs: its URL, and the chain plus the
+# ${FOREST_CHECK_EPOCHS}-epoch range the checks cover.
 # Runs in the checks image, which has Ruby, so the Forest image needs no curl.
 
 require 'date'
@@ -49,6 +49,5 @@ abort "no #{chain} snapshot published for #{day}" if url.nil?
 epoch = Integer(url[/_height_(\d+)/, 1])
 
 File.write('/data/snapshot-url', "#{url}\n")
-File.write('/data/snapshot-epoch', "#{epoch}\n")
 File.write('/data/check-target', "#{chain} #{epoch - epochs} #{epoch - 1}\n")
 puts "#{chain} snapshot for #{day}: #{url}"
