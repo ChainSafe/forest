@@ -162,9 +162,7 @@ where
             "epochs do not match, {epoch} in hamt, {} in database",
             ts.epoch()
         );
-        Ok(())
-    })?;
-    hamt.for_each_cacheless(|&epoch, tsk| {
+
         db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
         on_imported();
         Ok(())
