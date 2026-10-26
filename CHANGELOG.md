@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7802](https://github.com/ChainSafe/forest/pull/7802): Added `--target <EPOCH>` to `forest-cli sync wait`. The command exits once the node head reaches the given epoch.
+
 ### Changed
 
 ### Removed
