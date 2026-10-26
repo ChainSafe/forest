@@ -247,6 +247,10 @@ impl<WriterT: PersistentStore> PersistentStore for ManyCar<WriterT> {
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.writer.put_keyed_persistent(k, block)
     }
+
+    fn delete_keyed(&self, k: &Cid) -> anyhow::Result<()> {
+        self.writer.delete_keyed(k)
+    }
 }
 
 impl<WriterT: BitswapStoreRead + Blockstore> BitswapStoreRead for ManyCar<WriterT> {
