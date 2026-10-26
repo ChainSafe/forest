@@ -1,11 +1,9 @@
 # frozen_string_literal: true
 
-# Picks the ${FOREST_CHAIN} snapshot the checks start from and records under /data its URL,
-# its head epoch, and the chain plus the epoch range of the UTC day DAYS_AGO days ago, which
-# is what the dataset's daily archives cover.
-#
-# The archive's snapshots carry the state of their last 2000 epochs and the index backfill
-# re-executes every epoch down and the node syncs the rest upwards (see ./wait.rb).
+# Picks the ${FOREST_CHAIN} snapshot published DAYS_AGO days ago (UTC), by the date in its name,
+# and records under /data what the rest of the harness needs: its URL, its head epoch, and the
+# chain plus the ${FOREST_CHECK_EPOCHS}-epoch range the checks cover.
+# Runs in the checks image, which has Ruby, so the Forest image needs no curl.
 
 require 'date'
 require 'json'

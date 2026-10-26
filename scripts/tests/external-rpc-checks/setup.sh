@@ -10,14 +10,15 @@ pushd "${PARENT_PATH}"
 # This should not be needed in GH. It is useful for running locally.
 docker compose down --remove-orphans --volumes
 
-# Resolves the snapshot and probes the dataset for DAYS_AGO. Sets CHAIN,
-# START and END on success; returns 2 after saying what that day lacks.
+# Resolves the snapshot and probes the dataset for DAYS_AGO. 
+# Sets CHAIN, START and END on success.
+# Returns 2 on failure
 check_day() {
   local status=0
   docker compose run --rm --env DAYS_AGO="$1" resolve || status=$?
   case ${status} in
     0) ;;
-    2) return 2 ;; # resolve said why
+    2) return 2 ;;
     *) exit "${status}" ;;
   esac
 
