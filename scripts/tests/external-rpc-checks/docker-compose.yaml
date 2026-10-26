@@ -32,6 +32,8 @@ services:
     environment:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
+      # for the `forest-cli` that ./setup.sh runs inside this container
+      - FULLNODE_API_INFO=/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http
     command:
       - --chain=${FOREST_CHAIN}
       - --encrypt-keystore=false
@@ -64,6 +66,8 @@ services:
     volumes:
       - ./verify.rb:/verify.rb:ro
     entrypoint: ["ruby", "/verify.rb"]
+    environment:
+      FOREST_RPC_URL: forest:${FOREST_RPC_PORT}/rpc/v1
 
   rpc-checks:
     image: ghcr.io/chainsafe/forest-rpc-checks:latest

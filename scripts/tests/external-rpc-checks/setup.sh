@@ -10,7 +10,7 @@ pushd "${PARENT_PATH}"
 # This should not be needed in GH. It is useful for running locally.
 docker compose down --remove-orphans --volumes
 
-# Resolves the snapshot and probes the dataset for DAYS_AGO. 
+# Resolves the snapshot and probes the dataset for DAYS_AGO.
 # Sets CHAIN, START and END on success.
 # Returns 2 on failure
 check_day() {
@@ -51,7 +51,8 @@ docker compose run --rm init
 docker compose up --detach --wait forest
 
 # Syncs the rest till reach END.
-docker compose run --rm wait "${END}"
+docker compose exec --no-TTY forest \
+  timeout 30m forest-cli sync wait --target "$((END + 1))"
 
 docker compose run --rm verify "${START}" "${END}"
 
