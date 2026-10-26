@@ -29,7 +29,7 @@ docker exec \
   -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http" \
   forest \
   timeout "${timeout_secs}s" \
-  forest-cli sync wait --target "$target_height"
+  forest-cli sync wait --target "$((target_height + 1))"
 
 # lotus waits for $target_height
 while true; do
