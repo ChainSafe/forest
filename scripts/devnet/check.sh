@@ -29,23 +29,20 @@ start_time=$(date +%s)
 timeout=$((start_time + 360))  # Set timeout to 6 minutes
 
 # Target height set so that all migrations are applied.
-target_height=$TARGET_HEIGHT
+target_height=$((TARGET_HEIGHT + 1))
 
-while true; do
-  height=$(get_sync_height ${FOREST_RPC_PORT})
-  if [ "$height" -gt "$target_height" ]; then
-    echo "Height is larger than $target_height: $height"
-    break
-  fi
+# waits node to reach $target_height
+docker exec \
+  -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http" \
+  forest \
+  timeout 20m \
+  forest-cli sync wait --target "$target_height"
 
-  current_time=$(date +%s)
-  if [ "$current_time" -gt "$timeout" ]; then
-    echo "Timeout reached, height is still not larger than $target_height: $height"
-    exit 1
-  fi
-
-  sleep 1
-done
+height=$(get_sync_height "${FOREST_RPC_PORT}")
+if [ "$height" -le "$TARGET_HEIGHT" ]; then
+  echo "sync wait --target exited early: head is $height, target is $target_height"
+  exit 1
+fi
 
 # Check the offline RPC, which should be initialized at that point. It should be at the genesis height, so 0.
 height=$(get_sync_height ${FOREST_OFFLINE_RPC_PORT})

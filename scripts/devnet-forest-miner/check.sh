@@ -18,22 +18,30 @@ function get_sync_height {
 }
 
 start_time=$(date +%s)
-timeout=$((start_time + 360))  # 6 minutes
+timeout_secs=360
+timeout=$((start_time + timeout_secs))  # 6 minutes
 
 # Target height chosen so that every migration in .env is crossed.
 target_height=$TARGET_HEIGHT
 
+# forest waits for $target_height
+docker exec \
+  -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http" \
+  forest \
+  timeout "${timeout_secs}s" \
+  forest-cli sync wait --target "$target_height"
+
+# lotus waits for $target_height
 while true; do
-  forest_height=$(get_sync_height "${FOREST_RPC_PORT}")
   lotus_height=$(get_sync_height "${LOTUS_RPC_PORT}")
-  if [ "$forest_height" -gt "$target_height" ] && [ "$lotus_height" -gt "$target_height" ]; then
-    echo "Both nodes past $target_height (Forest: $forest_height, Lotus: $lotus_height): Lotus validated Forest-produced blocks"
+  if [ "$lotus_height" -gt "$target_height" ]; then
+    echo "Lotus node past $target_height ($lotus_height): Lotus validated Forest-produced blocks"
     break
   fi
 
   current_time=$(date +%s)
   if [ "$current_time" -gt "$timeout" ]; then
-    echo "Timeout reached (Forest: $forest_height, Lotus: $lotus_height), target $target_height not reached by both"
+    echo "Timeout reached (Lotus: $lotus_height), target $target_height not reached by Lotus node"
     exit 1
   fi
 

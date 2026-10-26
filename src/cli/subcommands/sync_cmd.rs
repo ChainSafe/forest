@@ -5,6 +5,7 @@ use crate::blocks::TipsetKey;
 use crate::chain_sync::{NodeSyncStatus, SyncStatusReport};
 use crate::rpc::sync::{SnapshotProgressState, SyncStatus};
 use crate::rpc::{self, prelude::*};
+use crate::shim::clock::ChainEpoch;
 use anyhow::Context;
 use cid::Cid;
 use clap::Subcommand;
@@ -23,6 +24,10 @@ pub enum SyncCommands {
         /// Don't exit after node is synced
         #[arg(short)]
         watch: bool,
+
+        /// Exit once the node reaches the given chain epoch
+        #[arg(long, conflicts_with = "watch")]
+        target: Option<ChainEpoch>,
     },
     /// Check sync status
     Status,
@@ -43,7 +48,7 @@ pub enum SyncCommands {
 impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
-            Self::Wait { watch } => {
+            Self::Wait { watch, target } => {
                 let mut term = Term::buffered_stdout();
                 let mut last_term_frame: Option<(usize, (u16, u16))> = None;
 
@@ -70,9 +75,20 @@ impl SyncCommands {
                     last_term_frame = Some((rows, size));
                     term.flush()?;
 
+                    let is_wait_done = if let Some(target) = target {
+                        // Exit if we reach a given target
+                        report.current_head_epoch >= target
+                    } else {
+                        // Exit if synced and not in watch mode.
+                        !watch && report.status == NodeSyncStatus::Synced
+                    };
+
                     // Exit if synced and not in watch mode.
-                    if !watch && report.status == NodeSyncStatus::Synced {
-                        writeln!(term, "\nSync complete!")?;
+                    if is_wait_done {
+                        match target {
+                            Some(target) => writeln!(term, "\nReached target epoch {target}!")?,
+                            None => writeln!(term, "\nSync complete!")?,
+                        }
                         term.flush()?;
                         break;
                     }
