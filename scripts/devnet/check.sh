@@ -25,17 +25,14 @@ function get_f3_latest_cert_instance {
        "http://127.0.0.1:${port}/rpc/v1" | jq '.result.GPBFTInstance'
 }
 
-start_time=$(date +%s)
-timeout=$((start_time + 360))  # Set timeout to 6 minutes
-
 # Target height set so that all migrations are applied.
 target_height=$((TARGET_HEIGHT + 1))
 
-# waits node to reach $target_height
+# waits node to reach $target_height + 1, timeout
 docker exec \
   -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http" \
   forest \
-  timeout 20m \
+  timeout 6m \
   forest-cli sync wait --target "$target_height"
 
 height=$(get_sync_height "${FOREST_RPC_PORT}")
