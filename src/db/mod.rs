@@ -18,7 +18,7 @@ pub use blockstore_with_read_cache::*;
 pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use db_impl::DbImpl;
 pub use either::Either;
-pub use fvm_ipld_blockstore::{Blockstore, MemoryBlockstore};
+pub use fvm_ipld_blockstore::Blockstore;
 pub use memory::{IndexMapBlockstore, MemoryDB};
 
 use crate::blocks::{Tipset, TipsetKey};
@@ -206,19 +206,16 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
 /// A trait that allows for storing data that is not garbage collected.
 #[auto_impl::auto_impl(&, Arc)]
 pub trait PersistentStore: Blockstore {
-    /// Puts a keyed block with pre-computed CID into the database.
+    /// Puts a keyed block with pre-computed CID into the database. An existing value may be kept rather than overwritten, so use [`PersistentStore::delete_keyed`] first to replace it.
     ///
     /// # Arguments
     ///
     /// * `k` - The key to be stored.
     /// * `block` - The block to be stored.
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()>;
-}
 
-impl PersistentStore for MemoryBlockstore {
-    fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.put_keyed(k, block)
-    }
+    /// Removes `k` from every writable location `get` reads it from, so a following [`PersistentStore::put_keyed_persistent`] is what `get` returns. Stores that cannot delete return an error.
+    fn delete_keyed(&self, k: &Cid) -> anyhow::Result<()>;
 }
 
 #[auto_impl::auto_impl(&, Arc)]

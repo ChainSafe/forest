@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
+
 ### Changed
 
 - [#7759](https://github.com/ChainSafe/forest/pull/7759): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048.

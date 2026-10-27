@@ -291,6 +291,10 @@ where
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.put_keyed(k, block)
     }
+
+    fn delete_keyed(&self, _: &Cid) -> anyhow::Result<()> {
+        anyhow::bail!("PlainCar is read-only, use ManyCar instead");
+    }
 }
 
 pub async fn write_skip_frame_header_async(
