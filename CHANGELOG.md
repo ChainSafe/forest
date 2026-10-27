@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#6802](https://github.com/ChainSafe/forest/issues/6802): When importing a snapshot from a URL, Forest now checks the snapshot's `.metadata.json` and, if extended snapshots are advertised, downloads and imports the receipts, events, and the tipset lookup alongside it
+
 ### Changed
 
 ### Removed
@@ -46,8 +48,6 @@ Non-mandatory release for all node operators. It includes fixes and improvements
 - [#7737](https://github.com/ChainSafe/forest/pull/7737): `Filecoin.MinerCreateBlock` now requires the `sign` permission instead of `write`, since it signs the block with the node's wallet. Matches Lotus ([lotus#13871](https://github.com/filecoin-project/lotus/pull/13871)).
 
 - [#7780](https://github.com/ChainSafe/forest/pull/7780): Removed the unused `chunk_size`, `buffer_size` and `skip_load` keys from the `[client]` config section. A config file that still sets them is rejected at startup; delete them from the file. The `--skip-load` flag is unchanged.
-
-- [#6802](https://github.com/ChainSafe/forest/issues/6802): When importing a snapshot from a URL, Forest now checks the snapshot's `.metadata.json` and, if extended snapshots are advertised, downloads and imports the receipts, events, and the tipset lookup alongside it.
 
 ### Changed
 

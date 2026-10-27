@@ -24,7 +24,7 @@ use futures::TryStreamExt;
 use regex::Regex;
 use serde::Deserialize;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::{info, warn};
 use url::Url;
 
@@ -38,22 +38,22 @@ struct SnapshotMetadataFile {
 
 #[derive(Debug, Deserialize)]
 struct SnapshotMetadataSection {
-    #[serde(rename = "Extended", default)]
+    #[serde(rename = "Extended")]
     extended: Option<ExtendedSnapshots>,
 }
 
 /// Auxiliary snapshots that enrich a base snapshot, see `Forest.ChainExport`.
-#[derive(Debug, Default, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 struct ExtendedSnapshots {
     /// Message receipts and events
-    #[serde(rename = "Augmented", default)]
+    #[serde(rename = "Augmented")]
     receipts_events: Option<ExtendedSnapshotFile>,
     /// Tipset lookup table (checkpoint epoch to tipset key)
-    #[serde(rename = "Tipset lookup", default)]
+    #[serde(rename = "Tipset lookup")]
     tipset_lookup: Option<ExtendedSnapshotFile>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize)]
 struct ExtendedSnapshotFile {
     #[serde(rename = "Filename")]
     filename: String,
@@ -67,7 +67,9 @@ struct ExtendedSnapshotFile {
 async fn fetch_extended_snapshots_info(
     snapshot_url: &Url,
 ) -> anyhow::Result<Option<ExtendedSnapshots>> {
-    let metadata_url = Url::parse(&format!("{snapshot_url}.metadata.json"))?;
+    // Append to the path, not the whole URL, so dont affect any query string.
+    let mut metadata_url = snapshot_url.clone();
+    metadata_url.set_path(&format!("{}.metadata.json", snapshot_url.path()));
     let response = crate::utils::net::global_http_client()
         .get(metadata_url.clone())
         .timeout(Duration::from_secs(30))
@@ -123,17 +125,21 @@ async fn import_receipts_events_snapshot<DB>(db: &DB, path: &Path) -> anyhow::Re
 where
     DB: Blockstore,
 {
+    let started = Instant::now();
     let mut car_stream = CarStream::new_from_path(path).await?;
     while let Some(block) = car_stream.try_next().await? {
         block.validate()?;
         db.put_keyed(&block.cid, &block.data)?;
     }
+    info!(
+        "Imported message receipts and events in {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
     Ok(())
 }
 
 /// Populates the tipset lookup table in `db` from a tipset lookup snapshot, calling
-/// `on_imported` after each entry is written. Every entry is validated against the tipsets
-/// in `db` before any of them is written.
+/// `on_imported` after each entry is written.
 pub fn import_tipset_lookup_snapshot<DB>(
     db: &DB,
     path: &Path,
@@ -142,6 +148,7 @@ pub fn import_tipset_lookup_snapshot<DB>(
 where
     DB: Blockstore + EthMappingsStore,
 {
+    let started = Instant::now();
     let hamt_car = AnyCar::try_from(path)?;
     anyhow::ensure!(
         hamt_car.header_v1().roots.len() == 1,
@@ -167,6 +174,10 @@ where
         on_imported();
         Ok(())
     })?;
+    info!(
+        "Imported tipset lookup entries in {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
     Ok(())
 }
 
@@ -187,6 +198,7 @@ async fn backfill_receipts_events(
     else {
         return Ok(());
     };
+    let started = Instant::now();
     let guard = BackfillGuard::try_start()?;
     let options = BackfillOptions {
         allow_recompute: false,
@@ -203,9 +215,10 @@ async fn backfill_receipts_events(
         );
     } else {
         info!(
-            "Indexed {} tipsets from epoch {} to {to}",
+            "Indexed {} tipsets from epoch {} to {to} in {:.1}s",
             report.indexed,
-            from.epoch()
+            from.epoch(),
+            started.elapsed().as_secs_f64()
         );
     }
     Ok(())
@@ -250,22 +263,13 @@ pub(super) async fn maybe_import_extended_snapshots(
                 import_receipts_events_snapshot(state_manager.db(), &path).await
             }
             .await;
-            match result {
-                Ok(()) => {
-                    info!(
-                        "Imported message receipts and events from {}",
-                        file.filename
-                    );
-                    true
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to import receipts and events snapshot {}: {e:#}",
-                        file.filename
-                    );
-                    false
-                }
+            if let Err(e) = &result {
+                warn!(
+                    "Failed to import receipts and events snapshot {}: {e:#}",
+                    file.filename
+                );
             }
+            result.is_ok()
         }
         None => false,
     };
@@ -284,12 +288,11 @@ pub(super) async fn maybe_import_extended_snapshots(
                 .await?
         }
         .await;
-        match result {
-            Ok(()) => info!("Imported tipset lookup entries from {}", file.filename),
-            Err(e) => warn!(
+        if let Err(e) = result {
+            warn!(
                 "Failed to import tipset lookup snapshot {}: {e:#}",
                 file.filename
-            ),
+            );
         }
     }
 
