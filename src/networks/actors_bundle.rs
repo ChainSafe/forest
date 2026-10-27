@@ -11,7 +11,6 @@ use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
 use futures::{StreamExt, TryStreamExt, stream};
-use fvm_ipld_blockstore::MemoryBlockstore;
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use reqwest::Url;
@@ -153,7 +152,7 @@ pub static ACTOR_BUNDLES_METADATA: LazyLock<ActorBundleMetadataMap> = LazyLock::
 });
 
 pub async fn get_actor_bundles_metadata() -> anyhow::Result<Vec<ActorBundleMetadata>> {
-    let store = MemoryBlockstore::new();
+    let store = crate::db::MemoryDB::default();
     for network in [
         NetworkChain::Mainnet,
         NetworkChain::Calibnet,
