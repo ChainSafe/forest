@@ -31,6 +31,8 @@
 
 - [#7802](https://github.com/ChainSafe/forest/pull/7802): Added `--target <EPOCH>` to `forest-cli sync wait`. The command exits once the node head reaches the given epoch.
 
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
+
 ### Changed
 
 ### Removed
