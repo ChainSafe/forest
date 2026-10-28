@@ -250,6 +250,10 @@ run = "scripts/devnet/with_devnet.sh scripts/devnet devnet_integration_tests"
 description = "Run the integration test suites against the Forest-produced local docker devnet."
 run = "scripts/devnet/with_devnet.sh scripts/devnet-forest-miner devnet_integration_tests"
 
+[tasks."test:devnet:miner"]
+description = "Run the Lotus Miner integration tests against the Forest-produced local docker devnet."
+run = "scripts/devnet/with_devnet.sh scripts/devnet-forest-miner forest-dev devnet miner"
+
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"
 run = '''

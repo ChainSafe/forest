@@ -23,9 +23,7 @@ env:
   SHELL_IMAGE: busybox
 
 jobs:
-  # Pull requests only run with the `Miner` or `Release` label.
-  # Suite jobs (matrix over `forest-dev devnet miner --group`) land with the first
-  # Lotus Miner itest port; this workflow only wires build + failure reporting for now.
+  # Pull requests only run the tests with the `Miner` or `Release` label.
   build:
     name: Build Forest
     if: |-
@@ -76,13 +74,76 @@ jobs:
             ~/.cargo/bin/forest*
           if-no-files-found: error
 
+  miner-tests:
+    name: Miner integration tests (${{ matrix.group }})
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
+        group: [onboarding]
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
+      MINER_TEST_GROUP: ${{ matrix.group }}
+    steps:
+      - uses: actions/cache@v6
+        id: cache
+        with:
+          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
+          key: proof-params-2k
+      - name: Load cache into volume
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: |
+          docker volume create devnet-forest-miner_filecoin-proofs
+          docker run --rm \
+            -v devnet-forest-miner_filecoin-proofs:/proofs \
+            -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
+            "$SHELL_IMAGE" \
+            sh -c "cp /cache/* /proofs"
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: "forest-${{ runner.os }}"
+      - name: Devnet setup
+        run: ./scripts/devnet-forest-miner/setup.sh
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+      - name: Devnet check
+        run: ./scripts/devnet-forest-miner/check.sh
+        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
+      - name: Add forest binaries to PATH
+        run: |
+          chmod +x "$GITHUB_WORKSPACE"/forest*
+          echo "$GITHUB_WORKSPACE" >> "$GITHUB_PATH"
+      - name: Miner tests
+        run: |
+          set -euo pipefail
+          export DEVNET_DIR=scripts/devnet-forest-miner
+          source ./scripts/devnet/test_harness.sh
+          devnet_test_env_init
+          forest-dev devnet miner --group "$MINER_TEST_GROUP"
+        timeout-minutes: 120
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Prepare cache folder for uploading
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm \
+            -v devnet-forest-miner_filecoin-proofs:/proofs \
+            -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
+            "$SHELL_IMAGE" \
+            sh -c "cp /proofs/* /cache"
+          sudo chmod -R 755 "$FIL_PROOFS_PARAMETER_CACHE"
+
   # One issue per failed scheduled run, including a failed build.
   report-failure:
     name: Report failure
     permissions:
       contents: read
       issues: write
-    needs: [build]
+    needs: [build, miner-tests]
     if: ${{ failure() && github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
     steps:
