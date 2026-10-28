@@ -179,7 +179,6 @@ async fn maybe_import_snapshot(
             &ts,
             path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
-            &snapshot_tracker,
         )
         .await;
     }
