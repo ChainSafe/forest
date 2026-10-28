@@ -130,7 +130,7 @@ jobs:
         run: |
           echo "FOREST_IMAGE=${FOREST_IMAGE_INPUT}" >> "$GITHUB_ENV"
       - name: Run the RPC checks
-        # Mostly buffer around snapshot download and syncing.
+        # Mostly buffer around snapshot download, node processing should take ~10 minutes.
         timeout-minutes: 90
         run: ./setup.sh
       - name: Dump docker logs

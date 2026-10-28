@@ -18,11 +18,17 @@ check_day() {
   docker compose run --rm --env DAYS_AGO="$1" resolve || status=$?
   case ${status} in
     0) ;;
-    2) return 2 ;;
-    *) exit "${status}" ;;
+    2)
+      echo "no snapshot covers the day $1 day(s) ago"
+      return 2
+      ;;
+    *)
+      echo "resolve failed for the day $1 day(s) ago with status ${status}"
+      exit "${status}"
+      ;;
   esac
 
-  CHECK_TARGET="$(docker compose run --rm --no-TTY --entrypoint cat resolve /data/check-target)"
+  CHECK_TARGET="$(docker compose run --rm --entrypoint cat resolve /data/check-target)"
   read -r CHAIN START END <<< "${CHECK_TARGET}"
   [[ -n ${CHAIN} && ${START} =~ ^[0-9]+$ && ${END} =~ ^[0-9]+$ ]] || {
     echo "resolve did not report a usable chain and epoch range: ${CHECK_TARGET}"
@@ -33,10 +39,13 @@ check_day() {
   case ${status} in
     0) ;;
     2)
-      echo "the dataset has not published that day yet"
+      echo "the dataset has not published the day $1 day(s) ago yet"
       return 2
       ;;
-    *) exit "${status}" ;;
+    *)
+      echo "the dataset probe failed for ${CHAIN} ${START}..${END}"
+      exit "${status}"
+      ;;
   esac
 }
 
@@ -51,7 +60,7 @@ docker compose run --rm init
 docker compose up --detach --wait forest
 
 # Syncs the rest till reach END.
-docker compose exec --no-TTY forest \
+docker compose exec forest \
   timeout 30m forest-cli sync wait --target "$((END + 1))" > /dev/null
 
 docker compose run --rm verify "${START}" "${END}"

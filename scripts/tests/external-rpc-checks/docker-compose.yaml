@@ -32,7 +32,6 @@ services:
     environment:
       - FOREST_PATH=/data
       - FOREST_CHAIN_INDEXER_ENABLED=1
-      # for the `forest-cli` that ./setup.sh runs inside this container
       - FULLNODE_API_INFO=/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http
     command:
       - --chain=${FOREST_CHAIN}
