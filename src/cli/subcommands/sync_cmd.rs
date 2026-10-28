@@ -308,11 +308,16 @@ mod tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case::synced_below_target(NodeSyncStatus::Synced, 9, false)]
-    #[case::target_reached_while_syncing(NodeSyncStatus::Syncing, 10, true)]
-    fn is_wait_done_with_target(
+    #[case::synced_below_target(NodeSyncStatus::Synced, 9, false, Some(10), false)]
+    #[case::target_reached_while_syncing(NodeSyncStatus::Syncing, 10, false, Some(10), true)]
+    #[case::synced(NodeSyncStatus::Synced, 10, false, None, true)]
+    #[case::synced_while_watching(NodeSyncStatus::Synced, 10, true, None, false)]
+    #[case::syncing(NodeSyncStatus::Syncing, 10, false, None, false)]
+    fn test_is_wait_done(
         #[case] status: NodeSyncStatus,
         #[case] current_head_epoch: ChainEpoch,
+        #[case] watch: bool,
+        #[case] target: Option<ChainEpoch>,
         #[case] expected: bool,
     ) {
         let report = SyncStatusReport {
@@ -320,6 +325,6 @@ mod tests {
             current_head_epoch,
             ..Default::default()
         };
-        assert_eq!(is_wait_done(&report, false, Some(10)), expected);
+        assert_eq!(is_wait_done(&report, watch, target), expected);
     }
 }
