@@ -31,6 +31,8 @@
 
 - [#6802](https://github.com/ChainSafe/forest/issues/6802): When importing a snapshot from a URL, Forest now checks the snapshot's `.metadata.json` and, if extended snapshots are advertised, downloads and imports the receipts, events, and the tipset lookup alongside it
 
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
+
 ### Changed
 
 ### Removed
