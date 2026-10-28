@@ -1,0 +1,99 @@
+name: Miner integration tests
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  schedule:
+    - cron: "0 13 * * *" # Runs every day at 13:00 UTC
+
+env:
+  CI: 1
+  CACHE_TIMEOUT_MINUTES: 5
+  SCRIPT_TIMEOUT_MINUTES: 30
+  FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
+  SHELL_IMAGE: busybox
+
+jobs:
+  # Pull requests only run with the `Miner` or `Release` label.
+  # Suite jobs (matrix over `forest-dev devnet miner --group`) land with the first
+  # Lotus Miner itest port; this workflow only wires build + failure reporting for now.
+  build:
+    name: Build Forest
+    if: |-
+      ${{ github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'Miner')
+      || contains(github.event.pull_request.labels.*.name, 'Release') }}
+    runs-on: ubuntu-24.04
+    env:
+      RUSTC_WRAPPER: sccache
+      CC: sccache clang
+      CXX: sccache clang++
+      AWS_ACCESS_KEY_ID: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+      AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+    steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            {
+              echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}"
+              echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}"
+              echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
+            } >> "$GITHUB_ENV"
+          fi
+      - uses: rui314/setup-mold@v1
+        with:
+          make-default: false
+      - name: Checkout Sources
+        uses: actions/checkout@v7
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.work"
+          cache-dependency-path: "**/go.sum"
+      - uses: jdx/mise-action@v5
+      - name: Install Forest
+        env:
+          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
+        run: mise run install --slim quick
+      - uses: actions/upload-artifact@v7
+        with:
+          name: "forest-${{ runner.os }}"
+          path: |
+            ~/.cargo/bin/forest*
+          if-no-files-found: error
+
+  # One issue per failed scheduled run, including a failed build.
+  report-failure:
+    name: Report failure
+    permissions:
+      contents: read
+      issues: write
+    needs: [build]
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set WORKFLOW_URL
+        run: |
+          export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo "${WORKFLOW_URL}"
+          echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
+      - uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/MINER_TESTS_ISSUE_TEMPLATE.md

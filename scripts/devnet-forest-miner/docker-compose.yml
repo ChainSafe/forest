@@ -195,7 +195,7 @@ services:
     environment:
       <<: *lotus-heights
       FIL_PROOFS_PARAMETER_CACHE: ${FIL_PROOFS_PARAMETER_CACHE}
-      LOTUS_MINER_API_LISTENADDRESS: /ip4/0.0.0.0/tcp/${MINER_RPC_PORT}
+      LOTUS_API_LISTENADDRESS: /ip4/0.0.0.0/tcp/${MINER_RPC_PORT}/http
     env_file:
       - lotus-miner.env
     networks:
