@@ -18,7 +18,7 @@ use prometheus_client::{
     metrics::{counter::Counter, gauge::Gauge},
     registry::Unit,
 };
-use quick_cache::{OptionsBuilder, sync::Cache};
+use quick_cache::sync::Cache;
 
 use crate::prelude::*;
 
@@ -82,10 +82,10 @@ where
         crate::metrics::register_collector(Box::new(self.shallow_clone()));
     }
 
-    fn new_inner(cache_name: impl Into<Cow<'static, str>>, cache: Cache<K, V>) -> Self {
+    fn new_inner(cache_name: impl Into<Cow<'static, str>>, capacity: NonZeroUsize) -> Self {
         Self {
             cache_name: cache_name.into(),
-            cache: Arc::new(cache),
+            cache: Arc::new(Cache::new(capacity.get())),
             size_in_bytes_memo: Default::default(),
         }
     }
@@ -94,7 +94,7 @@ where
         cache_name: impl Into<Cow<'static, str>>,
         capacity: NonZeroUsize,
     ) -> Self {
-        Self::new_inner(cache_name, Cache::new(capacity.get()))
+        Self::new_inner(cache_name, capacity)
     }
 
     pub fn new_with_metrics(
@@ -102,31 +102,6 @@ where
         capacity: NonZeroUsize,
     ) -> Self {
         let c = Self::new_without_metrics_registry(cache_name, capacity);
-        c.register_metrics();
-        c
-    }
-
-    /// Like [`Self::new_with_metrics`], but evicts roughly oldest first. Under the default
-    /// policy, write-once entries inserted after the cache fills share about 3% of its capacity.
-    pub fn new_oldest_first_with_metrics(
-        cache_name: impl Into<Cow<'static, str>>,
-        capacity: NonZeroUsize,
-    ) -> Self {
-        let options = OptionsBuilder::new()
-            .estimated_items_capacity(capacity.get())
-            .weight_capacity(capacity.get() as u64)
-            .hot_allocation(0.0)
-            .build()
-            .expect("both capacities are set");
-        let c = Self::new_inner(
-            cache_name,
-            Cache::with_options(
-                options,
-                Default::default(),
-                Default::default(),
-                Default::default(),
-            ),
-        );
         c.register_metrics();
         c
     }

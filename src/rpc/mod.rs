@@ -533,8 +533,7 @@ pub struct RPCState {
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,
-    pub mpool_locker: crate::message_pool::MpoolLocker,
-    pub nonce_tracker: crate::message_pool::NonceTracker,
+    pub mpool_push_guards: crate::message_pool::MpoolPushGuards,
     pub temp_dir: Arc<std::path::PathBuf>,
 }
 
