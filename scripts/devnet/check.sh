@@ -26,7 +26,7 @@ function get_f3_latest_cert_instance {
 }
 
 # Target height set so that all migrations are applied.
-target_height=$((TARGET_HEIGHT + 1))
+target_height=$TARGET_HEIGHT
 
 # waits node to reach $target_height, timeout
 docker exec \
