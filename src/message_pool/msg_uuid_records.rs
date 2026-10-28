@@ -28,7 +28,7 @@ pub struct MsgUuidRecord {
     recorded_at: Instant,
 }
 
-/// Recent successful `MpoolPushMessage` results by `MsgUuid` (in-memory, TTL + cap).
+/// Recent successful `MpoolPushMessage` results by `MsgUuid` (in-memory, `TTL` + cap).
 /// Outermost push lock (then [`MpoolLocker`](super::MpoolLocker), then
 /// [`NonceTracker`](super::NonceTracker)); hold from lookup through [`Self::record`].
 pub struct MsgUuidRecords {

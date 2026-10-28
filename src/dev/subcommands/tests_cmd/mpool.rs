@@ -97,7 +97,7 @@ async fn mpool_replace_auto_unblocks_pending() {
     );
 }
 
-/// Same `MsgUuid` retries share one CID; two distinct UUIDs advance nonce by 2.
+/// Same `MsgUuid` retries share one CID; two distinct `MsgUuid` values advance nonce by 2.
 async fn mpool_push_message_dedups_by_msg_uuid() {
     let addr_str = FOREST_TEST_PRELOADED_ADDRESS.as_str();
     let addr = Address::from_str(addr_str).unwrap();
