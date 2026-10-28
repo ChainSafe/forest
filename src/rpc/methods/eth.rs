@@ -4251,7 +4251,7 @@ async fn trace_filter(
 
     Ok(results
         .into_iter()
-        .sorted_by(|a, b| a.sort_key().cmp(&b.sort_key()))
+        .sorted_unstable_by(|a, b| a.sort_key().cmp(&b.sort_key()))
         .collect_vec())
 }
 

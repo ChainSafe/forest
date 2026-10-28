@@ -8,6 +8,7 @@ use std::{
 
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
+use itertools::Itertools as _;
 use parking_lot::RwLock;
 use rand::seq::SliceRandom;
 use tracing::{debug, trace, warn};
@@ -92,42 +93,33 @@ impl PeerManager {
         peers.full_peers.entry(*peer_id).or_default();
     }
 
-    /// Sort peers based on a score function with the success rate and latency
-    /// of requests.
-    pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<PeerId> {
-        let peer_lk = self.peers.read();
-        let average_time = self.avg_global_time.read();
-        let mut peers: Vec<_> = peer_lk
-            .full_peers
-            .iter()
-            .map(|(&p, info)| {
-                let cost = if info.successes + info.failures > 0 {
-                    // Calculate cost based on fail rate and latency
-                    // Note that when `success` is zero, the result is `inf`
-                    let fail_rate = f64::from(info.failures) / f64::from(info.successes);
-                    info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
-                } else {
-                    // There have been no failures or successes
-                    average_time.as_secs_f64() * NEW_PEER_MUL
-                };
-                (p, cost)
-            })
-            .collect();
-
-        // Unstable sort because hashmap iter order doesn't need to be preserved.
-        peers.sort_unstable_by(|(_, v1), (_, v2)| v1.total_cmp(v2));
-
-        peers.into_iter().map(|(peer, _)| peer).collect()
-    }
-
-    /// Return shuffled slice of ordered peers from the peer manager. Ordering
-    /// is based on failure rate and latency of the peer.
+    /// Return up to [`SHUFFLE_PEERS_PREFIX`] peers with the lowest cost, based on
+    /// failure rate and latency, in random order.
     pub fn top_peers_shuffled(&self) -> Vec<PeerId> {
-        let mut peers: Vec<_> = self
-            .sorted_peers()
-            .into_iter()
-            .take(SHUFFLE_PEERS_PREFIX)
-            .collect();
+        let mut peers = {
+            let peer_lk = self.peers.read();
+            let average_time = self.avg_global_time.read();
+            peer_lk
+                .full_peers
+                .iter()
+                .map(|(&p, info)| {
+                    let cost = if info.successes > 0 {
+                        // Calculate cost based on fail rate and latency
+                        let fail_rate = f64::from(info.failures) / f64::from(info.successes);
+                        info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
+                    } else if info.failures > 0 {
+                        // The fail-rate formula would give NaN (inf * 0) while the global average is zero
+                        f64::INFINITY
+                    } else {
+                        // There have been no failures or successes
+                        average_time.as_secs_f64() * NEW_PEER_MUL
+                    };
+                    (p, cost)
+                })
+                .k_smallest_relaxed_by(SHUFFLE_PEERS_PREFIX, |(_, v1), (_, v2)| v1.total_cmp(v2))
+                .map(|(peer, _)| peer)
+                .collect_vec()
+        };
 
         // Shuffle top peers, to avoid sending all requests to same predictable peer.
         peers.shuffle(&mut crate::utils::rand::forest_rng());
@@ -370,5 +362,42 @@ mod tests {
         assert!(!is_crawler("forest"));
         assert!(!is_crawler("lotus"));
         assert!(!is_crawler("venus"));
+    }
+
+    #[test]
+    fn top_peers_shuffled_picks_lowest_cost() {
+        let peer_manager = PeerManager::default();
+        peer_manager.log_global_success(Duration::from_secs(1));
+        let peers = (1..=SHUFFLE_PEERS_PREFIX as u64 + 50)
+            .map(|ms| {
+                let peer = PeerId::random();
+                peer_manager.log_success(&peer, Duration::from_millis(ms));
+                peer
+            })
+            .collect_vec();
+
+        let top = peer_manager.top_peers_shuffled();
+        assert_eq!(top.len(), SHUFFLE_PEERS_PREFIX);
+        assert_eq!(
+            top.into_iter().collect::<HashSet<_>>(),
+            peers
+                .into_iter()
+                .take(SHUFFLE_PEERS_PREFIX)
+                .collect::<HashSet<_>>()
+        );
+    }
+
+    #[test]
+    fn top_peers_shuffled_excludes_failing_peer_with_zero_global_average() {
+        let peer_manager = PeerManager::default();
+        for _ in 0..SHUFFLE_PEERS_PREFIX {
+            peer_manager.log_success(&PeerId::random(), Duration::from_secs(1));
+        }
+        let failing = PeerId::random();
+        peer_manager.log_failure(&failing, Duration::from_secs(1));
+
+        let top = peer_manager.top_peers_shuffled();
+        assert_eq!(top.len(), SHUFFLE_PEERS_PREFIX);
+        assert!(!top.contains(&failing));
     }
 }
