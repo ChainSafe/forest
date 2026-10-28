@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-# Picks the ${FOREST_CHAIN} snapshot published DAYS_AGO days ago (UTC), by the date in its name,
-# and records under /data what the rest of the harness needs: its URL, its head epoch, and the
-# chain plus the ${FOREST_CHECK_EPOCHS}-epoch range the checks cover.
-# Runs in the checks image, which has Ruby, so the Forest image needs no curl.
+# Picks the newest ${FOREST_CHAIN} snapshot whose head lies within the first 2000 epochs of
+# the UTC day: it holds the state the backfill needs to reach the day's start,
+# and the node syncs the rest. Writes its URL, head epoch and the day's epoch range under /data.
 
 require 'date'
 require 'json'
@@ -13,24 +12,6 @@ SECONDS_IN_EPOCH = 30
 EPOCHS_IN_DAY = 2880
 SNAPSHOT_DEPTH = 2000
 GENESIS = { 'calibnet' => 1_667_326_380, 'mainnet' => 1_598_306_400 }.freeze
-
-def env(name)
-  value = ENV[name].to_s
-  abort "#{name} is not set" if value.empty?
-
-  value
-end
-
-def env_int(name)
-  Integer(env(name))
-rescue ArgumentError => e
-  abort e.message
-end
-
-chain = env('FOREST_CHAIN')
-days_ago = env_int('DAYS_AGO')
-genesis = GENESIS.fetch(chain) { abort "no genesis timestamp for #{chain}" }
-LIST = URI("https://forest-archive.chainsafe.dev/list/#{chain}/latest-v2?format=json")
 
 def fetch(uri, attempts: 3)
   reason = nil
@@ -46,11 +27,16 @@ def fetch(uri, attempts: 3)
   abort "failed to fetch #{uri} after #{attempts} attempts: #{reason}"
 end
 
+chain = ENV.fetch('FOREST_CHAIN')
+days_ago = Integer(ENV.fetch('DAYS_AGO'))
+genesis = GENESIS.fetch(chain) { abort "no genesis timestamp for #{chain}" }
+
 day = Time.now.utc.to_date - days_ago
 start = (Time.utc(day.year, day.month, day.day).to_i - genesis) / SECONDS_IN_EPOCH
 finish = start + EPOCHS_IN_DAY - 1
 
-snapshots = JSON.parse(fetch(LIST))['items'].filter_map do |item|
+list = URI("https://forest-archive.chainsafe.dev/list/#{chain}/latest-v2?format=json")
+snapshots = JSON.parse(fetch(list))['items'].filter_map do |item|
   height = item['url'][/_height_(\d+)/, 1]
   [item['url'], Integer(height)] if height
 end
