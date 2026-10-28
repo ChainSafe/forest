@@ -48,6 +48,7 @@ services:
           "forest-cli",
           "healthcheck",
           "live",
+          "--wait",
           "--healthcheck-port",
           "${FOREST_HEALTHZ_RPC_PORT}",
         ]
