@@ -20,7 +20,7 @@ use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
-use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
+use crate::message_pool::{MessagePool, MpoolConfig, MpoolPushGuards};
 use crate::networks::{self, ChainConfig};
 use crate::prelude::*;
 use crate::rpc::RPCState;
@@ -577,8 +577,6 @@ fn maybe_start_rpc_service(
             let block_validation_subscriber = chain_follower.block_validation_subscriber();
             let keystore = ctx.keystore.shallow_clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
-            let nonce_tracker = NonceTracker::new();
-            let mpool_locker = MpoolLocker::new();
             let temp_dir = Arc::new(ctx.temp_dir.clone());
             async move {
                 let rpc_listener = crate::utils::net::bind_tcp_listener(
@@ -601,8 +599,7 @@ fn maybe_start_rpc_service(
                         tipset_send,
                         block_validation_subscriber,
                         snapshot_progress_tracker,
-                        mpool_locker,
-                        nonce_tracker,
+                        mpool_push_guards: MpoolPushGuards::default(),
                         temp_dir,
                     },
                     rpc_listener,

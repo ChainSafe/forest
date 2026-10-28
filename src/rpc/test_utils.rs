@@ -9,7 +9,7 @@ use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::db::MemoryDB;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::{NetworkMessage, PeerManager};
-use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
+use crate::message_pool::{MessagePool, MpoolPushGuards};
 use crate::networks::ChainConfig;
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -77,8 +77,7 @@ impl RPCState {
             tipset_send,
             block_validation_subscriber: Default::default(),
             snapshot_progress_tracker: Default::default(),
-            mpool_locker: MpoolLocker::new(),
-            nonce_tracker: NonceTracker::new(),
+            mpool_push_guards: MpoolPushGuards::default(),
             temp_dir: Arc::new(std::env::temp_dir()),
         });
         Ok((state, network_rx))

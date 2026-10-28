@@ -37,6 +37,8 @@
 
 ### Fixed
 
+- [#7767](https://github.com/ChainSafe/forest/issues/7767): `Filecoin.MpoolPushMessage` returns the message already pushed for the same non-nil `MsgUuid`.
+
 ## Forest v0.39.0 "Vijayadashami"
 
 Non-mandatory release for all node operators. It includes fixes and improvements, notably around the Ethereum and state RPC methods. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.

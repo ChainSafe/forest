@@ -13,7 +13,7 @@ use crate::db::{DbImpl, MemoryDB, car::ManyCar};
 use crate::genesis::read_genesis_header;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::PeerManager;
-use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
+use crate::message_pool::{MessagePool, MpoolPushGuards};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::prelude::*;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -97,7 +97,6 @@ pub async fn offline_rpc_state(
     let peer_manager = Arc::new(PeerManager::default());
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
-    let nonce_tracker = NonceTracker::new();
     let eth_event_handler = Arc::new(EthEventHandler::from_config(
         &events_config,
         state_manager.chain_config().eth_chain_id,
@@ -124,8 +123,7 @@ pub async fn offline_rpc_state(
             tipset_send,
             block_validation_subscriber: Default::default(),
             snapshot_progress_tracker: Default::default(),
-            mpool_locker: MpoolLocker::new(),
-            nonce_tracker,
+            mpool_push_guards: MpoolPushGuards::default(),
             temp_dir: Arc::new(std::env::temp_dir()),
         },
         shutdown_recv,
