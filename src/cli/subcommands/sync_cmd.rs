@@ -19,7 +19,7 @@ use tokio::time::sleep;
 
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {
-    /// Display continuous sync data until sync is complete
+    /// Display continuous sync data until sync is complete or until --target is reached
     Wait {
         /// Don't exit after node is synced
         #[arg(short)]
