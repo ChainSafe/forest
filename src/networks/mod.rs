@@ -836,10 +836,17 @@ mod tests {
     #[test]
     fn network_version_keeps_an_upgrade_below_genesis() {
         let mut cfg = ChainConfig::devnet();
-        cfg.genesis_network = NetworkVersion::V28;
         cfg.height_infos.get_mut(&Height::Lightning).unwrap().epoch = 3;
         assert_eq!(cfg.network_version(3), NetworkVersion::V28);
         assert_eq!(cfg.network_version(4), NetworkVersion::V19);
+    }
+
+    #[test]
+    fn network_version_default_devnet_schedule() {
+        let cfg = ChainConfig::devnet();
+        assert_eq!(cfg.network_version(200), NetworkVersion::V28);
+        assert_eq!(cfg.network_version(201), NetworkVersion::V29);
+        assert!(cfg.network_height_with_actor_bundle(200).is_none());
     }
 
     #[test]
