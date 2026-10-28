@@ -52,7 +52,7 @@ docker compose up --detach --wait forest
 
 # Syncs the rest till reach END.
 docker compose exec --no-TTY forest \
-  timeout 30m forest-cli sync wait --target "$((END + 1))"
+  timeout 30m forest-cli sync wait --target "$((END + 1))" > /dev/null
 
 docker compose run --rm verify "${START}" "${END}"
 
