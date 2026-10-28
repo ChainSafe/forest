@@ -70,10 +70,26 @@ async fn miner_info(client: &Client, miner: Address) -> anyhow::Result<MinerInfo
         .await?)
 }
 
-/// Lotus also marks every descendant of a rejected block bad, so checking Forest's head catches
-/// an earlier split.
-async fn ensure_lotus_accepts_forest_head(forest: &Client, lotus: &Client) -> anyhow::Result<()> {
+/// `Ok(true)` if Lotus shares Forest's head tipset and has not marked it bad; `Ok(false)` if Lotus still trails.
+async fn lotus_accepts_forest_head(forest: &Client, lotus: &Client) -> anyhow::Result<bool> {
     let head = forest.call(ChainHead::request(())?).await?;
+    let lotus_head = lotus.call(ChainHead::request(())?).await?;
+    if lotus_head.epoch() < head.epoch() {
+        return Ok(false);
+    }
+    let lotus_at_height = lotus
+        .call(ChainGetTipSetByHeight::request((
+            head.epoch(),
+            ApiTipsetKey(None),
+        ))?)
+        .await?;
+    ensure!(
+        lotus_at_height.key() == head.key(),
+        "Lotus tipset at Forest head epoch {} differs: forest {}, lotus {}",
+        head.epoch(),
+        head.key(),
+        lotus_at_height.key()
+    );
     for cid in head.cids() {
         let reason = lotus.call(SyncCheckBad::request((cid,))?).await?;
         ensure!(
@@ -82,7 +98,7 @@ async fn ensure_lotus_accepts_forest_head(forest: &Client, lotus: &Client) -> an
             head.epoch()
         );
     }
-    Ok(())
+    Ok(true)
 }
 
 async fn sector_info(
@@ -146,8 +162,7 @@ impl MinerApi {
             .await
     }
 
-    /// Sends the queued pre-commit and commit batches now; Lotus Miner otherwise holds them for
-    /// up to a day.
+    /// Flush pre-commit/commit batches (Lotus may hold them for up to a day).
     async fn flush_sealing_batches(&self) -> anyhow::Result<()> {
         for method in [
             "Filecoin.SectorPreCommitFlush",
@@ -175,7 +190,7 @@ struct SectorStatus {
     log: Vec<SectorLog>,
 }
 
-/// Lotus `api.SectorState`. Every state is listed, so one added by a newer Lotus fails to decode.
+/// Lotus `api.SectorState`. Unknown Lotus values fail to decode.
 #[derive(Debug, Deserialize)]
 enum SectorState {
     /// A new sector, before Lotus processes its first event.
@@ -268,7 +283,7 @@ async fn wait_until_proving(miner_api: &MinerApi, sector: u64) -> anyhow::Result
         eprintln!("sector {sector} state: {:?}", status.state);
         match status.state {
             SectorState::Proving | SectorState::Available => Ok(Some(())),
-            // Lotus never moves a sector out of these towards `Proving`.
+            // Never reaches Proving from these.
             SectorState::FailedUnrecoverable
             | SectorState::PackingFailed
             | SectorState::DealsExpired
@@ -281,62 +296,11 @@ async fn wait_until_proving(miner_api: &MinerApi, sector: u64) -> anyhow::Result
             | SectorState::TerminateFailed
             | SectorState::Removing
             | SectorState::RemoveFailed
-            | SectorState::Removed => {
-                bail!(
-                    "sector {sector} reached {:?}, which never leads to Proving",
-                    status.state
-                )
-            }
-            // Lotus can still move a sector out of these towards `Proving`.
-            SectorState::Undefined
-            | SectorState::Empty
-            | SectorState::WaitDeals
-            | SectorState::AddPiece
-            | SectorState::Packing
-            | SectorState::GetTicket
-            | SectorState::PreCommit1
-            | SectorState::PreCommit2
-            | SectorState::PreCommitting
-            | SectorState::PreCommitWait
-            | SectorState::SubmitPreCommitBatch
-            | SectorState::PreCommitBatchWait
-            | SectorState::WaitSeed
-            | SectorState::Committing
-            | SectorState::CommitFinalize
-            | SectorState::CommitFinalizeFailed
-            | SectorState::SubmitCommit
-            | SectorState::CommitWait
-            | SectorState::SubmitCommitAggregate
-            | SectorState::CommitAggregateWait
-            | SectorState::FinalizeSector
-            | SectorState::SnapDealsWaitDeals
-            | SectorState::SnapDealsAddPiece
-            | SectorState::SnapDealsPacking
-            | SectorState::UpdateReplica
-            | SectorState::ProveReplicaUpdate
-            | SectorState::SubmitReplicaUpdate
-            | SectorState::WaitMutable
-            | SectorState::ReplicaUpdateWait
-            | SectorState::FinalizeReplicaUpdate
-            | SectorState::UpdateActivating
-            | SectorState::ReleaseSectorKey
-            | SectorState::ReceiveSector
-            | SectorState::AddPieceFailed
-            | SectorState::SealPreCommit1Failed
-            | SectorState::SealPreCommit2Failed
-            | SectorState::PreCommitFailed
-            | SectorState::ComputeProofFailed
-            | SectorState::RemoteCommitFailed
-            | SectorState::CommitFailed
-            | SectorState::FinalizeFailed
-            | SectorState::RecoverDealIDs
-            | SectorState::SnapDealsAddPieceFailed
-            | SectorState::SnapDealsDealsExpired
-            | SectorState::SnapDealsRecoverDealIDs
-            | SectorState::AbortUpgrade
-            | SectorState::ReplicaUpdateFailed
-            | SectorState::ReleaseSectorKeyFailed
-            | SectorState::FinalizeReplicaUpdateFailed => Ok(None),
+            | SectorState::Removed => bail!(
+                "sector {sector} reached {:?}, which never leads to Proving",
+                status.state
+            ),
+            _ => Ok(None),
         }
     })
     .await;

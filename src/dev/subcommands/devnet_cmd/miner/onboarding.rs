@@ -5,8 +5,7 @@
 //! `testNonGenesisMiner` and `TestPledgeSectors` (single sector, real 2 KiB proofs).
 
 use super::{
-    MinerApi, ensure_lotus_accepts_forest_head, genesis_miner, miner_info, sector_info,
-    wait_until_proving,
+    MinerApi, genesis_miner, lotus_accepts_forest_head, miner_info, sector_info, wait_until_proving,
 };
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::key_management::generate_key;
@@ -59,7 +58,6 @@ async fn create_miner() -> anyhow::Result<()> {
         "StateMinerCreationDeposit at epoch {}: forest {forest_deposit}, lotus {lotus_deposit}",
         lotus_head.epoch()
     );
-    // The deposit is the per-byte cap here, so a supply disagreement does not change it.
     let supply = StateVMCirculatingSupplyInternal::request((at_lotus_head,))?;
     let forest_supply = forest.call(supply.clone()).await?;
     let lotus_supply = lotus.call(supply).await?;
@@ -108,7 +106,9 @@ async fn create_miner() -> anyhow::Result<()> {
     );
 
     poll(&format!("lotus StateGetActor {miner}"), || async {
-        ensure_lotus_accepts_forest_head(&forest, &lotus).await?;
+        if !lotus_accepts_forest_head(&forest, &lotus).await? {
+            return Ok(None);
+        }
         get_actor(&lotus, *miner).await
     })
     .await?;
@@ -150,7 +150,9 @@ async fn pledge_sector() -> anyhow::Result<()> {
     let lotus_info = poll(
         &format!("lotus StateSectorGetInfo {miner} {sector}"),
         || async {
-            ensure_lotus_accepts_forest_head(&forest, &lotus).await?;
+            if !lotus_accepts_forest_head(&forest, &lotus).await? {
+                return Ok(None);
+            }
             sector_info(&lotus, miner, sector).await
         },
     )
