@@ -51,7 +51,7 @@ check_day() {
 
 # Tries to fetch latest available archive dataset (from yesterday)
 # if not available lookup an archive dataset before yesterday
-# if nothing is available than fail
+# if nothing is available then fail
 check_day 1 || check_day 2
 
 # Imports the snapshot and back-fills the index.
