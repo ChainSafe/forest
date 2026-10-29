@@ -534,34 +534,33 @@ impl StateManager {
         Ok(addr)
     }
 
-    /// Returns specified actor's claimed power and total network power as a
-    /// tuple.
-    pub fn get_power(
-        &self,
-        state_cid: &Cid,
-        addr: &Address,
-    ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
+    /// Returns the miner's power claim, the total network power and whether the miner meets the
+    /// consensus minimum, as Lotus does: an address without a claim has zero power and does not
+    /// meet the minimum.
+    /// <https://github.com/filecoin-project/lotus/blob/v1.38.1/chain/stmgr/actors.go#L59-L91>
+    ///
+    /// # Errors
+    /// The power actor is absent from `state_cid`, or its state or claims cannot be read.
+    pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<miner::MinerPower, Error> {
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
             .ok_or_else(|| Error::state("Power actor address could not be resolved"))?;
 
         let spas = power::State::load(self.db(), actor.code, actor.state)?;
 
-        let t_pow = spas.total_power();
-        let m_pow = spas
-            .miner_power(self.db(), addr)?
-            .ok_or_else(|| Error::state(format!("Miner for address {addr} not found")))?;
-
-        let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
-            &self.chain_config().policy,
-            self.db(),
-            addr,
-        )?;
-        if min_pow {
-            return Ok(Some((m_pow, t_pow)));
-        }
-
-        Ok(None)
+        let miner_power = spas.miner_power(self.db(), addr)?;
+        // The actor's minimum check errors for an address without a claim; Lotus returns before it.
+        let has_min_power = miner_power.is_some()
+            && spas.miner_nominal_power_meets_consensus_minimum(
+                &self.chain_config().policy,
+                self.db(),
+                addr,
+            )?;
+        Ok(miner::MinerPower {
+            miner_power: miner_power.unwrap_or_default(),
+            total_power: spas.total_power(),
+            has_min_power,
+        })
     }
 
     /// Single-sector lookup via a direct AMT `get`, avoiding a full sector-set scan.

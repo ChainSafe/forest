@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::shim::actors::miner::{MinerInfo, MinerPower, Partition};
+use crate::shim::actors::miner::{MinerInfo, Partition};
 use crate::shim::actors::verifreg::ext::VerifiedRegistryStateExt as _;
 use crate::shim::actors::verifreg::{Allocation, AllocationID, Claim, ClaimID, DataCap};
 use ahash::HashMap;
@@ -76,23 +76,6 @@ impl StateManager {
         })?;
 
         Ok(BitField::union(partitions.iter()))
-    }
-
-    /// Retrieves miner power.
-    pub fn miner_power(&self, addr: &Address, ts: &Tipset) -> Result<MinerPower, Error> {
-        if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), addr)? {
-            return Ok(MinerPower {
-                miner_power,
-                total_power,
-                has_min_power: true,
-            });
-        }
-
-        Ok(MinerPower {
-            has_min_power: false,
-            miner_power: Default::default(),
-            total_power: Default::default(),
-        })
     }
 
     pub fn get_verified_registry_actor_state(

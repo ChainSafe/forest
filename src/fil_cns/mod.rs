@@ -31,8 +31,6 @@ pub enum FilecoinConsensusError {
     NotClaimingWin,
     #[error("Block miner was slashed or is invalid")]
     InvalidOrSlashedMiner,
-    #[error("Miner power not available for miner address")]
-    MinerPowerNotAvailable,
     #[error("Miner claimed wrong number of wins: miner = {0}, computed = {1}")]
     MinerWinClaimsIncorrect(i64, i64),
     #[error("Drawing chain randomness failed: {0}")]
