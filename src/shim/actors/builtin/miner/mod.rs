@@ -1354,6 +1354,20 @@ impl DeadlineInfo {
         }
     }
 
+    /// Returns the info of deadline `index` in the same proving period, at the same epoch.
+    pub fn for_index(&self, index: u64) -> Self {
+        Self::new(
+            self.period_start,
+            index,
+            self.current_epoch,
+            self.w_post_period_deadlines,
+            self.w_post_proving_period,
+            self.w_post_challenge_window,
+            self.w_post_challenge_lookback,
+            self.fault_declaration_cutoff,
+        )
+    }
+
     /// Whether the proving period has begun.
     pub fn period_started(&self) -> bool {
         self.current_epoch >= self.period_start
@@ -1870,5 +1884,19 @@ mod tests {
             );
         }
         let _ = state.get_sector(&store, u64::MAX); // boundary input must not panic
+    }
+
+    #[test]
+    fn deadline_for_index_keeps_the_proving_period() {
+        // The 2k devnet's genesis miner at epoch 40: deadline 37 is current in the proving period
+        // that started at -2222 (48 deadlines of 60 epochs, challenge 20 before open).
+        let current = DeadlineInfo::new(-2222, 37, 40, 48, 2880, 60, 20, 70);
+        let first = current.for_index(0);
+        assert_eq!(
+            (first.index, first.period_start, first.open),
+            (0, -2222, -2222)
+        );
+        let next = first.next_not_elapsed();
+        assert_eq!((next.challenge, next.open, next.close), (638, 658, 718)); // -2222 + 2880 = 658
     }
 }
