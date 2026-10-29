@@ -8,7 +8,6 @@ use crate::rpc::types::MiningBaseInfo;
 use crate::shim::crypto::DomainSeparationTag;
 use crate::shim::randomness::Randomness;
 use crate::shim::runtime::Policy;
-use anyhow::Context as _;
 use fvm_ipld_encoding::to_vec;
 use num::BigInt;
 use num_traits::identities::Zero;
@@ -130,9 +129,7 @@ impl StateManager {
             return Ok(None);
         }
 
-        let (miner_power, total_power) = self
-            .get_power(&lb_state_root, &addr)?
-            .context("failed to get power")?;
+        let power = self.get_power(&lb_state_root, &addr)?;
 
         let info = miner_state.info(self.db())?;
 
@@ -142,8 +139,8 @@ impl StateManager {
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
         Ok(Some(MiningBaseInfo {
-            miner_power: miner_power.quality_adj_power,
-            network_power: total_power.quality_adj_power,
+            miner_power: power.miner_power.quality_adj_power,
+            network_power: power.total_power.quality_adj_power,
             sectors,
             worker_key,
             sector_size: info.sector_size,
