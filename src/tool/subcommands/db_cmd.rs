@@ -4,19 +4,17 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::TIPSET_LOOKUP_HAMT_BIT_WIDTH;
 use crate::cli::subcommands::prompt_confirm;
 use crate::cli_shared::{chain_path, delete_chain_data, read_config};
 use crate::daemon::db_util::load_all_forest_cars;
-use crate::db::car::{AnyCar, ManyCar};
+use crate::daemon::extended_snapshot::import_tipset_lookup_snapshot;
+use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME, EthMappingsStore};
+use crate::db::{BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME};
 use crate::networks::NetworkChain;
 use crate::prelude::*;
 use crate::utils::db::car_stream::CarStream;
 use clap::Subcommand;
-use fil_actors_shared::fvm_ipld_hamt::Hamt;
 use indicatif::{ProgressBar, ProgressStyle};
 use tokio_stream::StreamExt;
 
@@ -166,17 +164,6 @@ impl DBCommands {
                 db,
             } => {
                 let start = Instant::now();
-                println!("Loading tipset lookup hamt...");
-                let hamt_car = AnyCar::try_from(snapshot.as_path())?;
-                anyhow::ensure!(
-                    hamt_car.header_v1().roots.len() == 1,
-                    "hamt car should have a single root"
-                );
-                let hamt_root = *hamt_car.header_v1().roots.first();
-                let hamt: Hamt<_, TipsetKey, ChainEpoch> =
-                    Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)?;
-                println!("Loaded tipset lookup hamt");
-
                 let db_root_path = if let Some(db) = db {
                     db
                 } else {
@@ -190,27 +177,13 @@ impl DBCommands {
                     load_all_forest_cars(&db, &forest_car_db_dir)?;
                     db
                 };
-                println!("Validating tipset lookup hamt...");
-                hamt.for_each_cacheless(|&epoch, tsk| {
-                    let ts = Tipset::load_required(&db, tsk)?;
-                    anyhow::ensure!(
-                        ts.epoch() == epoch,
-                        "epochs do not match, {epoch} in hamt, {} in database",
-                        ts.epoch()
-                    );
-                    anyhow::Ok(())
-                })?;
-                println!("Successfully validated tipset lookup hamt");
+                println!("Validating and importing tipset lookup hamt...");
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
-                hamt.for_each_cacheless(|&epoch, tsk| {
-                    db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
-                    pb.inc(1);
-                    anyhow::Ok(())
-                })?;
+                import_tipset_lookup_snapshot(&db, &snapshot, || pb.inc(1))?;
                 drop(db);
                 let total = pb.position();
                 pb.finish();

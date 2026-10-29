@@ -111,7 +111,7 @@ enum ItemType {
 }
 
 impl Progress {
-    fn new(message: &str) -> Self {
+    pub(crate) fn new(message: &str) -> Self {
         let now = Instant::now();
         Self {
             completed_items: 0,
@@ -135,7 +135,7 @@ impl Progress {
         self
     }
 
-    fn inc(&mut self, value: u64) {
+    pub(crate) fn inc(&mut self, value: u64) {
         self.completed_items += value;
 
         self.emit_log_if_required();

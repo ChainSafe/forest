@@ -5,6 +5,7 @@ use std::{
     fmt::Display,
     path::{Path, PathBuf},
     str::FromStr,
+    time::Duration,
 };
 
 use crate::prelude::*;
@@ -110,6 +111,18 @@ pub async fn peek(
             .context("no content-length header")?,
         cd_path.context("no content-disposition filepath")?,
     ))
+}
+
+/// Returns the final URL after redirection(s) of `url`, e.g. a stable `latest` snapshot URL.
+pub async fn peek_url(url: Url) -> anyhow::Result<Url> {
+    let response = crate::utils::net::global_http_client()
+        .head(url)
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await?
+        .error_for_status()
+        .context("server returned an error response")?;
+    Ok(response.url().clone())
 }
 
 // Extract file paths from content-disposition values:

@@ -4,6 +4,7 @@
 pub mod bundle;
 mod context;
 pub mod db_util;
+pub mod extended_snapshot;
 pub mod main;
 
 use crate::blocks::TipsetKey;
@@ -16,7 +17,11 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
     delete_chain_data,
 };
-use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
+use crate::daemon::{
+    context::AppContext,
+    db_util::{import_chain_as_forest_car, path_as_url},
+    extended_snapshot::maybe_import_extended_snapshots,
+};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
@@ -38,7 +43,7 @@ use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -143,6 +148,10 @@ async fn maybe_import_snapshot(
     if !opts.skip_load.unwrap_or_default()
         && let Some(path) = &config.client.snapshot_path
     {
+        let path = &match path_as_url(path) {
+            Some(url) => PathBuf::from(snapshot::peek_url(url).await?.as_str()),
+            None => path.clone(),
+        };
         let (car_db_path, ts) = import_chain_as_forest_car(
             path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
@@ -158,11 +167,20 @@ async fn maybe_import_snapshot(
         let ts_epoch = ts.epoch();
         // Explicitly set heaviest tipset here in case HEAD_KEY has already been set
         // in the current setting store
-        ctx.state_manager.chain_store().set_heaviest_tipset(ts)?;
+        ctx.state_manager
+            .chain_store()
+            .set_heaviest_tipset(ts.shallow_clone())?;
         debug!(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
         );
+        maybe_import_extended_snapshots(
+            &ctx.state_manager,
+            &ts,
+            path,
+            &ctx.db_meta_data.get_forest_car_db_dir(),
+        )
+        .await;
     }
 
     // If the snapshot progress state is not completed,
