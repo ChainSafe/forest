@@ -539,7 +539,7 @@ impl StateManager {
     pub fn get_power(
         &self,
         state_cid: &Cid,
-        addr: Option<&Address>,
+        addr: &Address,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
@@ -548,20 +548,17 @@ impl StateManager {
         let spas = power::State::load(self.db(), actor.code, actor.state)?;
 
         let t_pow = spas.total_power();
+        let m_pow = spas
+            .miner_power(self.db(), addr)?
+            .ok_or_else(|| Error::state(format!("Miner for address {addr} not found")))?;
 
-        if let Some(maddr) = addr {
-            let m_pow = spas
-                .miner_power(self.db(), maddr)?
-                .ok_or_else(|| Error::state(format!("Miner for address {maddr} not found")))?;
-
-            let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
-                &self.chain_config().policy,
-                self.db(),
-                maddr,
-            )?;
-            if min_pow {
-                return Ok(Some((m_pow, t_pow)));
-            }
+        let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
+            &self.chain_config().policy,
+            self.db(),
+            addr,
+        )?;
+        if min_pow {
+            return Ok(Some((m_pow, t_pow)));
         }
 
         Ok(None)

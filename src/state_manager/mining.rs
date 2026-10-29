@@ -131,7 +131,7 @@ impl StateManager {
         }
 
         let (miner_power, total_power) = self
-            .get_power(&lb_state_root, Some(&addr))?
+            .get_power(&lb_state_root, &addr)?
             .context("failed to get power")?;
 
         let info = miner_state.info(self.db())?;
