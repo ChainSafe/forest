@@ -28,7 +28,7 @@ fn no_winners_prob() -> Vec<f64> {
 /// assuming at least one winner.
 fn no_winners_prob_assuming_more_than_one() -> Vec<f64> {
     let cond = (E.powf(5.0) - 1.0).log(E);
-    (0..MAX_BLOCKS)
+    (1..=MAX_BLOCKS)
         .map(|i| poiss_pdf(i as f64, MU, cond))
         .collect()
 }
@@ -113,6 +113,20 @@ fn test_block_probabilities_out_of_range_tq_is_finite() {
             bp.iter().all(|p| p.is_finite()),
             "tq={tq} produced non-finite probabilities: {bp:?}"
         );
+    }
+}
+
+// Output of Lotus v1.36.2 `blockProbabilities`, see <https://github.com/filecoin-project/lotus/blob/v1.36.2/chain/messagepool/block_proba.go#L64>
+#[cfg(test)]
+#[rstest::rstest]
+#[case(0.1, [0.0440070123080884, 0.107232915397293, 0.167319820307064, 0.192745705560447])]
+#[case(0.5, [0.151716358275208, 0.261492787787819, 0.255018463617107, 0.175406733742326])]
+#[case(0.84, [0.530463555992624, 0.329779762739726, 0.109497228207665, 0.0250793596943677])]
+fn test_block_probabilities_match_lotus(#[case] tq: f64, #[case] expected: [f64; 4]) {
+    let bp = block_probabilities(tq);
+    assert_eq!(bp.len(), MAX_BLOCKS);
+    for (got, want) in bp.iter().zip(expected) {
+        assert!((got - want).abs() < 1e-12, "{got} != {want}");
     }
 }
 

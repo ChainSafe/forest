@@ -7,7 +7,7 @@
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::message_pool::{
     Error,
-    msg_chain::{Chains, create_message_chains},
+    msg_chain::{Chains, MsgChainNode, create_message_chains},
     msgpool::{MIN_GAS, msg_pool::MessagePool},
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -130,7 +130,7 @@ where
         return Ok(msgs);
     }
 
-    chains.sort(false);
+    chains.sort();
 
     let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
     let mut i = 0;
@@ -171,7 +171,7 @@ where
         // we can't fit the current chain but there is gas to spare
         // trim it and push it down
         chains.trim_msgs_at(i, gas_limit, REPUB_MSG_LIMIT, &base_fee);
-        chains.bubble_down_after_trim(i);
+        chains.push_down(i, MsgChainNode::before);
     }
 
     if msgs.len() > REPUB_MSG_LIMIT {
@@ -184,8 +184,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message_pool::msg_chain::MsgChainNode;
-    use crate::shim::econ::TokenAmount;
+    use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
+    use crate::message_pool::msgpool::test_provider::{TestApi, mock_block};
+    use crate::shim::{crypto::SignatureType, econ::TokenAmount, message::Message};
 
     fn chains_from_perfs(perfs: &[f64]) -> Chains {
         let mut chains = Chains::new();
@@ -203,11 +204,50 @@ mod tests {
     }
 
     #[test]
-    fn bubble_down_after_trim_restores_compare_order() {
-        let mut chains = chains_from_perfs(&[1.0, 5.0, 3.0, 4.0]);
-        chains.bubble_down_after_trim(1);
+    fn push_down_restores_compare_order() {
+        let mut chains = chains_from_perfs(&[5.0, 1.0, 4.0, 3.0]);
+        chains.push_down(1, MsgChainNode::before);
         let perfs: Vec<f64> = (0..chains.len()).map(|i| chains[i].gas_perf).collect();
-        assert_eq!(perfs, vec![1.0, 3.0, 4.0, 5.0]);
+        assert_eq!(perfs, vec![5.0, 4.0, 3.0, 1.0]);
+    }
+
+    #[test]
+    fn republish_prefers_best_chains() {
+        let api = TestApi::default();
+        let mut pending = HashMap::default();
+        let mut addrs = vec![];
+        for premium in [100_000u64, 300_000, 200_000] {
+            let mut wallet = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
+            let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+            api.set_state_balance_raw(&addr, TokenAmount::from_whole(1));
+            let msgs = (0..20)
+                .map(|sequence| {
+                    let m = Message::builder()
+                        .from(addr)
+                        .sequence(sequence)
+                        .gas_limit(7_000_000)
+                        .gas_fee_cap(TokenAmount::from_atto(premium + 100))
+                        .gas_premium(TokenAmount::from_atto(premium))
+                        .build();
+                    (sequence, SignedMessage::mock_bls_signed_message(m))
+                })
+                .collect();
+            pending.insert(addr, msgs);
+            addrs.push(addr);
+        }
+        let ts = crate::blocks::Tipset::from(mock_block(1, 1));
+
+        let msgs = select_messages_to_republish(&api, &Default::default(), &ts, pending).unwrap();
+
+        // Output of Lotus v1.36.2 `republishPendingMessages` for the same pool, see <https://github.com/filecoin-project/lotus/blob/v1.36.2/chain/messagepool/repub.go#L23>
+        let senders = msgs
+            .iter()
+            .map(|m| addrs.iter().position(|a| *a == m.from()).unwrap())
+            .collect_vec();
+        assert_eq!(
+            senders,
+            [vec![1; 20], vec![2; REPUB_MSG_LIMIT - 20]].concat()
+        );
     }
 
     #[test]
