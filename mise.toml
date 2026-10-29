@@ -79,10 +79,9 @@ cargo doc --lib --no-deps --document-private-items --quiet
 
 [tasks."lint:unused-deps"]
 description = "Check for unused dependencies in Rust code."
-tools.ruby = "latest"
+tools."cargo:cargo-shear" = "1.14.0"
 run = '''
-gem install --no-document toml-rb
-ruby scripts/linters/find_unused_deps.rb
+cargo shear --deny-warnings
 '''
 
 [tasks."lint:dockerfile"]
