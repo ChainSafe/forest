@@ -69,7 +69,8 @@ mise run test:devnet
 
 Under the hood this sources `test_harness.sh`, which reads the admin token and
 the funded genesis key from the running `forest` container, exports
-`FULLNODE_API_INFO` (Forest RPC on port 3456) and `FOREST_TEST_PRELOADED_ADDRESS`,
+`FULLNODE_API_INFO` (Forest RPC on port 3456), `MINER_API_INFO` (Lotus Miner RPC on
+port 2345) and `FOREST_TEST_PRELOADED_ADDRESS`,
 then runs `forest-dev tests mpool`, `forest-dev tests wallet`,
 `forest-dev devnet eth-gas`, `forest-dev devnet eth-skip-sender`,
 `forest-dev devnet state-call` and `forest-dev devnet eth-pending-tx`.
