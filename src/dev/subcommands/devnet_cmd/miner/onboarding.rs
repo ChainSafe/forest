@@ -28,14 +28,6 @@ pub(super) fn tests() -> Vec<Trial> {
     ]
 }
 
-async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
-    Ok(client
-        .call(StateListMiners::request((ApiTipsetKey(None),))?)
-        .await?
-        .into_iter()
-        .collect())
-}
-
 async fn create_miner() -> anyhow::Result<()> {
     let net = Devnet::connect()?;
     let owner_key = Address::from_str(&FOREST_TEST_PRELOADED_ADDRESS)
@@ -98,20 +90,6 @@ async fn create_miner() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
-    let port = harness_env("FOREST_RPC_PORT")?;
-    let data_dir = harness_env("FOREST_DATA_DIR")?;
-    let script = format!(
-        "export LOTUS_MINER_PATH='{repo}' \
-         FULLNODE_API_INFO=\"$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http\" && \
-         exec lotus-miner init --owner='{owner}' --worker='{worker}' --sector-size=2KiB \
-         --no-local-storage --nosync"
-    );
-    docker(&["exec", "lotus-miner", "sh", "-c", &script])
-        .context("`lotus-miner init` against Forest failed")?;
-    Ok(())
-}
-
 /// Pledges one CC sector; the chain verifies the seal proof on prove-commit.
 async fn pledge_sector() -> anyhow::Result<()> {
     let net = Devnet::connect()?;
@@ -123,5 +101,27 @@ async fn pledge_sector() -> anyhow::Result<()> {
         .same(|tsk| StateSectorGetInfo::request((miner.actor, sector, tsk)))
         .await?
         .with_context(|| format!("sector {sector} is Proving, but the chain has no info for it"))?;
+    Ok(())
+}
+
+async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
+    Ok(client
+        .call(StateListMiners::request((ApiTipsetKey(None),))?)
+        .await?
+        .into_iter()
+        .collect())
+}
+
+fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
+    let port = harness_env("FOREST_RPC_PORT")?;
+    let data_dir = harness_env("FOREST_DATA_DIR")?;
+    let script = format!(
+        "export LOTUS_MINER_PATH='{repo}' \
+         FULLNODE_API_INFO=\"$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http\" && \
+         exec lotus-miner init --owner='{owner}' --worker='{worker}' --sector-size=2KiB \
+         --no-local-storage --nosync"
+    );
+    docker(&["exec", "lotus-miner", "sh", "-c", &script])
+        .context("`lotus-miner init` against Forest failed")?;
     Ok(())
 }
