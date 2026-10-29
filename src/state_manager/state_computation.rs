@@ -556,18 +556,17 @@ impl<'a> TipsetExecutor<'a> {
     where
         F: FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>,
     {
-        use crate::shim::clock::EPOCH_DURATION_SECONDS;
-
         let mut parent_state = *self.tipset.parent_state();
         let parent_epoch = self
             .chain_index
             .load_required_tipset(self.tipset.parents())?
             .epoch();
         let epoch = self.tipset.epoch();
+        let block_delay_secs = u64::from(self.chain_config.block_delay_secs);
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {
-                let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
+                let timestamp = genesis_timestamp + (block_delay_secs * epoch_i as u64);
                 parent_state = with_fvm_stack(|| -> anyhow::Result<Cid> {
                     let mut vm =
                         self.create_vm(parent_state, epoch_i, timestamp, null_epoch_trace)?;
@@ -647,9 +646,11 @@ impl<'a> TipsetExecutor<'a> {
 /// messages in epoch 10, we have to run cron for epoch 9. However, running
 /// 'cron' requires the timestamp of the youngest block in the tipset (which
 /// doesn't exist because there are no blocks in the tipset). Lotus dictates that
-/// the timestamp of a null tipset is `30s * epoch` after the genesis timestamp.
-/// So, in the above example, if the genesis block was mined at time `X`, the
-/// null tipset for epoch 9 will have timestamp `X + 30 * 9`.
+/// the timestamp of a null tipset is `BlockDelaySecs * epoch` after the genesis
+/// timestamp (30 seconds on mainnet/calibnet, 4 seconds on 2k/devnet). So, in
+/// the above example, if the genesis block was mined at time `X` with a
+/// 30-second block delay, the null tipset for epoch 9 will have timestamp
+/// `X + 30 * 9`.
 ///
 /// # Migrations
 ///
