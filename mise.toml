@@ -79,10 +79,9 @@ cargo doc --lib --no-deps --document-private-items --quiet
 
 [tasks."lint:unused-deps"]
 description = "Check for unused dependencies in Rust code."
-tools.ruby = "latest"
+tools."cargo:cargo-shear" = "1.14.0"
 run = '''
-gem install --no-document toml-rb
-ruby scripts/linters/find_unused_deps.rb
+cargo shear --deny-warnings
 '''
 
 [tasks."lint:dockerfile"]
@@ -244,11 +243,15 @@ forest-dev tests wallet
 
 [tasks."test:devnet"]
 description = "Run the integration test suites against a local docker devnet."
-run = "scripts/devnet/run_integration_tests.sh scripts/devnet"
+run = "scripts/devnet/with_devnet.sh scripts/devnet devnet_integration_tests"
 
 [tasks."test:devnet:forest-miner"]
 description = "Run the integration test suites against the Forest-produced local docker devnet."
-run = "scripts/devnet/run_integration_tests.sh scripts/devnet-forest-miner"
+run = "scripts/devnet/with_devnet.sh scripts/devnet-forest-miner devnet_integration_tests"
+
+[tasks."test:devnet:miner"]
+description = "Run the Lotus Miner integration tests against the Forest-produced local docker devnet."
+run = "scripts/devnet/with_devnet.sh scripts/devnet-forest-miner forest-dev devnet miner"
 
 [tasks."codecov:nextest"]
 description = "Run codecov with nextest"

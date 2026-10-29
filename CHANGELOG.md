@@ -27,15 +27,25 @@
 
 ### Breaking
 
+- [#7805](https://github.com/ChainSafe/forest/pull/7805): A devnet refuses to start when a `FOREST_*_HEIGHT` variable is not an integer or the enabled upgrades are not in increasing order, matching Lotus. Previously a bad height fell back to the default.
+
 ### Added
 
+- [#7802](https://github.com/ChainSafe/forest/pull/7802): Added `--target <EPOCH>` to `forest-cli sync wait`. The command exits once the node head reaches the given epoch.
+
+- [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
+
 ### Changed
+
+- [#7805](https://github.com/ChainSafe/forest/pull/7805): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048. An enabled upgrade below genesis keeps its own version.
 
 ### Removed
 
 ### Fixed
 
 - [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed well-connected nodes refusing all new inbound connections, including ProbeLab's crawler, once the incoming connection limit was reached. Forest now admits new peers and trims the least useful ones above `4 × target_peer_count` connections.
+
+- [#7805](https://github.com/ChainSafe/forest/pull/7805): Null tipset timestamps use the chain's block delay instead of a hard-coded 30s.
 
 ## Forest v0.39.0 "Vijayadashami"
 
