@@ -43,6 +43,8 @@
 
 ### Fixed
 
+- [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed well-connected nodes refusing all new inbound connections, including ProbeLab's crawler, once the incoming connection limit was reached. Forest now admits new peers and trims the least useful ones above `4 × target_peer_count` connections.
+
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Null tipset timestamps use the chain's block delay instead of a hard-coded 30s.
 
 ## Forest v0.39.0 "Vijayadashami"

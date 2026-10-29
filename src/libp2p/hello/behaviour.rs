@@ -20,6 +20,9 @@ use crate::libp2p::{PeerManager, service::metrics};
 
 type InnerBehaviour = request_response::Behaviour<HelloCodec>;
 
+/// How long a connected peer has to send us a hello before it is disconnected.
+pub(in crate::libp2p) const INBOUND_HELLO_WAIT_TIMEOUT: Duration = Duration::from_secs(30);
+
 pub struct HelloBehaviour {
     inner: InnerBehaviour,
     response_channels: HashMap<OutboundRequestId, flume::Sender<HelloResponse>>,
@@ -192,7 +195,6 @@ impl NetworkBehaviour for HelloBehaviour {
         }
 
         // Disconnect peers whose hello request are not received after a TIMEOUT
-        const INBOUND_HELLO_WAIT_TIMEOUT: Duration = Duration::from_secs(30);
         let now = Instant::now();
         if let Some((&peer_to_disconnect, _)) =
             self.pending_inbound_hello_peers
