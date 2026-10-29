@@ -80,7 +80,7 @@ impl StateManager {
 
     /// Retrieves miner power.
     pub fn miner_power(&self, addr: &Address, ts: &Tipset) -> Result<MinerPower, Error> {
-        if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
+        if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), addr)? {
             return Ok(MinerPower {
                 miner_power,
                 total_power,

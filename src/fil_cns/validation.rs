@@ -276,7 +276,7 @@ fn validate_winner_election(
     }
 
     let (mpow, tpow) = state_manager
-        .get_power(lookback_state, Some(&header.miner_address))?
+        .get_power(lookback_state, &header.miner_address)?
         .ok_or(FilecoinConsensusError::MinerPowerNotAvailable)?;
 
     let j = election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
