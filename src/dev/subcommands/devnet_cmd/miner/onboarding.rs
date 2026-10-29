@@ -86,7 +86,6 @@ async fn create_miner() -> anyhow::Result<()> {
         !info.peer_id.is_empty(),
         "miner {miner}: no peer ID recorded"
     );
-    // A miner without sectors is one below the consensus minimum.
     let power = at
         .same(|tsk| StateMinerPower::request((*miner, tsk)))
         .await?;
