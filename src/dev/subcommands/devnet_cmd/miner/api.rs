@@ -157,7 +157,7 @@ struct SectorStatus {
 }
 
 /// Lotus `api.SectorLog` (<https://github.com/filecoin-project/lotus/blob/v1.38.3/api/api_storage.go#L243-L250>):
-/// `message` is the marshalled event, `trace` the error text when the event carried one.
+/// `message` is the `marshalled` event, `trace` the error text when the event carried one.
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct SectorLog {
