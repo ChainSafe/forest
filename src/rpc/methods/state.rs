@@ -910,7 +910,7 @@ impl RpcMethod<2> for StateMinerPower {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
-            .miner_power(&address, &ts)
+            .get_power(ts.parent_state(), &address)
             .map_err(From::from)
     }
 }

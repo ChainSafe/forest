@@ -9,7 +9,7 @@ use crate::rpc::test_utils::chain_store_with_config;
 use crate::rpc::{DbImpl, RPCState};
 use crate::shim::actors::reward::RewardDistributionError;
 use crate::shim::machine::BuiltinActor;
-use crate::shim::sector::RegisteredSealProofV4;
+use crate::shim::sector::{RegisteredPoStProofV4, RegisteredSealProofV4};
 use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
 use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::utils::db::CborStoreExt as _;
@@ -205,7 +205,6 @@ impl PledgeInputs {
     }
 }
 
-/// Must be called from a Tokio context: the message pool spawns background tasks.
 fn build_ctx(
     config: ChainConfig,
     epoch: ChainEpoch,
@@ -214,6 +213,13 @@ fn build_ctx(
 ) -> (Ctx, Tipset) {
     let chain_store = chain_store_with_config(config);
     let state_root = inputs.write_state_tree(&chain_store, epoch, omit);
+    ctx_over(chain_store, epoch, state_root)
+}
+
+/// A context whose head is one block at `epoch` with `state_root` as its parent state.
+///
+/// Must be called from a Tokio context: the message pool spawns background tasks.
+fn ctx_over(chain_store: ChainStore, epoch: ChainEpoch, state_root: Cid) -> (Ctx, Tipset) {
     let blocks = Chain4U::with_blockstore(chain_store.db_owned());
     let mut header = HeaderBuilder::new();
     header.with_epoch(epoch).with_state_root(state_root);
@@ -222,6 +228,50 @@ fn build_ctx(
     chain_store.set_heaviest_tipset(head.clone()).unwrap();
     let (ctx, _network_rx) = RPCState::for_tests(chain_store).unwrap();
     (ctx, head)
+}
+
+/// A calibnet context whose power actor holds exactly `claims` (raw power, also used as the QA
+/// power), with the network total summed from them. Enough miners are counted above the minimum
+/// that the actor's small-network rule, which lets any positive power qualify, is off.
+fn ctx_with_power_claims(claims: &[(Address, StoragePower)]) -> Ctx {
+    use fil_actor_power_state::v18::{
+        CLAIMS_CONFIG, CONSENSUS_MINER_MIN_MINERS, Claim, ClaimsMap, State, set_claim,
+    };
+
+    let chain_store = chain_store_with_config(ChainConfig::calibnet());
+    let store = chain_store.db();
+    let mut map = ClaimsMap::empty(store, CLAIMS_CONFIG, "claims");
+    for (miner, power) in claims {
+        let claim = Claim {
+            window_post_proof_type: RegisteredPoStProofV4::StackedDRGWindow32GiBV1P1,
+            raw_byte_power: power.clone(),
+            quality_adj_power: power.clone(),
+        };
+        set_claim(&mut map, &(*miner).into(), claim).unwrap();
+    }
+    let total: StoragePower = claims.iter().map(|(_, power)| power).sum();
+    let power_state = power::State::V18(State {
+        claims: map.flush().unwrap(),
+        total_raw_byte_power: total.clone(),
+        total_quality_adj_power: total,
+        miner_above_min_power_count: CONSENSUS_MINER_MIN_MINERS,
+        ..Default::default()
+    });
+
+    let mut tree = StateTree::new(store, StateTreeVersion::V5).unwrap();
+    tree.set_actor(
+        &Address::POWER_ACTOR,
+        ActorState::new(
+            fixture_bundle().manifest.get(BuiltinActor::Power).unwrap(),
+            store.put_cbor_default(&power_state).unwrap(),
+            TokenAmount::zero(),
+            0,
+            None,
+        ),
+    )
+    .unwrap();
+    let state_root = tree.flush().unwrap();
+    ctx_over(chain_store, FIXTURE_EPOCH, state_root).0
 }
 
 fn ctx_at(config: ChainConfig, epoch: ChainEpoch, inputs: &PledgeInputs) -> (Ctx, Tipset) {
@@ -640,4 +690,45 @@ async fn reward_distribution_at_epoch_0_has_no_blocks() {
     assert_eq!(distribution.height, 0);
     assert!(distribution.blocks.is_empty());
     assert_eq!(distribution.totals, RewardAmounts::default());
+}
+
+/// The three answers of Lotus's `GetPowerRaw`, in quarters of the consensus minimum: the claim is
+/// reported whether or not it meets the minimum, and an address without a claim has zero power.
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.1/chain/stmgr/actors.go#L59-L91>
+#[rstest]
+#[case::meets_the_minimum(1000, 8, true)]
+#[case::below_the_minimum(1001, 1, false)]
+#[case::no_claim(1002, 0, false)]
+#[tokio::test]
+async fn miner_power_reports_the_claim_below_the_minimum(
+    #[case] miner: u64,
+    #[case] quarters: u32,
+    #[case] has_min_power: bool,
+) {
+    let quarter: StoragePower = &ChainConfig::calibnet().policy.minimum_consensus_power / 4;
+    let claim = |quarters: u32| power::Claim {
+        raw_byte_power: &quarter * quarters,
+        quality_adj_power: &quarter * quarters,
+    };
+    let ctx = ctx_with_power_claims(&[
+        (Address::new_id(1000), &quarter * 8u32),
+        (Address::new_id(1001), quarter.clone()),
+    ]);
+
+    let power = StateMinerPower::handle(
+        ctx,
+        (Address::new_id(miner), ApiTipsetKey(None)),
+        &Default::default(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        power,
+        MinerPower {
+            miner_power: claim(quarters),
+            total_power: claim(9),
+            has_min_power,
+        }
+    );
 }

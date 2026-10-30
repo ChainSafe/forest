@@ -827,7 +827,7 @@ impl MinerInfo {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct MinerPower {
     pub miner_power: Claim,
     pub total_power: Claim,

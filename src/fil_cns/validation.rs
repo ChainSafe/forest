@@ -275,11 +275,12 @@ fn validate_winner_election(
         return Err(FilecoinConsensusError::InvalidOrSlashedMiner);
     }
 
-    let (mpow, tpow) = state_manager
-        .get_power(lookback_state, Some(&header.miner_address))?
-        .ok_or(FilecoinConsensusError::MinerPowerNotAvailable)?;
+    let power = state_manager.get_power(lookback_state, &header.miner_address)?;
 
-    let j = election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
+    let j = election_proof.compute_win_count(
+        &power.miner_power.quality_adj_power,
+        &power.total_power.quality_adj_power,
+    );
 
     if election_proof.win_count != j {
         return Err(FilecoinConsensusError::MinerWinClaimsIncorrect(
