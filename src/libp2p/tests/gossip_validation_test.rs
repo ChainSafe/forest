@@ -10,6 +10,7 @@ use crate::{
     blocks::{CachingBlockHeader, GossipBlock, RawBlockHeader},
     libp2p::{
         NetworkEvent, PubsubMessage, PubsubTopic,
+        drand::test_utils::assert_verdict,
         service::{Verdict, handle_gossip_event},
     },
     message::SignedMessage,
@@ -23,16 +24,7 @@ use crate::{
 
 const NETWORK: &str = "testgossipvalidation";
 
-// `MessageAcceptance` doesn't implement `PartialEq`.
-fn assert_verdict(actual: &MessageAcceptance, expected: MessageAcceptance) {
-    assert_eq!(
-        std::mem::discriminant(actual),
-        std::mem::discriminant(&expected),
-        "verdict {actual:?}, expected {expected:?}"
-    );
-}
-
-fn gossip_message_event(data: Vec<u8>, topic: TopicHash) -> gossipsub::Event {
+pub(super) fn gossip_message_event(data: Vec<u8>, topic: TopicHash) -> gossipsub::Event {
     gossipsub::Event::Message {
         propagation_source: PeerId::random(),
         message_id: MessageId::new(b"test"),
@@ -112,6 +104,7 @@ async fn filecoin_gossip_verdicts(
         &tx,
         &block_topic,
         &msg_topic,
+        None,
     )
     .await
     .expect("an immediate verdict");
