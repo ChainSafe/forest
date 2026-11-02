@@ -563,8 +563,7 @@ jobs:
           df -h
   # Umbrella job to aggregate all integration tests and get their status
   integration-tests-status:
-    # Runs after a failed or skipped job too: a required check that is skipped counts as passing, see
-    # <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks>
+    # Runs after a failed or skipped job too: a required check that is skipped counts as passing
     if: ${{ !cancelled() }}
     needs:
       - build-macos
