@@ -45,8 +45,60 @@ The default peer count is likely too small for a bootstrap node. You can set the
 example:
 
 ```bash
-forest --stateless --target-peer-count 10000
+forest --stateless --target-peer-count 5000
 ```
+
+The target peer count controls more than the number of peers Forest dials:
+
+- Forest keeps discovering and dialing new peers while it has fewer than
+  `target-peer-count` peers. With a large value, a bootstrap node keeps dialing
+  every peer it discovers.
+- Above `4 × target-peer-count` connections, Forest disconnects the least useful
+  peers, down to `3 × target-peer-count`. It never refuses new peers because of
+  this. Peers connected for less than 30 seconds, bootstrap peers, peers
+  protected via `Filecoin.NetProtectAdd` and gossipsub mesh peers are never
+  disconnected, so the total can stay above `4 × target-peer-count`, for example
+  during a burst of new connections.
+- Incoming connections are refused only above `8 × target-peer-count`, as a
+  safety limit.
+
+With `--target-peer-count 5000`, trimming starts at 20,000 connections, which a
+bootstrap node is unlikely to reach. Size the machine's memory and file
+descriptor limits for the number of connections you expect, as each connection
+uses memory.
+
+## Network reachability
+
+A bootstrap node must be reachable at the addresses listed in the clients'
+bootstrap lists. Listen on fixed ports for both TCP and QUIC. Setting
+`--p2p-listen-address` replaces the default listen addresses, so pass both:
+
+```bash
+forest --stateless \
+  --p2p-listen-address /ip4/0.0.0.0/tcp/34000 \
+  --p2p-listen-address /ip4/0.0.0.0/udp/34000/quic-v1
+```
+
+QUIC runs over UDP, so the firewall must allow both TCP and UDP on the port.
+Many clients, including Lotus, prefer QUIC when dialing, so a node that is
+reachable over TCP only still slows down every peer that bootstraps from it.
+
+If a host has its own `iptables` rules next to `ufw`, check their order with
+`sudo iptables-save`. A `DROP` rule in the `INPUT` chain placed before the jump
+to the `ufw` chains makes `ufw allow 34000/udp` ineffective, even though
+`ufw status` lists the port as allowed. Connections that the node itself
+initiated still work in that case, so QUIC can look healthy for a few minutes
+after a restart and then stop accepting new peers.
+
+Verify reachability from a different machine, over both transports:
+
+```bash
+forest-tool net ping -c 2 /ip4/<public-ip>/tcp/34000/p2p/<peer-id>
+forest-tool net ping -c 2 /ip4/<public-ip>/udp/34000/quic-v1/p2p/<peer-id>
+```
+
+Both commands must report a `Pong`. The peer ID is printed in the logs at
+startup (`p2p network peer id`).
 
 ## Migrating from/to Lotus
 
