@@ -400,6 +400,8 @@ uninlined_format_args = "warn"
 or_fun_call = "warn"
 assigning_clones = "warn"
 stable_sort_primitive = "warn"
+# Clippy 1.99 fires on `derive_more::Constructor` output (`field: field`), see https://github.com/JelteF/derive_more/pull/560; hand-written cases are covered by rustfmt `use_field_init_shorthand`.
+redundant_field_names = "allow"
 
 [workspace]
 members = ["interop-tests"]
