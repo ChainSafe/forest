@@ -26,7 +26,9 @@ Make a pull request with the following changes:
 - Make sure to run `cargo publish --dry-run` and include the `Cargo.lock` crate
   version change in the release.
 - Make sure to update RPC specs by running `mise insta`
-- The Pull Request must have the `Release` label.
+- The Pull Request must have the `Release` label. It runs every label-gated check:
+  the calibnet RPC and wallet checks, the snapshot export checks, the miner tests
+  and the external RPC checks on both calibnet and mainnet.
 
 ## Release on GitHub
 

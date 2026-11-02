@@ -1,7 +1,6 @@
 name: Integration tests
 permissions:
   contents: read
-  issues: write
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -207,7 +206,7 @@ jobs:
       - run: ./scripts/tests/calibnet_stateless_rpc_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'Wallet') }}
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'Wallet') || contains(github.event.pull_request.labels.*.name, 'Release') }}
     needs:
       - build-ubuntu
     name: Wallet tests
@@ -536,7 +535,7 @@ jobs:
         if: always()
         uses: jwalton/gh-docker-logs@v2
   calibnet-rpc-checks:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'RPC') }}
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'RPC') || contains(github.event.pull_request.labels.*.name, 'Release') }}
     needs:
       - build-ubuntu
     name: Calibnet RPC checks
@@ -564,6 +563,9 @@ jobs:
           df -h
   # Umbrella job to aggregate all integration tests and get their status
   integration-tests-status:
+    # Runs after a failed or skipped job too: a required check that is skipped counts as passing, see
+    # <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks>
+    if: ${{ !cancelled() }}
     needs:
       - build-macos
       - build-ubuntu
@@ -579,29 +581,38 @@ jobs:
       - local-devnet-check
       - bootstrap-checks-forest
       - bootstrap-checks-lotus
-    name: Integration tests status
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "All integration tests passed."
-
-  extra_tests:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
-    runs-on: ubuntu-24.04
-    needs:
+      - calibnet-rpc-checks
+      - calibnet-wallet-check
       - calibnet-export-check-v1
       - calibnet-export-check-v2
       - calibnet-export-diff-check
-    name: Additional integration tests status
+    name: Integration tests status
+    runs-on: ubuntu-24.04
     steps:
-      - run: echo "All extra integration tests passed."
+      - name: Fail on any failed or cancelled integration test
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
+      - run: echo "All integration tests passed."
+
+  # One issue per failed scheduled run.
+  report-failure:
+    name: Report failure
+    permissions:
+      contents: read
+      issues: write
+    needs: integration-tests-status
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Set WORKFLOW_URL
-        if: always()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           echo "${WORKFLOW_URL}"
           echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
       - uses: JasonEtco/create-an-issue@v2
-        if: github.ref == 'refs/heads/main' && failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
