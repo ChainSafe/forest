@@ -206,7 +206,10 @@ jobs:
       - run: ./scripts/tests/calibnet_stateless_rpc_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-wallet-check:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'Wallet') || contains(github.event.pull_request.labels.*.name, 'Release') }}
+    # Needs the `CALIBNET_WALLET` secret, which pull requests from forks do not get.
+    if: |-
+      ${{ (contains(github.event.pull_request.labels.*.name, 'Wallet') || contains(github.event.pull_request.labels.*.name, 'Release'))
+      && github.event.pull_request.head.repo.full_name == github.repository }}
     needs:
       - build-ubuntu
     name: Wallet tests
@@ -246,10 +249,7 @@ jobs:
       - name: Wallet commands check
         env:
           CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
-        run: |
-          if [[ "$CALIBNET_WALLET" != "" ]]; then
-            mise run test:wallet "$CALIBNET_WALLET"
-          fi
+        run: mise run test:wallet "$CALIBNET_WALLET"
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
@@ -379,7 +379,10 @@ jobs:
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-api-test-stateful:
-    if: github.event.pull_request.draft == false
+    # Needs the `CALIBNET_T4_WALLET` secret, which pull requests from forks do not get.
+    if: |-
+      ${{ github.event.pull_request.draft == false
+      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     concurrency:
       group: calibnet-api-test-stateful
       cancel-in-progress: false
@@ -404,10 +407,7 @@ jobs:
       - name: Api test stateful check
         env:
           CALIBNET_T4_WALLET: "${{ secrets.CALIBNET_T4_WALLET }}"
-        run: |
-          if [[ "$CALIBNET_T4_WALLET" != "" ]]; then
-            ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_T4_WALLET"
-          fi
+        run: ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_T4_WALLET"
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
     needs:
