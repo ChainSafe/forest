@@ -5,7 +5,7 @@
 //! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
 
 use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
-use crate::rpc::{ApiPaths, Client, Request, humanize_rpc_error};
+use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
 use crate::utils::UrlFromMultiAddr;
 use anyhow::{Context as _, bail};
@@ -14,15 +14,16 @@ use serde::Deserialize;
 use serde::de::{DeserializeOwned, IgnoredAny};
 use serde_json::json;
 use std::str::FromStr as _;
+use std::sync::atomic::{AtomicU8, Ordering};
 
-/// A `lotus-miner` whose full node is Forest: its actor on chain and its API.
+/// The miner's on-chain actor and its API.
 pub(super) struct TestMiner {
     pub actor: Address,
     pub api: MinerApi,
 }
 
 impl TestMiner {
-    /// Returns the genesis miner the compose devnet runs, from `MINER_ACTOR_ADDRESS` and `MINER_API_INFO`.
+    /// Returns the genesis miner the compose devnet runs.
     pub fn genesis() -> anyhow::Result<Self> {
         let raw = harness_env("MINER_ACTOR_ADDRESS")?;
         let actor = Address::from_str(&raw)
@@ -34,11 +35,11 @@ impl TestMiner {
     }
 }
 
-/// The Lotus Miner API (`/rpc/v0`) with the admin token that flushing the sealing batches needs.
+/// The Lotus Miner API; its token must be admin, since the batch flushes are admin methods.
 pub(super) struct MinerApi(Client);
 
 impl MinerApi {
-    /// Connects to `MINER_API_INFO` (`<token>:<multiaddr>`, the shape of Lotus's own variable).
+    /// Connects to `MINER_API_INFO`.
     pub fn connect() -> anyhow::Result<Self> {
         let raw = harness_env("MINER_API_INFO")?;
         let UrlFromMultiAddr(url) = raw.parse().context("parsing MINER_API_INFO")?;
@@ -50,12 +51,12 @@ impl MinerApi {
         method: &'static str,
         params: serde_json::Value,
     ) -> anyhow::Result<T> {
-        let result: serde_json::Value = self
-            .0
-            .call(Request::new(method, params, ApiPaths::V0))
-            .await
-            .with_context(|| format!("Lotus Miner {method}"))
-            .map_err(humanize_rpc_error)?;
+        let result: serde_json::Value = super::call(
+            &self.0,
+            "Lotus Miner",
+            Request::new(method, params, ApiPaths::V0),
+        )
+        .await?;
         serde_json::from_value(result)
             .with_context(|| format!("decoding the Lotus Miner {method} result"))
     }
@@ -71,7 +72,8 @@ impl MinerApi {
             .await
     }
 
-    /// Flushes the pre-commit and commit batches, which Lotus may otherwise hold for up to a day.
+    /// Flushes the pre-commit and commit batches, which Lotus may otherwise hold for up to a day
+    /// (<https://github.com/filecoin-project/lotus/blob/v1.38.3/node/config/def.go#L129-L137>).
     async fn flush_sealing_batches(&self) -> anyhow::Result<()> {
         for method in [
             "Filecoin.SectorPreCommitFlush",
@@ -82,19 +84,19 @@ impl MinerApi {
         Ok(())
     }
 
-    /// Waits until `sector` is `Proving`, flushing the sealing batches on every poll.
-    ///
-    /// # Errors
-    /// The sector enters a state that never leads to `Proving`, or the poll budget passes; both
-    /// errors carry the sector log, whose trace lines hold Lotus's error text.
+    /// Waits until `sector` is `Proving` or `Available`, flushing the sealing batches on every
+    /// poll; a state that never leads to `Proving` fails at once.
     pub async fn wait_until_proving(&self, sector: u64) -> anyhow::Result<()> {
+        // `poll` logs every attempt, so the state is printed only when it changes.
+        let last_state = AtomicU8::new(u8::MAX);
         let waited = poll(&format!("sector {sector} to reach Proving"), || async {
             self.flush_sealing_batches().await?;
             let status = self.sectors_status(sector).await?;
-            eprintln!("sector {sector} state: {:?}", status.state);
+            if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
+                eprintln!("sector {sector} state: {:?}", status.state);
+            }
             match status.state {
                 SectorState::Proving | SectorState::Available => Ok(Some(())),
-                // Never reaches Proving from these.
                 SectorState::FailedUnrecoverable
                 | SectorState::PackingFailed
                 | SectorState::DealsExpired
@@ -156,8 +158,8 @@ struct SectorStatus {
     log: Vec<SectorLog>,
 }
 
-/// Lotus `api.SectorLog` (<https://github.com/filecoin-project/lotus/blob/v1.38.3/api/api_storage.go#L243-L250>):
-/// `message` is the `marshalled` event, `trace` the error text when the event carried one.
+/// Lotus `api.SectorLog` (<https://github.com/filecoin-project/lotus/blob/v1.38.3/api/api_storage.go#L243-L250>);
+/// `trace` is the error text when the event carried one.
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct SectorLog {
@@ -168,8 +170,7 @@ struct SectorLog {
 
 /// Lotus `api.SectorState`
 /// (<https://github.com/filecoin-project/lotus/blob/v1.38.3/storage/pipeline/sector_state.go#L74-L157>).
-/// Unknown values fail to decode.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 enum SectorState {
     /// A new sector, before Lotus processes its first event.
     #[serde(rename = "")]

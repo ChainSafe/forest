@@ -9,9 +9,12 @@ mod devnet;
 mod onboarding;
 
 use crate::dev::subcommands::tests_cmd::helpers::harness_env;
-use anyhow::ensure;
+use crate::lotus_json::HasLotusJson;
+use crate::rpc::{Client, Request, humanize_rpc_error};
+use anyhow::{Context as _, ensure};
 use clap::ValueEnum as _;
 use libtest_mimic::{Arguments, Trial};
+use std::fmt::Debug;
 use std::path::Path;
 
 /// Lotus Miner integration tests on Forest (`scripts/devnet-forest-miner` only)
@@ -54,4 +57,18 @@ fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
     }
+}
+
+/// Calls `request` on `node`, naming the node and the method in the error.
+async fn call<T: HasLotusJson + Debug>(
+    client: &Client,
+    node: &str,
+    request: Request<T>,
+) -> anyhow::Result<T> {
+    let method = request.method_name.clone();
+    client
+        .call(request)
+        .await
+        .with_context(|| format!("{node} {method}"))
+        .map_err(humanize_rpc_error)
 }

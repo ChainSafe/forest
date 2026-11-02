@@ -1,17 +1,15 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! The two full nodes of the devnet and the pinned comparison the trials assert with: Forest
-//! answers, and Lotus, which validates the chain Forest produces, must answer the same.
-
+use super::call;
 use crate::blocks::Tipset;
 use crate::dev::subcommands::tests_cmd::helpers::{forest_client, lotus_client, poll};
 use crate::lotus_json::HasLotusJson;
 use crate::rpc::prelude::*;
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{Client, Request, humanize_rpc_error};
+use crate::rpc::{Client, Request};
 use crate::tool::subcommands::api_cmd::generate_diff;
-use anyhow::{Context as _, bail, ensure};
+use anyhow::{bail, ensure};
 use std::fmt::Debug;
 
 /// Forest under test and the Lotus node that validates the chain Forest produces.
@@ -28,17 +26,21 @@ impl Devnet {
         })
     }
 
-    /// Waits until Lotus has Forest's current head and returns that head as the tipset to compare at.
-    ///
-    /// # Errors
-    /// Lotus holds a different tipset at Forest's head epoch, or has marked one of its blocks bad;
-    /// both fail at once instead of retrying, since they mean Lotus rejected what Forest produced.
-    /// Lotus not reaching that epoch within the poll budget also fails.
+    /// Waits until Lotus has Forest's current head, failing at once if Lotus rejected one of
+    /// Forest's blocks, and returns that head as the tipset to compare at.
     pub async fn synced(&self) -> anyhow::Result<At<'_>> {
         let head = call(&self.forest, "forest", ChainHead::request(())?).await?;
         poll(
             &format!("lotus to reach epoch {}", head.epoch()),
             || async {
+                for cid in head.cids() {
+                    let reason = call(&self.lotus, "lotus", SyncCheckBad::request((cid,))?).await?;
+                    ensure!(
+                        reason.is_empty(),
+                        "Lotus rejected Forest block {cid} at epoch {}: {reason}",
+                        head.epoch()
+                    );
+                }
                 let lotus_head = call(&self.lotus, "lotus", ChainHead::request(())?).await?;
                 Ok((lotus_head.epoch() >= head.epoch()).then_some(()))
             },
@@ -57,14 +59,6 @@ impl Devnet {
             head.key(),
             lotus_at_height.key()
         );
-        for cid in head.cids() {
-            let reason = call(&self.lotus, "lotus", SyncCheckBad::request((cid,))?).await?;
-            ensure!(
-                reason.is_empty(),
-                "Lotus rejected Forest block {cid} at epoch {}: {reason}",
-                head.epoch()
-            );
-        }
         Ok(At { devnet: self, head })
     }
 }
@@ -77,9 +71,6 @@ pub(super) struct At<'a> {
 
 impl At<'_> {
     /// Calls the request, built with this tipset's key, on both nodes and returns the answer they agree on.
-    ///
-    /// # Errors
-    /// Either node fails the call, or the answers differ; the message then carries a line diff of the two.
     pub async fn same<T>(
         &self,
         request: impl Fn(ApiTipsetKey) -> serde_json::Result<Request<T>>,
@@ -107,18 +98,4 @@ impl At<'_> {
             self.head.epoch()
         )
     }
-}
-
-/// Calls `request` on `node`, naming the node and the method in the error.
-async fn call<T: HasLotusJson + Debug>(
-    client: &Client,
-    node: &str,
-    request: Request<T>,
-) -> anyhow::Result<T> {
-    let method = request.method_name.clone();
-    client
-        .call(request)
-        .await
-        .with_context(|| format!("{node} {method}"))
-        .map_err(humanize_rpc_error)
 }
