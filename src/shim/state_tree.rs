@@ -446,7 +446,14 @@ where
 )]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct ActorState(ActorState_latest);
+pub struct ActorState(
+    // Upstream's balance generator exceeds the CBOR size limit.
+    #[cfg_attr(test, arbitrary(gen(|g| ActorState_latest {
+        balance: TokenAmount::arbitrary(g).into(),
+        ..quickcheck::Arbitrary::arbitrary(g)
+    })))]
+    ActorState_latest,
+);
 
 impl ActorState {
     pub fn new(

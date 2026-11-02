@@ -37,11 +37,15 @@
 
 ### Changed
 
+- [#7833](https://github.com/ChainSafe/forest/pull/7833): Big integers in JSON-RPC parameters must fit the 1016-bit limit of their CBOR encoding. Larger values are rejected when the request is decoded.
+
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048. An enabled upgrade below genesis keeps its own version.
 
 ### Removed
 
 ### Fixed
+
+- [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
 
 - [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed well-connected nodes refusing all new inbound connections, including ProbeLab's crawler, once the incoming connection limit was reached. Forest now admits new peers and trims the least useful ones above `4 × target_peer_count` connections.
 
