@@ -154,6 +154,7 @@ where
     let hamt: Hamt<_, TipsetKey, ChainEpoch> =
         Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
             .context("failed to load tipset lookup HAMT")?;
+    info!("Validating tipset lookup entries against the chain, this can take a while");
     hamt.for_each_cacheless(|&epoch, tsk| {
         anyhow::ensure!(
             ChainIndex::is_tipset_lookup_checkpoint(epoch),
@@ -165,7 +166,9 @@ where
             "epochs do not match, {epoch} in hamt, {} in database",
             ts.epoch()
         );
-
+        Ok(())
+    })?;
+    hamt.for_each_cacheless(|&epoch, tsk| {
         db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
         on_imported();
         Ok(())
