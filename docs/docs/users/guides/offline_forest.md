@@ -108,33 +108,6 @@ curl --silent -X POST -H "Content-Type: application/json" \
              "http://127.0.0.1:2345/rpc/v0" | jq
 ```
 
-Sample output:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "result": {
-    "NetworkName": "localnet-55c7758d-c91a-41eb-94a2-718cb4601bc5",
-    "BlockDelaySecs": 4,
-    "ConsensusMinerMinPower": "2040",
-    "SupportedProofTypes": [
-      0,
-      1
-    ],
-    "PreCommitChallengeDelay": 10,
-    "ForkUpgradeParams": {
-      "UpgradeSmokeHeight": -2,
-      ...
-      "UpgradeWaffleHeight": 18
-    },
-    "Eip155ChainID": 31415926
-  }
-}
-```
-
-Note that the network name will vary depending on the genesis file used.
-
 ⚠️ The offline server is unable to append blocks to the chain at the moment of
 writing. See [#4598](https://github.com/ChainSafe/forest/issues/4598) for
 details and updates. This means that starting the server only with a genesis

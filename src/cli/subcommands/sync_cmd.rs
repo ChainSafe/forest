@@ -5,6 +5,7 @@ use crate::blocks::TipsetKey;
 use crate::chain_sync::{NodeSyncStatus, SyncStatusReport};
 use crate::rpc::sync::{SnapshotProgressState, SyncStatus};
 use crate::rpc::{self, prelude::*};
+use crate::shim::clock::ChainEpoch;
 use anyhow::Context;
 use cid::Cid;
 use clap::Subcommand;
@@ -18,11 +19,15 @@ use tokio::time::sleep;
 
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {
-    /// Display continuous sync data until sync is complete
+    /// Display continuous sync data until sync is complete or until --target is reached
     Wait {
         /// Don't exit after node is synced
         #[arg(short)]
         watch: bool,
+
+        /// Exit once the node reaches the given chain epoch
+        #[arg(long, conflicts_with = "watch", value_name = "EPOCH")]
+        target: Option<ChainEpoch>,
     },
     /// Check sync status
     Status,
@@ -43,7 +48,7 @@ pub enum SyncCommands {
 impl SyncCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
-            Self::Wait { watch } => {
+            Self::Wait { watch, target } => {
                 let mut term = Term::buffered_stdout();
                 let mut last_term_frame: Option<(usize, (u16, u16))> = None;
 
@@ -70,9 +75,11 @@ impl SyncCommands {
                     last_term_frame = Some((rows, size));
                     term.flush()?;
 
-                    // Exit if synced and not in watch mode.
-                    if !watch && report.status == NodeSyncStatus::Synced {
-                        writeln!(term, "\nSync complete!")?;
+                    if is_wait_done(&report, watch, target) {
+                        match target {
+                            Some(target) => writeln!(term, "\nReached target epoch {target}!")?,
+                            None => writeln!(term, "\nSync complete!")?,
+                        }
                         term.flush()?;
                         break;
                     }
@@ -265,6 +272,16 @@ async fn wait_for_node_to_start_syncing(client: &rpc::Client) -> anyhow::Result<
     Ok(())
 }
 
+// returns true if we reached a target or node is synced and watch is false
+fn is_wait_done(report: &SyncStatusReport, watch: bool, target: Option<ChainEpoch>) -> bool {
+    match target {
+        // Exit if we reach a given target
+        Some(target) => report.current_head_epoch >= target,
+        // Exit if synced and not in watch mode.
+        None => !watch && report.status == NodeSyncStatus::Synced,
+    }
+}
+
 /// Checks if a snapshot download is required or in progress when the node is initializing.
 /// If a snapshot download is in progress, it waits for completion before starting the sync monitor.
 async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<()> {
@@ -283,4 +300,31 @@ async fn handle_initial_snapshot_check(client: &rpc::Client) -> anyhow::Result<(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::synced_below_target(NodeSyncStatus::Synced, 9, false, Some(10), false)]
+    #[case::target_reached_while_syncing(NodeSyncStatus::Syncing, 10, false, Some(10), true)]
+    #[case::synced(NodeSyncStatus::Synced, 10, false, None, true)]
+    #[case::synced_while_watching(NodeSyncStatus::Synced, 10, true, None, false)]
+    #[case::syncing(NodeSyncStatus::Syncing, 10, false, None, false)]
+    fn test_is_wait_done(
+        #[case] status: NodeSyncStatus,
+        #[case] current_head_epoch: ChainEpoch,
+        #[case] watch: bool,
+        #[case] target: Option<ChainEpoch>,
+        #[case] expected: bool,
+    ) {
+        let report = SyncStatusReport {
+            status,
+            current_head_epoch,
+            ..Default::default()
+        };
+        assert_eq!(is_wait_done(&report, watch, target), expected);
+    }
 }

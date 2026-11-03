@@ -665,7 +665,7 @@ Inspect or interact with the chain synchronizer
 Usage: forest-cli sync <COMMAND>
 
 Commands:
-  wait       Display continuous sync data until sync is complete
+  wait       Display continuous sync data until sync is complete or until --target is reached
   status     Check sync status
   check-bad  Check if a given block is marked bad, and for what reason
   mark-bad   Mark a given block as bad
@@ -678,13 +678,14 @@ Options:
 ### `forest-cli sync wait`
 
 ```
-Display continuous sync data until sync is complete
+Display continuous sync data until sync is complete or until --target is reached
 
 Usage: forest-cli sync wait [OPTIONS]
 
 Options:
-  -w          Don't exit after node is synced
-  -h, --help  Print help
+  -w                    Don't exit after node is synced
+      --target <EPOCH>  Exit once the node reaches the given chain epoch
+  -h, --help            Print help
 ```
 
 ### `forest-cli sync status`

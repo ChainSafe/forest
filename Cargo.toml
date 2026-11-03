@@ -385,6 +385,12 @@ required-features = ["benchmark-private"]
 # See https://docs.rs/about/metadata
 rustdoc-args = ["--document-private-items"]
 
+[package.metadata.cargo-shear]
+# Declared through the `decl_and_test!` macro, which cargo-shear cannot see. Update this when adding new types to the `lotus_json` module.
+ignored-paths = [
+  "src/lotus_json/{actor_state,address,beacon_entry,big_int,block_header,cid,duration,percent,election_proof,extended_sector_info,gossip_block,key_info,message,po_st_proof,registered_po_st_proof,registered_seal_proof,sector_info,sector_size,signature,signature_type,signed_message,ticket,tipset_keys,token_amount,vec_u8,vrf_proof}.rs",
+]
+
 [workspace.lints.clippy]
 ref_option = "deny"
 ref_option_ref = "deny"

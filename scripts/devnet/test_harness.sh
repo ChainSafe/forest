@@ -1,6 +1,5 @@
 #!/bin/bash
-# Sourced (not executed) helpers for the devnet test suites (wallet, mpool,
-# eth-gas, eth-skip-sender) on the docker devnet. Run after the devnet is up (`setup.sh`) and synced (`check.sh`).
+# Sourced (not executed) helpers for the devnet test suites. Run after the devnet is up (`setup.sh`) and synced (`check.sh`).
 #
 # The genesis key is the Lotus miner's default wallet, so using it as the test
 # sender causes nonce contention. We fund a dedicated wallet instead.
@@ -60,4 +59,14 @@ function devnet_test_env_init {
 
   ${FOREST_CLI_PATH} chain head
   echo "  balance=${balance}"
+}
+
+# The integration suites shared by both devnets. Run after `devnet_test_env_init`.
+function devnet_integration_tests {
+  forest-dev tests mpool
+  forest-dev tests wallet
+  forest-dev devnet eth-gas
+  forest-dev devnet eth-skip-sender
+  forest-dev devnet state-call
+  forest-dev devnet eth-pending-tx
 }

@@ -1,9 +1,13 @@
 #!/bin/bash
-# Bring up the devnet in $1, run the integration suites against it over Forest's
-# RPC, and tear it down on exit. Shared by both the lotus- and forest-produced devnets.
+# Bring up the devnet in $1, run the remaining arguments against it, and tear it down on exit.
 set -euo pipefail
 
-DEVNET_DIR="${1:?usage: run_integration_tests.sh <devnet-dir>}"
+if [[ $# -lt 2 ]]; then
+  echo "usage: with_devnet.sh <devnet-dir> <command...>" >&2
+  exit 1
+fi
+DEVNET_DIR="$1"
+shift
 export DEVNET_DIR
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -18,9 +22,4 @@ popd >/dev/null
 
 source ./scripts/devnet/test_harness.sh
 devnet_test_env_init
-forest-dev tests mpool
-forest-dev tests wallet
-forest-dev devnet eth-gas
-forest-dev devnet eth-skip-sender
-forest-dev devnet state-call
-forest-dev devnet eth-pending-tx
+"$@"
