@@ -3,14 +3,19 @@
 
 use super::call;
 use crate::blocks::Tipset;
-use crate::dev::subcommands::tests_cmd::helpers::{forest_client, lotus_client, poll};
+use crate::dev::subcommands::tests_cmd::helpers::{
+    forest_client, lotus_client, poll, poll_until_message_executed, poll_with,
+};
 use crate::lotus_json::HasLotusJson;
 use crate::rpc::prelude::*;
-use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{Client, Request};
+use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::{Client, LOOKBACK_NO_LIMIT, Request};
+use crate::shim::clock::ChainEpoch;
 use crate::tool::subcommands::api_cmd::generate_diff;
-use anyhow::{bail, ensure};
+use anyhow::{Context as _, bail, ensure};
+use cid::Cid;
 use std::fmt::Debug;
+use std::time::Duration;
 
 /// Forest under test and the Lotus node that validates the chain Forest produces.
 pub(super) struct Devnet {
@@ -60,6 +65,37 @@ impl Devnet {
             lotus_at_height.key()
         );
         Ok(At { devnet: self, head })
+    }
+
+    /// Waits until Forest's head reaches `epoch`, then returns [`Self::synced`].
+    pub async fn wait_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<At<'_>> {
+        let version = call(&self.forest, "forest", Version::request(())?).await?;
+        let block_delay = Duration::from_secs(version.block_delay.into());
+        let head = call(&self.forest, "forest", ChainHead::request(())?).await?;
+        let epochs = u32::try_from(epoch - head.epoch()).unwrap_or(0);
+        let budget = block_delay * epochs * 3 / 2 + Duration::from_secs(5 * 60);
+        poll_with(
+            &format!("forest to reach epoch {epoch}"),
+            budget,
+            block_delay,
+            || async {
+                let head = call(&self.forest, "forest", ChainHead::request(())?).await?;
+                Ok((head.epoch() >= epoch).then_some(()))
+            },
+        )
+        .await?;
+        self.synced().await
+    }
+
+    /// Waits until Forest has executed `cid`, then returns the lookup both nodes agree on at a
+    /// tipset both have.
+    pub async fn executed(&self, cid: Cid) -> anyhow::Result<MessageLookup> {
+        poll_until_message_executed(&self.forest, cid).await?;
+        self.synced()
+            .await?
+            .same(|tsk| StateSearchMsg::request((tsk, cid, LOOKBACK_NO_LIMIT, true)))
+            .await?
+            .with_context(|| format!("Forest executed {cid}, but no node finds it"))
     }
 }
 
