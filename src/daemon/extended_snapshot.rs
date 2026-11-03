@@ -98,7 +98,9 @@ async fn download_extended_snapshot(
         "invalid extended snapshot filename: {}",
         file.filename
     );
-    let url = snapshot_url.join(&file.filename)?;
+    let mut url = snapshot_url.join(&file.filename)?;
+    url.set_query(snapshot_url.query());
+    
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
     download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
