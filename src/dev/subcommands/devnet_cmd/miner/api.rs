@@ -1,9 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! The miner the trials drive: a `lotus-miner` whose full node is Forest, reached through the
-//! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
+//! Genesis miner driver: Lotus Miner JSON-RPC or Curio CLI/SQL, selected by `DEVNET_DIR`.
 
+use super::curio;
+use super::on_curio;
 use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
 use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
@@ -16,10 +17,15 @@ use serde_json::json;
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicU8, Ordering};
 
-/// The miner's on-chain actor and its API.
+pub(super) enum Producer {
+    Lotus(MinerApi),
+    Curio,
+}
+
+/// The miner's on-chain actor and its producer API.
 pub(super) struct TestMiner {
     pub actor: Address,
-    pub api: MinerApi,
+    pub producer: Producer,
 }
 
 impl TestMiner {
@@ -28,10 +34,26 @@ impl TestMiner {
         let raw = harness_env("MINER_ACTOR_ADDRESS")?;
         let actor = Address::from_str(&raw)
             .with_context(|| format!("invalid MINER_ACTOR_ADDRESS `{raw}`"))?;
-        Ok(Self {
-            actor,
-            api: MinerApi::connect()?,
-        })
+        let producer = if on_curio()? {
+            Producer::Curio
+        } else {
+            Producer::Lotus(MinerApi::connect()?)
+        };
+        Ok(Self { actor, producer })
+    }
+
+    pub async fn pledge_sector(&self) -> anyhow::Result<u64> {
+        match &self.producer {
+            Producer::Lotus(api) => api.pledge_sector().await,
+            Producer::Curio => curio::pledge_sector(self.actor).await,
+        }
+    }
+
+    pub async fn wait_until_proving(&self, sector: u64) -> anyhow::Result<()> {
+        match &self.producer {
+            Producer::Lotus(api) => api.wait_until_proving(sector).await,
+            Producer::Curio => curio::wait_until_proving(self.actor, sector).await,
+        }
     }
 }
 

@@ -1,0 +1,149 @@
+# Forest-produced chain with Curio as the only block producer and sealer.
+# Chain services are reused from ../devnet-forest-miner; there is no lotus-miner.
+
+x-lotus-heights: &lotus-heights
+  LOTUS_GENESIS_NETWORK_VERSION: ${GENESIS_NETWORK_VERSION}
+  LOTUS_SHARK_HEIGHT: ${SHARK_HEIGHT}
+  LOTUS_HYGGE_HEIGHT: ${HYGGE_HEIGHT}
+  LOTUS_LIGHTNING_HEIGHT: ${LIGHTNING_HEIGHT}
+  LOTUS_THUNDER_HEIGHT: ${THUNDER_HEIGHT}
+  LOTUS_WATERMELON_HEIGHT: ${WATERMELON_HEIGHT}
+  LOTUS_DRAGON_HEIGHT: ${DRAGON_HEIGHT}
+  LOTUS_WAFFLE_HEIGHT: ${WAFFLE_HEIGHT}
+  LOTUS_TUKTUK_HEIGHT: ${TUKTUK_HEIGHT}
+  LOTUS_TEEP_HEIGHT: ${TEEP_HEIGHT}
+  LOTUS_TOCK_HEIGHT: ${TOCK_HEIGHT}
+  LOTUS_GOLDENWEEK_HEIGHT: ${GOLDEN_WEEK_HEIGHT}
+  LOTUS_FIREHORSE_HEIGHT: ${FIREHORSE_HEIGHT}
+  LOTUS_SOLSTICE_HEIGHT: ${SOLSTICE_HEIGHT}
+
+x-forest-heights: &forest-heights
+  FOREST_GENESIS_NETWORK_VERSION: ${GENESIS_NETWORK_VERSION}
+  FOREST_SHARK_HEIGHT: ${SHARK_HEIGHT}
+  FOREST_HYGGE_HEIGHT: ${HYGGE_HEIGHT}
+  FOREST_LIGHTNING_HEIGHT: ${LIGHTNING_HEIGHT}
+  FOREST_THUNDER_HEIGHT: ${THUNDER_HEIGHT}
+  FOREST_WATERMELON_HEIGHT: ${WATERMELON_HEIGHT}
+  FOREST_DRAGON_HEIGHT: ${DRAGON_HEIGHT}
+  FOREST_WAFFLE_HEIGHT: ${WAFFLE_HEIGHT}
+  FOREST_TUKTUK_HEIGHT: ${TUKTUK_HEIGHT}
+  FOREST_TEEP_HEIGHT: ${TEEP_HEIGHT}
+  FOREST_TOCK_HEIGHT: ${TOCK_HEIGHT}
+  FOREST_GOLDEN_WEEK_HEIGHT: ${GOLDEN_WEEK_HEIGHT}
+  FOREST_FIREHORSE_HEIGHT: ${FIREHORSE_HEIGHT}
+  FOREST_SOLSTICE_HEIGHT: ${SOLSTICE_HEIGHT}
+
+services:
+  lotus_init:
+    extends:
+      file: ../devnet-forest-miner/docker-compose.yml
+      service: lotus_init
+    env_file:
+      - ../devnet-forest-miner/lotus.env
+
+  lotus_node:
+    extends:
+      file: ../devnet-forest-miner/docker-compose.yml
+      service: lotus_node
+    env_file:
+      - ../devnet-forest-miner/lotus.env
+
+  lotus_config:
+    extends:
+      file: ../devnet-forest-miner/docker-compose.yml
+      service: lotus_config
+    env_file:
+      - ../devnet-forest-miner/lotus.env
+
+  forest:
+    extends:
+      file: ../devnet-forest-miner/docker-compose.yml
+      service: forest
+    volumes:
+      - lotus-data:${LOTUS_DATA_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - forest-data:${FOREST_DATA_DIR}
+      - ../devnet-forest-miner/forest_config.toml.tpl:/forest/forest_config.toml.tpl
+
+  forest_wallet_import:
+    extends:
+      file: ../devnet-forest-miner/docker-compose.yml
+      service: forest_wallet_import
+
+  yugabyte:
+    container_name: yugabyte
+    image: ${YUGABYTE_IMAGE}
+    init: true
+    environment:
+      TINI_SUBREAPER: "true"
+    volumes:
+      - yugabyte-data:/home/yugabyte/yb_data
+    command:
+      [
+        "bin/yugabyted",
+        "start",
+        "--base_dir=/home/yugabyte/yb_data",
+        "--background=false",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/home/yugabyte/bin/ysqlsh",
+          "-h",
+          "127.0.0.1",
+          "-U",
+          "yugabyte",
+          "-c",
+          "SELECT 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - devnet
+
+  curio:
+    container_name: curio
+    image: forest/curio-devnet:${CURIO_COMMIT}
+    pull_policy: never
+    init: true
+    restart: on-failure
+    depends_on:
+      forest_wallet_import:
+        condition: service_completed_successfully
+      yugabyte:
+        condition: service_healthy
+    environment:
+      <<: *lotus-heights
+      CURIO_REPO_PATH: ${CURIO_REPO_PATH}
+      CURIO_HARMONYDB_HOSTS: yugabyte
+      FIL_PROOFS_PARAMETER_CACHE: ${FIL_PROOFS_PARAMETER_CACHE}
+      FIL_PROOFS_USE_GPU_COLUMN_BUILDER: "0"
+      FIL_PROOFS_USE_GPU_TREE_BUILDER: "0"
+      BELLMAN_NO_GPU: "1"
+      FOREST_DATA_DIR: ${FOREST_DATA_DIR}
+      FOREST_RPC_PORT: ${FOREST_RPC_PORT}
+      LOTUS_DATA_DIR: ${LOTUS_DATA_DIR}
+      MINER_ACTOR_ADDRESS: ${MINER_ACTOR_ADDRESS}
+    volumes:
+      - curio-data:${CURIO_REPO_PATH}
+      - lotus-data:${LOTUS_DATA_DIR}
+      - forest-data:${FOREST_DATA_DIR}:ro
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - ./curio_entrypoint.sh:/curio_entrypoint.sh:ro
+      - ./devnet-layer.toml:/devnet-layer.toml:ro
+    networks:
+      - devnet
+    entrypoint: ["/bin/bash", "/curio_entrypoint.sh"]
+
+volumes:
+  filecoin-proofs:
+  lotus-data:
+  forest-data:
+  curio-data:
+  yugabyte-data:
+
+networks:
+  devnet:

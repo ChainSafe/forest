@@ -1,10 +1,10 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Lotus Miner integration tests, ported from Lotus `itests`. They need
-//! `scripts/devnet-forest-miner`, where Lotus Miner seals and mines through Forest's RPC.
+//! Miner integration tests on Forest, against Lotus Miner or Curio.
 
 mod api;
+mod curio;
 mod devnet;
 mod onboarding;
 
@@ -17,7 +17,7 @@ use libtest_mimic::{Arguments, Trial};
 use std::fmt::Debug;
 use std::path::Path;
 
-/// Lotus Miner integration tests on Forest (`scripts/devnet-forest-miner` only)
+/// Miner integration tests on Forest (`scripts/devnet-forest-miner` or `scripts/devnet-forest-curio`)
 #[derive(Debug, clap::Args)]
 pub struct MinerTestCommand {
     /// Run only this group; all groups run by default
@@ -35,11 +35,7 @@ enum Group {
 
 impl MinerTestCommand {
     pub async fn run(self) -> anyhow::Result<()> {
-        let devnet_dir = harness_env("DEVNET_DIR")?;
-        ensure!(
-            Path::new(&devnet_dir).ends_with("devnet-forest-miner"),
-            "`devnet miner` drives lotus-miner over Forest's RPC, which only scripts/devnet-forest-miner does; DEVNET_DIR is `{devnet_dir}`"
-        );
+        let _ = on_curio()?;
         let groups = match self.group {
             Some(group) => vec![group],
             None => Group::value_variants().to_vec(),
@@ -56,6 +52,21 @@ impl MinerTestCommand {
 fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
+    }
+}
+
+/// Whether `DEVNET_DIR` is the Curio stack (`devnet-forest-curio`); errors on any other directory.
+pub(super) fn on_curio() -> anyhow::Result<bool> {
+    let devnet_dir = harness_env("DEVNET_DIR")?;
+    let path = Path::new(&devnet_dir);
+    if path.ends_with("devnet-forest-curio") {
+        Ok(true)
+    } else {
+        ensure!(
+            path.ends_with("devnet-forest-miner"),
+            "`devnet miner` needs scripts/devnet-forest-miner or scripts/devnet-forest-curio; DEVNET_DIR is `{devnet_dir}`"
+        );
+        Ok(false)
     }
 }
 

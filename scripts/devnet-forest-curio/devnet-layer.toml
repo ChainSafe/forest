@@ -1,0 +1,7 @@
+[Batching.PreCommit]
+Timeout = "0h0m5s"
+Slack = "6h0m0s"
+
+[Batching.Commit]
+Timeout = "0h0m5s"
+Slack = "1h0m0s"

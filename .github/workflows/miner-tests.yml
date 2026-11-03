@@ -77,18 +77,20 @@ jobs:
           if-no-files-found: error
 
   miner-tests:
-    name: Miner integration tests (${{ matrix.group }})
+    name: Miner integration tests (${{ matrix.devnet }}, ${{ matrix.group }})
     needs: build
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
+        # Add groups as more Lotus itests are ported; both stacks run every group.
         group: [onboarding]
+        devnet: [devnet-forest-miner, devnet-forest-curio]
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
       MINER_TEST_GROUP: ${{ matrix.group }}
+      DEVNET_DIR: scripts/${{ matrix.devnet }}
     steps:
       - uses: actions/cache@v6
         id: cache
@@ -98,23 +100,51 @@ jobs:
       - name: Load cache into volume
         if: steps.cache.outputs.cache-hit == 'true'
         run: |
-          docker volume create devnet-forest-miner_filecoin-proofs
+          docker volume create "${{ matrix.devnet }}_filecoin-proofs"
           docker run --rm \
-            -v devnet-forest-miner_filecoin-proofs:/proofs \
+            -v "${{ matrix.devnet }}_filecoin-proofs":/proofs \
             -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
             "$SHELL_IMAGE" \
             sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Read Curio commit
+        if: matrix.devnet == 'devnet-forest-curio'
+        run: |
+          CURIO_COMMIT=$(grep -E '^CURIO_COMMIT=' scripts/devnet-forest-curio/.env | cut -d= -f2)
+          echo "CURIO_COMMIT=${CURIO_COMMIT}" >> "$GITHUB_ENV"
+      - name: Restore Curio image cache
+        if: matrix.devnet == 'devnet-forest-curio'
+        id: curio-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: /tmp/curio-image
+          key: curio-image-${{ env.CURIO_COMMIT }}-${{ hashFiles('scripts/devnet-forest-curio/curio.dockerfile') }}
+      - name: Load Curio image
+        if: matrix.devnet == 'devnet-forest-curio' && steps.curio-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/curio-image/curio.tar
+      - name: Build Curio image
+        if: matrix.devnet == 'devnet-forest-curio' && steps.curio-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/curio-image
+          ./scripts/devnet-forest-curio/build_image.sh
+          docker save "forest/curio-devnet:${CURIO_COMMIT}" -o /tmp/curio-image/curio.tar
+        timeout-minutes: 45
+      - name: Save Curio image cache
+        if: matrix.devnet == 'devnet-forest-curio' && steps.curio-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: /tmp/curio-image
+          key: curio-image-${{ env.CURIO_COMMIT }}-${{ hashFiles('scripts/devnet-forest-curio/curio.dockerfile') }}
       - uses: actions/download-artifact@v8
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
-        run: ./scripts/devnet-forest-miner/setup.sh
+        run: ./${{ env.DEVNET_DIR }}/setup.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Devnet check
-        run: ./scripts/devnet-forest-miner/check.sh
+        run: ./${{ env.DEVNET_DIR }}/check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Add forest binaries to PATH
         run: |
@@ -123,7 +153,7 @@ jobs:
       - name: Miner tests
         run: |
           set -euo pipefail
-          export DEVNET_DIR=scripts/devnet-forest-miner
+          export DEVNET_DIR="${{ env.DEVNET_DIR }}"
           source ./scripts/devnet/test_harness.sh
           devnet_test_env_init
           forest-dev devnet miner --group "$MINER_TEST_GROUP"
@@ -135,7 +165,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           docker run --rm \
-            -v devnet-forest-miner_filecoin-proofs:/proofs \
+            -v "${{ matrix.devnet }}_filecoin-proofs":/proofs \
             -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
             "$SHELL_IMAGE" \
             sh -c "cp /proofs/* /cache"
