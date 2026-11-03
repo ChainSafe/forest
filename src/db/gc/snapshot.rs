@@ -294,6 +294,7 @@ impl SnapshotGarbageCollector {
                     include_tipset_keys: true,
                     include_tipset_lookup: false,
                     seen: FileBackedCidHashSet::new(&self.chain_tmp_root)?,
+                    diff_base: None,
                 },
             )
             .await
