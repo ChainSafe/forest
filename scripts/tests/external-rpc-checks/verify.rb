@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-# Confirms the back-fill indexed the epochs the checks query. Runs in a container
-# so the node's RPC port never has to be published.
+# Confirms the node indexed the epochs the checks query.
 
 require 'json'
 require 'net/http'

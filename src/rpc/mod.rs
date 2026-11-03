@@ -468,7 +468,7 @@ use openrpc_types::{self, ParamStructure};
 pub const DEFAULT_PORT: u16 = 2345;
 
 /// Request timeout read from environment variables
-pub(crate) static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
+static DEFAULT_REQUEST_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
     env::var("FOREST_RPC_DEFAULT_TIMEOUT")
         .ok()
         .and_then(|it| Duration::from_secs(it.parse().ok()?).into())

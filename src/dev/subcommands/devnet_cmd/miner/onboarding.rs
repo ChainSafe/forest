@@ -1,12 +1,12 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Lotus Miner creating a miner and pledging a sector through Forest's RPC. Mirrors Lotus
-//! `testNonGenesisMiner` and `TestPledgeSectors` (single sector, real 2 KiB proofs).
+//! Lotus Miner creating a miner and pledging a sector through Forest's RPC. Mirrors the creation
+//! step of Lotus `testNonGenesisMiner` (which also starts the new miner) and `TestPledgeSectors`
+//! (single sector, real 2 KiB proofs).
 
-use super::{
-    MinerApi, genesis_miner, lotus_accepts_forest_head, miner_info, sector_info, wait_until_proving,
-};
+use super::api::TestMiner;
+use super::devnet::Devnet;
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::key_management::generate_key;
 use crate::rpc::Client;
@@ -28,46 +28,24 @@ pub(super) fn tests() -> Vec<Trial> {
     ]
 }
 
-async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
-    Ok(client
-        .call(StateListMiners::request((ApiTipsetKey(None),))?)
-        .await?
-        .into_iter()
-        .collect())
-}
-
 async fn create_miner() -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let lotus = lotus_client()?;
+    let net = Devnet::connect()?;
     let owner_key = Address::from_str(&FOREST_TEST_PRELOADED_ADDRESS)
         .context("parsing FOREST_TEST_PRELOADED_ADDRESS")?;
-    let owner_id = forest
+    let owner_id = net
+        .forest
         .call(StateLookupID::request((owner_key, ApiTipsetKey(None)))?)
         .await?;
     // The miner actor requires a BLS worker; the harness wallet is secp256k1.
     let worker_key = generate_key(SignatureType::Bls)?.address;
 
-    // Lotus trails Forest; query both at Lotus's head so the tipset exists on Forest.
-    let lotus_head = lotus.call(ChainHead::request(())?).await?;
-    let at_lotus_head = ApiTipsetKey(Some(lotus_head.key().clone()));
-    let deposit = StateMinerCreationDeposit::request((at_lotus_head.clone(),))?;
-    let forest_deposit = forest.call(deposit.clone()).await?;
-    let lotus_deposit = lotus.call(deposit).await?;
-    ensure!(
-        forest_deposit == lotus_deposit,
-        "StateMinerCreationDeposit at epoch {}: forest {forest_deposit}, lotus {lotus_deposit}",
-        lotus_head.epoch()
-    );
-    let supply = StateVMCirculatingSupplyInternal::request((at_lotus_head,))?;
-    let forest_supply = forest.call(supply.clone()).await?;
-    let lotus_supply = lotus.call(supply).await?;
-    ensure!(
-        forest_supply == lotus_supply,
-        "StateVMCirculatingSupplyInternal at epoch {}:\nforest: {forest_supply:?}\nlotus: {lotus_supply:?}",
-        lotus_head.epoch()
-    );
+    let at = net.synced().await?;
+    at.same(|tsk| StateMinerCreationDeposit::request((tsk,)))
+        .await?;
+    at.same(|tsk| StateVMCirculatingSupplyInternal::request((tsk,)))
+        .await?;
 
-    let before = list_miners(&forest).await?;
+    let before = list_miners(&net.forest).await?;
     let repo = format!(
         "/tmp/forest-onboarding-{}",
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis()
@@ -76,7 +54,7 @@ async fn create_miner() -> anyhow::Result<()> {
     let _ = docker(&["exec", "lotus-miner", "rm", "-rf", &repo]);
     init?;
 
-    let created: Vec<Address> = list_miners(&forest)
+    let created: Vec<Address> = list_miners(&net.forest)
         .await?
         .difference(&before)
         .copied()
@@ -85,10 +63,15 @@ async fn create_miner() -> anyhow::Result<()> {
         bail!("expected exactly one new miner after `lotus-miner init`, found {created:?}");
     };
 
-    let worker_id = forest
+    let worker_id = net
+        .forest
         .call(StateLookupID::request((worker_key, ApiTipsetKey(None)))?)
         .await?;
-    let info = miner_info(&forest, *miner).await?;
+    let info = net
+        .synced()
+        .await?
+        .same(|tsk| StateMinerInfo::request((*miner, tsk)))
+        .await?;
     ensure!(
         info.owner == owner_id && info.worker == worker_id,
         "miner {miner}: owner {} and worker {}, expected {owner_id} and {worker_id}",
@@ -104,20 +87,29 @@ async fn create_miner() -> anyhow::Result<()> {
         !info.peer_id.is_empty(),
         "miner {miner}: no peer ID recorded"
     );
-
-    poll(&format!("lotus StateGetActor {miner}"), || async {
-        if !lotus_accepts_forest_head(&forest, &lotus).await? {
-            return Ok(None);
-        }
-        get_actor(&lotus, *miner).await
-    })
-    .await?;
-    let lotus_info = miner_info(&lotus, *miner).await?;
-    ensure!(
-        lotus_info == info,
-        "StateMinerInfo for {miner} differs:\nforest: {info:?}\nlotus: {lotus_info:?}"
-    );
     Ok(())
+}
+
+/// Pledges one CC sector; the chain verifies the seal proof on prove-commit.
+async fn pledge_sector() -> anyhow::Result<()> {
+    let net = Devnet::connect()?;
+    let miner = TestMiner::genesis()?;
+    let sector = miner.api.pledge_sector().await?;
+    miner.api.wait_until_proving(sector).await?;
+    net.synced()
+        .await?
+        .same(|tsk| StateSectorGetInfo::request((miner.actor, sector, tsk)))
+        .await?
+        .with_context(|| format!("sector {sector} is Proving, but the chain has no info for it"))?;
+    Ok(())
+}
+
+async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
+    Ok(client
+        .call(StateListMiners::request((ApiTipsetKey(None),))?)
+        .await?
+        .into_iter()
+        .collect())
 }
 
 fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
@@ -131,35 +123,5 @@ fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()>
     );
     docker(&["exec", "lotus-miner", "sh", "-c", &script])
         .context("`lotus-miner init` against Forest failed")?;
-    Ok(())
-}
-
-/// Pledges one CC sector; the chain verifies the seal proof on prove-commit.
-async fn pledge_sector() -> anyhow::Result<()> {
-    let forest = forest_client()?;
-    let lotus = lotus_client()?;
-    let miner_api = MinerApi::new()?;
-    let miner = genesis_miner()?;
-    let sector = miner_api.pledge_sector().await?;
-
-    wait_until_proving(&miner_api, sector).await?;
-
-    let forest_info = sector_info(&forest, miner, sector)
-        .await?
-        .with_context(|| format!("sector {sector} is Proving, but Forest has no info for it"))?;
-    let lotus_info = poll(
-        &format!("lotus StateSectorGetInfo {miner} {sector}"),
-        || async {
-            if !lotus_accepts_forest_head(&forest, &lotus).await? {
-                return Ok(None);
-            }
-            sector_info(&lotus, miner, sector).await
-        },
-    )
-    .await?;
-    ensure!(
-        forest_info == lotus_info,
-        "StateSectorGetInfo for sector {sector} differs:\nforest: {forest_info:?}\nlotus: {lotus_info:?}"
-    );
     Ok(())
 }

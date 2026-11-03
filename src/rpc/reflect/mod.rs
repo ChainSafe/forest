@@ -286,14 +286,9 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn request(params: Self::Params) -> serde_json::Result<crate::rpc::Request<Self::Ok>> {
         // hardcode calling convention because lotus is by-position only
         let params = Self::request_params(params)?;
-        Ok(crate::rpc::Request {
-            method_name: Self::NAME.into(),
-            params,
-            result_type: std::marker::PhantomData,
-            api_path: crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)
-                .map_err(serde_json::Error::custom)?,
-            timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
-        })
+        let api_path = crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)
+            .map_err(serde_json::Error::custom)?;
+        Ok(crate::rpc::Request::new(Self::NAME, params, api_path))
     }
 
     fn request_params(params: Self::Params) -> serde_json::Result<serde_json::Value> {
@@ -329,13 +324,8 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             Self::NAME
         };
 
-        Ok(crate::rpc::Request {
-            method_name: name.into(),
-            params,
-            result_type: std::marker::PhantomData,
-            api_path: crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)?,
-            timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
-        })
+        let api_path = crate::rpc::Request::<Self::Ok>::max_api_path(Self::API_PATHS)?;
+        Ok(crate::rpc::Request::new(name, params, api_path))
     }
     fn call_raw(
         client: &crate::rpc::client::Client,

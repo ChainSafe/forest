@@ -13,7 +13,8 @@ export DEVNET_DIR
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "${REPO_ROOT}"
 
-trap 'docker compose --project-directory "${REPO_ROOT}/${DEVNET_DIR}" -f "${REPO_ROOT}/${DEVNET_DIR}/docker-compose.yml" down --remove-orphans --volumes || true' EXIT
+# Volumes stay: `setup.sh` removes the data volumes on the next run and keeps the proof params.
+trap 'docker compose --project-directory "${REPO_ROOT}/${DEVNET_DIR}" -f "${REPO_ROOT}/${DEVNET_DIR}/docker-compose.yml" down --remove-orphans || true' EXIT
 
 pushd "${DEVNET_DIR}" >/dev/null
 ./setup.sh
