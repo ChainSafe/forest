@@ -534,13 +534,8 @@ impl StateManager {
         Ok(addr)
     }
 
-    /// Returns the miner's power claim, the total network power and whether the miner meets the
-    /// consensus minimum, as Lotus does: an address without a claim has zero power and does not
-    /// meet the minimum.
-    /// <https://github.com/filecoin-project/lotus/blob/v1.38.1/chain/stmgr/actors.go#L59-L91>
-    ///
-    /// # Errors
-    /// The power actor is absent from `state_cid`, or its state or claims cannot be read.
+    /// Returns the miner's claim, the network total and whether the miner meets the consensus
+    /// minimum, an address without a claim has zero power, not an error.
     pub fn get_power(&self, state_cid: &Cid, addr: &Address) -> Result<miner::MinerPower, Error> {
         let actor = self
             .get_actor(&Address::POWER_ACTOR, *state_cid)?
@@ -549,7 +544,7 @@ impl StateManager {
         let spas = power::State::load(self.db(), actor.code, actor.state)?;
 
         let miner_power = spas.miner_power(self.db(), addr)?;
-        // The actor's minimum check errors for an address without a claim; Lotus returns before it.
+        // The actor's minimum check errors for an address without a claim.
         let has_min_power = miner_power.is_some()
             && spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config().policy,

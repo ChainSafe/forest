@@ -53,6 +53,10 @@
 
 - [#7830](https://github.com/ChainSafe/forest/issues/7830): Fixed `forest-cli snapshot export-diff` (`Forest.ChainExportDiff`) and `forest-tool archive export --diff` possibly timing out. The export walk now stops at the diff base, and with a diff depth set (always for `Forest.ChainExportDiff`), building the diff base set no longer walks every block header down to genesis.
 
+- [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.StateMinerPower` now reports a miner's real power and the network total below the consensus minimum, and zero power with the real total for an address without a claim, matching Lotus. 
+
+- [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.MinerGetBaseInfo` no longer fails for a miner below the minimum, and block validation no longer rejects a block whose miner dropped below the minimum within the lookback tipset.
+
 ## Forest v0.39.0 "Vijayadashami"
 
 Non-mandatory release for all node operators. It includes fixes and improvements, notably around the Ethereum and state RPC methods. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.

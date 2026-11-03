@@ -217,7 +217,6 @@ fn build_ctx(
 }
 
 /// A context whose head is one block at `epoch` with `state_root` as its parent state.
-///
 /// Must be called from a Tokio context: the message pool spawns background tasks.
 fn ctx_over(chain_store: ChainStore, epoch: ChainEpoch, state_root: Cid) -> (Ctx, Tipset) {
     let blocks = Chain4U::with_blockstore(chain_store.db_owned());
@@ -230,9 +229,7 @@ fn ctx_over(chain_store: ChainStore, epoch: ChainEpoch, state_root: Cid) -> (Ctx
     (ctx, head)
 }
 
-/// A calibnet context whose power actor holds exactly `claims` (raw power, also used as the QA
-/// power), with the network total summed from them. Enough miners are counted above the minimum
-/// that the actor's small-network rule, which lets any positive power qualify, is off.
+/// A calibnet context whose power actor holds exactly `claims`, each raw = QA, total = their sum.
 fn ctx_with_power_claims(claims: &[(Address, StoragePower)]) -> Ctx {
     use fil_actor_power_state::v18::{
         CLAIMS_CONFIG, CONSENSUS_MINER_MIN_MINERS, Claim, ClaimsMap, State, set_claim,
@@ -254,6 +251,7 @@ fn ctx_with_power_claims(claims: &[(Address, StoragePower)]) -> Ctx {
         claims: map.flush().unwrap(),
         total_raw_byte_power: total.clone(),
         total_quality_adj_power: total,
+        // At least CONSENSUS_MINER_MIN_MINERS, or any positive power would meet the minimum.
         miner_above_min_power_count: CONSENSUS_MINER_MIN_MINERS,
         ..Default::default()
     });
@@ -692,9 +690,6 @@ async fn reward_distribution_at_epoch_0_has_no_blocks() {
     assert_eq!(distribution.totals, RewardAmounts::default());
 }
 
-/// The three answers of Lotus's `GetPowerRaw`, in quarters of the consensus minimum: the claim is
-/// reported whether or not it meets the minimum, and an address without a claim has zero power.
-/// <https://github.com/filecoin-project/lotus/blob/v1.38.1/chain/stmgr/actors.go#L59-L91>
 #[rstest]
 #[case::meets_the_minimum(1000, 8, true)]
 #[case::below_the_minimum(1001, 1, false)]
