@@ -127,28 +127,32 @@ fn startup_init(config: &Config) -> anyhow::Result<()> {
 
 async fn maybe_import_snapshot(
     opts: &CliOpts,
-    config: &mut Config,
+    config: &Config,
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     let chain_config = ctx.state_manager.chain_config();
     // Sets the latest snapshot if needed for downloading later
-    if config.client.snapshot_path.is_none() && !opts.stateless {
-        maybe_set_snapshot_path(
+    let latest_snapshot = if config.client.snapshot_path.is_none() && !opts.stateless {
+        maybe_get_snapshot_path(
             config,
             chain_config,
             ctx.state_manager.chain_store().heaviest_tipset().epoch(),
             opts.auto_download_snapshot,
             &ctx.db_meta_data.get_root_dir(),
         )
-        .await?;
-    }
+        .await?
+    } else {
+        None
+    };
 
     let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default()
-        && let Some(path) = &config.client.snapshot_path
+        && let Some(path) = match &config.client.snapshot_path {
+            Some(path) => Some(SnapshotImportPath::parse(path.clone()).await),
+            None => latest_snapshot,
+        }
     {
-        let path = SnapshotImportPath::parse(path.clone()).await;
         let (car_db_path, ts) = import_chain_as_forest_car(
             &path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
@@ -832,7 +836,7 @@ pub(super) async fn start_services(
         &ctx,
     )?;
 
-    maybe_import_snapshot(opts, &mut config, &ctx).await?;
+    maybe_import_snapshot(opts, &config, &ctx).await?;
     if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
@@ -882,13 +886,13 @@ fn warmup_in_background(ctx: &AppContext) {
 /// to a supported height. If we've not been given a snapshot by the user, get one.
 ///
 /// An [`Err`] should be considered fatal.
-async fn maybe_set_snapshot_path(
-    config: &mut Config,
+async fn maybe_get_snapshot_path(
+    config: &Config,
     chain_config: &ChainConfig,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
     download_directory: &Path,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<SnapshotImportPath>> {
     if !download_directory.is_dir() {
         anyhow::bail!(
             "`download_directory` does not exist: {}",
@@ -908,9 +912,9 @@ async fn maybe_set_snapshot_path(
     let require_a_snapshot = network_version_is_small;
     let have_a_snapshot = config.client.snapshot_path.is_some();
 
-    match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
-        (false, _, _) => {}   // noop - don't need a snapshot
-        (true, true, _) => {} // noop - we need a snapshot, and we have one
+    let snapshot = match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
+        (false, _, _) => None,   // noop - don't need a snapshot
+        (true, true, _) => None, // noop - we need a snapshot, and we have one
         (true, false, true) => {
             const AUTO_SNAPSHOT_PATH_ENV_KEY: &str = "FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH";
             match std::env::var(AUTO_SNAPSHOT_PATH_ENV_KEY) {
@@ -918,7 +922,7 @@ async fn maybe_set_snapshot_path(
                     tracing::info!(
                         "importing snapshot from {path} set by `{AUTO_SNAPSHOT_PATH_ENV_KEY}`"
                     );
-                    config.client.snapshot_path = Some(path.into());
+                    Some(SnapshotImportPath::parse(path.into()).await)
                 }
                 _ => {
                     // Resolve the redirect URL to get the actual snapshot URL
@@ -927,7 +931,7 @@ async fn maybe_set_snapshot_path(
                     let (resolved_url, _num_bytes, filename) =
                         crate::cli_shared::snapshot::peek(vendor, chain).await?;
                     tracing::info!("Downloading snapshot: {filename}");
-                    config.client.snapshot_path = Some(resolved_url.to_string().into());
+                    Some(SnapshotImportPath::Url(resolved_url))
                 }
             }
         }
@@ -960,11 +964,11 @@ async fn maybe_set_snapshot_path(
                 )
             }
             tracing::info!("Downloading snapshot: {filename}");
-            config.client.snapshot_path = Some(url.to_string().into());
+            Some(SnapshotImportPath::Url(url))
         }
     };
 
-    Ok(())
+    Ok(snapshot)
 }
 
 /// returns the first error with which any of the services end, or never returns at all
