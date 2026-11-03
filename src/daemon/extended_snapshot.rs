@@ -38,6 +38,9 @@ struct SnapshotMetadataFile {
 
 #[derive(Debug, Deserialize)]
 struct SnapshotMetadataSection {
+    /// Number of epochs below the head with state, which the receipts and events also cover
+    #[serde(rename = "State-roots")]
+    state_roots: ChainEpoch,
     #[serde(rename = "Extended")]
     extended: Option<ExtendedSnapshots>,
 }
@@ -62,11 +65,10 @@ struct ExtendedSnapshotFile {
     sha256: [u8; 32],
 }
 
-/// Fetches the `.metadata.json` published next to `snapshot_url` and returns its extended
-/// snapshots, if any.
-async fn fetch_extended_snapshots_info(
+/// Fetches the `.metadata.json` published next to `snapshot_url`.
+async fn fetch_metadata_snapshots_info(
     snapshot_url: &Url,
-) -> anyhow::Result<Option<ExtendedSnapshots>> {
+) -> anyhow::Result<SnapshotMetadataSection> {
     // Append to the path, not the whole URL, so dont affect any query string.
     let mut metadata_url = snapshot_url.clone();
     metadata_url.set_path(&format!("{}.metadata.json", snapshot_url.path()));
@@ -80,7 +82,7 @@ async fn fetch_extended_snapshots_info(
         .json()
         .await
         .with_context(|| format!("failed to parse snapshot metadata at {metadata_url}"))?;
-    Ok(metadata.snapshot.extended)
+    Ok(metadata.snapshot)
 }
 
 /// Downloads the extended snapshot `file`, published next to `snapshot_url`, into `temp_dir`
@@ -100,7 +102,7 @@ async fn download_extended_snapshot(
     );
     let mut url = snapshot_url.join(&file.filename)?;
     url.set_query(snapshot_url.query());
-    
+
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
     download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
@@ -176,22 +178,16 @@ where
 }
 
 /// Indexes the tipsets whose receipts and events were just imported (block logs blooms and
-/// Ethereum mappings), as `forest-tool index backfill` does.
+/// Ethereum mappings), as `forest-tool index backfill` does: those within `depth` epochs below
+/// `head`, which the snapshot holds state for.
 async fn backfill_receipts_events(
     state_manager: &StateManager,
     head: &Tipset,
+    depth: ChainEpoch,
 ) -> anyhow::Result<()> {
-    let db = state_manager.db();
-    let from = Tipset::load_required(db, head.parents())?;
-    let Some(to) = from
-        .shallow_clone()
-        .chain(db)
-        .take_while(|ts| db.has(ts.parent_state()).unwrap_or_default())
-        .last()
-        .map(|ts| ts.epoch())
-    else {
-        return Ok(());
-    };
+    let from = Tipset::load_required(state_manager.db(), head.parents())?;
+    // Inclusive: the lowest tipset's receipts and resulting state are in its child.
+    let to = (head.epoch() - depth).max(0);
     let started = Instant::now();
     let guard = BackfillGuard::try_start()?;
     let options = BackfillOptions {
@@ -231,16 +227,16 @@ pub(super) async fn maybe_import_extended_snapshots(
     let Some(snapshot_url) = path_as_url(snapshot_path) else {
         return;
     };
-    let extended = match fetch_extended_snapshots_info(&snapshot_url).await {
-        Ok(Some(extended)) => extended,
-        Ok(None) => {
-            info!("No extended snapshots advertised for {snapshot_url}");
-            return;
-        }
+    let metadata = match fetch_metadata_snapshots_info(&snapshot_url).await {
+        Ok(metadata) => metadata,
         Err(e) => {
             warn!("Failed to fetch extended snapshots for {snapshot_url}: {e:#}");
             return;
         }
+    };
+    let Some(extended) = metadata.extended else {
+        info!("No extended snapshots advertised for {snapshot_url}");
+        return;
     };
 
     let receipts_events_imported = match &extended.receipts_events {
@@ -281,7 +277,8 @@ pub(super) async fn maybe_import_extended_snapshots(
     }
 
     // Index once both snapshots are imported, so each import's logs stay together.
-    if receipts_events_imported && let Err(e) = backfill_receipts_events(state_manager, head).await
+    if receipts_events_imported
+        && let Err(e) = backfill_receipts_events(state_manager, head, metadata.state_roots).await
     {
         warn!("Failed to index imported receipts and events: {e:#}");
     }
@@ -298,6 +295,7 @@ mod test {
             "Snapshot": {
                 "Snapshot version": "2",
                 "Epoch": 4137600,
+                "State-roots": 2000,
                 "Extended": {
                     "Augmented": {
                         "Filename": "forest_snapshot_calibnet_2026-10-08_height_4137600_receipts_events.forest.car.zst",
@@ -312,6 +310,7 @@ mod test {
             "Build Information": {}
         }"#;
         let metadata: SnapshotMetadataFile = serde_json::from_str(json).unwrap();
+        assert_eq!(metadata.snapshot.state_roots, 2000);
         let extended = metadata.snapshot.extended.unwrap();
         assert_eq!(
             extended.receipts_events.unwrap().filename,
@@ -325,7 +324,8 @@ mod test {
 
     #[test]
     fn parse_snapshot_metadata_without_extended() {
-        let json = r#"{ "Snapshot": { "Snapshot version": "2", "Epoch": 4137600 } }"#;
+        let json =
+            r#"{ "Snapshot": { "Snapshot version": "2", "Epoch": 4137600, "State-roots": 2000 } }"#;
         let metadata: SnapshotMetadataFile = serde_json::from_str(json).unwrap();
         assert!(metadata.snapshot.extended.is_none());
     }
