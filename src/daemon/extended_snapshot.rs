@@ -181,16 +181,15 @@ where
 }
 
 /// Indexes the tipsets whose receipts and events were just imported (block logs blooms and
-/// Ethereum mappings), as `forest-tool index backfill` does: those within `depth` epochs below
-/// `head`, which the snapshot holds state for.
+/// Ethereum mappings), as `forest-tool index backfill` does
 async fn backfill_receipts_events(
     state_manager: &StateManager,
     head: &Tipset,
     depth: ChainEpoch,
 ) -> anyhow::Result<()> {
     let from = Tipset::load_required(state_manager.db(), head.parents())?;
-    // Inclusive: the lowest tipset's receipts and resulting state are in its child.
-    let to = (head.epoch() - depth).max(0);
+    // the lowest tipset that can be indexed is at `head - depth + 1`
+    let to = head.epoch() - depth.clamp(0, head.epoch()) + 1;
     let started = Instant::now();
     let guard = BackfillGuard::try_start()?;
     let options = BackfillOptions {

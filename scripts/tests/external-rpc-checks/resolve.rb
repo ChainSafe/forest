@@ -2,7 +2,8 @@
 
 # Picks the newest ${FOREST_CHAIN} snapshot whose head lies within the first 2000 epochs of
 # the UTC day: importing it indexes its receipts and events back to the day's start,
-# and the node syncs the rest. Writes its URL and the day's epoch range under /data.
+# and the node syncs the rest. Writes its URL and the day's epoch range under /data, and fails
+# if the snapshot advertises no receipts and events snapshot.
 
 require 'date'
 require 'json'
@@ -46,6 +47,9 @@ if url.nil?
   warn "no #{chain} snapshot heads within the first #{SNAPSHOT_DEPTH} epochs of #{day.iso8601}"
   exit 2
 end
+
+metadata = JSON.parse(fetch(URI("#{url}.metadata.json")))
+abort "#{url} advertises no receipts and events snapshot" unless metadata.dig('Snapshot', 'Extended', 'Augmented')
 
 File.write('/data/snapshot-url', "#{url}\n")
 File.write('/data/check-target', "#{chain} #{start} #{finish}\n")
