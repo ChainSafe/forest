@@ -7,7 +7,8 @@
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, import_tipset_lookup_snapshot};
 use crate::daemon::db_util::{
-    BackfillGuard, BackfillOptions, BackfillReport, RangeSpec, run_backfill,
+    BackfillGuard, BackfillOptions, BackfillReport, 
+    RangeSpec, SnapshotImportPath, run_backfill,
 };
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::prelude::*;
@@ -187,9 +188,13 @@ async fn backfill_receipts_events(
 pub(super) async fn maybe_import_extended_snapshots(
     state_manager: &StateManager,
     head: &Tipset,
-    snapshot_url: &Url,
+    snapshot_path: &SnapshotImportPath,
     temp_dir: &Path,
 ) {
+    // Extended snapshots are only published next to remote snapshots.
+    let SnapshotImportPath::Url(snapshot_url) = snapshot_path else {
+        return;
+    };
     let metadata = match fetch_metadata_snapshots_info(snapshot_url).await {
         Ok(metadata) => metadata,
         Err(e) => {
