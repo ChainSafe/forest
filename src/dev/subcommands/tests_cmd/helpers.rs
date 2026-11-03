@@ -434,13 +434,6 @@ pub fn lotus_exec(args: &[&str]) -> anyhow::Result<String> {
     docker(&full)
 }
 
-/// Runs `lotus-miner <args>` inside the `lotus-miner` container on the docker devnet.
-pub fn lotus_miner_exec(args: &[&str]) -> anyhow::Result<String> {
-    let mut full = vec!["exec", "lotus-miner", "lotus-miner"];
-    full.extend_from_slice(args);
-    docker(&full)
-}
-
 /// POST a JSON-RPC v1 request and return the `result` field, or `None` if
 /// the server responded without one.
 pub async fn rpc_call_opt(method: &str, params: Value) -> anyhow::Result<Option<Value>> {

@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::{marker::PhantomData, time::Duration};
 
 /// An at-rest description of a remote procedure call, created using
-/// [`rpc::RpcMethodExt`](crate::rpc::RpcMethodExt::request), and called using [`rpc::Client::call`](crate::rpc::Client::call).
+/// [`rpc::RpcMethodExt`](crate::rpc::RpcMethodExt::request) for a method Forest defines or
+/// [`Request::new`] for any other, and called using [`rpc::Client::call`](crate::rpc::Client::call).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Request<T = serde_json::Value> {
     pub method_name: std::borrow::Cow<'static, str>,
@@ -23,6 +24,17 @@ pub struct Request<T = serde_json::Value> {
 }
 
 impl<T> Request<T> {
+    /// Creates a request for `method_name` with the default timeout.
+    pub fn new(method_name: &'static str, params: serde_json::Value, api_path: ApiPaths) -> Self {
+        Self {
+            method_name: method_name.into(),
+            params,
+            result_type: PhantomData,
+            api_path,
+            timeout: *super::DEFAULT_REQUEST_TIMEOUT,
+        }
+    }
+
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = timeout;
     }
