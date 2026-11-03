@@ -132,11 +132,12 @@ pub enum ImportMode {
 }
 
 /// A snapshot to import (`--import-snapshot`), either a URL or a local file.
-#[derive(Debug, Clone)]
+#[derive(Debug, derive_more::Display)]
 pub enum SnapshotImportPath {
     /// A remote snapshot, downloaded before importing
     Url(Url),
     /// A local snapshot file
+    #[display("{}", _0.display())]
     FilePath(PathBuf),
 }
 
@@ -147,15 +148,6 @@ impl SnapshotImportPath {
         match path.to_str().and_then(|s| Url::parse(s).ok()) {
             Some(url) => Self::Url(snapshot::peek_url(url).await),
             None => Self::FilePath(path),
-        }
-    }
-}
-
-impl std::fmt::Display for SnapshotImportPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Url(url) => write!(f, "{url}"),
-            Self::FilePath(path) => write!(f, "{}", path.display()),
         }
     }
 }
@@ -1045,6 +1037,29 @@ mod test {
         import_snapshot_from_file(file_path, import_mode)
             .await
             .unwrap_err();
+    }
+
+    #[rstest]
+    #[tokio::test]
+    async fn import_snapshot_from_url_via_link_fails(
+        #[values(ImportMode::Symlink, ImportMode::Hardlink)] import_mode: ImportMode,
+    ) {
+        let temp_db_dir = tempfile::Builder::new().tempdir().unwrap();
+        let err = import_chain_as_forest_car(
+            &SnapshotImportPath::Url("https://forest.chainsafe.io/dummy.car".parse().unwrap()),
+            temp_db_dir.path(),
+            import_mode,
+            "http://127.0.0.1:2345/rpc/v1".parse().unwrap(),
+            Path::new("test"),
+            &ChainConfig::devnet(),
+            &SnapshotProgressTracker::default(),
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("requires a local snapshot file"),
+            "{err:#}"
+        );
     }
 
     #[rstest]
