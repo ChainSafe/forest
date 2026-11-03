@@ -10,7 +10,7 @@ use crate::daemon::db_util::load_all_forest_cars;
 use crate::daemon::extended_snapshot::import_tipset_lookup_snapshot;
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME};
+use crate::db::{BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME, DB_WRITE_BUFFER_CAPACITY};
 use crate::networks::NetworkChain;
 use crate::prelude::*;
 use crate::utils::db::car_stream::CarStream;
@@ -121,8 +121,6 @@ impl DBCommands {
                 db,
                 skip_validation: no_validation,
             } => {
-                const DB_WRITE_BUFFER_CAPACITY: usize = 10000;
-
                 let db_root_path = if let Some(db) = db {
                     db
                 } else {

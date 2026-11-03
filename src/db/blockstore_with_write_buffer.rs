@@ -5,6 +5,9 @@ use crate::prelude::*;
 use ahash::HashMap;
 use parking_lot::RwLock;
 
+/// Number of blocks buffered between writes when bulk-importing CAR files.
+pub const DB_WRITE_BUFFER_CAPACITY: usize = 10_000;
+
 pub struct BlockstoreWithWriteBuffer<DB: Blockstore> {
     inner: DB,
     buffer: RwLock<HashMap<Cid, Vec<u8>>>,

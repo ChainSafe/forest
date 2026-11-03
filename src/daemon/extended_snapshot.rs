@@ -9,9 +9,9 @@ use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
 use crate::daemon::db_util::{
     BackfillGuard, BackfillOptions, RangeSpec, path_as_url, run_backfill,
 };
-use crate::db::EthMappingsStore;
 use crate::db::car::AnyCar;
 use crate::db::car::forest::new_forest_car_temp_path_in;
+use crate::db::{BlockstoreWithWriteBuffer, DB_WRITE_BUFFER_CAPACITY, EthMappingsStore};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
@@ -122,11 +122,13 @@ where
     DB: Blockstore,
 {
     let started = Instant::now();
+    let db = BlockstoreWithWriteBuffer::new_with_capacity(db, DB_WRITE_BUFFER_CAPACITY);
     let mut car_stream = CarStream::new_from_path(path).await?;
     while let Some(block) = car_stream.try_next().await? {
         block.validate()?;
         db.put_keyed(&block.cid, &block.data)?;
     }
+    drop(db);
     info!(
         "Imported message receipts and events in {:.1}s",
         started.elapsed().as_secs_f64()
