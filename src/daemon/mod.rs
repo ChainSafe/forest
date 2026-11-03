@@ -149,7 +149,7 @@ async fn maybe_import_snapshot(
         && let Some(path) = &config.client.snapshot_path
     {
         let path = &match path_as_url(path) {
-            Some(url) => PathBuf::from(snapshot::peek_url(url).await?.as_str()),
+            Some(url) => PathBuf::from(snapshot::peek_url(url).await.as_str()),
             None => path.clone(),
         };
         let (car_db_path, ts) = import_chain_as_forest_car(

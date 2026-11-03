@@ -113,16 +113,22 @@ pub async fn peek(
     ))
 }
 
-/// Returns the final URL after redirection(s) of `url`, e.g. a stable `latest` snapshot URL.
-pub async fn peek_url(url: Url) -> anyhow::Result<Url> {
+/// Returns the final URL after redirection(s).
+/// if server rejects `HEAD` requests returns the `url` itself
+pub async fn peek_url(url: Url) -> Url {
     let response = crate::utils::net::global_http_client()
-        .head(url)
+        .head(url.clone())
         .timeout(Duration::from_secs(30))
         .send()
-        .await?
-        .error_for_status()
-        .context("server returned an error response")?;
-    Ok(response.url().clone())
+        .await
+        .and_then(|response| response.error_for_status());
+    match response {
+        Ok(response) => response.url().clone(),
+        Err(e) => {
+            tracing::debug!("Couldn't follow the redirects of {url}: {e:#}");
+            url
+        }
+    }
 }
 
 // Extract file paths from content-disposition values:
@@ -447,8 +453,36 @@ mod parse {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_content_disposition;
+    use super::{parse_content_disposition, peek_url};
     use reqwest::header::HeaderValue;
+    use url::Url;
+
+    #[rstest::rstest]
+    #[case::follows_redirect("/latest", "/snapshot.forest.car.zst")]
+    #[case::head_rejected("/post-only", "/post-only")]
+    #[case::not_found("/missing", "/missing")]
+    #[tokio::test]
+    async fn peek_url_falls_back_to_given_url(#[case] path: &str, #[case] expected: &str) {
+        use axum::{
+            Router,
+            response::Redirect,
+            routing::{get, post},
+        };
+
+        let app = Router::new()
+            .route(
+                "/latest",
+                get(|| async { Redirect::temporary("/snapshot.forest.car.zst") }),
+            )
+            .route("/snapshot.forest.car.zst", get(|| async { "snapshot" }))
+            .route("/post-only", post(|| async { "post" }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await });
+
+        let url = Url::parse(&format!("http://{addr}{path}")).unwrap();
+        assert_eq!(peek_url(url).await.path(), expected);
+    }
 
     #[test]
     fn content_disposition_forest() {
