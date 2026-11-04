@@ -160,7 +160,7 @@ pub async fn prepare_diff_export(
                     ResolveNullTipset::TakeOlder,
                 )
                 .await
-                .context("diff epoch must be smaller than target epoch")?;
+                .with_context(|| format!("failed to load the diff tipset at epoch {diff}"))?;
             let diff_base = diff_ts.key().clone();
             let diff_limit = diff_depth
                 .map(|depth| lookup_epoch_limit(diff_ts.epoch(), depth))
