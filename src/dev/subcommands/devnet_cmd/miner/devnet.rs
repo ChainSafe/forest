@@ -4,7 +4,7 @@
 use super::call;
 use crate::blocks::Tipset;
 use crate::dev::subcommands::tests_cmd::helpers::{
-    forest_client, lotus_client, poll, poll_until_message_executed, poll_with,
+    forest_client, lotus_client, poll, poll_until_message_executed,
 };
 use crate::lotus_json::HasLotusJson;
 use crate::rpc::prelude::*;
@@ -15,7 +15,6 @@ use crate::tool::subcommands::api_cmd::generate_diff;
 use anyhow::{Context as _, bail, ensure};
 use cid::Cid;
 use std::fmt::Debug;
-use std::time::Duration;
 
 /// Forest under test and the Lotus node that validates the chain Forest produces.
 pub(super) struct Devnet {
@@ -67,23 +66,24 @@ impl Devnet {
         Ok(At { devnet: self, head })
     }
 
-    /// Waits until Forest's head reaches `epoch`, then returns [`Self::synced`].
+    /// Waits until Forest's head reaches `epoch`, failing if it stops advancing, then returns
+    /// [`Self::synced`].
     pub async fn wait_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<At<'_>> {
-        let version = call(&self.forest, "forest", Version::request(())?).await?;
-        let block_delay = Duration::from_secs(version.block_delay.into());
-        let head = call(&self.forest, "forest", ChainHead::request(())?).await?;
-        let epochs = u32::try_from(epoch - head.epoch()).unwrap_or(0);
-        let budget = block_delay * epochs * 3 / 2 + Duration::from_secs(5 * 60);
-        poll_with(
-            &format!("forest to reach epoch {epoch}"),
-            budget,
-            block_delay,
-            || async {
-                let head = call(&self.forest, "forest", ChainHead::request(())?).await?;
-                Ok((head.epoch() >= epoch).then_some(()))
-            },
-        )
-        .await?;
+        let mut head = call(&self.forest, "forest", ChainHead::request(())?)
+            .await?
+            .epoch();
+        while head < epoch {
+            head = poll(
+                &format!("forest to advance past epoch {head} towards {epoch}"),
+                || async {
+                    let now = call(&self.forest, "forest", ChainHead::request(())?)
+                        .await?
+                        .epoch();
+                    Ok((now > head).then_some(now))
+                },
+            )
+            .await?;
+        }
         self.synced().await
     }
 
