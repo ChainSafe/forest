@@ -87,7 +87,8 @@ impl FakeDrandSigner {
     }
 }
 
-// Two consecutive decoded `quicknet` rounds as drand's `api.drand.sh` relay gossips them:
+// Two consecutive `quicknet` rounds captured from drand's `api.drand.sh` relay over gossipsub
+// Decoded:
 // [
 //   {
 //     "round": 33233273,
@@ -100,7 +101,6 @@ impl FakeDrandSigner {
 //     "randomness": "525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75"
 //   }
 // ]
-#[cfg(test)]
 const RELAY_PAYLOADS: [&str; 2] = [
     "08f9b2ec0f123086665198ae4cc688d5612997d9a2d544ca83cf7ea72861038fad1992497fe95fd8d13c4ffd9474d55d79c46c8a95e7372220713a75c9c5b1c3aef49ba4d9f4e7261b99d3871ed3b430dfc882bcffe2835687",
     "08fab2ec0f1230a5081cfe5ef2c4d72288af2d931e1189adc1cf6eedddbd838a79aa742b44b0eecea6fb608c1cdd35b87551d4a843e5d72220525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75",
