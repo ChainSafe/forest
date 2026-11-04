@@ -11,8 +11,8 @@ mod weight;
 pub use self::{snapshot_format::*, store::*, weight::*};
 
 use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::index::ChainIndex;
-use crate::cid_collections::{CidHashSet, CidHashSetLike};
+use crate::chain::index::{ChainIndex, ResolveNullTipset};
+use crate::cid_collections::{CidHashSet, CidHashSetLike, FileBackedCidHashSet};
 use crate::db::IndexMapBlockstore;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
 use crate::ipld::{IpldStream, should_save_block_to_snapshot, stream_chain};
@@ -23,12 +23,13 @@ use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
 use crate::utils::stream::par_buffer;
 use fil_actors_shared::fvm_ipld_hamt::Hamt;
-use futures::StreamExt as _;
+use futures::{StreamExt as _, TryStreamExt as _};
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash_derive::MultihashDigest as _;
 use nunny::Vec as NonEmpty;
 use sha2::digest::{self, Digest};
 use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 use tokio_util::task::AbortOnDropHandle;
@@ -42,6 +43,8 @@ pub struct ExportOptions<S> {
     pub include_tipset_keys: bool,
     pub include_tipset_lookup: bool,
     pub seen: S,
+    /// Ancestor of the exported tipset where the chain walk stops (exclusive)
+    pub diff_base: Option<TipsetKey>,
 }
 
 impl<S: Default> Default for ExportOptions<S> {
@@ -53,6 +56,7 @@ impl<S: Default> Default for ExportOptions<S> {
             include_tipset_keys: Default::default(),
             include_tipset_lookup: Default::default(),
             seen: Default::default(),
+            diff_base: Default::default(),
         }
     }
 }
@@ -70,7 +74,7 @@ fn lookup_epoch_limit(
 ) -> anyhow::Result<ChainEpoch> {
     tipset_epoch
         .checked_sub(lookup_depth)
-        .with_context(|| format!("recent roots depth {lookup_depth} is out of range"))
+        .with_context(|| format!("depth {lookup_depth} is out of range below epoch {tipset_epoch}"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
@@ -130,6 +134,72 @@ async fn ensure_recent_roots_present(
         Ok(())
     })
     .await?
+}
+
+/// Builds `seen` from the tipset at `diff` down to `diff - diff_depth`, plus genesis.
+pub async fn prepare_diff_export(
+    db: &(impl Blockstore + ShallowClone + Unpin),
+    index: &ChainIndex,
+    tipset: &Tipset,
+    diff: Option<ChainEpoch>,
+    diff_depth: Option<ChainEpochDelta>,
+    temp_dir: &Path,
+) -> anyhow::Result<ExportOptions<FileBackedCidHashSet>> {
+    let (seen, diff_base) = match diff {
+        None => (FileBackedCidHashSet::new(temp_dir)?, None),
+        Some(diff) => {
+            anyhow::ensure!(
+                diff < tipset.epoch(),
+                "diff epoch {diff} must be smaller than target epoch {}",
+                tipset.epoch()
+            );
+            let diff_ts = index
+                .load_required_tipset_by_height(
+                    diff,
+                    tipset.shallow_clone(),
+                    ResolveNullTipset::TakeOlder,
+                )
+                .await
+                .with_context(|| format!("failed to load the diff tipset at epoch {diff}"))?;
+            let diff_base = diff_ts.key().clone();
+            let diff_limit = diff_depth
+                .map(|depth| lookup_epoch_limit(diff_ts.epoch(), depth))
+                .transpose()
+                .context("invalid diff depth")?
+                .unwrap_or(0);
+            tracing::info!(
+                "building the diff base CID set, from epoch {} down to {diff_limit} and genesis...",
+                diff_ts.epoch()
+            );
+            let start = Instant::now();
+            // The export never reads headers below the base, but later state can share genesis state.
+            let tipsets = diff_ts
+                .chain_owned(db.shallow_clone())
+                .take_while(move |ts| ts.epoch() > diff_limit.max(0))
+                .chain(std::iter::once(index.genesis().shallow_clone()));
+            let mut stream = stream_chain(
+                db.shallow_clone(),
+                tipsets,
+                diff_limit,
+                FileBackedCidHashSet::new(temp_dir)?,
+            );
+            while stream.try_next().await?.is_some() {}
+            tracing::info!(
+                "built the diff base CID set, took {}",
+                humantime::format_duration(start.elapsed())
+            );
+            (stream.into_seen(), Some(diff_base))
+        }
+    };
+    Ok(ExportOptions {
+        skip_checksum: false,
+        include_receipts: false,
+        include_events: false,
+        include_tipset_keys: false,
+        include_tipset_lookup: false,
+        seen,
+        diff_base,
+    })
 }
 
 /// Exports a Filecoin snapshot in v1 format
@@ -226,11 +296,16 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         include_tipset_keys,
         include_tipset_lookup,
         seen,
+        diff_base,
     }: ExportOptions<S>,
 ) -> anyhow::Result<ExportResult<D>> {
     if include_events && !include_receipts {
         anyhow::bail!("message receipts must be included when events are included");
     }
+    anyhow::ensure!(
+        diff_base.is_none() || !(include_tipset_keys || include_tipset_lookup),
+        "tipset keys and tipset lookup are not supported in diff exports"
+    );
 
     let start = Instant::now();
     tracing::info!(
@@ -239,7 +314,8 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
         prefix_data_frames.as_ref().map(|v| v.len()).unwrap_or(0)
     );
 
-    let stateroot_lookup_limit = lookup_epoch_limit(tipset.epoch(), lookup_depth)?;
+    let stateroot_lookup_limit =
+        lookup_epoch_limit(tipset.epoch(), lookup_depth).context("invalid recent roots depth")?;
     ensure_recent_roots_present(db, tipset, stateroot_lookup_limit).await?;
 
     // Wrap writer in optional checksum calculator
@@ -264,7 +340,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
     };
 
     // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
-    // stream all block headers until genesis.
+    // stream all block headers until genesis, or until `diff_base` (exclusive) for diff exports.
     let (blocks, _drop_guard) = par_buffer(
         // Queue 1k blocks. This is enough to saturate the compressor and blocks
         // are small enough that keeping 1k in memory isn't a problem. Average
@@ -275,6 +351,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
             tipset
                 .shallow_clone()
                 .chain_owned(db.shallow_clone())
+                .take_while(move |ts| diff_base.as_ref() != Some(ts.key()))
                 .inspect(move |ts| {
                     if let Some(ts_lookup_tx) = &ts_lookup_tx
                         && ChainIndex::is_tipset_lookup_checkpoint(ts.epoch())
@@ -344,7 +421,8 @@ pub async fn export_receipts_events_to_forest_car(
         tipset.epoch(),
     );
 
-    let min_lookup_epoch_exclusive = lookup_epoch_limit(tipset.epoch(), lookup_depth)?;
+    let min_lookup_epoch_exclusive =
+        lookup_epoch_limit(tipset.epoch(), lookup_depth).context("invalid recent roots depth")?;
     let ipld_roots = tokio::task::spawn_blocking({
         let tipset = tipset.shallow_clone();
         let db = db.shallow_clone();

@@ -124,7 +124,7 @@ pub struct F3PowerEntryLotusJson {
     #[serde(rename = "ID")]
     pub id: ActorID,
     #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::stringify")]
+    #[serde(with = "crate::lotus_json")]
     pub power: num::BigInt,
     #[schemars(with = "String")]
     #[serde(with = "base64_standard")]
@@ -456,7 +456,7 @@ pub struct PowerTableDelta {
     #[serde(rename = "ParticipantID")]
     pub participant_id: ActorID,
     #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::stringify")]
+    #[serde(with = "crate::lotus_json")]
     pub power_delta: num::BigInt,
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json")]
@@ -777,6 +777,11 @@ mod tests {
     use crate::utils::encoding::hex;
     use base64::prelude::*;
     use rstest::rstest;
+
+    #[test]
+    fn snapshots_f3_power_entry() {
+        crate::lotus_json::assert_all_snapshots::<F3PowerEntry>();
+    }
 
     #[test]
     fn decode_f3_participation_lease_ticket_from_lotus() {
