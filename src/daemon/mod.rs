@@ -131,7 +131,7 @@ async fn maybe_import_snapshot(
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
     let chain_config = ctx.state_manager.chain_config();
-    // Sets the latest snapshot if needed for downloading later
+    // Pick a snapshot to download if the chain needs one and none was given
     let latest_snapshot = if config.client.snapshot_path.is_none() && !opts.stateless {
         maybe_get_snapshot_path(
             config,
@@ -910,12 +910,10 @@ async fn maybe_get_snapshot_path(
     // We don't support small network versions (we can't validate from e.g genesis).
     // So we need a snapshot (which will be from a recent network version)
     let require_a_snapshot = network_version_is_small;
-    let have_a_snapshot = config.client.snapshot_path.is_some();
 
-    let snapshot = match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
-        (false, _, _) => None,   // noop - don't need a snapshot
-        (true, true, _) => None, // noop - we need a snapshot, and we have one
-        (true, false, true) => {
+    let snapshot = match (require_a_snapshot, auto_download_snapshot) {
+        (false, _) => None, // noop - don't need a snapshot
+        (true, true) => {
             const AUTO_SNAPSHOT_PATH_ENV_KEY: &str = "FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH";
             match std::env::var(AUTO_SNAPSHOT_PATH_ENV_KEY) {
                 Ok(path) if !path.is_empty() => {
@@ -935,7 +933,7 @@ async fn maybe_get_snapshot_path(
                 }
             }
         }
-        (true, false, false) => {
+        (true, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let (url, num_bytes, filename) = crate::cli_shared::snapshot::peek(vendor, chain)
                 .await
