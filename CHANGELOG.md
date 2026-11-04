@@ -51,6 +51,8 @@
 
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Null tipset timestamps use the chain's block delay instead of a hard-coded 30s.
 
+- [#7830](https://github.com/ChainSafe/forest/issues/7830): Fixed `forest-cli snapshot export-diff` (`Forest.ChainExportDiff`) and `forest-tool archive export --diff` possibly timing out. The export walk now stops at the diff base, and with a diff depth set (always for `Forest.ChainExportDiff`), building the diff base set no longer walks every block header down to genesis.
+
 ## Forest v0.39.0 "Vijayadashami"
 
 Non-mandatory release for all node operators. It includes fixes and improvements, notably around the Ethereum and state RPC methods. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
