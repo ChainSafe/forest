@@ -2931,7 +2931,7 @@ Commands:
   eth-gas          `eth_estimateGas` parity tests
   eth-pending-tx   `eth_getTransactionByHash` pending transaction tests
   eth-skip-sender  Skip-sender integration tests that need a private chain with a miner
-  miner            Lotus Miner integration tests on Forest (`scripts/devnet-forest-miner` only)
+  miner            Miner integration tests on Forest (Lotus Miner or Curio; set `MINER_BACKEND` in the stack `.env`)
   state-call       `Filecoin.StateCall` gas limit parity tests
   help             Print this message or the help of the given subcommand(s)
 
@@ -2975,7 +2975,7 @@ Options:
 ### `forest-dev devnet miner`
 
 ```
-Lotus Miner integration tests on Forest (`scripts/devnet-forest-miner` only)
+Miner integration tests on Forest (Lotus Miner or Curio; set `MINER_BACKEND` in the stack `.env`)
 
 Usage: forest-dev devnet miner [OPTIONS] [FILTER]
 
