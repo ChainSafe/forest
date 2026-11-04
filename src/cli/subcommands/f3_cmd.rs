@@ -581,7 +581,7 @@ pub struct F3PowerTableCliJson {
     cid: Cid,
     #[serde(with = "crate::lotus_json")]
     entries: Vec<F3PowerEntry>,
-    #[serde(with = "crate::lotus_json::stringify")]
+    #[serde(with = "crate::lotus_json")]
     total: num::BigInt,
     scaled_total: i64,
 }
