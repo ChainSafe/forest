@@ -16,6 +16,7 @@ use clap::ValueEnum as _;
 use libtest_mimic::{Arguments, Trial};
 use std::fmt::Debug;
 
+/// Miner integration tests on Forest (Lotus Miner or Curio; set `MINER_BACKEND` in the stack `.env`)
 #[derive(Debug, clap::Args)]
 pub struct MinerTestCommand {
     /// Run only this group; all groups run by default
