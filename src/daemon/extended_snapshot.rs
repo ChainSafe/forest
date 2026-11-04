@@ -373,11 +373,11 @@ mod test {
         #[case] expected_err: Option<&str>,
     ) {
         use sha2::{Digest as _, Sha256};
-        let dummy_content: &[u8] = b"companion snapshot bytes"
+        let dummy_content: &'static [u8] = b"companion snapshot bytes";
 
         let app = axum::Router::new().route(
             "/companion.forest.car.zst",
-            axum::routing::get(|| async { dummy_content }),
+            axum::routing::get(move || async move { dummy_content }),
         );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
