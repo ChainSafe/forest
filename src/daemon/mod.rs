@@ -873,8 +873,11 @@ fn warmup_in_background(ctx: &AppContext) {
     });
 }
 
-/// If our current chain is below a supported height, we need a snapshot to bring it up
-/// to a supported height. If we've not been given a snapshot by the user, get one.
+/// Returns the snapshot to import, if any.
+///
+/// A snapshot given by the user is used, unless loading is skipped. Otherwise, if our chain is
+/// below a supported height, we need a snapshot to bring it up to a supported height, so get
+/// the latest one, except in stateless mode.
 ///
 /// An [`Err`] should be considered fatal.
 async fn maybe_get_snapshot_path(
@@ -884,8 +887,17 @@ async fn maybe_get_snapshot_path(
     epoch: ChainEpoch,
     download_directory: &Path,
 ) -> anyhow::Result<Option<SnapshotImportPath>> {
+    let skip_load = opts.skip_load.unwrap_or_default();
+
     if let Some(path) = &config.client.snapshot_path {
+        if skip_load {
+            return Ok(None);
+        }
         return Ok(Some(SnapshotImportPath::resolve(path.clone()).await));
+    }
+
+    if opts.stateless {
+        return Ok(None);
     }
 
     if !download_directory.is_dir() {
@@ -915,6 +927,9 @@ async fn maybe_get_snapshot_path(
                     tracing::info!(
                         "importing snapshot from {path} set by `{AUTO_SNAPSHOT_PATH_ENV_KEY}`"
                     );
+                    if skip_load {
+                        return Ok(None);
+                    }
                     Some(SnapshotImportPath::resolve(path.into()).await)
                 }
                 _ => {
@@ -1022,5 +1037,35 @@ mod tests {
                 assert!(result.is_err());
             }
         }
+    }
+
+    #[rstest]
+    #[case::stateless_keeps_given_snapshot(true, false, Some("snapshot.car"), true)]
+    #[case::stateless_without_snapshot(true, false, None, false)]
+    #[case::skip_load_ignores_given_url(
+        false,
+        true,
+        Some("http://127.0.0.1:9/snapshot.car"),
+        false
+    )]
+    #[tokio::test]
+    async fn get_snapshot_path(
+        #[case] stateless: bool,
+        #[case] skip_load: bool,
+        #[case] snapshot_path: Option<&str>,
+        #[case] expect_snapshot: bool,
+    ) {
+        let opts = CliOpts {
+            stateless,
+            skip_load: Some(skip_load),
+            ..Default::default()
+        };
+        let mut config = Config::default();
+        config.client.snapshot_path = snapshot_path.map(Into::into);
+        let snapshot =
+            maybe_get_snapshot_path(&opts, &config, &ChainConfig::mainnet(), 0, Path::new("."))
+                .await
+                .unwrap();
+        assert_eq!(snapshot.is_some(), expect_snapshot);
     }
 }

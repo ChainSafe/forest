@@ -219,7 +219,6 @@ pub async fn import_chain_as_forest_car(
 
     match import_mode {
         ImportMode::Auto => match from {
-            // Fallback to move if from is url
             SnapshotImportPath::Url(_) => move_or_copy(ImportMode::Move).await?,
             SnapshotImportPath::FilePath(from_path) => {
                 if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
