@@ -390,8 +390,7 @@ async fn load_executed_tipset_uncached_never_populates_the_tipset_state_cache() 
 }
 
 /// `MinerGetBaseInfo` reads the miner's info from the lookback state, as Lotus does, so the worker
-/// key it returns is the one validators check the ticket and election VRFs against:
-/// <https://github.com/filecoin-project/lotus/blob/v1.38.1/chain/stmgr/actors.go#L336-L385>
+/// key it returns is the one validators check the ticket and election VRFs against
 #[tokio::test]
 async fn miner_base_info_reads_the_worker_from_the_lookback_state() {
     use crate::beacon::{BeaconEntry, BeaconPoint, mock_beacon::MockBeacon};
@@ -399,8 +398,8 @@ async fn miner_base_info_reads_the_worker_from_the_lookback_state() {
     use crate::shim::sector::{RegisteredPoStProofV4, SectorSizeV4};
     use crate::test_utils::miner_and_power_state_root;
     use crate::utils::db::CborStoreExt as _;
-    use fil_actor_miner_state::v18 as miner_v18;
-    use fil_actor_power_state::v18 as power_v18;
+    use fil_actor_miner_state::v19 as miner_v19;
+    use fil_actor_power_state::v19 as power_v19;
 
     let db = Arc::new(MemoryDB::default());
     let miner = Address::new_id(1000);
@@ -412,34 +411,34 @@ async fn miner_base_info_reads_the_worker_from_the_lookback_state() {
     // Without power and a provable sector at the lookback the call returns before it reads the
     // worker; by the base tipset the worker has changed.
     let info = |worker: &Address| {
-        let mut info = miner_v18::MinerInfo::new(0, 0, vec![], vec![], vec![], post_proof).unwrap();
+        let mut info = miner_v19::MinerInfo::new(0, 0, vec![], vec![], vec![], post_proof).unwrap();
         info.worker = worker.into();
         db.put_cbor_default(&info).unwrap()
     };
     // Expires after its power base epoch, or its quality divides by a zero duration.
-    let sector = miner_v18::SectorOnChainInfo {
+    let sector = miner_v19::SectorOnChainInfo {
         expiration: 1000,
         ..Default::default()
     };
-    let mut lookback_miner = miner_v18::State::new(&policy, &db, info(&old_worker), 0, 0).unwrap();
+    let mut lookback_miner = miner_v19::State::new(&policy, &db, info(&old_worker), 0, 0).unwrap();
     lookback_miner
         .put_sectors(&db, vec![sector.clone()])
         .unwrap();
     lookback_miner
         .assign_sectors_to_deadlines(&policy, &db, 0, vec![sector], 2, SectorSizeV4::_2KiB)
         .unwrap();
-    let current_miner = miner_v18::State {
+    let current_miner = miner_v19::State {
         info: info(&new_worker),
         ..lookback_miner.clone()
     };
-    let mut power = power_v18::State::new(&db).unwrap();
+    let mut power = power_v19::State::new(&db).unwrap();
     let mut claims = power.load_claims(&db).unwrap();
-    let claim = power_v18::Claim {
+    let claim = power_v19::Claim {
         window_post_proof_type: post_proof,
         raw_byte_power: 2048.into(),
         quality_adj_power: 2048.into(),
     };
-    power_v18::set_claim(&mut claims, &miner, claim).unwrap();
+    power_v19::set_claim(&mut claims, &miner, claim).unwrap();
     power.save_claims(&mut claims).unwrap();
 
     // Mainnet's network version 0 looks back 10 epochs: mining epoch 12 on `base` reads the state

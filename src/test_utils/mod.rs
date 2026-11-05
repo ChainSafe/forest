@@ -52,15 +52,15 @@ pub fn resolving_state_tree(db: &DbImpl, robust: Address) -> (StateTree<DbImpl>,
 }
 
 /// Returns the root of a state tree that holds `miner_state` at `miner` and `power_state` at the
-/// power actor, with the mainnet v18 actor code.
+/// power actor, with the mainnet v19 actor code.
 pub fn miner_and_power_state_root(
     db: &(impl Blockstore + ShallowClone),
     miner: Address,
-    miner_state: &fil_actor_miner_state::v18::State,
-    power_state: &fil_actor_power_state::v18::State,
+    miner_state: &fil_actor_miner_state::v19::State,
+    power_state: &fil_actor_power_state::v19::State,
 ) -> Cid {
     let manifest = &ACTOR_BUNDLES_METADATA
-        .get(&(NetworkChain::Mainnet, "v18.0.0".to_string()))
+        .get(&(NetworkChain::Mainnet, "v19.0.1".to_string()))
         .unwrap()
         .manifest;
     let miner_head = db.put_cbor_default(miner_state).unwrap();
