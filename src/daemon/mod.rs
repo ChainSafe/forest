@@ -1040,20 +1040,20 @@ mod tests {
     }
 
     #[rstest]
-    #[case::stateless_keeps_given_snapshot(true, false, Some("snapshot.car"), true)]
-    #[case::stateless_without_snapshot(true, false, None, false)]
-    #[case::skip_load_ignores_given_url(
-        false,
+    #[case::stateless_keeps_given_snapshot(
         true,
-        Some("http://127.0.0.1:9/snapshot.car"),
-        false
+        false,
+        Some("snapshot.car"),
+        Some(SnapshotImportPath::FilePath("snapshot.car".into()))
     )]
+    #[case::stateless_without_snapshot(true, false, None, None)]
+    #[case::skip_load_ignores_given_url(false, true, Some("http://127.0.0.1:9/snapshot.car"), None)]
     #[tokio::test]
     async fn get_snapshot_path(
         #[case] stateless: bool,
         #[case] skip_load: bool,
         #[case] snapshot_path: Option<&str>,
-        #[case] expect_snapshot: bool,
+        #[case] expected: Option<SnapshotImportPath>,
     ) {
         let opts = CliOpts {
             stateless,
@@ -1066,6 +1066,6 @@ mod tests {
             maybe_get_snapshot_path(&opts, &config, &ChainConfig::mainnet(), 0, Path::new("."))
                 .await
                 .unwrap();
-        assert_eq!(snapshot.is_some(), expect_snapshot);
+        assert_eq!(snapshot, expected);
     }
 }
