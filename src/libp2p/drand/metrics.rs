@@ -10,27 +10,14 @@ use prometheus_client::{
 };
 
 /// Why a gossiped `drand` entry got its verdict.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub(super) enum Reason {
     Verified,
     InvalidSignature,
     Malformed,
-    Future,
     Stale,
-    NoSlot,
-}
-
-impl Reason {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Verified => "verified",
-            Self::InvalidSignature => "invalid_signature",
-            Self::Malformed => "malformed",
-            Self::Future => "future",
-            Self::Stale => "stale",
-            Self::NoSlot => "no_slot",
-        }
-    }
+    Duplicate,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
@@ -59,7 +46,7 @@ pub(super) fn record(acceptance: &MessageAcceptance, reason: Reason) {
     DRAND_GOSSIP_ENTRIES
         .get_or_create(&VerdictLabels {
             verdict,
-            reason: reason.as_str(),
+            reason: reason.into(),
         })
         .inc();
 }
