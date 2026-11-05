@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
@@ -37,6 +37,7 @@ use tracing::{debug, error, info, trace, warn};
 use super::{
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
+    connection_manager::{ConnectionManager, PeerValue},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
     drand::DrandGossip,
 };
@@ -188,6 +189,7 @@ pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
     drand: Option<DrandGossip>,
+    connection_manager: ConnectionManager,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -281,6 +283,7 @@ impl Libp2pService {
             swarm,
             bootstrap_peers,
             drand,
+            connection_manager: ConnectionManager::new(config.target_peer_count),
             cs,
             peer_manager,
             network_receiver_in,
@@ -360,6 +363,12 @@ impl Libp2pService {
                             &pubsub_msg_str,
                             self.drand.as_ref()).await;
                     },
+                    Some(SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. }) => {
+                        self.connection_manager.on_connection_established(peer_id, endpoint.is_dialer(), Instant::now());
+                    },
+                    Some(SwarmEvent::ConnectionClosed { peer_id, num_established, .. }) => {
+                        self.connection_manager.on_connection_closed(&peer_id, num_established as usize);
+                    },
                     None => { break; },
                     _ => { },
                 },
@@ -379,6 +388,7 @@ impl Libp2pService {
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
                     trace!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                    prune_excess_peers(swarm_stream.get_mut(), &self.connection_manager, &self.peer_manager, &self.bootstrap_peers);
                 },
                 cs_pair_opt = cx_response_rx_stream.next() => {
                     if let Some((_request_id, channel, cx_response)) = cs_pair_opt {
@@ -447,6 +457,33 @@ fn dial_to_bootstrap_peers_if_needed(
                 warn!("{e}");
             }
         }
+    }
+}
+
+fn prune_excess_peers(
+    swarm: &mut Swarm<ForestBehaviour>,
+    connection_manager: &ConnectionManager,
+    peer_manager: &PeerManager,
+    bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+) {
+    let mesh_peers = swarm.behaviour().mesh_peers();
+    let peers = connection_manager.peers_to_prune(Instant::now(), |peer| {
+        if bootstrap_peers.contains_key(peer)
+            || peer_manager.is_peer_protected(peer)
+            || mesh_peers.contains(peer)
+        {
+            PeerValue::Protected
+        } else if peer_manager.has_responded(peer) {
+            PeerValue::High
+        } else {
+            PeerValue::Low
+        }
+    });
+    if !peers.is_empty() {
+        debug!("Pruning {} excess peers", peers.len());
+    }
+    for peer in peers {
+        let _ = swarm.disconnect_peer_id(peer);
     }
 }
 

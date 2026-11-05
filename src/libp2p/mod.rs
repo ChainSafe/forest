@@ -4,6 +4,7 @@
 mod behaviour;
 pub mod chain_exchange;
 mod config;
+mod connection_manager;
 pub mod discovery;
 mod drand;
 mod gossip_params;

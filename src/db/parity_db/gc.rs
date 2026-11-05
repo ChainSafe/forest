@@ -192,6 +192,10 @@ impl PersistentStore for GarbageCollectableParityDb {
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         PersistentStore::put_keyed_persistent(&*self.db.read(), k, block)
     }
+
+    fn delete_keyed(&self, k: &Cid) -> anyhow::Result<()> {
+        PersistentStore::delete_keyed(&*self.db.read(), k)
+    }
 }
 
 impl BitswapStoreRead for GarbageCollectableParityDb {

@@ -358,6 +358,13 @@ impl PersistentStore for ParityDb {
     fn put_keyed_persistent(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.write_to_column(k.to_bytes(), block, DbColumn::PersistentGraph)
     }
+
+    fn delete_keyed(&self, k: &Cid) -> anyhow::Result<()> {
+        Ok(self.db.commit_changes(
+            [Self::choose_column(k), DbColumn::PersistentGraph]
+                .map(|column| (column as u8, Operation::Dereference(k.to_bytes()))),
+        )?)
+    }
 }
 
 impl BitswapStoreRead for ParityDb {

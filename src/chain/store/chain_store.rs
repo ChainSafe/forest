@@ -488,7 +488,7 @@ impl ChainStore {
         Ok(self
             .messages_in_tipset_cache()
             .get_or_insert_with(ts.key(), || {
-                let bmsgs = BlockMessages::for_tipset(self.db(), ts)?;
+                let bmsgs = BlockMessages::for_tipset(self.db(), ts, self.chain_config())?;
                 anyhow::Ok(
                     bmsgs
                         .into_iter()

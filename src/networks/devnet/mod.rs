@@ -3,7 +3,9 @@
 
 use cid::Cid;
 use indexmap::IndexMap;
+use itertools::Itertools as _;
 use std::sync::LazyLock;
+use strum::IntoEnumIterator as _;
 
 use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
@@ -25,46 +27,46 @@ pub static GENESIS_NETWORK_VERSION: LazyLock<NetworkVersion> = LazyLock::new(|| 
                 .expect("Invalid genesis network version"),
         )
     } else {
-        NetworkVersion::V21
+        NetworkVersion::V28
     }
 });
 
 /// Height epochs.
-/// Environment variable names follow
-/// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
+/// Defaults follow
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.0/build/buildconstants/params_2k.go>.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
-    IndexMap::from_iter([
+    let height_infos: IndexMap<Height, HeightInfo> = IndexMap::from_iter([
         make_height!(
             Breeze,
-            get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-50)
+            get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-1)
         ),
         make_height!(
             Smoke,
-            get_upgrade_height_from_env("FOREST_SMOKE_HEIGHT").unwrap_or(-2)
+            get_upgrade_height_from_env("FOREST_SMOKE_HEIGHT").unwrap_or(-1)
         ),
         make_height!(
             Ignition,
-            get_upgrade_height_from_env("FOREST_IGNITION_HEIGHT").unwrap_or(-3)
+            get_upgrade_height_from_env("FOREST_IGNITION_HEIGHT").unwrap_or(-2)
         ),
         make_height!(
             Refuel,
-            get_upgrade_height_from_env("FOREST_REFUEL_HEIGHT").unwrap_or(-4)
+            get_upgrade_height_from_env("FOREST_REFUEL_HEIGHT").unwrap_or(-3)
+        ),
+        make_height!(
+            Tape,
+            get_upgrade_height_from_env("FOREST_TAPE_HEIGHT").unwrap_or(-4)
         ),
         make_height!(
             Assembly,
             get_upgrade_height_from_env("FOREST_ASSEMBLY_HEIGHT").unwrap_or(-5)
         ),
         make_height!(
-            Tape,
-            get_upgrade_height_from_env("FOREST_TAPE_HEIGHT").unwrap_or(-6)
-        ),
-        make_height!(
             Liftoff,
-            get_upgrade_height_from_env("FOREST_LIFTOFF_HEIGHT").unwrap_or(-7)
+            get_upgrade_height_from_env("FOREST_LIFTOFF_HEIGHT").unwrap_or(-6)
         ),
         make_height!(
             Kumquat,
-            get_upgrade_height_from_env("FOREST_KUMQUAT_HEIGHT").unwrap_or(-8)
+            get_upgrade_height_from_env("FOREST_KUMQUAT_HEIGHT").unwrap_or(-7)
         ),
         make_height!(
             Calico,
@@ -75,12 +77,12 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
             get_upgrade_height_from_env("FOREST_PERSIAN_HEIGHT").unwrap_or(-10)
         ),
         make_height!(
-            Claus,
-            get_upgrade_height_from_env("FOREST_CLAUS_HEIGHT").unwrap_or(-11)
+            Orange,
+            get_upgrade_height_from_env("FOREST_ORANGE_HEIGHT").unwrap_or(-11)
         ),
         make_height!(
-            Orange,
-            get_upgrade_height_from_env("FOREST_ORANGE_HEIGHT").unwrap_or(-12)
+            Claus,
+            get_upgrade_height_from_env("FOREST_CLAUS_HEIGHT").unwrap_or(-12)
         ),
         make_height!(
             Trust,
@@ -131,50 +133,66 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         ),
         make_height!(
             Watermelon,
-            get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-1),
+            get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-24),
             get_bundle_cid("v12.0.0")
         ),
         make_height!(
             Dragon,
-            get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(20),
+            get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(-25),
             get_bundle_cid("v13.0.0")
         ),
-        make_height!(Phoenix, i64::MIN),
+        make_height!(
+            Phoenix,
+            get_upgrade_height_from_env("FOREST_PHOENIX_HEIGHT").unwrap_or(-26)
+        ),
         make_height!(
             Waffle,
-            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(-27),
             get_bundle_cid("v14.0.0-rc.1")
         ),
         make_height!(
             TukTuk,
-            get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_TUKTUK_HEIGHT").unwrap_or(-28),
             get_bundle_cid("v15.0.0-rc1")
         ),
         make_height!(
             Teep,
-            get_upgrade_height_from_env("FOREST_TEEP_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_TEEP_HEIGHT").unwrap_or(-29),
             get_bundle_cid("v16.0.1")
         ),
         make_height!(
             Tock,
-            get_upgrade_height_from_env("FOREST_TOCK_HEIGHT").unwrap_or(9999999999)
+            get_upgrade_height_from_env("FOREST_TOCK_HEIGHT").unwrap_or(-30)
         ),
         make_height!(
             GoldenWeek,
-            get_upgrade_height_from_env("FOREST_GOLDEN_WEEK_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_GOLDEN_WEEK_HEIGHT").unwrap_or(-31),
             get_bundle_cid("v17.0.0")
         ),
         make_height!(
             FireHorse,
-            get_upgrade_height_from_env("FOREST_FIREHORSE_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_FIREHORSE_HEIGHT").unwrap_or(-32),
             get_bundle_cid("v18.0.0")
         ),
         make_height!(
             Solstice,
-            get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(9999999999),
+            get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(200),
             get_bundle_cid("v19.0.1")
         ),
-    ])
+    ]);
+    for ((prev, prev_info), (next, next_info)) in Height::iter()
+        .filter_map(|height| Some((height, height_infos.get(&height)?)))
+        .filter(|(_, info)| info.epoch >= 0)
+        .tuple_windows()
+    {
+        assert!(
+            prev_info.epoch < next_info.epoch,
+            "upgrade heights must be strictly increasing: {prev} at {}, followed by {next} at {}",
+            prev_info.epoch,
+            next_info.epoch
+        );
+    }
+    height_infos
 });
 
 fn get_bundle_cid(version: &str) -> Cid {
@@ -197,7 +215,7 @@ pub(super) static DRAND_SCHEDULE: LazyLock<[DrandPoint<'static>; 1]> = LazyLock:
 macro_rules! make_devnet_policy {
     (v11) => {
         fil_actors_shared::v11::runtime::Policy {
-            minimum_consensus_power: 2040.into(),
+            minimum_consensus_power: 2048.into(),
             minimum_verified_allocation_size: 256.into(),
             pre_commit_challenge_delay: 10,
             valid_pre_commit_proof_type: {
@@ -221,7 +239,7 @@ macro_rules! make_devnet_policy {
     };
     ($version:tt) => {
         fil_actors_shared::$version::runtime::Policy {
-            minimum_consensus_power: 2040.into(),
+            minimum_consensus_power: 2048.into(),
             minimum_verified_allocation_size: 256.into(),
             pre_commit_challenge_delay: 10,
             valid_pre_commit_proof_type: {

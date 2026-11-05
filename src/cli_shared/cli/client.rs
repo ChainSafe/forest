@@ -13,26 +13,6 @@ use serde_with::serde_as;
 
 use crate::daemon::db_util::ImportMode;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(transparent)]
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct ChunkSize(pub u32);
-impl Default for ChunkSize {
-    fn default() -> Self {
-        ChunkSize(500_000)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(transparent)]
-#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct BufferSize(pub u32);
-impl Default for BufferSize {
-    fn default() -> Self {
-        BufferSize(1)
-    }
-}
-
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
@@ -47,15 +27,6 @@ pub struct Client {
     pub snapshot_head: Option<i64>,
     pub snapshot_path: Option<PathBuf>,
     pub import_mode: ImportMode,
-    /// Skips loading import CAR file and assumes it's already been loaded.
-    /// Will use the CIDs in the header of the file to index the chain.
-    pub skip_load: bool,
-    /// When importing CAR files, chunk key-value pairs before committing them
-    /// to the database.
-    pub chunk_size: ChunkSize,
-    /// When importing CAR files, maintain a read-ahead buffer measured in
-    /// number of chunks.
-    pub buffer_size: BufferSize,
     pub encrypt_keystore: bool,
     /// Metrics bind, e.g. 127.0.0.1:6116
     pub metrics_address: SocketAddr,
@@ -82,9 +53,6 @@ impl Default for Client {
             import_mode: ImportMode::default(),
             snapshot_height: None,
             snapshot_head: None,
-            skip_load: false,
-            chunk_size: ChunkSize::default(),
-            buffer_size: BufferSize::default(),
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116")
                 .expect("0.0.0.0:6116 is a valid socket address"),

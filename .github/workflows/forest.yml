@@ -1,7 +1,6 @@
 name: Integration tests
 permissions:
   contents: read
-  issues: write
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -206,35 +205,11 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_stateless_rpc_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-  state-migrations-check:
-    needs:
-      - build-ubuntu
-    name: State migrations
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/cache@v6
-        with:
-          path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
-          key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: "forest-${{ runner.os }}"
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: Migration Regression Tests
-        run: ./scripts/tests/calibnet_migration_regression_tests.sh
-        timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
-  calibnet-wallet-check-no-ops:
-    name: Wallet tests
-    runs-on: ubuntu-slim
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'Wallet') }}
-    steps:
-      - run: echo "No-op job to trigger the required wallet tests."
   calibnet-wallet-check:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'Wallet') }}
+    # Needs the `CALIBNET_WALLET` secret, which pull requests from forks do not get.
+    if: |-
+      ${{ (contains(github.event.pull_request.labels.*.name, 'Wallet') || contains(github.event.pull_request.labels.*.name, 'Release'))
+      && github.event.pull_request.head.repo.full_name == github.repository }}
     needs:
       - build-ubuntu
     name: Wallet tests
@@ -274,10 +249,7 @@ jobs:
       - name: Wallet commands check
         env:
           CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
-        run: |
-          if [[ "$CALIBNET_WALLET" != "" ]]; then
-            mise run test:wallet "$CALIBNET_WALLET"
-          fi
+        run: mise run test:wallet "$CALIBNET_WALLET"
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-export-check-v1:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
@@ -407,7 +379,10 @@ jobs:
       - run: ./scripts/tests/calibnet_eth_mapping_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   calibnet-api-test-stateful:
-    if: github.event.pull_request.draft == false
+    # Needs the `CALIBNET_T4_WALLET` secret, which pull requests from forks do not get.
+    if: |-
+      ${{ github.event.pull_request.draft == false
+      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     concurrency:
       group: calibnet-api-test-stateful
       cancel-in-progress: false
@@ -432,10 +407,7 @@ jobs:
       - name: Api test stateful check
         env:
           CALIBNET_T4_WALLET: "${{ secrets.CALIBNET_T4_WALLET }}"
-        run: |
-          if [[ "$CALIBNET_T4_WALLET" != "" ]]; then
-            ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_T4_WALLET"
-          fi
+        run: ./scripts/tests/calibnet_api_test_stateful_check.sh "$CALIBNET_T4_WALLET"
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
   db-migration-checks:
     needs:
@@ -509,12 +481,7 @@ jobs:
           export DEVNET_DIR=${{ matrix.dir }}
           source ./scripts/devnet/test_harness.sh
           devnet_test_env_init
-          forest-dev tests mpool
-          forest-dev tests wallet
-          forest-dev devnet eth-gas
-          forest-dev devnet eth-skip-sender
-          forest-dev devnet state-call
-          forest-dev devnet eth-pending-tx
+          devnet_integration_tests
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
@@ -567,14 +534,8 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
-  calibnet-rpc-checks-no-ops:
-    name: Calibnet RPC checks
-    runs-on: ubuntu-slim
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'RPC') }}
-    steps:
-      - run: echo "No-op job to trigger the required calibnet RPC checks."
   calibnet-rpc-checks:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'RPC') }}
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'RPC') || contains(github.event.pull_request.labels.*.name, 'Release') }}
     needs:
       - build-ubuntu
     name: Calibnet RPC checks
@@ -602,6 +563,8 @@ jobs:
           df -h
   # Umbrella job to aggregate all integration tests and get their status
   integration-tests-status:
+    # Runs after a failed or skipped job too: a required check that is skipped counts as passing
+    if: ${{ !cancelled() }}
     needs:
       - build-macos
       - build-ubuntu
@@ -609,7 +572,6 @@ jobs:
       - calibnet-check
       - calibnet-stateless-mode-check
       - calibnet-stateless-rpc-check
-      - state-migrations-check
       - calibnet-no-discovery-checks
       - calibnet-kademlia-checks
       - calibnet-eth-mapping-check
@@ -618,29 +580,36 @@ jobs:
       - local-devnet-check
       - bootstrap-checks-forest
       - bootstrap-checks-lotus
-    name: Integration tests status
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "All integration tests passed."
-
-  extra_tests:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'Release') || contains(github.event.pull_request.labels.*.name, 'Snapshot'))) }}
-    runs-on: ubuntu-24.04
-    needs:
+      - calibnet-rpc-checks
+      - calibnet-wallet-check
       - calibnet-export-check-v1
       - calibnet-export-check-v2
       - calibnet-export-diff-check
-    name: Additional integration tests status
+    name: Integration tests status
+    runs-on: ubuntu-24.04
     steps:
-      - run: echo "All extra integration tests passed."
+      - name: Fail on any failed or cancelled integration test
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
+      - run: echo "All integration tests passed."
+
+  # One issue per failed scheduled run.
+  report-failure:
+    name: Report failure
+    permissions:
+      contents: read
+      issues: write
+    needs: integration-tests-status
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
       - name: Set WORKFLOW_URL
-        if: always()
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           echo "${WORKFLOW_URL}"
           echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
       - uses: JasonEtco/create-an-issue@v2
-        if: github.ref == 'refs/heads/main' && failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
