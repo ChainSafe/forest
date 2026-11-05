@@ -18,6 +18,7 @@ use anyhow::Context as _;
 use clap::Parser;
 use directories::ProjectDirs;
 use libp2p::Multiaddr;
+use num_traits::Zero;
 use tracing::error;
 
 pub use self::{client::*, completion_cmd::*, config::*};
@@ -216,6 +217,8 @@ impl CliOpts {
         }
 
         cfg.client.load_actors = !self.skip_load_actors;
+
+        anyhow::ensure!(!cfg.fee.max_fee.is_zero(), "fee.max_fee must be non-zero");
 
         Ok((cfg, path))
     }

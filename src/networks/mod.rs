@@ -6,11 +6,11 @@ use std::sync::LazyLock;
 
 use indexmap::IndexMap;
 use libp2p::Multiaddr;
-use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use crate::cli_shared::cli::FeeConfig;
 use crate::db::SettingsStore;
 use crate::eth::EthChainId;
 use crate::prelude::*;
@@ -317,7 +317,7 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
-            default_max_fee: TokenAmount::zero(),
+            default_max_fee: FeeConfig::default().max_fee,
         }
     }
 
@@ -357,7 +357,7 @@ impl ChainConfig {
                     .expect("invalid f3_initial_power_table"),
             ),
             enable_indexer: false,
-            default_max_fee: TokenAmount::zero(),
+            default_max_fee: FeeConfig::default().max_fee,
         }
     }
 
@@ -387,7 +387,7 @@ impl ChainConfig {
             f3_bootstrap_epoch: -1,
             f3_initial_power_table: None,
             enable_indexer: false,
-            default_max_fee: TokenAmount::zero(),
+            default_max_fee: FeeConfig::default().max_fee,
         }
     }
 
@@ -423,7 +423,7 @@ impl ChainConfig {
             f3_bootstrap_epoch: 1000,
             f3_initial_power_table: None,
             enable_indexer: false,
-            default_max_fee: TokenAmount::zero(),
+            default_max_fee: FeeConfig::default().max_fee,
         }
     }
 
@@ -665,7 +665,17 @@ pub fn calculate_expected_epoch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_traits::Zero;
     use rstest::rstest;
+
+    #[rstest]
+    #[case(ChainConfig::mainnet())]
+    #[case(ChainConfig::calibnet())]
+    #[case(ChainConfig::devnet())]
+    #[case(ChainConfig::butterflynet())]
+    fn assert_default_max_fee_is_not_zero(#[case] config: ChainConfig) {
+        assert!(!config.default_max_fee.is_zero());
+    }
 
     fn heights_are_present(height_infos: &IndexMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
