@@ -390,7 +390,7 @@ async fn load_executed_tipset_uncached_never_populates_the_tipset_state_cache() 
 }
 
 /// `MinerGetBaseInfo` reads the miner's info from the lookback state, as Lotus does, so the worker
-/// key it returns is the one validators check the ticket and election VRFs against
+/// key it returns is the one validators check the ticket and election `VRFs` against
 #[tokio::test]
 async fn miner_base_info_reads_the_worker_from_the_lookback_state() {
     use crate::beacon::{BeaconEntry, BeaconPoint, mock_beacon::MockBeacon};
