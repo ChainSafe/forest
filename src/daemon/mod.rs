@@ -884,10 +884,6 @@ async fn maybe_get_snapshot_path(
     epoch: ChainEpoch,
     download_directory: &Path,
 ) -> anyhow::Result<Option<SnapshotImportPath>> {
-    if opts.stateless {
-        return Ok(None);
-    }
-
     if let Some(path) = &config.client.snapshot_path {
         return Ok(Some(SnapshotImportPath::resolve(path.clone()).await));
     }
