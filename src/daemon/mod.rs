@@ -130,28 +130,19 @@ async fn maybe_import_snapshot(
     config: &Config,
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
-    let chain_config = ctx.state_manager.chain_config();
-    // Pick a snapshot to download if the chain needs one and none was given
-    let latest_snapshot = if config.client.snapshot_path.is_none() && !opts.stateless {
-        maybe_get_snapshot_path(
-            config,
-            chain_config,
-            ctx.state_manager.chain_store().heaviest_tipset().epoch(),
-            opts.auto_download_snapshot,
-            &ctx.db_meta_data.get_root_dir(),
-        )
-        .await?
-    } else {
-        None
-    };
+    let snapshot = maybe_get_snapshot_path(
+        opts,
+        config,
+        ctx.state_manager.chain_config(),
+        ctx.state_manager.chain_store().heaviest_tipset().epoch(),
+        &ctx.db_meta_data.get_root_dir(),
+    )
+    .await?;
 
     let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default()
-        && let Some(path) = match &config.client.snapshot_path {
-            Some(path) => Some(SnapshotImportPath::parse(path.clone()).await),
-            None => latest_snapshot,
-        }
+        && let Some(path) = snapshot
     {
         let (car_db_path, ts) = import_chain_as_forest_car(
             &path,
@@ -887,12 +878,20 @@ fn warmup_in_background(ctx: &AppContext) {
 ///
 /// An [`Err`] should be considered fatal.
 async fn maybe_get_snapshot_path(
+    opts: &CliOpts,
     config: &Config,
     chain_config: &ChainConfig,
     epoch: ChainEpoch,
-    auto_download_snapshot: bool,
     download_directory: &Path,
 ) -> anyhow::Result<Option<SnapshotImportPath>> {
+    if opts.stateless {
+        return Ok(None);
+    }
+
+    if let Some(path) = &config.client.snapshot_path {
+        return Ok(Some(SnapshotImportPath::resolve(path.clone()).await));
+    }
+
     if !download_directory.is_dir() {
         anyhow::bail!(
             "`download_directory` does not exist: {}",
@@ -911,7 +910,7 @@ async fn maybe_get_snapshot_path(
     // So we need a snapshot (which will be from a recent network version)
     let require_a_snapshot = network_version_is_small;
 
-    let snapshot = match (require_a_snapshot, auto_download_snapshot) {
+    let snapshot = match (require_a_snapshot, opts.auto_download_snapshot) {
         (false, _) => None, // noop - don't need a snapshot
         (true, true) => {
             const AUTO_SNAPSHOT_PATH_ENV_KEY: &str = "FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH";
@@ -920,7 +919,7 @@ async fn maybe_get_snapshot_path(
                     tracing::info!(
                         "importing snapshot from {path} set by `{AUTO_SNAPSHOT_PATH_ENV_KEY}`"
                     );
-                    Some(SnapshotImportPath::parse(path.into()).await)
+                    Some(SnapshotImportPath::resolve(path.into()).await)
                 }
                 _ => {
                     // Resolve the redirect URL to get the actual snapshot URL
