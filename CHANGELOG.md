@@ -35,6 +35,8 @@
 
 - [#7781](https://github.com/ChainSafe/forest/pull/7781): Actor bundles are now verified against their CIDs, and missing or tampered blocks are replaced.
 
+- [#7729](https://github.com/ChainSafe/forest/issues/7729): Blocks built by `Filecoin.MinerCreateBlock` set the header `ForkSignaling` field to `0xF02E57ED` to mark them as produced through Forest. Set `FOREST_BLOCK_FORK_SIGNALING` to override it, or to `0` to opt out.
+
 ### Changed
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): Big integers in JSON-RPC parameters must fit the 1016-bit limit of their CBOR encoding. Larger values are rejected when the request is decoded.
