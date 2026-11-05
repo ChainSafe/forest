@@ -1,15 +1,13 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use libp2p::{
     PeerId,
     gossipsub::{MessageAcceptance, MessageId},
 };
-use nonzero_ext::nonzero;
 use quick_protobuf::{BytesReader, MessageRead as _};
-use tokio::sync::Semaphore;
 use tracing::debug;
 
 use super::{
@@ -17,29 +15,14 @@ use super::{
     metrics::{self, Reason},
 };
 use crate::beacon::{Beacon as _, BeaconEntry, BeaconSchedule, PublicRandResponse};
-use crate::utils::misc::env::env_or_default_logged;
 
 /// Older gossiped rounds are ignored; accepting them would let peers fill the cache.
-pub(in crate::libp2p) const MAX_ROUND_AGE_SECS: u64 = 30;
-
-/// Rounds further ahead are ignored, not rejected: a slow local clock must not penalize peers.
-pub(in crate::libp2p) const MAX_CLOCK_SKEW_SECS: u64 = 3;
-
-/// Concurrency cap for `drand` entries verified from `gossipsub`. Excess is dropped, not queued.
-static MAX_CONCURRENT_VERIFICATIONS: LazyLock<usize> = LazyLock::new(|| {
-    env_or_default_logged(
-        "FOREST_MAX_CONCURRENT_DRAND_VERIFICATIONS",
-        nonzero!(4_usize),
-    )
-    .get()
-    .min(Semaphore::MAX_PERMITS)
-});
+const MAX_ROUND_AGE_SECS: u64 = 30;
 
 /// Verifies gossiped `drand` entries, reporting a verdict for each. Only malformed payloads and bad
 /// signatures are rejected; anything else unverified is ignored.
 pub(in crate::libp2p) struct DrandGossipValidator {
     schedule: Arc<BeaconSchedule>,
-    limiter: Arc<Semaphore>,
     verdicts: flume::Sender<Verdict>,
 }
 
@@ -48,19 +31,7 @@ impl DrandGossipValidator {
         schedule: Arc<BeaconSchedule>,
         verdicts: flume::Sender<Verdict>,
     ) -> Self {
-        Self::with_max_verifications(schedule, verdicts, *MAX_CONCURRENT_VERIFICATIONS)
-    }
-
-    pub(in crate::libp2p) fn with_max_verifications(
-        schedule: Arc<BeaconSchedule>,
-        verdicts: flume::Sender<Verdict>,
-        max_verifications: usize,
-    ) -> Self {
-        Self {
-            schedule,
-            limiter: Arc::new(Semaphore::new(max_verifications)),
-            verdicts,
-        }
+        Self { schedule, verdicts }
     }
 
     /// Validates a `PublicRandResponse` payload received at Unix time `now`, sending exactly one
@@ -98,31 +69,27 @@ impl DrandGossipValidator {
             .unchained_beacon()
             .expect("drand gossip requires an unchained beacon");
 
-        // Always `Some` for a `DrandBeacon`; a round that can't be timed is ignored, never let
-        // through without the time window.
-        let Some(round_ts) = beacon.beacon_round_timestamp(round) else {
-            return verdict(MessageAcceptance::Ignore, Reason::Future);
-        };
-        if round_ts > now.saturating_add(MAX_CLOCK_SKEW_SECS) {
-            debug!(round, %source, "ignoring drand entry: round is in the future");
-            return verdict(MessageAcceptance::Ignore, Reason::Future);
-        }
-        if round_ts.saturating_add(MAX_ROUND_AGE_SECS) < now {
+        if beacon
+            .round_timestamp(round)
+            .saturating_add(MAX_ROUND_AGE_SECS)
+            < now
+        {
             debug!(round, %source, "ignoring drand entry: round is stale");
             return verdict(MessageAcceptance::Ignore, Reason::Stale);
         }
 
-        let Ok(permit) = Arc::clone(&self.limiter).try_acquire_owned() else {
-            debug!(
-                round,
-                "ignoring drand entry: too many verifications in flight"
-            );
-            return verdict(MessageAcceptance::Ignore, Reason::NoSlot);
-        };
+        // Like drand's own validator: a round we hold is not forwarded again, and a different
+        // signature for it is a forgery.
+        if beacon.is_verified(&entry) {
+            return verdict(MessageAcceptance::Ignore, Reason::Duplicate);
+        }
+        if beacon.has_round(round) {
+            return verdict(MessageAcceptance::Reject, Reason::InvalidSignature);
+        }
+
         let schedule = Arc::clone(&self.schedule);
         let verdicts = self.verdicts.clone();
         tokio::task::spawn_blocking(move || {
-            let _permit = permit;
             let (acceptance, reason) = match schedule
                 .unchained_beacon()
                 .expect("drand gossip requires an unchained beacon")
@@ -146,12 +113,14 @@ fn report(
     reason: Reason,
 ) {
     metrics::record(&acceptance, reason);
-    // Fails only once the service is gone.
-    let _ = verdicts.send(Verdict {
+    // Never block: the service loop that drains the channel also calls this.
+    if let Err(e) = verdicts.try_send(Verdict {
         message_id,
         source,
         acceptance,
-    });
+    }) {
+        debug!(%source, "dropping drand verdict: {e}");
+    }
 }
 
 #[cfg(test)]
@@ -164,19 +133,22 @@ mod tests {
         EPOCH_ROUND, assert_verdict, fake_drand_schedule, is_cached, time_of,
     };
 
-    /// Runs `payload` through a validator with `max_verifications` slots.
+    fn validator(
+        schedule: &Arc<BeaconSchedule>,
+    ) -> (DrandGossipValidator, flume::Receiver<Verdict>) {
+        let (verdicts_tx, verdicts) = flume::unbounded();
+        (
+            DrandGossipValidator::new(schedule.clone(), verdicts_tx),
+            verdicts,
+        )
+    }
+
     async fn verdict_for(
         schedule: &Arc<BeaconSchedule>,
         payload: &[u8],
         now: u64,
-        max_verifications: usize,
     ) -> MessageAcceptance {
-        let (verdicts_tx, verdicts) = flume::unbounded();
-        let validator = DrandGossipValidator::with_max_verifications(
-            schedule.clone(),
-            verdicts_tx,
-            max_verifications,
-        );
+        let (validator, verdicts) = validator(schedule);
         validator.handle(payload, MessageId::new(b"drand"), PeerId::random(), now);
         tokio::time::timeout(Duration::from_secs(5), verdicts.recv_async())
             .await
@@ -185,17 +157,31 @@ mod tests {
             .acceptance
     }
 
+    /// The verdict decided inline, before any verification task is spawned.
+    fn immediate_verdict_for(
+        schedule: &Arc<BeaconSchedule>,
+        payload: &[u8],
+        now: u64,
+    ) -> MessageAcceptance {
+        let (validator, verdicts) = validator(schedule);
+        validator.handle(payload, MessageId::new(b"drand"), PeerId::random(), now);
+        verdicts
+            .try_recv()
+            .expect("an immediate verdict")
+            .acceptance
+    }
+
     /// Valid epoch rounds are accepted and cached.
     #[rstest::rstest]
     #[case::epoch_round(EPOCH_ROUND, 0)]
-    // Within the clock skew allowance.
-    #[case::produced_slightly_ahead(EPOCH_ROUND, -(MAX_CLOCK_SKEW_SECS as i64))]
+    // A slow local clock must not lose rounds.
+    #[case::ahead_of_local_clock(EPOCH_ROUND, -10)]
     #[tokio::test]
     async fn valid_round_is_accepted(#[case] round: u64, #[case] now_offset: i64) {
         let (drand, schedule) = fake_drand_schedule();
         let now = time_of(&schedule, round).saturating_add_signed(now_offset);
 
-        let verdict = verdict_for(&schedule, &drand.encode(round), now, 1).await;
+        let verdict = verdict_for(&schedule, &drand.encode(round), now).await;
 
         assert_verdict(&verdict, MessageAcceptance::Accept);
         assert!(is_cached(&schedule, round), "round {round}");
@@ -213,8 +199,6 @@ mod tests {
         0,
         MessageAcceptance::Reject
     )]
-    // Beyond the clock skew allowance.
-    #[case::future_round(|d: &FakeDrandSigner| d.encode(EPOCH_ROUND + 2), 0, MessageAcceptance::Ignore)]
     #[case::stale_round(|d: &FakeDrandSigner| d.encode(EPOCH_ROUND), MAX_ROUND_AGE_SECS as i64, MessageAcceptance::Ignore)]
     #[tokio::test]
     async fn invalid_or_untimely_entry_is_not_accepted(
@@ -225,47 +209,23 @@ mod tests {
         let (drand, schedule) = fake_drand_schedule();
         let now = time_of(&schedule, EPOCH_ROUND).saturating_add_signed(now_offset);
 
-        let verdict = verdict_for(&schedule, &payload(&drand), now, 1).await;
+        let verdict = verdict_for(&schedule, &payload(&drand), now).await;
 
         assert_verdict(&verdict, expected);
         assert!(!is_cached(&schedule, EPOCH_ROUND), "nothing cached");
     }
 
-    #[tokio::test]
-    async fn entry_ignored_when_verifications_saturated() {
-        let (drand, schedule) = fake_drand_schedule();
-        let now = time_of(&schedule, EPOCH_ROUND);
-        let (verdicts_tx, verdicts) = flume::unbounded();
-        let validator = DrandGossipValidator::with_max_verifications(schedule, verdicts_tx, 1);
-        let _busy = Arc::clone(&validator.limiter)
-            .try_acquire_owned()
-            .expect("the only verification slot");
-
-        validator.handle(
-            &drand.encode(EPOCH_ROUND),
-            MessageId::new(b"drand"),
-            PeerId::random(),
-            now,
-        );
-
-        let verdict = verdicts
-            .try_recv()
-            .expect("an immediate verdict")
-            .acceptance;
-        assert_verdict(&verdict, MessageAcceptance::Ignore);
-    }
-
     /// Another relay, or an HTTP fetch, may already have cached the round.
     #[tokio::test]
-    async fn cached_round_is_accepted_again() {
+    async fn cached_round_is_not_forwarded_again() {
         let (drand, schedule) = fake_drand_schedule();
         let now = time_of(&schedule, EPOCH_ROUND);
         let payload = drand.encode(EPOCH_ROUND);
 
-        for _ in 0..2 {
-            let verdict = verdict_for(&schedule, &payload, now, 1).await;
-            assert_verdict(&verdict, MessageAcceptance::Accept);
-        }
+        let verdict = verdict_for(&schedule, &payload, now).await;
+        assert_verdict(&verdict, MessageAcceptance::Accept);
+        let verdict = immediate_verdict_for(&schedule, &payload, now);
+        assert_verdict(&verdict, MessageAcceptance::Ignore);
     }
 
     #[tokio::test]
@@ -275,9 +235,9 @@ mod tests {
         let forged =
             FakeDrandSigner::encode_raw(EPOCH_ROUND, drand.entry(EPOCH_ROUND + 1).signature());
 
-        let verdict = verdict_for(&schedule, &drand.encode(EPOCH_ROUND), now, 1).await;
+        let verdict = verdict_for(&schedule, &drand.encode(EPOCH_ROUND), now).await;
         assert_verdict(&verdict, MessageAcceptance::Accept);
-        let verdict = verdict_for(&schedule, &forged, now, 1).await;
+        let verdict = immediate_verdict_for(&schedule, &forged, now);
         assert_verdict(&verdict, MessageAcceptance::Reject);
 
         let beacon = schedule.unchained_beacon().expect("unchained beacon");

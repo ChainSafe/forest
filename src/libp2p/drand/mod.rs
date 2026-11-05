@@ -34,7 +34,9 @@ impl DrandGossip {
     pub fn new(schedule: Arc<BeaconSchedule>) -> Option<Self> {
         let beacon = schedule.unchained_beacon()?;
         let topic = TopicHash::from_raw(format!("{PUBSUB_DRAND_STR}/{}", beacon.chain_hash()?));
-        let (verdicts_tx, verdicts) = flume::unbounded();
+        // Drained by the service loop every iteration; a verdict dropped when full leaves its
+        // entry to expire unvalidated in gossipsub.
+        let (verdicts_tx, verdicts) = flume::bounded(64);
         Some(Self {
             topic,
             verdicts,
@@ -44,11 +46,10 @@ impl DrandGossip {
 
     /// Validates a topic message; the verdict arrives on [`Self::verdicts`].
     pub(in crate::libp2p) fn on_message(&self, message_id: MessageId, source: PeerId, data: &[u8]) {
-        self.validator
-            .handle(data, message_id, source, unix_now_secs());
+        let now = std::time::UNIX_EPOCH
+            .elapsed()
+            .unwrap_or_default()
+            .as_secs();
+        self.validator.handle(data, message_id, source, now);
     }
-}
-
-fn unix_now_secs() -> u64 {
-    chrono::Utc::now().timestamp().max(0) as u64
 }

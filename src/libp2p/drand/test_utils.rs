@@ -33,7 +33,7 @@ pub(in crate::libp2p) fn time_of(schedule: &BeaconSchedule, round: u64) -> u64 {
 pub(in crate::libp2p) fn is_cached(schedule: &BeaconSchedule, round: u64) -> bool {
     schedule
         .unchained_beacon()
-        .is_some_and(|beacon| beacon.is_cached(round))
+        .is_some_and(|beacon| beacon.has_round(round))
 }
 
 // `MessageAcceptance` doesn't implement `PartialEq`.
