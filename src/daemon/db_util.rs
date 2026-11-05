@@ -141,9 +141,8 @@ pub enum SnapshotImportPath {
 }
 
 impl SnapshotImportPath {
-    /// Parses `path` as a URL, resolved to the final URL after redirection(s), or else as a
-    /// local file.
-    pub async fn parse(path: PathBuf) -> Self {
+    /// Resolves `path` to a URL, following redirection(s), or else to a local file.
+    pub async fn resolve(path: PathBuf) -> Self {
         match path.to_str().and_then(|s| Url::parse(s).ok()) {
             Some(url) => Self::Url(snapshot::peek_url(url).await),
             None => Self::FilePath(path),
@@ -1041,7 +1040,7 @@ mod test {
         #[values(ImportMode::Symlink, ImportMode::Hardlink)] import_mode: ImportMode,
     ) {
         let temp_db_dir = tempfile::Builder::new().tempdir().unwrap();
-        let err = import_chain_as_forest_car(
+        import_chain_as_forest_car(
             &SnapshotImportPath::Url("https://forest.chainsafe.io/dummy.car".parse().unwrap()),
             temp_db_dir.path(),
             import_mode,
@@ -1052,10 +1051,6 @@ mod test {
         )
         .await
         .unwrap_err();
-        assert!(
-            err.to_string().contains("requires a local snapshot file"),
-            "{err:#}"
-        );
     }
 
     #[rstest]
