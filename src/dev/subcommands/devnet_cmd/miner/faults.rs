@@ -41,11 +41,11 @@ async fn skip_and_recover() -> anyhow::Result<()> {
         .same(|tsk| StateSectorPartition::request((miner, sector, tsk)))
         .await?
         .deadline;
-    let power = at
+    let unproven = at
         .same(|tsk| StateMinerPower::request((miner, tsk)))
         .await?;
     ensure!(
-        power.has_min_power,
+        unproven.has_min_power,
         "miner {miner} is below minimum power before the fault"
     );
     let faults = at
@@ -55,6 +55,9 @@ async fn skip_and_recover() -> anyhow::Result<()> {
         !faults.get(sector),
         "sector {sector} is already in StateMinerFaults"
     );
+
+    // Unproven power is excluded from the claim until a WindowPoSt activates it.
+    let power = activated_power(&net, miner, index, &unproven).await?;
 
     let deadline = fault_sector(&net, miner, miner_id, sector, index).await?;
     let at = wait_with_power(&net, miner, deadline.close).await?;
@@ -120,6 +123,45 @@ async fn declare_recovery<'a>(
     let at = net.synced().await?;
     assert_recovery(&at, miner, sector, since).await?;
     Ok(at)
+}
+
+/// Power after a WindowPoSt for `index` activates the sector. One missed challenge is retried.
+async fn activated_power(
+    net: &Devnet,
+    miner: Address,
+    index: u64,
+    unproven: &MinerPower,
+) -> anyhow::Result<MinerPower> {
+    let mut at = net.synced().await?;
+    let mut power = unproven.clone();
+    for _ in 0..2 {
+        let deadline = deadline_not_elapsed(&at, miner, index).await?;
+        at = wait_with_power(net, miner, deadline.close).await?;
+        assert_posts(&at, miner, &deadline).await?;
+        power = at
+            .same(|tsk| StateMinerPower::request((miner, tsk)))
+            .await?;
+        if power.miner_power.raw_byte_power > unproven.miner_power.raw_byte_power
+            && power.miner_power.quality_adj_power > unproven.miner_power.quality_adj_power
+        {
+            return Ok(power);
+        }
+    }
+    bail!(
+        "power did not rise after a WindowPoSt for deadline {index}: {unproven:?} before, {power:?} after"
+    )
+}
+
+async fn deadline_not_elapsed(
+    at: &At<'_>,
+    miner: Address,
+    index: u64,
+) -> anyhow::Result<DeadlineInfo> {
+    let current = at
+        .same(|tsk| StateMinerProvingDeadline::request((miner, tsk)))
+        .await?
+        .0;
+    Ok(current.for_index(index).next_not_elapsed())
 }
 
 async fn deadline_ahead(at: &At<'_>, miner: Address, index: u64) -> anyhow::Result<DeadlineInfo> {
