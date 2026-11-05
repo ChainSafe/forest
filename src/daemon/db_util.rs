@@ -131,7 +131,7 @@ pub enum ImportMode {
 }
 
 /// A snapshot to import (`--import-snapshot`), either a URL or a local file.
-#[derive(Debug, derive_more::Display)]
+#[derive(Debug, PartialEq, derive_more::Display)]
 pub enum SnapshotImportPath {
     /// A remote snapshot, downloaded before importing
     Url(Url),
