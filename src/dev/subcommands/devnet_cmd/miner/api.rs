@@ -1,9 +1,8 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! The miner the trials drive: a `lotus-miner` whose full node is Forest, reached through the
-//! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
-
+use super::MinerBackend;
+use super::curio;
 use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
 use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
@@ -16,30 +15,47 @@ use serde_json::json;
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicU8, Ordering};
 
-/// The miner's on-chain actor and its API.
+enum Driver {
+    Lotus(Box<MinerApi>),
+    Curio,
+}
+
 pub(super) struct TestMiner {
     pub actor: Address,
-    pub api: MinerApi,
+    driver: Driver,
 }
 
 impl TestMiner {
-    /// Returns the genesis miner the compose devnet runs.
     pub fn genesis() -> anyhow::Result<Self> {
         let raw = harness_env("MINER_ACTOR_ADDRESS")?;
         let actor = Address::from_str(&raw)
             .with_context(|| format!("invalid MINER_ACTOR_ADDRESS `{raw}`"))?;
-        Ok(Self {
-            actor,
-            api: MinerApi::connect()?,
-        })
+        let driver = match MinerBackend::from_env()? {
+            MinerBackend::Lotus => Driver::Lotus(Box::new(MinerApi::connect()?)),
+            MinerBackend::Curio => Driver::Curio,
+        };
+        Ok(Self { actor, driver })
+    }
+
+    pub async fn pledge_sector(&self) -> anyhow::Result<u64> {
+        match &self.driver {
+            Driver::Lotus(api) => api.pledge_sector().await,
+            Driver::Curio => curio::pledge_sector(self.actor).await,
+        }
+    }
+
+    pub async fn wait_until_proving(&self, sector: u64) -> anyhow::Result<()> {
+        match &self.driver {
+            Driver::Lotus(api) => api.wait_until_proving(sector).await,
+            Driver::Curio => curio::wait_until_proving(self.actor, sector).await,
+        }
     }
 }
 
-/// The Lotus Miner API; its token must be admin, since the batch flushes are admin methods.
+/// Lotus Miner JSON-RPC; token must be admin (batch flush methods).
 pub(super) struct MinerApi(Client);
 
 impl MinerApi {
-    /// Connects to `MINER_API_INFO`.
     pub fn connect() -> anyhow::Result<Self> {
         let raw = harness_env("MINER_API_INFO")?;
         let UrlFromMultiAddr(url) = raw.parse().context("parsing MINER_API_INFO")?;
@@ -61,7 +77,6 @@ impl MinerApi {
             .with_context(|| format!("decoding the Lotus Miner {method} result"))
     }
 
-    /// Starts sealing a new CC sector and returns its number.
     pub async fn pledge_sector(&self) -> anyhow::Result<u64> {
         let id: SectorId = self.call("Filecoin.PledgeSector", json!([])).await?;
         Ok(id.number)
@@ -72,7 +87,7 @@ impl MinerApi {
             .await
     }
 
-    /// Flushes the pre-commit and commit batches, which Lotus may otherwise hold for up to a day
+    /// Lotus may hold batches up to a day without a flush
     /// (<https://github.com/filecoin-project/lotus/blob/v1.38.3/node/config/def.go#L129-L137>).
     async fn flush_sealing_batches(&self) -> anyhow::Result<()> {
         for method in [
@@ -84,10 +99,7 @@ impl MinerApi {
         Ok(())
     }
 
-    /// Waits until `sector` is `Proving` or `Available`, flushing the sealing batches on every
-    /// poll; a state that never leads to `Proving` fails at once.
     pub async fn wait_until_proving(&self, sector: u64) -> anyhow::Result<()> {
-        // `poll` logs every attempt, so the state is printed only when it changes.
         let last_state = AtomicU8::new(u8::MAX);
         let waited = poll(&format!("sector {sector} to reach Proving"), || async {
             self.flush_sealing_batches().await?;
