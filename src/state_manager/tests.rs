@@ -388,3 +388,86 @@ async fn load_executed_tipset_uncached_never_populates_the_tipset_state_cache() 
         "uncached backfill load must not populate the tipset-state cache"
     );
 }
+
+/// `MinerGetBaseInfo` reads the miner's info from the lookback state, as Lotus does, so the worker
+/// key it returns is the one validators check the ticket and election VRFs against:
+/// <https://github.com/filecoin-project/lotus/blob/v1.38.1/chain/stmgr/actors.go#L336-L385>
+#[tokio::test]
+async fn miner_base_info_reads_the_worker_from_the_lookback_state() {
+    use crate::beacon::{BeaconEntry, BeaconPoint, mock_beacon::MockBeacon};
+    use crate::blocks::{Chain4U, HeaderBuilder};
+    use crate::shim::sector::{RegisteredPoStProofV4, SectorSizeV4};
+    use crate::test_utils::miner_and_power_state_root;
+    use crate::utils::db::CborStoreExt as _;
+    use fil_actor_miner_state::v18 as miner_v18;
+    use fil_actor_power_state::v18 as power_v18;
+
+    let db = Arc::new(MemoryDB::default());
+    let miner = Address::new_id(1000);
+    let old_worker = Address::new_bls(&[1; 48]).unwrap();
+    let new_worker = Address::new_bls(&[2; 48]).unwrap();
+    let policy = Default::default();
+    let post_proof = RegisteredPoStProofV4::StackedDRGWindow2KiBV1P1;
+
+    // Without power and a provable sector at the lookback the call returns before it reads the
+    // worker; by the base tipset the worker has changed.
+    let info = |worker: &Address| {
+        let mut info = miner_v18::MinerInfo::new(0, 0, vec![], vec![], vec![], post_proof).unwrap();
+        info.worker = worker.into();
+        db.put_cbor_default(&info).unwrap()
+    };
+    // Expires after its power base epoch, or its quality divides by a zero duration.
+    let sector = miner_v18::SectorOnChainInfo {
+        expiration: 1000,
+        ..Default::default()
+    };
+    let mut lookback_miner = miner_v18::State::new(&policy, &db, info(&old_worker), 0, 0).unwrap();
+    lookback_miner
+        .put_sectors(&db, vec![sector.clone()])
+        .unwrap();
+    lookback_miner
+        .assign_sectors_to_deadlines(&policy, &db, 0, vec![sector], 2, SectorSizeV4::_2KiB)
+        .unwrap();
+    let current_miner = miner_v18::State {
+        info: info(&new_worker),
+        ..lookback_miner.clone()
+    };
+    let mut power = power_v18::State::new(&db).unwrap();
+    let mut claims = power.load_claims(&db).unwrap();
+    let claim = power_v18::Claim {
+        window_post_proof_type: post_proof,
+        raw_byte_power: 2048.into(),
+        quality_adj_power: 2048.into(),
+    };
+    power_v18::set_claim(&mut claims, &miner, claim).unwrap();
+    power.save_claims(&mut claims).unwrap();
+
+    // Mainnet's network version 0 looks back 10 epochs: mining epoch 12 on `base` reads the state
+    // the epoch-3 header commits, and checks eligibility against the state genesis carries.
+    let blocks = Chain4U::with_blockstore(db.clone());
+    let lookback_root = miner_and_power_state_root(&db, miner, &lookback_miner, &power);
+    let current_root = miner_and_power_state_root(&db, miner, &current_miner, &power);
+    let mut genesis = HeaderBuilder::new();
+    genesis.with_state_root(lookback_root).with_timestamp(7777);
+    blocks.insert(&[], "genesis", genesis);
+    let mut lookback = HeaderBuilder::new();
+    lookback.with_epoch(3).with_state_root(lookback_root);
+    blocks.insert(&["genesis"], "lookback", lookback);
+    let mut base = HeaderBuilder::new();
+    base.with_epoch(11)
+        .with_state_root(current_root)
+        .with_beacon_entries(vec![BeaconEntry::new(11, vec![])]);
+    blocks.insert(&["lookback"], "base", base);
+
+    let chain_config = Arc::new(ChainConfig::mainnet());
+    let chain_store = ChainStore::new(db, chain_config, blocks.tipset(&["genesis"])).unwrap();
+    let beacon = BeaconSchedule(vec![BeaconPoint::new(0, MockBeacon::default())]);
+    let base_info = StateManager::new(chain_store)
+        .unwrap()
+        .miner_get_base_info(&beacon, blocks.tipset(&["base"]), miner, 12)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(base_info.worker_key, old_worker);
+}
