@@ -146,6 +146,10 @@ impl From<&BigInt> for EthBigInt {
     fn from(value: &BigInt) -> Self {
         // Eth values are non-negative, so the sign is dropped.
         let (_sign, bytes) = value.to_bytes_be();
+        // Eth quantities are at most 256 bits; saturate so reporting a wider value never fails.
+        if bytes.len() > 32 {
+            return Self(ethereum_types::U256::MAX);
+        }
         Self(ethereum_types::U256::from_big_endian(&bytes))
     }
 }
@@ -4558,6 +4562,21 @@ mod test {
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r, decoded);
+    }
+
+    #[rstest]
+    fn eth_big_int_from_wide_big_int(
+        #[values(256, crate::shim::bigint::MAX_BIGINT_BITS - 1)] shift: u64,
+    ) {
+        let value = BigInt::from(1u8) << shift;
+        assert_eq!(EthBigInt::from(&value).0, ethereum_types::U256::MAX);
+        assert_eq!(EthBigInt::from(-value).0, ethereum_types::U256::MAX);
+    }
+
+    #[quickcheck]
+    fn eth_big_int_from_big_int_roundtrip(words: [u64; 4]) {
+        let value = ethereum_types::U256(words);
+        assert_eq!(EthBigInt::from(BigInt::from(EthBigInt(value))).0, value);
     }
 
     /// `transactionPosition` must be 0-indexed and system-actor messages must
