@@ -22,3 +22,6 @@ The Lotus Miner suites (`forest-dev devnet miner`) run only against this devnet:
 ```shell
 mise run test:devnet:miner
 ```
+
+The `worker-key` group's whole-window trial takes about 2 h and is ignored by default;
+`forest-dev devnet miner --group worker-key --ignored` runs it.
