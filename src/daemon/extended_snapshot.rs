@@ -9,9 +9,9 @@ use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
 use crate::daemon::db_util::{
     BackfillGuard, BackfillOptions, RangeSpec, SnapshotImportPath, run_backfill,
 };
-use crate::db::EthMappingsStore;
 use crate::db::car::AnyCar;
 use crate::db::car::forest::new_forest_car_temp_path_in;
+use crate::db::{BlockstoreWithWriteBuffer, DB_WRITE_BUFFER_CAPACITY, EthMappingsStore};
 use crate::prelude::*;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
@@ -122,11 +122,13 @@ where
     DB: Blockstore,
 {
     let started = Instant::now();
+    let db = BlockstoreWithWriteBuffer::new_with_capacity(db, DB_WRITE_BUFFER_CAPACITY);
     let mut car_stream = CarStream::new_from_path(path).await?;
     while let Some(block) = car_stream.try_next().await? {
         block.validate()?;
         db.put_keyed(&block.cid, &block.data)?;
     }
+    drop(db);
     info!(
         "Imported message receipts and events in {:.1}s",
         started.elapsed().as_secs_f64()
@@ -289,7 +291,117 @@ pub(super) async fn maybe_import_extended_snapshots(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::chain::index::tests::{genesis_tipset, persist_tipset, tipset_child};
+    use crate::db::MemoryDB;
     use crate::utils::encoding::hex;
+    use rstest::rstest;
+
+    // Imports a lookup table with the single entry `hamt_epoch -> tipset at tipset_epoch` into a
+    // chain of tipsets at epochs 20, 21 and 40; `None` points at a tipset missing from the chain.
+    #[rstest]
+    #[case::checkpoint(40, Some(40), None)]
+    #[case::non_checkpoint_epoch(21, Some(21), Some("is not a tipset lookup checkpoint"))]
+    #[case::epoch_mismatch(40, Some(20), Some("epochs do not match"))]
+    #[case::unknown_tipset(40, None, Some("Required tipset missing"))]
+    #[tokio::test]
+    async fn import_tipset_lookup(
+        #[case] hamt_epoch: ChainEpoch,
+        #[case] tipset_epoch: Option<ChainEpoch>,
+        #[case] expected_err: Option<&str>,
+    ) {
+        let db = MemoryDB::default();
+        let mut parent = genesis_tipset();
+        persist_tipset(&parent, &db);
+        let mut chain = vec![];
+        for epoch in [20, 21, 40] {
+            let ts = tipset_child(&parent, epoch);
+            persist_tipset(&ts, &db);
+            chain.push(ts.shallow_clone());
+            parent = ts;
+        }
+        let tsk = match tipset_epoch {
+            Some(epoch) => chain
+                .iter()
+                .find(|ts| ts.epoch() == epoch)
+                .unwrap()
+                .key()
+                .clone(),
+            None => tipset_child(&parent, 40).key().clone(),
+        };
+
+        let hamt_store = MemoryDB::default();
+        let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
+            Hamt::new_with_bit_width(&hamt_store, TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+        hamt.set(hamt_epoch, tsk.clone()).unwrap();
+        let root = hamt.flush().unwrap();
+        let mut car = vec![];
+        hamt_store
+            .export_forest_car_with_roots(nunny::vec![root], &mut car)
+            .await
+            .unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let car_path = temp_dir.path().join("tipset_lookup.forest.car.zst");
+        std::fs::write(&car_path, car).unwrap();
+
+        let result = import_tipset_lookup_snapshot(&db, &car_path, || {});
+        match expected_err {
+            None => {
+                result.unwrap();
+                assert_eq!(db.tipset_key_by_epoch(hamt_epoch).unwrap(), Some(tsk));
+            }
+            Some(expected) => {
+                let err = format!("{:#}", result.unwrap_err());
+                assert!(err.contains(expected), "{err}");
+                // Validation happens before any write.
+                assert_eq!(db.tipset_key_by_epoch(hamt_epoch).unwrap(), None);
+            }
+        }
+    }
+
+    #[rstest]
+    #[case::ok("companion.forest.car.zst", true, None)]
+    #[case::checksum_mismatch("companion.forest.car.zst", false, Some("checksum mismatch"))]
+    #[case::path_traversal(
+        "../companion.forest.car.zst",
+        true,
+        Some("invalid extended snapshot filename")
+    )]
+    #[tokio::test]
+    async fn download_extended_snapshot_verifies(
+        #[case] filename: &str,
+        #[case] matching_checksum: bool,
+        #[case] expected_err: Option<&str>,
+    ) {
+        use sha2::{Digest as _, Sha256};
+        let dummy_content: &'static [u8] = b"companion snapshot bytes";
+
+        let app = axum::Router::new().route(
+            "/companion.forest.car.zst",
+            axum::routing::get(move || async move { dummy_content }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await });
+
+        let snapshot_url = Url::parse(&format!("http://{addr}/base.forest.car.zst")).unwrap();
+        let file = ExtendedSnapshotFile {
+            filename: filename.into(),
+            sha256: if matching_checksum {
+                Sha256::digest(dummy_content).into()
+            } else {
+                [0; 32]
+            },
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+        let result = download_extended_snapshot(&snapshot_url, &file, temp_dir.path()).await;
+        match expected_err {
+            None => assert_eq!(std::fs::read(result.unwrap()).unwrap(), dummy_content),
+            Some(expected) => {
+                let err = format!("{:#}", result.unwrap_err());
+                assert!(err.contains(expected), "{err}");
+            }
+        }
+    }
 
     #[test]
     fn parse_snapshot_metadata_with_extended() {

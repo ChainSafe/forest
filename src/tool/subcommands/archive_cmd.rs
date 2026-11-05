@@ -30,16 +30,16 @@ use crate::blocks::Tipset;
 use crate::chain::{
     ChainEpochDelta, ExportOptions, FilecoinSnapshotMetadata, FilecoinSnapshotVersion,
     index::{ChainIndex, ResolveNullTipset},
+    prepare_diff_export,
 };
 use crate::cid_collections::CidHashSet;
-use crate::cid_collections::FileBackedCidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::DbImpl;
 use crate::db::car::{AnyCar, ManyCar, forest::DEFAULT_FOREST_CAR_COMPRESSION_LEVEL};
 use crate::f3::snapshot::F3SnapshotHeader;
 use crate::interpreter::VMTrace;
-use crate::ipld::{stream_chain, stream_graph};
+use crate::ipld::stream_graph;
 use crate::networks::{ChainConfig, NetworkChain, butterflynet, calibnet, mainnet};
 use crate::prelude::*;
 use crate::shim::address::CurrentNetwork;
@@ -65,7 +65,7 @@ use sha2::Sha256;
 use std::fs::File;
 use std::io::{BufReader, Seek as _, SeekFrom};
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tracing::info;
 
@@ -273,6 +273,7 @@ impl ArchiveCommands {
                     depth,
                     diff,
                     diff_depth,
+                    &std::env::temp_dir(),
                     force,
                 )
                 .await
@@ -559,6 +560,7 @@ pub async fn do_export<DB>(
     depth: ChainEpochDelta,
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
+    temp_dir: &Path,
     force: bool,
 ) -> anyhow::Result<()>
 where
@@ -594,34 +596,7 @@ where
         .await
         .context("unable to get a tipset at given height")?;
 
-    let seen = if let Some(diff) = diff {
-        let diff_ts: Tipset = index
-            .load_required_tipset_by_height(diff, ts.shallow_clone(), ResolveNullTipset::TakeOlder)
-            .await
-            .context("diff epoch must be smaller than target epoch")?;
-        let diff_ts: &Tipset = &diff_ts;
-        let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
-        let store = store.shallow_clone();
-        info!(
-            "building the diff base CID set, from epoch {} down to genesis (state trees for epochs above {diff_limit})...",
-            diff_ts.epoch()
-        );
-        let start = std::time::Instant::now();
-        let mut stream = stream_chain(
-            store.shallow_clone(),
-            diff_ts.clone().chain_owned(store.shallow_clone()),
-            diff_limit,
-            FileBackedCidHashSet::new_in_temp_dir()?,
-        );
-        while stream.try_next().await?.is_some() {}
-        info!(
-            "built the diff base CID set, took {}",
-            humantime::format_duration(start.elapsed())
-        );
-        stream.into_seen()
-    } else {
-        FileBackedCidHashSet::new_in_temp_dir()?
-    };
+    let options = prepare_diff_export(store, &index, &ts, diff, diff_depth, temp_dir).await?;
 
     let output_path = build_output_path(
         network.to_string(),
@@ -675,11 +650,7 @@ where
         writer,
         ExportOptions {
             skip_checksum: true,
-            include_receipts: false,
-            include_events: false,
-            include_tipset_keys: false,
-            include_tipset_lookup: false,
-            seen,
+            ..options
         },
     )
     .await?;
@@ -1075,6 +1046,7 @@ where
         depth,
         diff,
         diff_depth,
+        &std::env::temp_dir(),
         force,
     )
     .await?;
@@ -1112,6 +1084,7 @@ where
         depth,
         diff,
         diff_depth,
+        &std::env::temp_dir(),
         force,
     )
     .await?;
@@ -1230,7 +1203,7 @@ mod tests {
     async fn run_diff_export(
         poisoned_state_root: Option<Cid>,
         output_path: PathBuf,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<[Cid; 7]> {
         use crate::blocks::{Chain4U, HeaderBuilder, chain4u};
         use crate::db::MemoryDB;
         use std::sync::Arc;
@@ -1243,11 +1216,11 @@ mod tests {
         }
         chain4u! {
             in c4u;
-            genesis_ts @ [_genesis_header]
-            -> [_b1] -> [_b2]
-            -> [_b3 = b3]
-            -> [_b4] -> [_b5]
-            -> head_ts @ [_b6]
+            genesis_ts @ [genesis_header]
+            -> [b1] -> [b2]
+            -> [b3 = b3]
+            -> [b4] -> [b5]
+            -> head_ts @ [b6]
         };
 
         do_export(
@@ -1259,9 +1232,31 @@ mod tests {
             6,       // depth
             Some(4), // diff
             Some(2), // diff_depth
+            &std::env::temp_dir(),
             true,
         )
-        .await
+        .await?;
+        Ok([genesis_header, b1, b2, b3, b4, b5, b6].map(|header| header.cid()))
+    }
+
+    #[tokio::test]
+    #[serial_test::serial(chain_export)]
+    async fn diff_export_contains_only_the_diff_range() {
+        let tmp = TempDir::new().unwrap();
+        let output_path = tmp.path().join("diff.forest.car.zst");
+        let [genesis, b1, b2, b3, b4, b5, b6] =
+            run_diff_export(None, output_path.clone()).await.unwrap();
+
+        let car = crate::db::car::ForestCar::try_from(output_path.as_path()).unwrap();
+        for cid in [b5, b6] {
+            assert!(car.has(&cid).unwrap(), "the diff range must be exported");
+        }
+        for cid in [b4, b3, b2, b1, genesis] {
+            assert!(
+                !car.has(&cid).unwrap(),
+                "the diff base and below must not be exported"
+            );
+        }
     }
 
     /// The diff pre-walk explains the "stuck at `Exporting: 0.0%` with no temporary
@@ -1346,6 +1341,7 @@ mod tests {
             1,
             None,
             None,
+            &std::env::temp_dir(),
             false,
         )
         .await
