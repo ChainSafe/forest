@@ -6,8 +6,6 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-use std::cmp::Ordering;
-
 use super::{msg_pool::MessagePool, provider::Provider, utils, utils::recovered_bls_messages};
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Tipset};
 use crate::message::{MessageRead as _, SignedMessage};
@@ -407,7 +405,7 @@ where
         }
 
         // 2. Sort the chains
-        chains.sort(false);
+        chains.sort();
 
         if chains.get_at(0).is_some_and(|it| it.gas_perf < 0.0) {
             tracing::warn!(
@@ -448,25 +446,10 @@ where
         }
 
         // 4. Compute effective performance for each chain, based on the partition they
-        // fall into    The effective performance is the gas_perf of the chain *
-        // block probability
+        // fall into. The effective performance is the gas_perf of the chain * block
+        // probability, blended with the parent chain.
         let block_prob = crate::message_pool::block_probabilities(ticket_quality);
-        let mut eff_chains = 0;
-        for i in 0..MAX_BLOCKS {
-            for k in &partitions[i] {
-                if let Some(node) = chains.get_mut(*k) {
-                    node.eff_perf = node.gas_perf * block_prob[i];
-                }
-            }
-            eff_chains += partitions[i].len();
-        }
-
-        // nullify the effective performance of chains that don't fit in any partition
-        for i in eff_chains..chains.len() {
-            if let Some(node) = chains.get_mut_at(i) {
-                node.set_null_effective_perf();
-            }
-        }
+        chains.set_effective_perfs(&partitions, &block_prob);
 
         // 5. Re-sort the chains based on effective performance
         chains.sort_effective();
@@ -551,12 +534,7 @@ where
 
             // push down if it hasn't been invalidated
             if chains[last].valid {
-                for i in last..chains.len() - 1 {
-                    if chains[i].cmp_effective(&chains[i + 1]) == Ordering::Greater {
-                        break;
-                    }
-                    chains.key_vec.swap(i, i + 1);
-                }
+                chains.push_down(last, MsgChainNode::before_effective);
             }
 
             // select the next (valid and fitting) chain and its dependencies for inclusion
@@ -724,7 +702,7 @@ fn merge_and_trim(
     }
 
     // 2. Sort the chains
-    chains.sort(true);
+    chains.sort();
 
     let first_chain_gas_perf = chains[0].gas_perf;
 
@@ -761,18 +739,8 @@ fn merge_and_trim(
         selected_msgs.trim_chain_at(chains, last, base_fee);
 
         // push down if it hasn't been invalidated
-        let node = &chains[last];
-        if node.valid {
-            for i in last..chains.len() - 1 {
-                // slot_chains
-                let cur_node = &chains[i];
-                let next_node = &chains[i + 1];
-                if cur_node.compare(next_node) == Ordering::Greater {
-                    break;
-                }
-
-                chains.key_vec.swap(i, i + 1);
-            }
+        if chains[last].valid {
+            chains.push_down(last, MsgChainNode::before);
         }
 
         // select the next (valid and fitting) chain for inclusion
@@ -795,7 +763,7 @@ fn merge_and_trim(
             }
 
             // this chain needs to be trimmed
-            last += i;
+            last = i;
             continue 'tail_loop;
         }
 
@@ -875,6 +843,7 @@ mod test_selection {
     use tokio::task::JoinSet;
 
     const TEST_GAS_LIMIT: i64 = 6955002;
+    const G: i64 = BLOCK_GAS_LIMIT as i64 / 100;
 
     fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
@@ -1724,5 +1693,74 @@ mod test_selection {
             }
             nonces[who] += 1;
         }
+    }
+
+    /// Adds a fake message per `(gas_limit, premium)` for each sender and returns the selection as
+    /// `(sender index, nonce)` pairs.
+    async fn select_for(tq: f64, senders: &[&[(i64, u64)]]) -> Vec<(usize, u64)> {
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset);
+        let ts = mock_tipset(&mpool).await;
+        let mut addrs = vec![];
+        for msgs in senders {
+            let mut wallet = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
+            let addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+            mpool
+                .api
+                .set_state_balance_raw(&addr, TokenAmount::from_whole(1));
+            for (nonce, &(gas_limit, premium)) in msgs.iter().enumerate() {
+                let m = create_fake_smsg(&mpool, &addr, &addr, nonce as u64, gas_limit, premium);
+                mpool.add(m).await.unwrap();
+            }
+            addrs.push(addr);
+        }
+        mpool
+            .select_messages(&ts, tq)
+            .unwrap()
+            .iter()
+            .map(|m| {
+                let sender = addrs.iter().position(|a| *a == m.from()).unwrap();
+                (sender, m.sequence())
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn greedy_tail_packing_resumes_at_the_chain_that_did_not_fit() {
+        let msgs = select_for(
+            1.0,
+            &[
+                &[(10 * G, 500); 6],
+                &[(15 * G, 400); 3],
+                &[(8 * G, 300); 2],
+                &[(2 * G, 200)],
+            ],
+        )
+        .await;
+        // Output of Lotus v1.36.2 `SelectMessages` for the same pool, see <https://github.com/filecoin-project/lotus/blob/v1.36.2/chain/messagepool/selection.go#L42>
+        let expected = (0..6)
+            .map(|n| (0, n))
+            .chain([(1, 0), (1, 1), (2, 0), (3, 0)])
+            .collect_vec();
+        assert_eq!(msgs, expected);
+    }
+
+    #[tokio::test]
+    async fn optimal_selection_picks_best_effective_chains_first() {
+        let msgs = select_for(
+            0.5,
+            &[
+                &[(10 * G, 300); 6],
+                &[(10 * G, 200); 6],
+                &[(10 * G, 100); 6],
+            ],
+        )
+        .await;
+        // Output of Lotus v1.36.2 `SelectMessages` for the same pool, see <https://github.com/filecoin-project/lotus/blob/v1.36.2/chain/messagepool/selection.go#L42>
+        let expected = (0..6)
+            .map(|n| (0, n))
+            .chain((0..4).map(|n| (1, n)))
+            .collect_vec();
+        assert_eq!(msgs, expected);
     }
 }

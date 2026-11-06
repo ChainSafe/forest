@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{
     cmp::Ordering,
-    mem,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, RangeFrom},
 };
 
 use crate::message::{MessageRead as _, SignedMessage};
@@ -46,32 +45,47 @@ pub(in crate::message_pool) struct Chains {
 }
 
 impl Chains {
-    // Sort by effective perf with cmp_effective
-    pub(in crate::message_pool) fn sort_effective(&mut self) {
-        let mut chains = mem::take(&mut self.key_vec);
-        chains.sort_by(|a, b| {
-            let a = self.map.get(*a).expect("key_vec keys reference live nodes");
-            let b = self.map.get(*b).expect("key_vec keys reference live nodes");
-            a.cmp_effective(b)
-        });
-        let _ = mem::replace(&mut self.key_vec, chains);
+    /// Stable-sorts the chains in `range` best first, where `cmp` returns [`Ordering::Greater`] for
+    /// the better chain.
+    fn sort_best_first(
+        &mut self,
+        range: RangeFrom<usize>,
+        cmp: impl Fn(&MsgChainNode, &MsgChainNode) -> Ordering,
+    ) {
+        let map = &self.map;
+        let node = |k: &NodeKey| map.get(*k).expect("key_vec keys reference live nodes");
+        if let Some(chains) = self.key_vec.get_mut(range) {
+            chains.sort_by(|a, b| cmp(node(b), node(a)));
+        }
     }
 
-    // Sort by effective `perf` on a range
-    pub(in crate::message_pool) fn sort_range_effective(
+    /// Sorts the chains best first by [`MsgChainNode::compare`].
+    pub(in crate::message_pool) fn sort(&mut self) {
+        self.sort_best_first(0.., MsgChainNode::compare);
+    }
+
+    /// Sorts the chains best first by [`MsgChainNode::cmp_effective`].
+    pub(in crate::message_pool) fn sort_effective(&mut self) {
+        self.sort_range_effective(0..);
+    }
+
+    /// Sorts the chains in `range` best first by [`MsgChainNode::cmp_effective`].
+    pub(in crate::message_pool) fn sort_range_effective(&mut self, range: RangeFrom<usize>) {
+        self.sort_best_first(range, MsgChainNode::cmp_effective);
+    }
+
+    /// Moves the chain at `from` down until it is `before` its successor.
+    pub(in crate::message_pool) fn push_down(
         &mut self,
-        range: std::ops::RangeFrom<usize>,
+        from: usize,
+        before: impl Fn(&MsgChainNode, &MsgChainNode) -> bool,
     ) {
-        let mut chains = mem::take(&mut self.key_vec);
-        if let Some(tail) = chains.get_mut(range) {
-            tail.sort_by(|a, b| {
-                self.map
-                    .get(*a)
-                    .expect("key_vec keys reference live nodes")
-                    .cmp_effective(self.map.get(*b).expect("key_vec keys reference live nodes"))
-            });
+        for i in from..self.key_vec.len().saturating_sub(1) {
+            if before(&self[i], &self[i + 1]) {
+                break;
+            }
+            self.key_vec.swap(i, i + 1);
         }
-        let _ = mem::replace(&mut self.key_vec, chains);
     }
 
     /// Retrieves the `msg` chain node by the given `NodeKey` along with the
@@ -104,6 +118,30 @@ impl Chains {
     pub(in crate::message_pool) fn get(&self, k: NodeKey) -> Option<&MsgChainNode> {
         self.map.get(k)
     }
+
+    /// Sets the effective performance of the chains in each partition from that partition's
+    /// block probability, and nullifies it for the chains after them, which fit in no partition.
+    /// `partitions` must split a prefix of the sorted chains.
+    pub(in crate::message_pool) fn set_effective_perfs(
+        &mut self,
+        partitions: &[Vec<NodeKey>],
+        block_prob: &[f64],
+    ) {
+        for (partition, &bp) in partitions.iter().zip(block_prob) {
+            for &k in partition {
+                let (node, prev) = self.get_mut_with_prev_eff(k);
+                let node = node.expect("partition keys reference live nodes");
+                node.bp = bp;
+                node.set_eff_perf(prev);
+            }
+        }
+        let covered = partitions.iter().map(Vec::len).sum();
+        for k in self.key_vec.iter().skip(covered) {
+            if let Some(node) = self.map.get_mut(*k) {
+                node.set_null_effective_perf();
+            }
+        }
+    }
 }
 
 impl Chains {
@@ -123,19 +161,6 @@ impl Chains {
     ) {
         let key = self.map.insert(cur_chain);
         node_vec.push(key);
-    }
-
-    /// Sorts the chains with `compare` method. If rev is true, sorts in
-    /// descending order.
-    pub(in crate::message_pool) fn sort(&mut self, rev: bool) {
-        // replace dance to get around borrow checker
-        let mut chains = mem::take(&mut self.key_vec);
-        chains.sort_by(|a, b| {
-            let a = self.map.get(*a).expect("key_vec keys reference live nodes");
-            let b = self.map.get(*b).expect("key_vec keys reference live nodes");
-            if rev { b.compare(a) } else { a.compare(b) }
-        });
-        let _ = mem::replace(&mut self.key_vec, chains);
     }
 
     /// Retrieves the `msg` chain node by the given `NodeKey`
@@ -199,15 +224,11 @@ impl Chains {
         msg_limit: usize,
         base_fee: &TokenAmount,
     ) {
-        let prev = match idx {
-            0 => None,
-            _ => self
-                .get_at(idx - 1)
-                .map(|prev| (prev.eff_perf, prev.gas_limit)),
-        };
-        let chain_node = self
-            .get_mut_at(idx)
+        let key = self
+            .get_key_at(idx)
             .expect("caller validates idx is a live chain");
+        let (chain_node, prev) = self.get_mut_with_prev_eff(key);
+        let chain_node = chain_node.expect("caller validates idx is a live chain");
         let mut i = chain_node.msgs.len() as i64 - 1;
 
         while i >= 0
@@ -242,17 +263,6 @@ impl Chains {
         let next = chain_node.next;
         if next.is_some() {
             self.invalidate(next);
-        }
-    }
-
-    pub(in crate::message_pool) fn bubble_down_after_trim(&mut self, from: usize) {
-        let mut j = from;
-        while j < self.key_vec.len().saturating_sub(1) {
-            if self[j].compare(&self[j + 1]) != Ordering::Greater {
-                break;
-            }
-            self.key_vec.swap(j, j + 1);
-            j += 1;
         }
     }
 
@@ -363,6 +373,24 @@ impl MsgChainNode {
             .then_with(|| self.eff_perf.total_cmp(&other.eff_perf))
             .then_with(|| self.gas_perf.total_cmp(&other.gas_perf))
             .then_with(|| self.gas_reward.cmp(&other.gas_reward))
+    }
+
+    /// Push-down counterpart of [`Self::compare`].
+    pub(in crate::message_pool) fn before(&self, other: &Self) -> bool {
+        self.compare(other) == Ordering::Greater
+    }
+
+    /// Push-down counterpart of [`Self::cmp_effective`]. Not a total order (a merged chain and an
+    /// unmerged chain with higher effective performance are each "before" the other), so it must
+    /// not be used for sorting.
+    pub(in crate::message_pool) fn before_effective(&self, other: &Self) -> bool {
+        (self.merged && !other.merged)
+            || (self.gas_perf >= 0.0 && other.gas_perf < 0.0)
+            || self.eff_perf > other.eff_perf
+            || (self.eff_perf == other.eff_perf && self.gas_perf > other.gas_perf)
+            || (self.eff_perf == other.eff_perf
+                && self.gas_perf == other.gas_perf
+                && self.gas_reward > other.gas_reward)
     }
 
     pub fn set_null_effective_perf(&mut self) {
@@ -607,8 +635,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shim::message::Message;
     use itertools::{Itertools as _, iproduct};
     use rand::{Rng as _, SeedableRng as _, rngs::StdRng};
+    use rstest::rstest;
 
     fn sample_nodes() -> Vec<MsgChainNode> {
         let gas_perfs = [
@@ -658,57 +688,45 @@ mod tests {
         }
     }
 
-    #[test]
-    fn compare_is_total_order() {
-        assert_total_order(MsgChainNode::compare);
+    #[rstest]
+    #[case::compare(MsgChainNode::compare)]
+    #[case::cmp_effective(MsgChainNode::cmp_effective)]
+    fn is_total_order(#[case] cmp: fn(&MsgChainNode, &MsgChainNode) -> Ordering) {
+        assert_total_order(cmp);
     }
 
-    #[test]
-    fn cmp_effective_is_total_order() {
-        assert_total_order(MsgChainNode::cmp_effective);
+    #[rstest]
+    #[case::gas_perf(node(2.0, 0.0, 0, false), node(1.0, 0.0, 9, false), Ordering::Greater)]
+    #[case::gas_reward(node(1.0, 0.0, 2, false), node(1.0, 0.0, 1, false), Ordering::Greater)]
+    #[case::equal(node(1.0, 0.0, 1, false), node(1.0, 0.0, 1, false), Ordering::Equal)]
+    fn compare_key_priority(
+        #[case] a: MsgChainNode,
+        #[case] b: MsgChainNode,
+        #[case] expected: Ordering,
+    ) {
+        assert_eq!(a.compare(&b), expected);
     }
 
-    #[test]
-    fn compare_key_priority() {
-        assert_eq!(
-            node(2.0, 0.0, 0, false).compare(&node(1.0, 0.0, 9, false)),
-            Ordering::Greater
-        );
-        assert_eq!(
-            node(1.0, 0.0, 2, false).compare(&node(1.0, 0.0, 1, false)),
-            Ordering::Greater
-        );
-        assert_eq!(
-            node(1.0, 0.0, 1, false).compare(&node(1.0, 0.0, 1, false)),
-            Ordering::Equal
-        );
+    #[rstest]
+    #[case::merged(node(-1.0, -1.0, 0, true), node(2.0, 2.0, 9, false))]
+    #[case::non_negative_gas_perf(node(0.0, -1.0, 0, false), node(-1.0, 0.0, 9, false))]
+    #[case::eff_perf(node(1.0, 2.0, 0, false), node(2.0, 1.0, 9, false))]
+    #[case::gas_perf(node(2.0, 1.0, 0, false), node(1.0, 1.0, 9, false))]
+    #[case::gas_reward(node(1.0, 1.0, 2, false), node(1.0, 1.0, 1, false))]
+    fn cmp_effective_key_priority(#[case] better: MsgChainNode, #[case] worse: MsgChainNode) {
+        assert_eq!(better.cmp_effective(&worse), Ordering::Greater);
     }
 
-    #[test]
-    fn cmp_effective_key_priority() {
-        let cases = [
-            (node(-1.0, -1.0, 0, true), node(2.0, 2.0, 9, false)),
-            (node(0.0, -1.0, 0, false), node(-1.0, 0.0, 9, false)),
-            (node(1.0, 2.0, 0, false), node(2.0, 1.0, 9, false)),
-            (node(2.0, 1.0, 0, false), node(1.0, 1.0, 9, false)),
-            (node(1.0, 1.0, 2, false), node(1.0, 1.0, 1, false)),
-        ];
-        for (better, worse) in cases {
-            assert_eq!(
-                better.cmp_effective(&worse),
-                Ordering::Greater,
-                "{better:?} vs {worse:?}"
-            );
-        }
-    }
-
-    fn sorted_by(chains: &Chains, cmp: impl Fn(&MsgChainNode, &MsgChainNode) -> Ordering) -> bool {
+    fn sorted_best_first(
+        chains: &Chains,
+        cmp: impl Fn(&MsgChainNode, &MsgChainNode) -> Ordering,
+    ) -> bool {
         chains
             .key_vec
             .iter()
             .map(|k| &chains.map[*k])
             .tuple_windows()
-            .all(|(a, b)| cmp(a, b) != Ordering::Greater)
+            .all(|(a, b)| cmp(a, b) != Ordering::Less)
     }
 
     #[test]
@@ -729,9 +747,107 @@ mod tests {
             }
             chains.key_vec = keys;
             chains.sort_effective();
-            assert!(sorted_by(&chains, MsgChainNode::cmp_effective));
-            chains.sort(false);
-            assert!(sorted_by(&chains, MsgChainNode::compare));
+            assert!(sorted_best_first(&chains, MsgChainNode::cmp_effective));
+            chains.sort();
+            assert!(sorted_best_first(&chains, MsgChainNode::compare));
         }
+    }
+
+    #[test]
+    fn trim_blends_effective_perf_with_own_prev_chain() {
+        let base_fee = TokenAmount::from_atto(100u64);
+        let smsg = || {
+            SignedMessage::mock_bls_signed_message(
+                Message::builder()
+                    .gas_fee_cap(TokenAmount::from_atto(110u64))
+                    .gas_premium(TokenAmount::from_atto(10u64))
+                    .gas_limit(100)
+                    .build(),
+            )
+        };
+        let mut chains = Chains::new();
+        let mut keys = vec![];
+        let prev = MsgChainNode {
+            eff_perf: 2.0,
+            gas_limit: 100,
+            ..Default::default()
+        };
+        chains.push_with(prev, &mut keys);
+        // an unrelated chain sorted between the two chains of the same sender
+        let unrelated = MsgChainNode {
+            eff_perf: 50.0,
+            gas_limit: 100,
+            ..Default::default()
+        };
+        chains.push_with(unrelated, &mut keys);
+        let msgs = vec![smsg(), smsg()];
+        let gas_reward = msgs.iter().fold(TokenAmount::zero(), |acc, m| {
+            acc + get_gas_reward(m, &base_fee)
+        });
+        let node = MsgChainNode {
+            gas_perf: get_gas_perf(&gas_reward, 200),
+            msgs,
+            gas_reward,
+            gas_limit: 200,
+            bp: 1.0,
+            prev: Some(keys[0]),
+            ..Default::default()
+        };
+        chains.push_with(node, &mut keys);
+        chains.key_vec = keys;
+
+        chains.trim_msgs_at(2, 100, 10, &base_fee);
+
+        let trimmed = &chains[2];
+        assert_eq!(trimmed.msgs.len(), 1);
+        assert_eq!(
+            trimmed.eff_perf,
+            (trimmed.gas_perf * 100.0 + 2.0 * 100.0) / 200.0
+        );
+    }
+
+    #[test]
+    fn set_effective_perfs_blends_child_with_parent() {
+        let mut chains = Chains::new();
+        let mut keys = vec![];
+        let parent = MsgChainNode {
+            gas_perf: 10.0,
+            gas_limit: 100,
+            ..Default::default()
+        };
+        chains.push_with(parent, &mut keys);
+        let child = MsgChainNode {
+            gas_perf: 4.0,
+            gas_limit: 300,
+            prev: Some(keys[0]),
+            ..Default::default()
+        };
+        chains.push_with(child, &mut keys);
+        let unpartitioned = MsgChainNode {
+            gas_perf: -3.0,
+            eff_perf: 7.0,
+            ..Default::default()
+        };
+        chains.push_with(unpartitioned, &mut keys);
+        chains.key_vec = keys.clone();
+
+        chains.set_effective_perfs(&[vec![keys[0]], vec![keys[1]]], &[0.5, 0.25]);
+
+        let (parent, child) = (&chains.map[keys[0]], &chains.map[keys[1]]);
+        assert_eq!(parent.eff_perf, 5.0);
+        assert_eq!(child.bp, 0.25);
+        // 4 * 0.25 on its own, (1 * 300 + 5 * 100) / 400 blended with the parent
+        assert_eq!(child.eff_perf, 2.0);
+        assert_eq!(child.parent_offset, -1.0);
+        assert_eq!(chains.map[keys[2]].eff_perf, -3.0);
+    }
+
+    #[test]
+    fn before_effective_is_lotus_predicate_for_merged_chains() {
+        let merged = node(1.0, 1.0, 0, true);
+        let better = node(1.0, 2.0, 0, false);
+        assert!(merged.before_effective(&better));
+        assert!(better.before_effective(&merged));
+        assert_eq!(better.cmp_effective(&merged), Ordering::Less);
     }
 }
