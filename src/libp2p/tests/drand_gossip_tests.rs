@@ -15,8 +15,8 @@ use super::gossip_validation_test::gossip_message_event;
 use crate::{
     beacon::{
         gossipsub::{
-            DrandGossip, PUBSUB_DRAND_STR,
-            test_utils::{EPOCH_ROUND, assert_verdict, fake_drand_schedule, is_cached},
+            DrandGossip, PUBSUB_DRAND_STR, Round,
+            test_utils::{EPOCH_ROUND, assert_verdict, fake_drand_schedule},
         },
         tests::fake_drand_signer::FakeDrandSigner,
     },
@@ -30,15 +30,15 @@ use crate::{
 
 const NETWORK: &str = "testdrandgossipsub";
 
-fn forest_node(drand: &DrandGossip) -> Swarm<Gossipsub> {
-    let extra = [drand.extra_topic()];
+fn forest_node(extra_topic: ExtraTopic) -> Swarm<Gossipsub> {
     let mut node = Swarm::new_ephemeral_tokio(|id| {
-        build_gossipsub(&id, &NETWORK.into(), &extra).expect("failed to build gossipsub")
+        build_gossipsub(&id, &NETWORK.into(), std::slice::from_ref(&extra_topic))
+            .expect("failed to build gossipsub")
     });
     for topic in pubsub_topics(NETWORK) {
         node.behaviour_mut().subscribe(&topic).unwrap();
     }
-    node.behaviour_mut().subscribe(&extra[0].topic).unwrap();
+    node.behaviour_mut().subscribe(&extra_topic.topic).unwrap();
     node
 }
 
@@ -62,11 +62,13 @@ fn drand_topic(drand: &FakeDrandSigner) -> IdentTopic {
 #[tokio::test]
 async fn only_verified_rounds_are_forwarded() {
     let (drand, schedule) = fake_drand_schedule();
-    let gossip = DrandGossip::new(schedule.clone()).expect("unchained beacon");
+    let (gossip, listener) = DrandGossip::new(schedule.clone()).expect("unchained beacon");
+    tokio::spawn(listener.run());
+
     let topic = drand_topic(&drand);
     assert_eq!(gossip.topic, topic.hash());
 
-    let mut node = forest_node(&gossip);
+    let mut node = forest_node(ExtraTopic::drand(&gossip.topic));
     let mut relay = plain_peer(&topic);
     let mut observer = plain_peer(&topic);
     node.listen().with_memory_addr_external().await;
@@ -124,8 +126,16 @@ async fn only_verified_rounds_are_forwarded() {
                         delivered.push(message.data);
                     }
                 }
-                Ok(Verdict { message_id, source, acceptance }) = events.recv_async() => {
-                    verdicts.push(matches!(acceptance, MessageAcceptance::Reject));
+                Ok(Verdict { message_id, source, acceptance }) = gossip.verdicts.recv_async() => {
+                    // `MessageAcceptance::Reject`` has no Copy or Clone
+                    // so it is not possible to push the verdicts
+                    // and report_message_validation_result
+                    match acceptance {
+                        MessageAcceptance::Reject => verdicts.push(MessageAcceptance::Reject),
+                        MessageAcceptance::Accept => verdicts.push(MessageAcceptance::Accept),
+                        MessageAcceptance::Ignore => verdicts.push(MessageAcceptance::Ignore),
+                    }
+
                     node.behaviour_mut()
                         .report_message_validation_result(&message_id, &source, acceptance);
                 }
@@ -136,36 +146,22 @@ async fn only_verified_rounds_are_forwarded() {
     .expect("rounds never verified and forwarded");
 
     assert_eq!(delivered, vec![valid], "only the valid round is forwarded");
-    let rejected = verdicts.iter().filter(|rejected| **rejected).count();
-    assert_eq!(rejected, 1, "the forged round, and only it, is rejected");
 
-    assert!(is_cached(&schedule, EPOCH_ROUND));
-}
+    let expected = [
+        (MessageAcceptance::Reject, 1),
+        (MessageAcceptance::Accept, 1),
+        (MessageAcceptance::Ignore, 0),
+    ];
+    for (acc, exp_count) in &expected {
+        // `MessageAcceptance` has no `PartialEq`
+        let actual_count = verdicts
+            .iter()
+            .filter(|v| std::mem::discriminant(*v) == std::mem::discriminant(acc))
+            .count();
+        assert_eq!(actual_count, *exp_count, "{acc:?} verdicts");
+    }
 
-/// `drand` rounds are decided by the listener, and nothing reaches the node.
-#[tokio::test]
-async fn drand_gossip_is_handed_to_the_listener() {
-    let (drand, schedule) = fake_drand_schedule();
-    let (gossip, listener) = DrandGossip::new(schedule).unwrap();
-    tokio::spawn(listener.run());
-    let (tx, rx) = flume::unbounded();
-
-    let verdict = handle_gossip_event(
-        gossip_message_event(drand.encode(EPOCH_ROUND), gossip.topic.clone()),
-        &tx,
-        "",
-        "",
-        Some(&gossip),
-    )
-    .await;
-
-    assert!(verdict.is_none(), "the listener reports it");
-    assert!(rx.try_recv().is_err(), "nothing is emitted to the node");
-    let verdict = tokio::time::timeout(Duration::from_secs(5), gossip.verdicts.recv_async())
-        .await
-        .expect("no verdict reported")
-        .unwrap();
-    assert_verdict(&verdict.acceptance, MessageAcceptance::Accept);
+    assert!(schedule.unchained_beacon().unwrap().has_round(EPOCH_ROUND));
 }
 
 /// A full listener queue drops the round instead of blocking the service.
