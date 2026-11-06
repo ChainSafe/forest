@@ -39,8 +39,8 @@ use super::{
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
     connection_manager::{ConnectionManager, PeerValue},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
-    drand::DrandGossip,
 };
+use crate::beacon::gossipsub::{DrandGossip, Round};
 use crate::libp2p::{
     PeerManager, PeerOperation,
     chain_exchange::ChainExchangeBehaviour,
@@ -188,11 +188,7 @@ pub enum NetRPCMethods {
 pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
-<<<<<<< HEAD
     connection_manager: ConnectionManager,
-=======
-    drand: Option<DrandGossip>,
->>>>>>> c2ea10488 (feat(lip2p/drand): introduce drand libp2p module)
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -285,11 +281,7 @@ impl Libp2pService {
         Ok(Libp2pService {
             swarm,
             bootstrap_peers,
-<<<<<<< HEAD
             connection_manager: ConnectionManager::new(config.target_peer_count),
-=======
-            drand,
->>>>>>> c2ea10488 (feat(lip2p/drand): introduce drand libp2p module)
             cs,
             peer_manager,
             network_receiver_in,
@@ -716,14 +708,14 @@ async fn handle_discovery_event(
 
 /// Verdict for a gossiped message.
 #[derive(Debug)]
-pub(in crate::libp2p) struct Verdict {
-    pub(in crate::libp2p) message_id: MessageId,
-    pub(in crate::libp2p) source: PeerId,
-    pub(in crate::libp2p) acceptance: MessageAcceptance,
+pub(crate) struct Verdict {
+    pub(crate) message_id: MessageId,
+    pub(crate) source: PeerId,
+    pub(crate) acceptance: MessageAcceptance,
 }
 
 /// Decodes a `gossipsub` message and emits it. Returns its verdict, or `None` when the `drand`
-/// module reports it later.
+/// listener reports it later.
 pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
@@ -740,8 +732,18 @@ pub(in crate::libp2p) async fn handle_gossip_event(
         return None;
     };
     trace!("Got a Gossip Message from {:?}", source);
-    if let Some(drand) = drand.filter(|drand| message.topic == drand.topic) {
-        drand.on_message(message_id, source, &message.data);
+    let topic = message.topic.as_str();
+    let message = message.data;
+
+    if let Some(drand) = drand
+        && topic == drand.topic.as_str()
+    {
+        let round = Round {
+            message_id,
+            source,
+            data: message,
+        };
+        emit_event(&drand.rounds, round).await;
         return None;
     }
 
@@ -787,6 +789,7 @@ pub(in crate::libp2p) async fn handle_gossip_event(
         warn!("Getting gossip messages from unknown topic: {topic}");
         MessageAcceptance::Ignore
     };
+
     Some(Verdict {
         message_id,
         source,
@@ -1074,7 +1077,7 @@ async fn handle_forest_behaviour_event(
     }
 }
 
-async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
+async fn emit_event<T>(sender: &Sender<T>, event: T) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }

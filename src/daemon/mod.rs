@@ -6,6 +6,7 @@ mod context;
 pub mod db_util;
 pub mod main;
 
+use crate::beacon::gossipsub::DrandGossip;
 use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainFollower;
@@ -19,7 +20,7 @@ use crate::cli_shared::{
 use crate::daemon::{context::AppContext, db_util::import_chain_as_forest_car};
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
-use crate::libp2p::{DrandGossip, Libp2pService, PeerManager};
+use crate::libp2p::{Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
 use crate::networks::{self, ChainConfig};
 use crate::prelude::*;
@@ -303,7 +304,11 @@ async fn create_p2p_service(
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     // The state manager's schedule, so gossiped entries fill the cache block validation reads.
-    let drand_gossip = DrandGossip::new(ctx.state_manager.beacon_schedule().clone());
+    let drand_gossip =
+        DrandGossip::new(ctx.state_manager.beacon_schedule().clone()).map(|(gossip, listener)| {
+            services.spawn(listener.run());
+            gossip
+        });
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
