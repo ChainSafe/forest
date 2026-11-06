@@ -13,6 +13,7 @@ use strum::IntoEnumIterator as _;
 use crate::{libp2p::PubsubTopic, networks::GenesisNetworkName};
 
 /// A non-Filecoin topic with its score parameters.
+#[derive(Debug, Clone)]
 pub(in crate::libp2p) struct ExtraTopic {
     pub(in crate::libp2p) topic: IdentTopic,
     pub(in crate::libp2p) score: TopicScoreParams,
