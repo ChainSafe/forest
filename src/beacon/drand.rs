@@ -301,19 +301,13 @@ impl DrandBeacon {
     }
 
     /// Whether `entry` is the verified entry cached for its round.
-    pub(crate) fn is_verified(&self, entry: &BeaconEntry) -> bool {
+    fn is_verified(&self, entry: &BeaconEntry) -> bool {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
     }
 
     /// Whether a verified entry is cached for `round`.
     pub(crate) fn has_round(&self, round: u64) -> bool {
         self.verified_beacons.get(&round).is_some()
-    }
-
-    /// Unix time at which `round` is produced
-    pub(crate) fn round_timestamp(&self, round: u64) -> u64 {
-        self.drand_gen_time
-            .saturating_add(round.saturating_sub(1).saturating_mul(self.interval))
     }
 
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
@@ -502,7 +496,11 @@ impl Beacon for DrandBeacon {
     }
 
     fn beacon_round_timestamp(&self, round: u64) -> Option<u64> {
-        Some(self.round_timestamp(round))
+        // Round 1 is produced at drand genesis; round n at genesis + (n-1)*period.
+        Some(
+            self.drand_gen_time
+                .saturating_add(round.saturating_sub(1).saturating_mul(self.interval)),
+        )
     }
 
     fn chain_hash(&self) -> Option<&str> {
