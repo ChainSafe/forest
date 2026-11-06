@@ -60,7 +60,7 @@ impl DrandGossip {
 /// signatures are rejected; anything else unverified is ignored.
 pub struct DrandGossipListener {
     schedule: Arc<BeaconSchedule>,
-    /// Highest accepted round; older ones are dropped, as the `drand` client does.
+    /// Highest accepted round; older ones are dropped
     latest: u64,
     rounds: flume::Receiver<Round>,
     verdicts: flume::Sender<Verdict>,
