@@ -16,7 +16,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use super::{
-    DrandPoint, Height, HeightInfo, NetworkChain,
+    DrandPoint, Height, HeightInfo, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED,
     actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
     parse_bootstrap_peers,
@@ -97,6 +97,7 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
         make_height!(FireHorse, 6_052_800, get_bundle_cid("v18.0.0")),
         // Mon Oct 19 12:59:30 PM UTC 2026
         make_height!(Solstice, 6_470_279, get_bundle_cid("v19.0.1")),
+        make_height!(Xx, UPGRADE_HEIGHT_UNSCHEDULED),
     ])
 });
 
