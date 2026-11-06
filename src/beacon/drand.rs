@@ -351,11 +351,6 @@ impl DrandBeacon {
             );
         }
     }
-
-    #[cfg(test)]
-    pub(crate) fn is_cached(&self, round: u64) -> bool {
-        self.verified_beacons.get(&round).is_some()
-    }
 }
 
 impl Beacon for DrandBeacon {
