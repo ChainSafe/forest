@@ -5,17 +5,19 @@ use std::str::FromStr;
 
 use crate::{
     blocks::{Ticket, VRFProof},
-    db::DbImpl,
+    db::{Blockstore, DbImpl},
     eth::EVMMethod,
     message::SignedMessage,
+    networks::{ACTOR_BUNDLES_METADATA, NetworkChain},
     shim::{
         address::Address,
         crypto::{SECP_SIG_LEN, Signature, SignatureType},
         econ::TokenAmount,
+        machine::BuiltinActor,
         message::{Message, Message_v3},
         state_tree::{ActorState, StateTree, StateTreeVersion},
     },
-    utils::db::CborStoreExt as _,
+    utils::{ShallowClone, db::CborStoreExt as _},
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
 use cid::Cid;
@@ -47,6 +49,32 @@ pub fn resolving_state_tree(db: &DbImpl, robust: Address) -> (StateTree<DbImpl>,
     )
     .unwrap();
     (tree, Address::new_id(id))
+}
+
+/// Returns the root of a state tree that holds `miner_state` at `miner` and `power_state` at the
+/// power actor, with the mainnet v19 actor code.
+pub fn miner_and_power_state_root(
+    db: &(impl Blockstore + ShallowClone),
+    miner: Address,
+    miner_state: &fil_actor_miner_state::v19::State,
+    power_state: &fil_actor_power_state::v19::State,
+) -> Cid {
+    let manifest = &ACTOR_BUNDLES_METADATA
+        .get(&(NetworkChain::Mainnet, "v19.0.1".to_string()))
+        .unwrap()
+        .manifest;
+    let miner_head = db.put_cbor_default(miner_state).unwrap();
+    let power_head = db.put_cbor_default(power_state).unwrap();
+    let mut tree = StateTree::new(db, StateTreeVersion::V5).unwrap();
+    for (address, actor, head) in [
+        (miner, BuiltinActor::Miner, miner_head),
+        (Address::POWER_ACTOR, BuiltinActor::Power, power_head),
+    ] {
+        let code = manifest.get(actor).unwrap();
+        let actor = ActorState::new(code, head, TokenAmount::default(), 0, None);
+        tree.set_actor(&address, actor).unwrap();
+    }
+    tree.flush().unwrap()
 }
 
 /// Returns a Ticket to be used for testing

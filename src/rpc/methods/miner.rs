@@ -5,7 +5,6 @@ use crate::beacon::BeaconEntry;
 use crate::blocks::{CachingBlockHeader, ElectionProof, RawBlockHeader, Ticket, TipsetKey};
 use crate::chain::{ChainStore, compute_base_fee};
 use crate::fil_cns::weight;
-use crate::interpreter::VMTrace;
 use crate::key_management::{Key, KeyStore};
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::lotus_json_with_self;
@@ -20,7 +19,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::crypto::BLS_SIG_LEN;
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::sector::PoStProof;
-use crate::state_manager::ExecutedTipset;
+use crate::state_manager::TipsetState;
 use crate::utils::db::CborStoreExt;
 use crate::utils::encoding::hex::parse_prefixed_int;
 use anyhow::Result;
@@ -174,18 +173,10 @@ impl RpcMethod<1> for MinerCreateBlock {
                 .context("Missing FireHorse height")?
                 .epoch,
         )?;
-        let ExecutedTipset {
+        let TipsetState {
             state_root,
             receipt_root,
-            ..
-        } = ctx
-            .state_manager
-            .compute_tipset_state(
-                parent_tipset,
-                crate::state_manager::NO_CALLBACK,
-                VMTrace::NotTraced,
-            )
-            .await?;
+        } = ctx.state_manager.load_tipset_state(&parent_tipset).await?;
 
         let network_version = ctx.state_manager.get_network_version(block_template.epoch);
 
