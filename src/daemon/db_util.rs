@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::cli_shared::snapshot;
 use crate::db::SettingsStoreExt;
 use crate::db::car::forest::{
     FOREST_CAR_FILE_EXTENSION, TEMP_FOREST_CAR_FILE_EXTENSION, new_forest_car_temp_path_in,
@@ -129,10 +130,30 @@ pub enum ImportMode {
     Hardlink,
 }
 
-/// This function validates and stores the CAR binary from `from_path`(either local path or URL) into the `{DB_ROOT}/car_db/`
+/// A snapshot to import (`--import-snapshot`), either a URL or a local file.
+#[derive(Debug, PartialEq, derive_more::Display)]
+pub enum SnapshotImportPath {
+    /// A remote snapshot, downloaded before importing
+    Url(Url),
+    /// A local snapshot file
+    #[display("{}", _0.display())]
+    FilePath(PathBuf),
+}
+
+impl SnapshotImportPath {
+    /// Resolves `path` to a URL, following redirection(s), or else to a local file.
+    pub async fn resolve(path: PathBuf) -> Self {
+        match path.to_str().and_then(|s| Url::parse(s).ok()) {
+            Some(url) => Self::Url(snapshot::peek_url(url).await),
+            None => Self::FilePath(path),
+        }
+    }
+}
+
+/// This function validates and stores the CAR binary from `from`(either local path or URL) into the `{DB_ROOT}/car_db/`
 /// (automatically trans-code into `.forest.car.zst` format when needed), and returns its final file path and the heaviest tipset.
 pub async fn import_chain_as_forest_car(
-    from_path: &Path,
+    from: &SnapshotImportPath,
     forest_car_db_dir: &Path,
     import_mode: ImportMode,
     rpc_endpoint: Url,
@@ -140,7 +161,7 @@ pub async fn import_chain_as_forest_car(
     chain_config: &ChainConfig,
     snapshot_progress_tracker: &SnapshotProgressTracker,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
-    info!("Importing chain from snapshot at: {}", from_path.display());
+    info!("Importing chain from snapshot at: {from}");
 
     let stopwatch = time::Instant::now();
 
@@ -153,25 +174,29 @@ pub async fn import_chain_as_forest_car(
         let forest_car_db_path = forest_car_db_path.clone();
         async move {
             let downloaded_car_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
-            if let Some(url) = path_as_url(from_path) {
-                download_to(
-                    &url,
-                    &downloaded_car_temp_path,
-                    DownloadFileOption::Resumable,
-                    snapshot_progress_tracker.create_callback(),
-                )
-                .await?;
+            match from {
+                SnapshotImportPath::Url(url) => {
+                    download_to(
+                        url,
+                        &downloaded_car_temp_path,
+                        DownloadFileOption::Resumable,
+                        snapshot_progress_tracker.create_callback(),
+                    )
+                    .await?;
 
-                snapshot_progress_tracker.completed();
-            } else {
-                snapshot_progress_tracker.not_required();
-                if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
-                    move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
-                } else {
-                    // For a local snapshot, we transcode directly instead of copying & transcoding.
-                    transcode_into_forest_car(from_path, &downloaded_car_temp_path).await?;
-                    if mode == ImportMode::Move {
-                        std::fs::remove_file(from_path).context("Error removing original file")?;
+                    snapshot_progress_tracker.completed();
+                }
+                SnapshotImportPath::FilePath(from_path) => {
+                    snapshot_progress_tracker.not_required();
+                    if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
+                        move_or_copy_file(from_path, &downloaded_car_temp_path, mode)?;
+                    } else {
+                        // For a local snapshot, we transcode directly instead of copying & transcoding.
+                        transcode_into_forest_car(from_path, &downloaded_car_temp_path).await?;
+                        if mode == ImportMode::Move {
+                            std::fs::remove_file(from_path)
+                                .context("Error removing original file")?;
+                        }
                     }
                 }
             }
@@ -192,31 +217,34 @@ pub async fn import_chain_as_forest_car(
     };
 
     match import_mode {
-        ImportMode::Auto => {
-            if path_as_url(from_path).is_some() {
-                // Fallback to move if from_path is url
-                move_or_copy(ImportMode::Move).await?;
-            } else if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
-                tracing::info!(
-                    "Hardlinking {} to {}",
-                    from_path.display(),
-                    forest_car_db_path.display()
-                );
-                if std::fs::hard_link(from_path, &forest_car_db_path).is_err() {
-                    tracing::warn!("Error creating hardlink, fallback to copy");
+        ImportMode::Auto => match from {
+            SnapshotImportPath::Url(_) => move_or_copy(ImportMode::Move).await?,
+            SnapshotImportPath::FilePath(from_path) => {
+                if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
+                    tracing::info!(
+                        "Hardlinking {} to {}",
+                        from_path.display(),
+                        forest_car_db_path.display()
+                    );
+                    if std::fs::hard_link(from_path, &forest_car_db_path).is_err() {
+                        tracing::warn!("Error creating hardlink, fallback to copy");
+                        move_or_copy(ImportMode::Copy).await?;
+                    }
+                } else {
+                    tracing::warn!(
+                        "Snapshot file is not a valid forest.car.zst file, fallback to copy"
+                    );
                     move_or_copy(ImportMode::Copy).await?;
                 }
-            } else {
-                tracing::warn!(
-                    "Snapshot file is not a valid forest.car.zst file, fallback to copy"
-                );
-                move_or_copy(ImportMode::Copy).await?;
             }
-        }
+        },
         ImportMode::Copy | ImportMode::Move => {
             move_or_copy(import_mode).await?;
         }
         ImportMode::Symlink => {
+            let SnapshotImportPath::FilePath(from_path) = from else {
+                bail!("Symlink import mode requires a local snapshot file");
+            };
             let from_path = std::path::absolute(from_path)?;
             if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(&from_path)?) {
                 tracing::info!(
@@ -231,6 +259,9 @@ pub async fn import_chain_as_forest_car(
             }
         }
         ImportMode::Hardlink => {
+            let SnapshotImportPath::FilePath(from_path) = from else {
+                bail!("Hardlink import mode requires a local snapshot file");
+            };
             if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
                 tracing::info!(
                     "Hardlinking {} to {}",
@@ -289,11 +320,6 @@ pub async fn import_chain_as_forest_car(
     );
 
     Ok((forest_car_db_path, ts))
-}
-
-/// Parses `path` as a URL, returning `None` for local paths.
-pub(super) fn path_as_url(path: &Path) -> Option<Url> {
-    path.to_str().and_then(|s| Url::parse(s).ok())
 }
 
 fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow::Result<()> {
@@ -1009,6 +1035,25 @@ mod test {
 
     #[rstest]
     #[tokio::test]
+    async fn import_snapshot_from_url_via_link_fails(
+        #[values(ImportMode::Symlink, ImportMode::Hardlink)] import_mode: ImportMode,
+    ) {
+        let temp_db_dir = tempfile::Builder::new().tempdir().unwrap();
+        import_chain_as_forest_car(
+            &SnapshotImportPath::Url("https://forest.chainsafe.io/dummy.car".parse().unwrap()),
+            temp_db_dir.path(),
+            import_mode,
+            "http://127.0.0.1:2345/rpc/v1".parse().unwrap(),
+            Path::new("test"),
+            &ChainConfig::devnet(),
+            &SnapshotProgressTracker::default(),
+        )
+        .await
+        .unwrap_err();
+    }
+
+    #[rstest]
+    #[tokio::test]
     async fn import_snapshot_from_file_invalid(
         #[values("Cargo.toml", "dummy.car", "https://forest.chainsafe.io/dummy.car")]
         file_path: &str,
@@ -1038,7 +1083,7 @@ mod test {
         let temp_db_dir = tempfile::Builder::new().tempdir()?;
 
         let (path, ts) = import_chain_as_forest_car(
-            file_path,
+            &SnapshotImportPath::FilePath(file_path.to_owned()),
             temp_db_dir.path(),
             import_mode,
             "http://127.0.0.1:2345/rpc/v1".parse().unwrap(),

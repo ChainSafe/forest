@@ -7,7 +7,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
 use crate::daemon::db_util::{
-    BackfillGuard, BackfillOptions, RangeSpec, path_as_url, run_backfill,
+    BackfillGuard, BackfillOptions, RangeSpec, SnapshotImportPath, run_backfill,
 };
 use crate::db::car::AnyCar;
 use crate::db::car::forest::new_forest_car_temp_path_in;
@@ -224,14 +224,14 @@ async fn backfill_receipts_events(
 pub(super) async fn maybe_import_extended_snapshots(
     state_manager: &StateManager,
     head: &Tipset,
-    snapshot_path: &Path,
+    snapshot_path: &SnapshotImportPath,
     temp_dir: &Path,
 ) {
     // Extended snapshots are only published next to remote snapshots.
-    let Some(snapshot_url) = path_as_url(snapshot_path) else {
+    let SnapshotImportPath::Url(snapshot_url) = snapshot_path else {
         return;
     };
-    let metadata = match fetch_metadata_snapshots_info(&snapshot_url).await {
+    let metadata = match fetch_metadata_snapshots_info(snapshot_url).await {
         Ok(metadata) => metadata,
         Err(e) => {
             warn!("Failed to fetch extended snapshots for {snapshot_url}: {e:#}");
@@ -246,7 +246,7 @@ pub(super) async fn maybe_import_extended_snapshots(
     let receipts_events_imported = match &extended.receipts_events {
         Some(file) => {
             let result = async {
-                let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+                let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
                 import_receipts_events_snapshot(state_manager.db(), &path).await
             }
             .await;
@@ -263,7 +263,7 @@ pub(super) async fn maybe_import_extended_snapshots(
 
     if let Some(file) = &extended.tipset_lookup {
         let result = async {
-            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+            let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
             let db = state_manager.db_owned();
             tokio::task::spawn_blocking(move || {
                 let mut progress = Progress::new("Importing tipset lookup entries");
