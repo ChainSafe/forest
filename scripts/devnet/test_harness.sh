@@ -1,6 +1,5 @@
 #!/bin/bash
-# Sourced (not executed) helpers for the devnet test suites (wallet, mpool,
-# eth-gas, eth-skip-sender) on the docker devnet. Run after the devnet is up (`setup.sh`) and synced (`check.sh`).
+# Sourced (not executed) helpers for the devnet test suites. Run after the devnet is up (`setup.sh`) and synced (`check.sh`).
 #
 # The genesis key is the Lotus miner's default wallet, so using it as the test
 # sender causes nonce contention. We fund a dedicated wallet instead.
@@ -8,7 +7,7 @@
 TEST_HARNESS_PARENT_PATH=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 # Devnet directory whose `.env`/config to load. Defaults to this harness's own directory (the
 # lotus-produced devnet); the forest-produced devnet sets `DEVNET_DIR` to reuse this same harness.
-DEVNET_DIR="${DEVNET_DIR:-${TEST_HARNESS_PARENT_PATH}}"
+export DEVNET_DIR="${DEVNET_DIR:-${TEST_HARNESS_PARENT_PATH}}"
 # Export everything in `.env` so the test binaries inherit the devnet config (ports, data dirs)
 # as environment variables; `source` on its own would only set shell variables.
 set -a
@@ -23,6 +22,10 @@ function devnet_test_env_init {
   local token
   token=$(docker exec forest cat "${FOREST_DATA_DIR}/token.jwt")
   export FULLNODE_API_INFO="${token}:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http"
+  # The repo token carries all permissions (https://github.com/filecoin-project/lotus/blob/v1.38.3/node/modules/core.go#L165-L173).
+  local miner_token
+  miner_token=$(docker exec lotus-miner sh -c 'cat "$LOTUS_MINER_PATH/token"')
+  export MINER_API_INFO="${miner_token}:/ip4/127.0.0.1/tcp/${MINER_RPC_PORT}/http"
 
   local tmp
   tmp="$(mktemp --directory)"
@@ -44,6 +47,7 @@ function devnet_test_env_init {
 
   echo "Devnet test env initialised:"
   echo "  FULLNODE_API_INFO=<token>:/ip4/127.0.0.1/tcp/${FOREST_RPC_PORT}/http"
+  echo "  MINER_API_INFO=<token>:/ip4/127.0.0.1/tcp/${MINER_RPC_PORT}/http"
   echo "  FOREST_TEST_PRELOADED_ADDRESS=${FOREST_TEST_PRELOADED_ADDRESS}"
   echo "  Funding ${test_addr} with ${DEVNET_TEST_FUND_AMT} from ${genesis_addr}..."
 
@@ -60,4 +64,14 @@ function devnet_test_env_init {
 
   ${FOREST_CLI_PATH} chain head
   echo "  balance=${balance}"
+}
+
+# The integration suites shared by both devnets. Run after `devnet_test_env_init`.
+function devnet_integration_tests {
+  forest-dev tests mpool
+  forest-dev tests wallet
+  forest-dev devnet eth-gas
+  forest-dev devnet eth-skip-sender
+  forest-dev devnet state-call
+  forest-dev devnet eth-pending-tx
 }

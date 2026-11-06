@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use crate::prelude::*;
 use crate::{blocks::GossipBlock, rpc::net::NetInfoResult};
@@ -37,10 +37,11 @@ use tracing::{debug, error, info, trace, warn};
 use super::{
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
+    connection_manager::{ConnectionManager, PeerValue},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
-    drand::DrandGossip,
     gossip_params::ExtraTopic,
 };
+use crate::beacon::gossipsub::{DrandGossip, Round};
 use crate::libp2p::{
     PeerManager, PeerOperation,
     chain_exchange::ChainExchangeBehaviour,
@@ -189,6 +190,7 @@ pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
     drand: Option<DrandGossip>,
+    connection_manager: ConnectionManager,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -209,7 +211,10 @@ impl Libp2pService {
         genesis_cid: Cid,
         drand: Option<DrandGossip>,
     ) -> anyhow::Result<Self> {
-        let extra_topics: Vec<ExtraTopic> = drand.iter().map(DrandGossip::extra_topic).collect();
+        let extra_topics: Vec<ExtraTopic> = drand
+            .iter()
+            .map(|drand| ExtraTopic::drand(&drand.topic))
+            .collect();
         let behaviour = ForestBehaviour::new(
             &net_keypair,
             &config,
@@ -288,6 +293,7 @@ impl Libp2pService {
             swarm,
             bootstrap_peers,
             drand,
+            connection_manager: ConnectionManager::new(config.target_peer_count),
             cs,
             peer_manager,
             network_receiver_in,
@@ -367,6 +373,12 @@ impl Libp2pService {
                             &pubsub_msg_str,
                             self.drand.as_ref()).await;
                     },
+                    Some(SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. }) => {
+                        self.connection_manager.on_connection_established(peer_id, endpoint.is_dialer(), Instant::now());
+                    },
+                    Some(SwarmEvent::ConnectionClosed { peer_id, num_established, .. }) => {
+                        self.connection_manager.on_connection_closed(&peer_id, num_established as usize);
+                    },
                     None => { break; },
                     _ => { },
                 },
@@ -386,6 +398,7 @@ impl Libp2pService {
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
                     trace!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                    prune_excess_peers(swarm_stream.get_mut(), &self.connection_manager, &self.peer_manager, &self.bootstrap_peers);
                 },
                 cs_pair_opt = cx_response_rx_stream.next() => {
                     if let Some((_request_id, channel, cx_response)) = cs_pair_opt {
@@ -454,6 +467,33 @@ fn dial_to_bootstrap_peers_if_needed(
                 warn!("{e}");
             }
         }
+    }
+}
+
+fn prune_excess_peers(
+    swarm: &mut Swarm<ForestBehaviour>,
+    connection_manager: &ConnectionManager,
+    peer_manager: &PeerManager,
+    bootstrap_peers: &HashMap<PeerId, Multiaddr>,
+) {
+    let mesh_peers = swarm.behaviour().mesh_peers();
+    let peers = connection_manager.peers_to_prune(Instant::now(), |peer| {
+        if bootstrap_peers.contains_key(peer)
+            || peer_manager.is_peer_protected(peer)
+            || mesh_peers.contains(peer)
+        {
+            PeerValue::Protected
+        } else if peer_manager.has_responded(peer) {
+            PeerValue::High
+        } else {
+            PeerValue::Low
+        }
+    });
+    if !peers.is_empty() {
+        debug!("Pruning {} excess peers", peers.len());
+    }
+    for peer in peers {
+        let _ = swarm.disconnect_peer_id(peer);
     }
 }
 
@@ -680,14 +720,14 @@ async fn handle_discovery_event(
 
 /// Verdict for a gossiped message.
 #[derive(Debug)]
-pub(in crate::libp2p) struct Verdict {
-    pub(in crate::libp2p) message_id: MessageId,
-    pub(in crate::libp2p) source: PeerId,
-    pub(in crate::libp2p) acceptance: MessageAcceptance,
+pub(crate) struct Verdict {
+    pub(crate) message_id: MessageId,
+    pub(crate) source: PeerId,
+    pub(crate) acceptance: MessageAcceptance,
 }
 
 /// Decodes a `gossipsub` message and emits it. Returns its verdict, or `None` when the `drand`
-/// module reports it later.
+/// listener reports it later.
 pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
@@ -704,13 +744,21 @@ pub(in crate::libp2p) async fn handle_gossip_event(
         return None;
     };
     trace!("Got a Gossip Message from {:?}", source);
-    if let Some(drand) = drand.filter(|drand| message.topic == drand.topic) {
-        drand.on_message(message_id, source, &message.data);
+    let topic = message.topic.as_str();
+    let message = message.data;
+
+    if let Some(drand) = drand
+        && topic == drand.topic.as_str()
+    {
+        let round = Round {
+            message_id,
+            source,
+            data: message,
+        };
+        emit_event(&drand.rounds, round).await;
         return None;
     }
 
-    let topic = message.topic.as_str();
-    let message = message.data;
     let acceptance = if topic == pubsub_block_str {
         match from_slice_with_fallback::<GossipBlock>(&message) {
             Ok(b) => {
@@ -749,6 +797,7 @@ pub(in crate::libp2p) async fn handle_gossip_event(
         warn!("Getting gossip messages from unknown topic: {topic}");
         MessageAcceptance::Ignore
     };
+
     Some(Verdict {
         message_id,
         source,
@@ -1036,7 +1085,7 @@ async fn handle_forest_behaviour_event(
     }
 }
 
-async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
+async fn emit_event<T>(sender: &Sender<T>, event: T) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }

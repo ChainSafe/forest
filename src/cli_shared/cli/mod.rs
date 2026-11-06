@@ -203,9 +203,6 @@ impl CliOpts {
 
         cfg.client.snapshot_height = self.height;
         cfg.client.snapshot_head = self.head.map(|head| head as i64);
-        if let Some(skip_load) = self.skip_load {
-            cfg.client.skip_load = skip_load;
-        }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);

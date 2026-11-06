@@ -43,6 +43,17 @@ pub(super) static DRAND_MAINNET: LazyLock<DrandConfig<'static>> = LazyLock::new(
     parse_drand_config_from_env_var("FOREST_DRAND_MAINNET_CONFIG").unwrap_or(default)
 });
 
+/// `quicknet` chain info: <https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info>
+pub(crate) const QUICKNET_CHAIN_INFO: ChainInfo<'static> = ChainInfo {
+    public_key: Cow::Borrowed(
+        "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
+    ),
+    period: 3,
+    genesis_time: 1692803367,
+    hash: Cow::Borrowed("52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971"),
+    group_hash: Cow::Borrowed("f477d5c89f21a17c863a7f937c6a6d15859414d2be09cd448d4279af331c5d3e"),
+};
+
 pub(super) static DRAND_QUICKNET: LazyLock<DrandConfig<'static>> = LazyLock::new(|| {
     let default = DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
@@ -63,18 +74,7 @@ pub(super) static DRAND_QUICKNET: LazyLock<DrandConfig<'static>> = LazyLock::new
                 .try_into()
                 .expect("hardcoded drand server URL is valid"),
         ],
-        // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
-        chain_info: ChainInfo {
-            public_key: Cow::Borrowed(
-                "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
-            ),
-            period: 3,
-            genesis_time: 1692803367,
-            hash: Cow::Borrowed("52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971"),
-            group_hash: Cow::Borrowed(
-                "f477d5c89f21a17c863a7f937c6a6d15859414d2be09cd448d4279af331c5d3e",
-            ),
-        },
+        chain_info: QUICKNET_CHAIN_INFO,
         network_type: DrandNetwork::Quicknet,
         register_metrics: true,
     };

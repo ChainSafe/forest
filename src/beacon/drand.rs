@@ -300,8 +300,14 @@ impl DrandBeacon {
         }
     }
 
+    /// Whether `entry` is the verified entry cached for its round.
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
+    }
+
+    /// Whether a verified entry is cached for `round`.
+    pub(crate) fn has_round(&self, round: u64) -> bool {
+        self.verified_beacons.get(&round).is_some()
     }
 
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds

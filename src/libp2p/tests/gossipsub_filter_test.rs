@@ -14,9 +14,12 @@ use libp2p::{
 };
 use libp2p_swarm_test::SwarmExt as _;
 
-use crate::libp2p::{
-    Gossipsub, build_gossipsub, build_subscription_filter, drand::PUBSUB_DRAND_STR,
-    gossip_params::ExtraTopic, pubsub_topics,
+use crate::{
+    beacon::gossipsub::PUBSUB_DRAND_STR,
+    libp2p::{
+        Gossipsub, build_gossipsub, build_subscription_filter, gossip_params::ExtraTopic,
+        pubsub_topics,
+    },
 };
 
 const NETWORK: &str = "testnetname";

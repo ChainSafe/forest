@@ -5,15 +5,49 @@ use std::str::FromStr;
 
 use crate::{
     blocks::{Ticket, VRFProof},
+    db::DbImpl,
     eth::EVMMethod,
     message::SignedMessage,
     shim::{
         address::Address,
         crypto::{SECP_SIG_LEN, Signature, SignatureType},
+        econ::TokenAmount,
         message::{Message, Message_v3},
+        state_tree::{ActorState, StateTree, StateTreeVersion},
     },
+    utils::db::CborStoreExt as _,
 };
 use base64::{Engine, prelude::BASE64_STANDARD};
+use cid::Cid;
+
+/// An account actor code (calibnet actors v10) recognized by `is_account_actor`, for tests that
+/// need a sender that passes `is_valid_for_sending`.
+pub fn account_actor_code() -> Cid {
+    Cid::from_str("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw").unwrap()
+}
+
+/// Builds a state tree whose init actor resolves `robust` (an `f1`/`f3`/`f4` address) to a fresh
+/// account ID address. Returns the (not yet flushed) tree and that ID address.
+pub fn resolving_state_tree(db: &DbImpl, robust: Address) -> (StateTree<DbImpl>, Address) {
+    let mut init = fil_actor_init_state::v16::State::new(db, "test".into()).unwrap();
+    let (id, _) = init.map_addresses_to_id(db, &robust.into(), None).unwrap();
+    let init_head = db.put_cbor_default(&init).unwrap();
+
+    let mut tree = StateTree::new(db, StateTreeVersion::V5).unwrap();
+    // The init actor's code is irrelevant here: `lookup_id` reads its state, not its code.
+    tree.set_actor(
+        &Address::INIT_ACTOR,
+        ActorState::new(
+            account_actor_code(),
+            init_head,
+            TokenAmount::default(),
+            0,
+            None,
+        ),
+    )
+    .unwrap();
+    (tree, Address::new_id(id))
+}
 
 /// Returns a Ticket to be used for testing
 pub fn construct_ticket() -> Ticket {

@@ -7,10 +7,10 @@ use libp2p::{
 };
 
 use crate::{
+    beacon::gossipsub::test_utils::assert_verdict,
     blocks::{CachingBlockHeader, GossipBlock, RawBlockHeader},
     libp2p::{
         NetworkEvent, PubsubMessage, PubsubTopic,
-        drand::test_utils::assert_verdict,
         service::{Verdict, handle_gossip_event},
     },
     message::SignedMessage,
@@ -104,14 +104,7 @@ async fn filecoin_gossip_verdicts(
         &tx,
         &block_topic,
         &msg_topic,
-<<<<<<< HEAD
-<<<<<<< HEAD
         None,
-=======
->>>>>>> 6d4231766 (chore: enable gossipsub validation)
-=======
-        None,
->>>>>>> 937746be6 (feat(lip2p/drand): introduce drand libp2p module)
     )
     .await
     .expect("an immediate verdict");

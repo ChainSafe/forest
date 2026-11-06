@@ -2,11 +2,13 @@ syntax = "proto3";
 
 package drand_pb;
 
+// Only unchained networks, such as `quicknet` are supported,
+// chained ones, like the legacy `drand` mainnet, are not taken from gossip.
+// Ignoring fields:
+// `previous_signature` as it is empty on unchained networks
+// `randomness` as it is deprecated by drand.
+// `metadata` names the beacon, which the gossip topic already identifies
 // https://github.com/drand/drand/blob/v2.1.7/protobuf/drand/api.proto#L42-L53
-// Only the fields an unchained beacon entry needs. The rest are skipped on decode, as
-// protobuf skips unknown fields: `previous_signature` is empty on unchained networks,
-// `randomness` is deprecated and derived from the signature, and `metadata` names the beacon,
-// which the gossip topic already identifies.
 message PublicRandResponse {
   uint64 round = 1;
   bytes signature = 2;

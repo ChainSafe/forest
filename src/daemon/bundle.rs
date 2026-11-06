@@ -7,15 +7,19 @@ use crate::{
     networks::{ACTOR_BUNDLES, ActorBundleInfo, NetworkChain},
     utils::db::car_stream::{CarBlock, CarStream},
 };
-use ahash::HashSet;
+use anyhow::Context as _;
+use bytes::Bytes;
 use cid::Cid;
 use directories::ProjectDirs;
-use futures::{TryStreamExt, stream::FuturesUnordered};
+use futures::{Stream, TryStreamExt, stream::FuturesUnordered};
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::from_slice;
 use std::mem::discriminant;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::{io::Cursor, path::Path};
 use tracing::{info, warn};
+use url::Url;
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
 /// not present, it will be downloaded.
@@ -48,10 +52,10 @@ pub async fn load_actor_bundles_from_path(
         "Bundle file not found at {}",
         bundle_path.as_ref().display()
     );
-    let mut car_stream = CarStream::new_from_path(bundle_path.as_ref()).await?;
+    let car_stream = CarStream::new_from_path(bundle_path.as_ref()).await?;
 
     // Validate the bundle
-    let roots = HashSet::from_iter(car_stream.header_v1.roots.iter());
+    let roots = car_stream.header_v1.roots.clone();
     for ActorBundleInfo {
         manifest, network, ..
     } in ACTOR_BUNDLES.iter().filter(|bundle| {
@@ -66,12 +70,16 @@ pub async fn load_actor_bundles_from_path(
         );
     }
 
-    // Load into DB
-    while let Some(CarBlock { cid, data }) = car_stream.try_next().await? {
-        db.put_keyed_persistent(&cid, &data)?;
+    let all_loaded = || {
+        roots
+            .iter()
+            .try_for_each(|manifest| ensure_bundle_loaded(db, manifest))
+    };
+    if all_loaded().is_ok() {
+        return Ok(());
     }
-
-    Ok(())
+    persist_validated_blocks(db, car_stream).await?;
+    all_loaded()
 }
 
 pub static ACTOR_BUNDLE_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
@@ -92,10 +100,10 @@ pub async fn load_actor_bundles_from_server(
         bundles
             .iter()
             .filter(|bundle| {
-                !db.has(&bundle.manifest).unwrap_or(false) &&
                 // Comparing only the discriminant is enough. All devnets share the same
                 // actor bundle.
                 discriminant(network) == discriminant(&bundle.network)
+                    && ensure_bundle_loaded(db, &bundle.manifest).is_err()
             })
             .map(
                 |ActorBundleInfo {
@@ -106,23 +114,12 @@ pub async fn load_actor_bundles_from_server(
                      version,
                  }| {
                     async move {
-                        let response = if let Ok(response) =
-                            http_get(url).await
-                        {
-                            response
-                        } else {
-                            warn!("failed to download bundle {network}-{version} from primary URL, trying alternative URL");
-                            http_get(alt_url).await?
-                        };
-
-                        let bytes = response.bytes().await?;
-                        let mut stream = CarStream::new(Cursor::new(bytes)).await?;
-                        while let Some(block) = stream.try_next().await? {
-                            db.put_keyed_persistent(&block.cid, &block.data)?;
+                        if let Err(e) = download_bundle(db, root, url).await {
+                            warn!("failed to load bundle {network}-{version} from {url}, trying {alt_url}: {e:#}");
+                            download_bundle(db, root, alt_url).await.with_context(|| {
+                                format!("failed to load bundle {network}-{version} from {alt_url}")
+                            })?;
                         }
-                        let header = stream.header_v1;
-                        anyhow::ensure!(header.roots.len() == 1);
-                        anyhow::ensure!(header.roots.first() == root);
                         Ok(*root)
                     }
                 }
@@ -130,4 +127,99 @@ pub async fn load_actor_bundles_from_server(
     )
     .try_collect::<Vec<_>>()
     .await
+}
+
+async fn download_bundle(
+    db: &impl PersistentStore,
+    manifest: &Cid,
+    url: &Url,
+) -> anyhow::Result<()> {
+    let bytes = http_get(url).await?.bytes().await?;
+    let stream = CarStream::new(Cursor::new(bytes)).await?;
+    persist_validated_blocks(db, stream).await?;
+    ensure_bundle_loaded(db, manifest)
+}
+
+async fn persist_validated_blocks(
+    db: &impl PersistentStore,
+    mut blocks: impl Stream<Item = std::io::Result<CarBlock>> + Unpin,
+) -> anyhow::Result<()> {
+    while let Some(block) = blocks.try_next().await? {
+        block.validate()?;
+        db.delete_keyed(&block.cid)?;
+        db.put_keyed_persistent(&block.cid, &block.data)?;
+    }
+    Ok(())
+}
+
+/// Stored blocks are rehashed, since presence alone does not show a bundle is intact.
+fn ensure_bundle_loaded(db: &impl Blockstore, manifest: &Cid) -> anyhow::Result<()> {
+    let get_verified = |cid: &Cid| -> anyhow::Result<Bytes> {
+        let block = CarBlock {
+            cid: *cid,
+            data: db
+                .get(cid)?
+                .with_context(|| format!("actor bundle {manifest} is missing block {cid}"))?
+                .into(),
+        };
+        block
+            .validate()
+            .with_context(|| format!("stored block {cid} is corrupt"))?;
+        Ok(block.data)
+    };
+    let (_, actor_list): (u32, Cid) = from_slice(&get_verified(manifest)?)?;
+    for (_, code) in from_slice::<Vec<(String, Cid)>>(&get_verified(&actor_list)?)? {
+        get_verified(&code)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::parity_db::ParityDb;
+    use crate::db::parity_db_config::ParityDbConfig;
+    use crate::shim::crypto::IPLD_RAW;
+    use crate::utils::db::CborStoreExt as _;
+    use crate::utils::multihash::prelude::*;
+    use rstest::rstest;
+
+    const INIT_CODE: &[u8] = b"init code";
+
+    #[rstest]
+    #[case::genuine(|db: &ParityDb, cid: &Cid| db.put_keyed_persistent(cid, INIT_CODE).unwrap(), true)]
+    #[case::forged_code(|db: &ParityDb, cid: &Cid| db.put_keyed_persistent(cid, b"malicious").unwrap(), false)]
+    #[case::forged_gc_copy(|db: &ParityDb, cid: &Cid| db.put_keyed(cid, b"malicious").unwrap(), false)]
+    #[case::missing_code(|_: &ParityDb, _: &Cid| {}, false)]
+    #[tokio::test]
+    async fn loads_only_intact_bundles_and_repairs_on_reload(
+        #[case] store_init_code: fn(&ParityDb, &Cid),
+        #[case] intact: bool,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        // Reopening flushes ParityDb's commit queue, where writes to existing persistent keys are dropped.
+        let open = || ParityDb::open(dir.path(), &ParityDbConfig::default()).unwrap();
+        let init_code = CarBlock {
+            cid: Cid::new_v1(IPLD_RAW, MultihashCode::Blake2b256.digest(INIT_CODE)),
+            data: Bytes::from_static(INIT_CODE),
+        };
+        let manifest = {
+            let db = open();
+            let actor_list = db
+                .put_cbor_default(&vec![("init".to_string(), init_code.cid)])
+                .unwrap();
+            store_init_code(&db, &init_code.cid);
+            db.put_cbor_default(&(1u32, actor_list)).unwrap()
+        };
+
+        {
+            let db = open();
+            assert_eq!(ensure_bundle_loaded(&db, &manifest).is_ok(), intact);
+            persist_validated_blocks(&db, futures::stream::iter([Ok(init_code)]))
+                .await
+                .unwrap();
+        }
+
+        ensure_bundle_loaded(&open(), &manifest).unwrap();
+    }
 }

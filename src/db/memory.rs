@@ -208,6 +208,12 @@ impl PersistentStore for MemoryDB {
             .insert(*k, block.to_vec());
         Ok(())
     }
+
+    fn delete_keyed(&self, k: &Cid) -> anyhow::Result<()> {
+        self.blockchain_db.write().remove(k);
+        self.blockchain_persistent_db.write().remove(k);
+        Ok(())
+    }
 }
 
 impl BitswapStoreRead for MemoryDB {

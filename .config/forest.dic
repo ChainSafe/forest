@@ -1,4 +1,4 @@
-299
+303
 ABI
 Algorand/M
 API's
@@ -71,6 +71,7 @@ datacap
 DB/S
 DDL
 debounce/DG
+dedup
 deduplicates
 dep/S
 deserialize/D
@@ -127,6 +128,7 @@ healthcheck
 Hetzner
 hotfix
 Hypercerts
+Hyperdrive
 IaC
 implementer/S
 implementor/SM
@@ -207,6 +209,7 @@ PoSt
 precommit
 preloaded
 pubsub
+QUIC
 R2
 RAII
 RBF
@@ -268,6 +271,7 @@ traceback
 trie
 truthy
 TTY
+UDP
 UI
 unclutter
 uncompress
