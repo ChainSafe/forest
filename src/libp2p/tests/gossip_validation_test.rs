@@ -7,10 +7,10 @@ use libp2p::{
 };
 
 use crate::{
+    beacon::gossipsub::test_utils::assert_verdict,
     blocks::{CachingBlockHeader, GossipBlock, RawBlockHeader},
     libp2p::{
         NetworkEvent, PubsubMessage, PubsubTopic,
-        drand::test_utils::assert_verdict,
         service::{Verdict, handle_gossip_event},
     },
     message::SignedMessage,

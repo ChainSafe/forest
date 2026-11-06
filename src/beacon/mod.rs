@@ -5,6 +5,7 @@ mod drand;
 mod drand_pb;
 
 pub mod beacon_entries;
+pub mod gossipsub;
 pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
