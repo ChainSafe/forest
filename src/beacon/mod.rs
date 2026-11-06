@@ -3,6 +3,9 @@
 
 pub mod beacon_entries;
 mod drand;
+// Only test fixtures decode it until gossiped entries are validated.
+#[cfg(test)]
+mod drand_pb;
 pub mod metrics;
 pub mod signatures;
 pub use beacon_entries::*;
@@ -16,4 +19,5 @@ pub mod tests {
     // tests in other modules.
     pub mod drand;
     pub mod fake_drand_server;
+    pub mod fake_drand_signer;
 }

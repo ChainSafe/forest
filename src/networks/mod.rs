@@ -34,6 +34,8 @@ pub use actors_bundle::{
 };
 
 mod drand;
+#[cfg(test)]
+pub(crate) use drand::QUICKNET_CHAIN_INFO;
 
 pub mod network_name;
 
@@ -778,7 +780,7 @@ mod tests {
         assert_eq!(0, calculate_expected_epoch(0, 0, 1));
         assert_eq!(5, calculate_expected_epoch(5, 0, 1));
 
-        let mainnet_genesis = 1598306400;
+        let mainnet_genesis = mainnet::GENESIS_TIMESTAMP;
         let mainnet_block_delay = 30;
 
         assert_eq!(
