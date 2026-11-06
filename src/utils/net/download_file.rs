@@ -91,6 +91,22 @@ fn call_progress_callback(
     }
 }
 
+fn log_download_progress(downloaded: u64, total_size: u64, bytes_per_sec: f64, elapsed: Duration) {
+    let percent = downloaded
+        .checked_mul(100)
+        .and_then(|v| v.checked_div(total_size))
+        .unwrap_or(0);
+    tracing::info!(
+        target: "forest::progress",
+        "Loading {} / {}, {}%, {}/s, elapsed time: {}",
+        downloaded.human_count_bytes(),
+        total_size.human_count_bytes(),
+        percent,
+        bytes_per_sec.human_count_bytes(),
+        format_duration(Duration::from_secs(elapsed.as_secs()))
+    );
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum DownloadFileOption {
     NonResumable,
@@ -304,6 +320,8 @@ async fn download_http_parallel(
     // Store elapsed millis since start_time to avoid needing a Mutex<Instant>.
     let last_logged_millis = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let start_time = Instant::now();
+    // Log the start and the end too, so a download shorter than the update frequency is visible.
+    log_download_progress(0, total_size, 0.0, Duration::ZERO);
     const UPDATE_FREQUENCY: Duration = Duration::from_secs(5);
     const UPDATE_FREQUENCY_MS: u64 = UPDATE_FREQUENCY.as_millis() as u64;
 
@@ -377,24 +395,14 @@ async fn download_http_parallel(
                                 .is_ok()
                         {
                             let last_bytes = last_logged_bytes.load(Ordering::Relaxed);
-                            let elapsed_secs = elapsed_ms as f64 / 1000.0;
                             let seconds_since_last = (elapsed_ms - prev_ms) as f64 / 1000.0;
                             let speed = downloaded.saturating_sub(last_bytes) as f64
                                 / seconds_since_last.max(0.1);
-                            let percent = downloaded
-                                .checked_mul(100)
-                                .and_then(|v| v.checked_div(total_size))
-                                .unwrap_or(0);
-                            tracing::info!(
-                                target: "forest::progress",
-                                "Loading {} / {}, {}%, {}/s, elapsed time: {}",
-                                downloaded.human_count_bytes(),
-                                total_size.human_count_bytes(),
-                                percent,
-                                speed.human_count_bytes(),
-                                format_duration(Duration::from_secs(
-                                    elapsed_secs as u64
-                                ))
+                            log_download_progress(
+                                downloaded,
+                                total_size,
+                                speed,
+                                Duration::from_millis(elapsed_ms),
                             );
 
                             last_logged_bytes.store(downloaded, Ordering::Relaxed);
@@ -440,6 +448,13 @@ async fn download_http_parallel(
     for (i, result) in results.into_iter().enumerate() {
         result.with_context(|| format!("Chunk {i} failed"))?;
     }
+    let elapsed = start_time.elapsed();
+    log_download_progress(
+        total_size,
+        total_size,
+        total_size as f64 / elapsed.as_secs_f64().max(0.001),
+        elapsed,
+    );
 
     // Rename to final destination
     tokio::fs::rename(&tmp_dst_path, &dst_path)

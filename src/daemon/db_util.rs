@@ -35,10 +35,9 @@ use url::Url;
 use walkdir::WalkDir;
 
 #[cfg(doc)]
-use crate::rpc::eth::types::EthHash;
-
-#[cfg(doc)]
 use crate::blocks::TipsetKey;
+#[cfg(doc)]
+use crate::rpc::eth::types::EthHash;
 
 #[cfg(doc)]
 use cid::Cid;
@@ -154,7 +153,7 @@ pub async fn import_chain_as_forest_car(
         let forest_car_db_path = forest_car_db_path.clone();
         async move {
             let downloaded_car_temp_path = new_forest_car_temp_path_in(forest_car_db_dir)?;
-            if let Ok(url) = Url::parse(&from_path.display().to_string()) {
+            if let Some(url) = path_as_url(from_path) {
                 download_to(
                     &url,
                     &downloaded_car_temp_path,
@@ -194,7 +193,7 @@ pub async fn import_chain_as_forest_car(
 
     match import_mode {
         ImportMode::Auto => {
-            if Url::parse(&from_path.display().to_string()).is_ok() {
+            if path_as_url(from_path).is_some() {
                 // Fallback to move if from_path is url
                 move_or_copy(ImportMode::Move).await?;
             } else if ForestCar::is_valid(&EitherMmapOrRandomAccessFile::open(from_path)?) {
@@ -290,6 +289,11 @@ pub async fn import_chain_as_forest_car(
     );
 
     Ok((forest_car_db_path, ts))
+}
+
+/// Parses `path` as a URL, returning `None` for local paths.
+pub(super) fn path_as_url(path: &Path) -> Option<Url> {
+    path.to_str().and_then(|s| Url::parse(s).ok())
 }
 
 fn move_or_copy_file(from: &Path, to: &Path, import_mode: ImportMode) -> anyhow::Result<()> {

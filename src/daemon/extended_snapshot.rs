@@ -1,0 +1,446 @@
+// Copyright 2019-2026 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+//! Download and import of the extended snapshots (receipts/events and tipset lookup)
+//! published next to a snapshot in the Forest archive.
+
+use crate::blocks::{Tipset, TipsetKey};
+use crate::chain::{TIPSET_LOOKUP_HAMT_BIT_WIDTH, index::ChainIndex};
+use crate::daemon::db_util::{
+    BackfillGuard, BackfillOptions, RangeSpec, path_as_url, run_backfill,
+};
+use crate::db::car::AnyCar;
+use crate::db::car::forest::new_forest_car_temp_path_in;
+use crate::db::{BlockstoreWithWriteBuffer, DB_WRITE_BUFFER_CAPACITY, EthMappingsStore};
+use crate::prelude::*;
+use crate::shim::clock::ChainEpoch;
+use crate::state_manager::StateManager;
+use crate::utils::db::car_stream::CarStream;
+use crate::utils::io::progress_log::Progress;
+use crate::utils::net::{DownloadFileOption, download_to};
+use anyhow::Context;
+use fil_actors_shared::fvm_ipld_hamt::Hamt;
+use futures::TryStreamExt;
+use regex::Regex;
+use serde::Deserialize;
+use std::path::Path;
+use std::time::{Duration, Instant};
+use tracing::{info, warn};
+use url::Url;
+
+/// The subset of the snapshot `.metadata.json` file published in the Forest archive
+/// that is needed to locate the extended snapshots.
+#[derive(Debug, Deserialize)]
+struct SnapshotMetadataFile {
+    #[serde(rename = "Snapshot")]
+    snapshot: SnapshotMetadataSection,
+}
+
+#[derive(Debug, Deserialize)]
+struct SnapshotMetadataSection {
+    /// Number of epochs below the head with state, which the receipts and events also cover
+    #[serde(rename = "State-roots")]
+    state_roots: ChainEpoch,
+    #[serde(rename = "Extended")]
+    extended: Option<ExtendedSnapshots>,
+}
+
+/// Auxiliary snapshots that enrich a base snapshot, see `Forest.ChainExport`.
+#[derive(Debug, Deserialize)]
+struct ExtendedSnapshots {
+    /// Message receipts and events
+    #[serde(rename = "Augmented")]
+    receipts_events: Option<ExtendedSnapshotFile>,
+    /// Tipset lookup table (checkpoint epoch to tipset key)
+    #[serde(rename = "Tipset lookup")]
+    tipset_lookup: Option<ExtendedSnapshotFile>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ExtendedSnapshotFile {
+    #[serde(rename = "Filename")]
+    filename: String,
+    #[serde(rename = "Sha256")]
+    #[serde(with = "crate::utils::encoding::hex::serde")]
+    sha256: [u8; 32],
+}
+
+/// Fetches the `.metadata.json` published next to `snapshot_url`.
+async fn fetch_metadata_snapshots_info(
+    snapshot_url: &Url,
+) -> anyhow::Result<SnapshotMetadataSection> {
+    // Append to the path, not the whole URL, so dont affect any query string.
+    let mut metadata_url = snapshot_url.clone();
+    metadata_url.set_path(&format!("{}.metadata.json", snapshot_url.path()));
+    let response = crate::utils::net::global_http_client()
+        .get(metadata_url.clone())
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await?;
+    let metadata: SnapshotMetadataFile = response
+        .error_for_status()?
+        .json()
+        .await
+        .with_context(|| format!("failed to parse snapshot metadata at {metadata_url}"))?;
+    Ok(metadata.snapshot)
+}
+
+/// Downloads the extended snapshot `file`, published next to `snapshot_url`, into `temp_dir`
+/// and verifies it against the SHA-256 from the snapshot metadata.
+async fn download_extended_snapshot(
+    snapshot_url: &Url,
+    file: &ExtendedSnapshotFile,
+    temp_dir: &Path,
+) -> anyhow::Result<tempfile::TempPath> {
+    use sha2::{Digest as _, Sha256};
+
+    let filename_re = Regex::new(r"^[A-Za-z0-9_.-]+\.forest\.car\.zst$")?;
+    anyhow::ensure!(
+        filename_re.is_match(&file.filename),
+        "invalid extended snapshot filename: {}",
+        file.filename
+    );
+    let mut url = snapshot_url.join(&file.filename)?;
+    url.set_query(snapshot_url.query());
+
+    let path = new_forest_car_temp_path_in(temp_dir)?;
+    info!("Downloading extended snapshot: {url}");
+    download_to(&url, &path, DownloadFileOption::Resumable, None).await?;
+
+    let actual: [u8; 32] = Sha256::digest(tokio::fs::read(&path).await?).into();
+    anyhow::ensure!(
+        actual == file.sha256,
+        "checksum mismatch for {}",
+        file.filename
+    );
+    Ok(path)
+}
+
+/// Imports message receipts and events from a receipts and events snapshot into `db`.
+async fn import_receipts_events_snapshot<DB>(db: &DB, path: &Path) -> anyhow::Result<()>
+where
+    DB: Blockstore,
+{
+    let started = Instant::now();
+    let db = BlockstoreWithWriteBuffer::new_with_capacity(db, DB_WRITE_BUFFER_CAPACITY);
+    let mut car_stream = CarStream::new_from_path(path).await?;
+    while let Some(block) = car_stream.try_next().await? {
+        block.validate()?;
+        db.put_keyed(&block.cid, &block.data)?;
+    }
+    drop(db);
+    info!(
+        "Imported message receipts and events in {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+
+/// Populates the tipset lookup table in `db` from a tipset lookup snapshot, calling
+/// `on_imported` after each entry is written.
+pub fn import_tipset_lookup_snapshot<DB>(
+    db: &DB,
+    path: &Path,
+    mut on_imported: impl FnMut(),
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + EthMappingsStore,
+{
+    let started = Instant::now();
+    let hamt_car = AnyCar::try_from(path)?;
+    anyhow::ensure!(
+        hamt_car.header_v1().roots.len() == 1,
+        "hamt car should have a single root"
+    );
+    let hamt_root = *hamt_car.header_v1().roots.first();
+    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
+        Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
+            .context("failed to load tipset lookup HAMT")?;
+    info!("Validating tipset lookup entries against the chain, this can take a while");
+    hamt.for_each_cacheless(|&epoch, tsk| {
+        anyhow::ensure!(
+            ChainIndex::is_tipset_lookup_checkpoint(epoch),
+            "epoch {epoch} is not a tipset lookup checkpoint"
+        );
+        let ts = Tipset::load_required(db, tsk)?;
+        anyhow::ensure!(
+            ts.epoch() == epoch,
+            "epochs do not match, {epoch} in hamt, {} in database",
+            ts.epoch()
+        );
+        Ok(())
+    })?;
+    hamt.for_each_cacheless(|&epoch, tsk| {
+        db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
+        on_imported();
+        Ok(())
+    })?;
+    info!(
+        "Imported tipset lookup entries in {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+
+/// Indexes the tipsets whose receipts and events were just imported (block logs blooms and
+/// Ethereum mappings), as `forest-tool index backfill` does
+async fn backfill_receipts_events(
+    state_manager: &StateManager,
+    head: &Tipset,
+    depth: ChainEpoch,
+) -> anyhow::Result<()> {
+    let from = Tipset::load_required(state_manager.db(), head.parents())?;
+    // the lowest tipset that can be indexed is at `head - depth + 1`
+    let to = head.epoch() - depth.clamp(0, head.epoch()) + 1;
+    let started = Instant::now();
+    let guard = BackfillGuard::try_start()?;
+    let options = BackfillOptions {
+        allow_recompute: false,
+        ..Default::default()
+    };
+    let result = run_backfill(state_manager, &from, RangeSpec::To(to), options, &guard).await;
+    let report = guard.finish(result)?;
+    if report.skipped > 0 {
+        warn!(
+            "Indexed {} tipsets from epoch {} to {to}, {} could not be indexed",
+            report.indexed,
+            from.epoch(),
+            report.skipped
+        );
+    } else {
+        info!(
+            "Indexed {} tipsets from epoch {} to {to} in {:.1}s",
+            report.indexed,
+            from.epoch(),
+            started.elapsed().as_secs_f64()
+        );
+    }
+    Ok(())
+}
+
+/// Downloads the extended snapshots (message receipts and events, tipset lookup table)
+/// advertised in the metadata of the snapshot at `snapshot_path` and imports them into the
+/// database of `state_manager`. Does nothing when `snapshot_path` is a local file rather than a URL.
+pub(super) async fn maybe_import_extended_snapshots(
+    state_manager: &StateManager,
+    head: &Tipset,
+    snapshot_path: &Path,
+    temp_dir: &Path,
+) {
+    // Extended snapshots are only published next to remote snapshots.
+    let Some(snapshot_url) = path_as_url(snapshot_path) else {
+        return;
+    };
+    let metadata = match fetch_metadata_snapshots_info(&snapshot_url).await {
+        Ok(metadata) => metadata,
+        Err(e) => {
+            warn!("Failed to fetch extended snapshots for {snapshot_url}: {e:#}");
+            return;
+        }
+    };
+    let Some(extended) = metadata.extended else {
+        info!("No extended snapshots advertised for {snapshot_url}");
+        return;
+    };
+
+    let receipts_events_imported = match &extended.receipts_events {
+        Some(file) => {
+            let result = async {
+                let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+                import_receipts_events_snapshot(state_manager.db(), &path).await
+            }
+            .await;
+            if let Err(e) = &result {
+                warn!(
+                    "Failed to import receipts and events snapshot {}: {e:#}",
+                    file.filename
+                );
+            }
+            result.is_ok()
+        }
+        None => false,
+    };
+
+    if let Some(file) = &extended.tipset_lookup {
+        let result = async {
+            let path = download_extended_snapshot(&snapshot_url, file, temp_dir).await?;
+            let db = state_manager.db_owned();
+            tokio::task::spawn_blocking(move || {
+                let mut progress = Progress::new("Importing tipset lookup entries");
+                import_tipset_lookup_snapshot(&db, &path, || progress.inc(1))
+            })
+            .await?
+        }
+        .await;
+        if let Err(e) = result {
+            warn!(
+                "Failed to import tipset lookup snapshot {}: {e:#}",
+                file.filename
+            );
+        }
+    }
+
+    // Index once both snapshots are imported, so each import's logs stay together.
+    if receipts_events_imported
+        && let Err(e) = backfill_receipts_events(state_manager, head, metadata.state_roots).await
+    {
+        warn!("Failed to index imported receipts and events: {e:#}");
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::chain::index::tests::{genesis_tipset, persist_tipset, tipset_child};
+    use crate::db::MemoryDB;
+    use crate::utils::encoding::hex;
+    use rstest::rstest;
+
+    // Imports a lookup table with the single entry `hamt_epoch -> tipset at tipset_epoch` into a
+    // chain of tipsets at epochs 20, 21 and 40; `None` points at a tipset missing from the chain.
+    #[rstest]
+    #[case::checkpoint(40, Some(40), None)]
+    #[case::non_checkpoint_epoch(21, Some(21), Some("is not a tipset lookup checkpoint"))]
+    #[case::epoch_mismatch(40, Some(20), Some("epochs do not match"))]
+    #[case::unknown_tipset(40, None, Some("Required tipset missing"))]
+    #[tokio::test]
+    async fn import_tipset_lookup(
+        #[case] hamt_epoch: ChainEpoch,
+        #[case] tipset_epoch: Option<ChainEpoch>,
+        #[case] expected_err: Option<&str>,
+    ) {
+        let db = MemoryDB::default();
+        let mut parent = genesis_tipset();
+        persist_tipset(&parent, &db);
+        let mut chain = vec![];
+        for epoch in [20, 21, 40] {
+            let ts = tipset_child(&parent, epoch);
+            persist_tipset(&ts, &db);
+            chain.push(ts.shallow_clone());
+            parent = ts;
+        }
+        let tsk = match tipset_epoch {
+            Some(epoch) => chain
+                .iter()
+                .find(|ts| ts.epoch() == epoch)
+                .unwrap()
+                .key()
+                .clone(),
+            None => tipset_child(&parent, 40).key().clone(),
+        };
+
+        let hamt_store = MemoryDB::default();
+        let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
+            Hamt::new_with_bit_width(&hamt_store, TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+        hamt.set(hamt_epoch, tsk.clone()).unwrap();
+        let root = hamt.flush().unwrap();
+        let mut car = vec![];
+        hamt_store
+            .export_forest_car_with_roots(nunny::vec![root], &mut car)
+            .await
+            .unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let car_path = temp_dir.path().join("tipset_lookup.forest.car.zst");
+        std::fs::write(&car_path, car).unwrap();
+
+        let result = import_tipset_lookup_snapshot(&db, &car_path, || {});
+        match expected_err {
+            None => {
+                result.unwrap();
+                assert_eq!(db.tipset_key_by_epoch(hamt_epoch).unwrap(), Some(tsk));
+            }
+            Some(expected) => {
+                let err = format!("{:#}", result.unwrap_err());
+                assert!(err.contains(expected), "{err}");
+                // Validation happens before any write.
+                assert_eq!(db.tipset_key_by_epoch(hamt_epoch).unwrap(), None);
+            }
+        }
+    }
+
+    #[rstest]
+    #[case::ok("companion.forest.car.zst", true, None)]
+    #[case::checksum_mismatch("companion.forest.car.zst", false, Some("checksum mismatch"))]
+    #[case::path_traversal(
+        "../companion.forest.car.zst",
+        true,
+        Some("invalid extended snapshot filename")
+    )]
+    #[tokio::test]
+    async fn download_extended_snapshot_verifies(
+        #[case] filename: &str,
+        #[case] matching_checksum: bool,
+        #[case] expected_err: Option<&str>,
+    ) {
+        use sha2::{Digest as _, Sha256};
+        let dummy_content: &'static [u8] = b"companion snapshot bytes";
+
+        let app = axum::Router::new().route(
+            "/companion.forest.car.zst",
+            axum::routing::get(move || async move { dummy_content }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await });
+
+        let snapshot_url = Url::parse(&format!("http://{addr}/base.forest.car.zst")).unwrap();
+        let file = ExtendedSnapshotFile {
+            filename: filename.into(),
+            sha256: if matching_checksum {
+                Sha256::digest(dummy_content).into()
+            } else {
+                [0; 32]
+            },
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+        let result = download_extended_snapshot(&snapshot_url, &file, temp_dir.path()).await;
+        match expected_err {
+            None => assert_eq!(std::fs::read(result.unwrap()).unwrap(), dummy_content),
+            Some(expected) => {
+                let err = format!("{:#}", result.unwrap_err());
+                assert!(err.contains(expected), "{err}");
+            }
+        }
+    }
+
+    #[test]
+    fn parse_snapshot_metadata_with_extended() {
+        let json = r#"{
+            "Snapshot": {
+                "Snapshot version": "2",
+                "Epoch": 4137600,
+                "State-roots": 2000,
+                "Extended": {
+                    "Augmented": {
+                        "Filename": "forest_snapshot_calibnet_2026-10-08_height_4137600_receipts_events.forest.car.zst",
+                        "Sha256": "9585fa94f3c84a117929dd1942014a6f4f79f47dbfdbf693122ff9acfa1311cc"
+                    },
+                    "Tipset lookup": {
+                        "Filename": "forest_snapshot_calibnet_2026-10-08_height_4137600_tipset_lookup.forest.car.zst",
+                        "Sha256": "710262581a4fdea6a8cd162e4a65b42727475b83c44b0b0fe05aff72ce70c2f2"
+                    }
+                }
+            },
+            "Build Information": {}
+        }"#;
+        let metadata: SnapshotMetadataFile = serde_json::from_str(json).unwrap();
+        assert_eq!(metadata.snapshot.state_roots, 2000);
+        let extended = metadata.snapshot.extended.unwrap();
+        assert_eq!(
+            extended.receipts_events.unwrap().filename,
+            "forest_snapshot_calibnet_2026-10-08_height_4137600_receipts_events.forest.car.zst"
+        );
+        assert_eq!(
+            hex::encode(extended.tipset_lookup.unwrap().sha256),
+            "710262581a4fdea6a8cd162e4a65b42727475b83c44b0b0fe05aff72ce70c2f2"
+        );
+    }
+
+    #[test]
+    fn parse_snapshot_metadata_without_extended() {
+        let json =
+            r#"{ "Snapshot": { "Snapshot version": "2", "Epoch": 4137600, "State-roots": 2000 } }"#;
+        let metadata: SnapshotMetadataFile = serde_json::from_str(json).unwrap();
+        assert!(metadata.snapshot.extended.is_none());
+    }
+}
