@@ -3,13 +3,13 @@ title: Drand over Gossipsub
 sidebar_position: 2
 ---
 
-Forest listens to the `drand` relays over `gossipsub` and caches the rounds it receives, so block validation stops fetching them over HTTP. HTTP remains the fallback for a cache miss.
+Forest listens to the `drand` relays over `gossipsub` and caches the valid rounds it receives, so block validation stops fetching them over HTTP. HTTP remains the fallback for a cache miss.
 
 Five views, from the outside in: who Forest talks to, what runs inside it, how the network service is put together, when a verdict is decided, and what happens to one gossiped round.
 
-## System context
+## The overall view
 
-Forest in the middle. The mesh publishes rounds and Forest forwards the ones it verifies, so Forest is a relay to its peers as well as a consumer.
+The gossipsub mesh publishes rounds and Forest forwards the ones it verifies, so Forest is a relay to its peers as well as a consumer.
 
 ```mermaid
 flowchart TB
@@ -29,7 +29,7 @@ flowchart TB
   style peers stroke-dasharray: 5 5
 ```
 
-## Containers
+## Zoom-in on Forest
 
 Two parts of Forest take part. The network service talks to the mesh and reports every verdict. The beacon's gossip listener verifies and caches the rounds the service hands it, and sends the verdicts back; the beacon also talks to the HTTP API. Block validation reads the same cache.
 
@@ -73,13 +73,11 @@ flowchart LR
   handler -- "Round, over a bounded channel" --> listener
   listener -- "Verdict, reported by the service loop" --> gs
   listener -- "Verifies & caches this entry" --> beacon
-
-  style listener fill:#fff3bf,stroke:#f0a500
 ```
 
 ## When the verdict is decided
 
-The `gossipsub` behaviour holds every message until a verdict is reported. Filecoin blocks and messages are decided in the same `select!` iteration: `Accept` when they decode, `Ignore` otherwise. A `drand` round is queued for the listener, which runs the cheap checks and one BLS verification on its own task and sends the verdict back; a later `select!` iteration reports it. When the queue is full the handler waits for the listener.
+The `gossipsub` behaviour holds every message until a verdict is reported. A `drand` round is queued for the listener, which runs the cheap checks and one BLS verification on its own task and sends the verdict back; a later `select!` iteration reports it. When the queue is full the handler waits for the listener.
 
 ```mermaid
 flowchart TB
@@ -122,68 +120,6 @@ flowchart TB
   decode -- "Some(Verdict)" --> report
 
   style report fill:#fff3bf,stroke:#f0a500
-```
-
-## One round, from publish to verdict
-
-```mermaid
-flowchart TB
-  subgraph setup["Startup (Libp2pService::new / run)"]
-    A0["No drand gossip: HTTP only"]
-    A["Schedule ends on an unchained beacon?"]
-    B["<b>DrandGossip::new</b><br>topic = /drand/pubsub/v0.0.0/{hash}<br>spawn the listener"]
-    C["Subscribe to the topic<br>whitelist it, add score params"]
-    D["Dial the drand relays<br>exempt them from the hello timeout"]
-  end
-
-  subgraph validate["Validate (listener task)"]
-    G2["<b>DrandGossipListener::run</b>"]
-    H{"Decodes as<br><b>PublicRandResponse</b>?"}
-    J{"Round an epoch<br>can carry?"}
-    L{"Already cached?"}
-    K{"Newer than the last<br>accepted round?"}
-    R1(["Reject: malformed"])
-    I1(["Ignore: off_epoch"])
-    I3(["Ignore: stale"])
-    I4(["Ignore: duplicate"])
-  end
-
-  subgraph verify["Verify (listener task)"]
-    N["<b>verify_entries</b><br>BLS pairing against the chain's public key"]
-    O["Insert into <b>verified_beacons</b>"]
-    ACC(["Accept: verified"])
-    R4(["Reject: invalid_signature"])
-    R5(["Reject: malformed"])
-  end
-
-  A -- no --> A0
-  A -- yes --> B
-  B --> C
-  C --> D
-  D --> E["Relay or Lotus peer publishes a round"]
-  E --> F["<b>handle_gossip_event</b><br>topic == drand topic?"]
-  F -- no --> F0["Filecoin blocks / messages path"]
-  F -- yes --> G["<b>emit_event</b><br>queue the round"]
-  G -- "bounded channel" --> G2
-  G2 --> H
-  H -- no --> R1
-  H -- yes --> J
-  J -- no --> I1
-  J -- yes --> L
-  L -- yes --> I4
-  L -- no --> K
-  K -- no --> I3
-  K -- yes --> N
-  N -- Ok true --> O
-  O --> ACC
-  N -- Ok false --> R4
-  N -- Err --> R5
-
-  ACC & R1 & R4 & R5 & I1 & I3 & I4 --> V["Send the <b>verdict</b> back"]
-  V --> W["report_message_validation_result"]
-  W -- Accept --> X["Forwarded to the mesh"]
-  W -- Ignore --> Y["Dropped, no penalty"]
-  W -- Reject --> Z["Dropped, sender's score penalised<br>-1000 × topic weight per invalid message"]
 ```
 
 ## Verdicts
