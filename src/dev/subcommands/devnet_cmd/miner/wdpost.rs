@@ -12,7 +12,7 @@ use crate::dev::subcommands::tests_cmd::helpers::{
     FOREST_TEST_PRELOADED_ADDRESS, block_on, poll, trial,
 };
 use crate::rpc::prelude::*;
-use crate::rpc::types::{MessageFilter, MinerPartitions};
+use crate::rpc::types::MinerPartitions;
 use crate::rpc::{LOOKBACK_NO_LIMIT, humanize_rpc_error};
 use crate::shim::actors::miner::DeadlineInfo;
 use crate::shim::address::Address;
@@ -216,33 +216,16 @@ async fn submitted_post(
     miner: Address,
     deadline: &DeadlineInfo,
 ) -> anyhow::Result<(Cid, SubmitWindowedPoStParams)> {
-    let to_miner = MessageFilter {
-        from: None,
-        to: Some(miner),
-    };
-    let mut posts = Vec::new();
-    for cid in at
-        .same(|tsk| StateListMessages::request((to_miner.clone(), tsk, deadline.open)))
+    super::submit_windowed_posts(at, miner, deadline)
         .await?
-    {
-        let message = at.same(|_| ChainGetMessage::request((cid,))).await?;
-        if message.method_num() != Method::SubmitWindowedPoSt as u64 {
-            continue;
-        }
-        let params: SubmitWindowedPoStParams = message
-            .params()
-            .deserialize()
-            .with_context(|| format!("decoding the parameters of {cid}"))?;
-        if params.deadline == deadline.index {
-            posts.push((cid, params));
-        }
-    }
-    posts.into_iter().exactly_one().map_err(|posts| {
-        anyhow::anyhow!(
-            "expected one PoSt for deadline {} since epoch {}, found [{}]",
-            deadline.index,
-            deadline.open,
-            posts.map(|(cid, _)| cid).join(", ")
-        )
-    })
+        .into_iter()
+        .exactly_one()
+        .map_err(|posts| {
+            anyhow::anyhow!(
+                "expected one PoSt for deadline {} since epoch {}, found [{}]",
+                deadline.index,
+                deadline.open,
+                posts.map(|(cid, _)| cid).join(", ")
+            )
+        })
 }

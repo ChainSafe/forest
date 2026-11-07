@@ -102,7 +102,7 @@ impl Devnet {
 /// A tipset both nodes have; every comparison through it is pinned to that tipset.
 pub(super) struct At<'a> {
     devnet: &'a Devnet,
-    head: Tipset,
+    pub(super) head: Tipset,
 }
 
 impl At<'_> {
