@@ -48,21 +48,39 @@
 //!   [`hash::ideal_slot_ix`].
 //!   This is calculated at construction time.
 //!
-//! So the layout on disk is as follows:
+//! The logical index layout (the concatenated skippable frame payloads) is:
 //!
 //! ```text
 //! ┌──────────────┐
 //! │Version::V1   │
 //! ├──────────────┤
-//! │Header        │ <- Contains the "intial width", required to perform lookups
+//! │V1Header      │ <- Three little-endian u64 fields, described below
 //! ├──────────────┤
 //! │Slot::Occupied│
 //! ├──────────────┤
 //! │Slot::Empty   │
-//! ├──────────────┤    The hash table does not know how many slots it contains:
-//! │Slot::Empty   │    Length information must be stored out of band (e.g in the
-//! ├──────────────┤ <- Zstd skip frame header)
+//! ├──────────────┤
+//! │Slot::Empty   │
+//! └──────────────┘
 //! ```
+//!
+//! `V1Header` occupies 24 bytes, in this order: `longest_distance`, `collisions`,
+//! and `initial_buckets`. `initial_buckets` is the bucket count used by
+//! [`hash::ideal_slot_ix`], not the total number of serialized slots. The table
+//! also includes probing padding and a terminal [`Slot::Empty`].
+//!
+//! The serialized index is stored in one or more Zstd skippable frames. Each
+//! frame header gives only its own payload length (at most `u32::MAX` bytes).
+//! A larger index spans multiple frames. The first payload starts with the
+//! 8-byte version and the 24-byte `V1Header`, followed by slots; any later
+//! payloads contain only slots.
+//!
+//! `ForestCar::validate_car` uses the footer to bound the on-disk index region,
+//! from the first skippable frame header up to (but not including) the footer.
+//! `ZstdSkipFramesEncodedDataReader` uses each frame's length to find the next
+//! frame and skips all frame headers when reading the logical index. Its size
+//! excludes the frame headers but includes the version and `V1Header`;
+//! the slot table starts after those first 32 payload bytes.
 
 use super::ZSTD_SKIP_FRAME_LEN;
 use crate::{
