@@ -5,9 +5,6 @@ use crate::prelude::*;
 use ahash::HashMap;
 use parking_lot::RwLock;
 
-/// Number of blocks buffered between writes when bulk-importing CAR files.
-pub const DB_WRITE_BUFFER_CAPACITY: usize = 10_000;
-
 pub struct BlockstoreWithWriteBuffer<DB: Blockstore> {
     inner: DB,
     buffer: RwLock<HashMap<Cid, Vec<u8>>>,
@@ -44,7 +41,9 @@ impl<DB: Blockstore> BlockstoreWithWriteBuffer<DB> {
         }
     }
 
-    fn flush_buffer(&self) -> anyhow::Result<()> {
+    /// Writes the buffered blocks to the inner store. Dropping the buffer also flushes, but only
+    /// logs a failure, so callers that must know the blocks were written call this first.
+    pub fn flush(&self) -> anyhow::Result<()> {
         let records = {
             let mut buffer = self.buffer.write();
             buffer.drain().collect_vec()
@@ -54,7 +53,7 @@ impl<DB: Blockstore> BlockstoreWithWriteBuffer<DB> {
 
     fn flush_buffer_if_needed(&self) -> anyhow::Result<()> {
         if self.buffer.read().len() >= self.buffer_capacity {
-            self.flush_buffer()
+            self.flush()
         } else {
             Ok(())
         }
@@ -63,7 +62,7 @@ impl<DB: Blockstore> BlockstoreWithWriteBuffer<DB> {
 
 impl<DB: Blockstore> Drop for BlockstoreWithWriteBuffer<DB> {
     fn drop(&mut self) {
-        if let Err(e) = self.flush_buffer() {
+        if let Err(e) = self.flush() {
             tracing::warn!("{e:#}");
         }
     }

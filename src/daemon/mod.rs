@@ -4,7 +4,7 @@
 pub mod bundle;
 mod context;
 pub mod db_util;
-pub mod extended_snapshot;
+mod extended_snapshot;
 pub mod main;
 
 use crate::blocks::TipsetKey;
@@ -148,8 +148,14 @@ async fn maybe_import_snapshot(
     if !opts.skip_load.unwrap_or_default()
         && let Some(path) = &config.client.snapshot_path
     {
-        let path = &match path_as_url(path) {
-            Some(url) => PathBuf::from(snapshot::peek_url(url).await.as_str()),
+        // Resolve a moving alias once so the base and its extended snapshots come from the same
+        // snapshot.
+        let url = match path_as_url(path) {
+            Some(url) => Some(snapshot::peek_url(url).await),
+            None => None,
+        };
+        let path = &match &url {
+            Some(url) => PathBuf::from(url.as_str()),
             None => path.clone(),
         };
         let (car_db_path, ts) = import_chain_as_forest_car(
@@ -174,13 +180,15 @@ async fn maybe_import_snapshot(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
         );
-        maybe_import_extended_snapshots(
-            &ctx.state_manager,
-            &ts,
-            path,
-            &ctx.db_meta_data.get_forest_car_db_dir(),
-        )
-        .await;
+        if let Some(url) = &url {
+            maybe_import_extended_snapshots(
+                &ctx.state_manager,
+                &ts,
+                url,
+                &ctx.db_meta_data.get_forest_car_db_dir(),
+            )
+            .await;
+        }
     }
 
     // If the snapshot progress state is not completed,

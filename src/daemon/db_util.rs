@@ -35,9 +35,10 @@ use url::Url;
 use walkdir::WalkDir;
 
 #[cfg(doc)]
-use crate::blocks::TipsetKey;
-#[cfg(doc)]
 use crate::rpc::eth::types::EthHash;
+
+#[cfg(doc)]
+use crate::blocks::TipsetKey;
 
 #[cfg(doc)]
 use cid::Cid;
@@ -864,6 +865,9 @@ pub async fn run_backfill(
 }
 
 #[cfg(test)]
+pub(crate) use test::test_state_manager;
+
+#[cfg(test)]
 mod test {
     use super::*;
     use rstest::rstest;
@@ -938,7 +942,7 @@ mod test {
         drop(bf);
     }
 
-    fn test_state_manager() -> StateManager {
+    pub(crate) fn test_state_manager() -> StateManager {
         use crate::blocks::{CachingBlockHeader, RawBlockHeader};
         use crate::chain::ChainStore;
         use crate::networks::ChainConfig;

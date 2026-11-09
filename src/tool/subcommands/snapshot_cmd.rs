@@ -9,6 +9,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     TIPSET_LOOKUP_HAMT_BIT_WIDTH,
     index::{ChainIndex, ResolveNullTipset},
+    validate_tipset_lookup_entry,
 };
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
@@ -386,14 +387,9 @@ fn validate_tipset_lookup_hamt(
     {
         if let Some(tsk) = hamt.get(&checkpoint)? {
             n_checkpoints += 1;
-            let ts = Tipset::load_required(&store, tsk).with_context(|| {
+            let ts = validate_tipset_lookup_entry(&store, checkpoint, tsk).with_context(|| {
                 format!("failed to lookup tipset at checkpoint, epoch: {checkpoint}, key: {tsk}")
             })?;
-            anyhow::ensure!(
-                ts.epoch() == checkpoint,
-                "tipset mismatch, checkpoint epoch: {checkpoint}, tipset epoch: {}, tipset key: {tsk}",
-                ts.epoch()
-            );
             null_checkpoint_search_from_ts = ts;
         } else {
             n_null_checkpoints += 1;

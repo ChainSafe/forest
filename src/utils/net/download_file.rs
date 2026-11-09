@@ -567,24 +567,43 @@ pub async fn download_to(
     option: DownloadFileOption,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<()> {
-    download_file_with_retry(
-        url,
-        destination.parent().with_context(|| {
-            format!(
-                "Error getting the parent directory of {}",
-                destination.display()
-            )
-        })?,
-        destination
-            .file_name()
-            .and_then(OsStr::to_str)
-            .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
-        option,
-        callback,
+    let (directory, filename) = destination_parts(destination)?;
+    download_file_with_retry(url, directory, filename, option, callback).await?;
+    Ok(())
+}
+
+/// Like [`download_to`], but with `timeout` argument, retries included.
+pub async fn download_to_with_timeout(
+    url: &Url,
+    destination: &Path,
+    option: DownloadFileOption,
+    timeout: Duration,
+    callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
+) -> anyhow::Result<()> {
+    let (directory, filename) = destination_parts(destination)?;
+    retry(
+        RetryArgs {
+            timeout: Some(timeout),
+            ..Default::default()
+        },
+        || download_http(url, directory, filename, option, callback.clone()),
     )
     .await?;
-
     Ok(())
+}
+
+fn destination_parts(destination: &Path) -> anyhow::Result<(&Path, &str)> {
+    let directory = destination.parent().with_context(|| {
+        format!(
+            "Error getting the parent directory of {}",
+            destination.display()
+        )
+    })?;
+    let filename = destination
+        .file_name()
+        .and_then(OsStr::to_str)
+        .with_context(|| format!("Error getting the file name of {}", destination.display()))?;
+    Ok((directory, filename))
 }
 
 #[cfg(test)]

@@ -15,7 +15,7 @@ pub mod parity_db_config;
 pub mod ttl;
 
 pub use blockstore_with_read_cache::*;
-pub use blockstore_with_write_buffer::{BlockstoreWithWriteBuffer, DB_WRITE_BUFFER_CAPACITY};
+pub use blockstore_with_write_buffer::BlockstoreWithWriteBuffer;
 pub use db_impl::DbImpl;
 pub use either::Either;
 pub use fvm_ipld_blockstore::Blockstore;

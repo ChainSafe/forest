@@ -461,6 +461,7 @@ mod tests {
     #[case::follows_redirect("/latest", "/snapshot.forest.car.zst")]
     #[case::head_rejected("/post-only", "/post-only")]
     #[case::not_found("/missing", "/missing")]
+    #[case::redirect_to_rejected("/stale", "/stale")]
     #[tokio::test]
     async fn peek_url_falls_back_to_given_url(#[case] path: &str, #[case] expected: &str) {
         use axum::{
@@ -475,7 +476,11 @@ mod tests {
                 get(|| async { Redirect::temporary("/snapshot.forest.car.zst") }),
             )
             .route("/snapshot.forest.car.zst", get(|| async { "snapshot" }))
-            .route("/post-only", post(|| async { "post" }));
+            .route("/post-only", post(|| async { "post" }))
+            .route(
+                "/stale",
+                get(|| async { Redirect::temporary("/post-only") }),
+            );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move { axum::serve(listener, app).await });
