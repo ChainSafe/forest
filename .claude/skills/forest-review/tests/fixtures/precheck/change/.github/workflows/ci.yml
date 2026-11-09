@@ -1,0 +1,6 @@
+name: ci
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: rust:latest
+    # Build first — then test.

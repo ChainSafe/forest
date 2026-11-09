@@ -385,3 +385,5 @@ rust-project.json
 # End of https://www.toptal.com/developers/gitignore/api/go,rust,rust-analyzer,osx,visualstudiocode,intellij+all,yarn,node,ruby
 
 lychee-report.md
+
+.forest-review/

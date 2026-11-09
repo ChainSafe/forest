@@ -1,0 +1,36 @@
+{
+  "name": "forest-review-k-devnet",
+  "networks": {
+    "default": {"name": "forest-review-k-devnet_default", "ipam": {}},
+    "devnet": {"name": "forest-review-k-devnet_devnet", "ipam": {}}
+  },
+  "services": {
+    "forest": {
+      "container_name": "forest",
+      "build": {"context": "/w", "dockerfile": "Dockerfile"},
+      "networks": {"devnet": null},
+      "volumes": [
+        {"type": "volume", "source": "lotus-data", "target": "/lotus_data", "volume": {}},
+        {"type": "volume", "source": "forest-data", "target": "/forest_data", "volume": {}},
+        {"type": "bind", "source": "/w/scripts/devnet/forest_config.toml.tpl", "target": "/forest/forest_config.toml.tpl", "bind": {}}
+      ]
+    },
+    "lotus_node": {
+      "container_name": "lotus",
+      "image": "filecoin/lotus-all-in-one:v1.38.3-2k",
+      "networks": {"devnet": null},
+      "volumes": [
+        {"type": "volume", "source": "lotus-data", "target": "/lotus_data", "volume": {}},
+        {"type": "tmpfs", "target": "/tmp"}
+      ]
+    },
+    "lotus_init": {
+      "image": "filecoin/lotus-all-in-one:v1.38.3-2k",
+      "networks": {"default": null}
+    }
+  },
+  "volumes": {
+    "forest-data": {"name": "forest-review-k-devnet_forest-data"},
+    "lotus-data": {"name": "forest-review-k-devnet_lotus-data"}
+  }
+}

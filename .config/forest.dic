@@ -1,4 +1,4 @@
-303
+306
 ABI
 Algorand/M
 API's
@@ -86,6 +86,7 @@ DNS
 Dockerfile/S
 Docusaurus
 Drand
+drand
 durations
 EAM
 EIP
@@ -201,6 +202,7 @@ ParityDb
 parsable
 peerstore/S
 performant
+permalink/S
 PMF
 pnpm
 PoC
@@ -299,6 +301,7 @@ webapp/S
 WebAssembly
 WebSocket
 WIP
+worktree/S
 YAML
 YugabyteDB
 zstd
