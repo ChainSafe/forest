@@ -2800,7 +2800,8 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
             EthCallMessage::default(),
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
         ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
+        .ignore("Lotus error object has a `meta` member that jsonrpsee rejects"),
     ])
 }
 

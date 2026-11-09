@@ -10,8 +10,8 @@ use strum::IntoEnumIterator as _;
 use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
 use super::{
-    DrandPoint, Height, HeightInfo, NetworkChain, actors_bundle::ACTOR_BUNDLES_METADATA,
-    drand::DRAND_QUICKNET, get_upgrade_height_from_env,
+    DrandPoint, Height, HeightInfo, NetworkChain, UPGRADE_HEIGHT_UNSCHEDULED,
+    actors_bundle::ACTOR_BUNDLES_METADATA, drand::DRAND_QUICKNET, get_upgrade_height_from_env,
 };
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
@@ -179,6 +179,7 @@ pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(
             get_upgrade_height_from_env("FOREST_SOLSTICE_HEIGHT").unwrap_or(200),
             get_bundle_cid("v19.0.1")
         ),
+        make_height!(Xx, UPGRADE_HEIGHT_UNSCHEDULED),
     ]);
     for ((prev, prev_info), (next, next_info)) in Height::iter()
         .filter_map(|height| Some((height, height_infos.get(&height)?)))

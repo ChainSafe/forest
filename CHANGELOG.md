@@ -39,6 +39,8 @@
 
 ### Changed
 
+- [#7850](https://github.com/ChainSafe/forest/pull/7850): `Filecoin.StateGetNetworkParams` now reports `UpgradeXxHeight` (NV30), matching Lotus v1.39.0. The upgrade is not scheduled on any network yet.
+
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): Big integers in JSON-RPC parameters must fit the 1016-bit limit of their CBOR encoding. Larger values are rejected when the request is decoded.
 
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048. An enabled upgrade below genesis keeps its own version.
