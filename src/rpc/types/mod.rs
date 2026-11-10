@@ -402,7 +402,7 @@ pub struct MinerPartitions {
     recovering_sectors: BitField,
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
-    live_sectors: BitField,
+    pub live_sectors: BitField,
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     active_sectors: BitField,

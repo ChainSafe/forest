@@ -22,6 +22,7 @@ use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::sector::PoStProof;
 use crate::state_manager::ExecutedTipset;
 use crate::utils::db::CborStoreExt;
+use crate::utils::encoding::hex::parse_prefixed_int;
 use anyhow::Result;
 use bls_signatures::Serialize as _;
 use enumflags2::BitFlags;
@@ -31,7 +32,45 @@ use group::prime::PrimeCurveAffine as _;
 use parking_lot::RwLock;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
+
+const FORK_SIGNALING_ENV: &str = "FOREST_BLOCK_FORK_SIGNALING";
+
+/// Reads as "Forested", decimal 4029569005.
+const DEFAULT_FORK_SIGNALING: u64 = 0xF02E57ED;
+
+/// The `ForkSignaling` value written into headers built by [`MinerCreateBlock`].
+fn fork_signaling() -> u64 {
+    static VALUE: LazyLock<u64> = LazyLock::new(|| {
+        let raw = std::env::var_os(FORK_SIGNALING_ENV).map(|v| v.to_string_lossy().into_owned());
+        parse_fork_signaling(raw.as_deref())
+    });
+    *VALUE
+}
+
+/// Accepts a decimal or `0x`-prefixed hexadecimal `u64`. Unset yields [`DEFAULT_FORK_SIGNALING`]; an invalid value yields `0` (network "default" at the day of writing this).
+fn parse_fork_signaling(raw: Option<&str>) -> u64 {
+    let Some(raw) = raw else {
+        return DEFAULT_FORK_SIGNALING;
+    };
+    let parsed = if raw.starts_with("0x") {
+        parse_prefixed_int(raw)
+    } else {
+        raw.parse().map_err(anyhow::Error::from)
+    };
+    match parsed {
+        Ok(value) => {
+            tracing::info!("`{FORK_SIGNALING_ENV}` set to {value:#X}");
+            value
+        }
+        Err(e) => {
+            tracing::warn!(
+                "`{FORK_SIGNALING_ENV}` is set to {raw:?}, which is not a valid u64 ({e}); using 0"
+            );
+            0
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -213,7 +252,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             bls_aggregate: bls_aggregate.into(),
             timestamp: block_template.timestamp,
             signature: None,
-            fork_signal: Default::default(),
+            fork_signal: fork_signaling(),
             parent_base_fee,
         });
 
@@ -326,5 +365,24 @@ impl RpcMethod<3> for MinerGetBaseInfo {
             .state_manager
             .miner_get_base_info(ctx.beacon(), tipset, miner_address, epoch)
             .await?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::unset(None, DEFAULT_FORK_SIGNALING)]
+    #[case::zero(Some("0"), 0)]
+    #[case::decimal(Some("42"), 42)]
+    #[case::hex_upper(Some("0xF02E57ED"), 0xF02E57ED)]
+    #[case::negative(Some("-1"), 0)]
+    #[case::garbage(Some("off"), 0)]
+    #[case::empty(Some(""), 0)]
+    #[case::bare_prefix(Some("0x"), 0)]
+    fn parse_fork_signaling_cases(#[case] raw: Option<&str>, #[case] expected: u64) {
+        assert_eq!(parse_fork_signaling(raw), expected);
     }
 }

@@ -7,6 +7,7 @@
 mod api;
 mod devnet;
 mod onboarding;
+mod wdpost;
 
 use crate::dev::subcommands::tests_cmd::helpers::harness_env;
 use crate::lotus_json::HasLotusJson;
@@ -31,6 +32,7 @@ pub struct MinerTestCommand {
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 enum Group {
     Onboarding,
+    Wdpost,
 }
 
 impl MinerTestCommand {
@@ -56,6 +58,7 @@ impl MinerTestCommand {
 fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
+        Group::Wdpost => wdpost::tests(),
     }
 }
 
