@@ -8,11 +8,7 @@ use std::{
 
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
-use crate::shim::{
-    address::Address,
-    econ::TokenAmount,
-    gas::{Gas, price_list_by_network_version},
-};
+use crate::shim::{address::Address, econ::TokenAmount, gas::Gas};
 use crate::{
     blocks::{BLOCK_MESSAGE_LIMIT, Tipset},
     shim::crypto::SignatureType,
@@ -447,9 +443,8 @@ where
         }
         cur_seq += 1;
 
-        let network_version = chain_config.network_version(ts.epoch());
-
-        let min_gas = price_list_by_network_version(network_version)
+        let min_gas = chain_config
+            .price_list(ts.epoch())
             .on_chain_message(m.chain_length()?)
             .total();
 

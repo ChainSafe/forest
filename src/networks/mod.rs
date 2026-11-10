@@ -17,6 +17,7 @@ use crate::prelude::*;
 use crate::shim::{
     clock::{ChainEpoch, EPOCH_DURATION_SECONDS, EPOCHS_IN_DAY},
     econ::TokenAmount,
+    gas::{PriceList, price_list_by_network_version},
     machine::BuiltinActorManifest,
     runtime::Policy,
     sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
@@ -479,6 +480,18 @@ impl ChainConfig {
             .unwrap_or_else(|| self.genesis_network_version())
     }
 
+    /// Returns the gas price list in effect at the given epoch.
+    ///
+    /// Prices switch at the upgrade epoch itself, one epoch before [`Self::network_version`]
+    /// reports the new version, matching Lotus
+    /// [`PricelistByEpoch`](https://github.com/filecoin-project/lotus/blob/v1.39.0/chain/vm/gas.go#L227-L244)
+    /// for non-negative upgrade heights from Calico on.
+    pub fn price_list(&self, epoch: ChainEpoch) -> PriceList {
+        // An unscheduled upgrade may name a network version the linked FVM cannot price yet.
+        let epoch = epoch.min(UPGRADE_HEIGHT_UNSCHEDULED - 1);
+        price_list_by_network_version(self.network_version(epoch + 1))
+    }
+
     /// Returns the network version revision at the given epoch for distinguishing network upgrades
     /// that do not bump the network version.
     pub fn network_version_revision(&self, epoch: ChainEpoch) -> i64 {
@@ -664,6 +677,28 @@ pub fn calculate_expected_epoch(
 mod tests {
     use super::*;
     use rstest::rstest;
+
+    #[rstest]
+    #[case::unscheduled_upgrade_height(UPGRADE_HEIGHT_UNSCHEDULED)]
+    #[case::max_epoch(ChainEpoch::MAX)]
+    fn price_list_ignores_unscheduled_upgrades(#[case] epoch: ChainEpoch) {
+        let cfg = ChainConfig::calibnet();
+        let latest_scheduled = cfg
+            .height_infos
+            .values()
+            .map(|info| info.epoch)
+            .filter(|&e| e < UPGRADE_HEIGHT_UNSCHEDULED)
+            .max()
+            .unwrap();
+        let expected = cfg
+            .price_list(latest_scheduled)
+            .on_chain_message(100)
+            .total();
+        assert_eq!(
+            cfg.price_list(epoch).on_chain_message(100).total(),
+            expected
+        );
+    }
 
     fn heights_are_present(height_infos: &IndexMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
