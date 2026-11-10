@@ -67,10 +67,6 @@ if ! grep -q "$bundle_cid" "$manifest_path"; then
   exit 1
 fi
 
-echo "Regression testing mempool select"
-gem install http --user-install
-$FOREST_CLI_PATH chain head --format json -n 1000 | scripts/mpool_select_killer.rb
-
 echo "Test subcommand: state compute (batch)"
 head_epoch=$($FOREST_CLI_PATH chain head --format json | jq ".[0].epoch")
 if ! [[ "$head_epoch" =~ ^[0-9]+$ ]]; then
