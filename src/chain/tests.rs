@@ -178,6 +178,219 @@ fn lookup_epoch_limit_errors_only_when_unrepresentable(
     );
 }
 
+fn six_block_chain() -> anyhow::Result<(Arc<MemoryDB>, Tipset)> {
+    let db = Arc::new(MemoryDB::default());
+    let c4u = Chain4U::with_blockstore(db.clone());
+    chain4u! {
+        in c4u;
+        [_genesis_header]
+        -> [_b1] -> [_b2] -> [_b3] -> [_b4] -> [b5]
+    };
+    let head = Tipset::load_required(&db, &TipsetKey::from(nunny::vec![b5.cid()]))?;
+    Ok((db, head))
+}
+
+mod diff_export {
+    use super::*;
+    use crate::blocks::HeaderBuilder;
+    use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
+
+    #[tokio::test]
+    async fn diff_base_at_null_round_is_older_tipset() {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            genesis_ts @ [_genesis_header]
+            -> [_b1] -> [b2]
+            -> [b5 = HeaderBuilder::new().with_epoch(5)] // epochs 3 and 4 are null rounds
+            -> head_ts @ [_b6]
+        };
+        let index = ChainIndex::new(db.clone(), genesis_ts.clone());
+
+        let ExportOptions {
+            mut seen,
+            diff_base,
+            ..
+        } = prepare_diff_export(&db, &index, head_ts, Some(4), None, &std::env::temp_dir())
+            .await
+            .unwrap();
+
+        assert_eq!(diff_base, Some(TipsetKey::from(nunny::vec![b2.cid()])));
+        assert!(
+            !seen.insert(b2.cid()).unwrap(),
+            "the diff base must be in the set"
+        );
+        assert!(
+            seen.insert(b5.cid()).unwrap(),
+            "tipsets above the diff base must not be in the set"
+        );
+    }
+
+    #[rstest]
+    #[case::at_target(5)]
+    #[case::above_target(6)]
+    #[tokio::test]
+    async fn diff_epoch_not_below_target_is_rejected(#[case] diff: ChainEpoch) {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            genesis_ts @ [_genesis_header] -> [_b1] -> [_b2] -> [_b3] -> [_b4] -> head_ts @ [_b5]
+        };
+        let index = ChainIndex::new(db.clone(), genesis_ts.clone());
+
+        let result = prepare_diff_export(
+            &db,
+            &index,
+            head_ts,
+            Some(diff),
+            None,
+            &std::env::temp_dir(),
+        )
+        .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn diff_base_set_stops_at_diff_depth() {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            genesis_ts @ [genesis_header] -> [b1] -> [b2] -> [b3] -> head_ts @ [_b4]
+        };
+        let index = ChainIndex::new(db.clone(), genesis_ts.clone());
+        let store = Arc::new(ReadOpsTrackingStore::new(db.clone()));
+
+        let ExportOptions { mut seen, .. } = prepare_diff_export(
+            &store,
+            &index,
+            head_ts,
+            Some(3),
+            Some(1),
+            &std::env::temp_dir(),
+        )
+        .await
+        .unwrap();
+
+        // b1 is read by the `chain_owned` parent lookahead.
+        assert!(
+            !store.tracker.has(&genesis_header.cid()).unwrap(),
+            "the walk must stop at `diff - diff_depth`"
+        );
+
+        assert!(
+            !seen.insert(b3.cid()).unwrap(),
+            "the diff base must be in the set"
+        );
+        assert!(
+            !seen.insert(genesis_header.cid()).unwrap(),
+            "the genesis state must stay in the set"
+        );
+        for header in [&b2, &b1] {
+            assert!(
+                seen.insert(header.cid()).unwrap(),
+                "headers at or below `diff - diff_depth` must not be walked"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn diff_export_stops_at_diff_base() {
+        let db = Arc::new(MemoryDB::default());
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            genesis_ts @ [genesis_header] -> [b1] -> [b2] -> [b3] -> [b4] -> head_ts @ [b5]
+        };
+        let index = ChainIndex::new(db.clone(), genesis_ts.clone());
+        let options = async || {
+            prepare_diff_export(&db, &index, head_ts, Some(2), None, &std::env::temp_dir())
+                .await
+                .unwrap()
+        };
+
+        let mut unbounded = vec![];
+        export::<Sha256, _>(
+            &db,
+            head_ts,
+            0,
+            &mut unbounded,
+            ExportOptions {
+                diff_base: None,
+                ..options().await
+            },
+        )
+        .await
+        .unwrap();
+
+        let store = Arc::new(ReadOpsTrackingStore::new(db.clone()));
+        let mut bounded = vec![];
+        export::<Sha256, _>(&store, head_ts, 0, &mut bounded, options().await)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            bounded, unbounded,
+            "stopping at the diff base must not change the output"
+        );
+        let car = ForestCar::new(bounded).unwrap();
+        for header in [&b3, &b4, &b5] {
+            assert!(
+                car.has(&header.cid()).unwrap(),
+                "the diff range must be exported"
+            );
+        }
+        for header in [&b2, &b1, &genesis_header] {
+            assert!(
+                !car.has(&header.cid()).unwrap(),
+                "the diff base and below must not be exported"
+            );
+        }
+        assert!(
+            store.tracker.has(&b3.cid()).unwrap(),
+            "the tracker must record header reads"
+        );
+        // b1 is read by the `chain_owned` parent lookahead.
+        assert!(
+            !store.tracker.has(&genesis_header.cid()).unwrap(),
+            "the walk must stop at the diff base instead of reaching genesis"
+        );
+    }
+
+    #[rstest]
+    #[case::tipset_keys(true, false)]
+    #[case::tipset_lookup(false, true)]
+    #[tokio::test]
+    async fn diff_export_rejects_unseen_outputs(
+        #[case] include_tipset_keys: bool,
+        #[case] include_tipset_lookup: bool,
+    ) {
+        let (db, head) = six_block_chain().unwrap();
+        let err = export::<Sha256, _>(
+            &db,
+            &head,
+            0,
+            tokio::io::sink(),
+            ExportOptions::<CidHashSet> {
+                include_tipset_keys,
+                include_tipset_lookup,
+                diff_base: Some(head.parents().clone()),
+                ..Default::default()
+            },
+        )
+        .await
+        .err()
+        .expect("the export must be rejected");
+        assert!(
+            err.to_string().contains("not supported in diff exports"),
+            "unexpected error: {err:#}"
+        );
+    }
+}
+
 /// Regression tests for the "snapshot export stuck at `Exporting: 100.0%`" incidents:
 /// once the DAG walk reaches genesis (`epoch == 0`, progress pins at 100%), the remaining
 /// pipeline steps must not be able to wait forever on a stalled writer.
@@ -245,18 +458,6 @@ mod export_stuckness {
                 .is_cancelled()
         );
         Ok(())
-    }
-
-    fn six_block_chain() -> anyhow::Result<(Arc<MemoryDB>, Tipset)> {
-        let db = Arc::new(MemoryDB::default());
-        let c4u = Chain4U::with_blockstore(db.clone());
-        chain4u! {
-            in c4u;
-            [_genesis_header]
-            -> [_b1] -> [_b2] -> [_b3] -> [_b4] -> [b5]
-        };
-        let head = Tipset::load_required(&db, &TipsetKey::from(nunny::vec![b5.cid()]))?;
-        Ok((db, head))
     }
 
     /// Accepts and discards up to `write_budget` bytes, then stalls forever.

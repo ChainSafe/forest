@@ -29,6 +29,7 @@ services:
       - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
       - LOTUS_FIREHORSE_HEIGHT=${FIREHORSE_HEIGHT}
       - LOTUS_SOLSTICE_HEIGHT=${SOLSTICE_HEIGHT}
+      - LOTUS_XX_HEIGHT=${XX_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c"]
@@ -81,6 +82,7 @@ services:
       - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
       - LOTUS_FIREHORSE_HEIGHT=${FIREHORSE_HEIGHT}
       - LOTUS_SOLSTICE_HEIGHT=${SOLSTICE_HEIGHT}
+      - LOTUS_XX_HEIGHT=${XX_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -127,6 +129,7 @@ services:
       - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
       - LOTUS_FIREHORSE_HEIGHT=${FIREHORSE_HEIGHT}
       - LOTUS_SOLSTICE_HEIGHT=${SOLSTICE_HEIGHT}
+      - LOTUS_XX_HEIGHT=${XX_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -168,6 +171,7 @@ services:
       - LOTUS_GOLDENWEEK_HEIGHT=${GOLDEN_WEEK_HEIGHT}
       - LOTUS_FIREHORSE_HEIGHT=${FIREHORSE_HEIGHT}
       - LOTUS_SOLSTICE_HEIGHT=${SOLSTICE_HEIGHT}
+      - LOTUS_XX_HEIGHT=${XX_HEIGHT}
     entrypoint: ["/bin/bash", "-c"]
     env_file:
       - lotus.env
