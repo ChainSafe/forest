@@ -424,6 +424,7 @@ where
     let mut skip = 0;
     let mut i = 0;
     let mut rewards = Vec::with_capacity(msgs.len());
+    let price_list = chain_config.price_list(ts.epoch());
 
     while let Some(m) = msgs.get(i) {
         if m.sequence() < cur_seq {
@@ -443,10 +444,7 @@ where
         }
         cur_seq += 1;
 
-        let min_gas = chain_config
-            .price_list(ts.epoch())
-            .on_chain_message(m.chain_length()?)
-            .total();
+        let min_gas = price_list.on_chain_message(m.chain_length()?).total();
 
         if Gas::new(m.gas_limit()) < min_gas {
             break;
