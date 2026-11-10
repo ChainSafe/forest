@@ -9,7 +9,6 @@ use libp2p::Multiaddr;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
-use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
@@ -49,7 +48,6 @@ pub mod metrics;
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V29;
 
 /// Placeholder epoch for a network upgrade that has no scheduled height yet.
-#[allow(unused)]
 pub const UPGRADE_HEIGHT_UNSCHEDULED: ChainEpoch = 999_999_999_999_999;
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";
 const ENV_FOREST_PROPAGATION_DELAY_SECS: &str = "FOREST_PROPAGATION_DELAY_SECS";
@@ -179,6 +177,7 @@ pub enum Height {
     GoldenWeek,
     FireHorse,
     Solstice,
+    Xx,
 }
 
 impl From<Height> for NetworkVersion {
@@ -221,6 +220,7 @@ impl From<Height> for NetworkVersion {
             Height::GoldenWeek => NetworkVersion::V27,
             Height::FireHorse => NetworkVersion::V28,
             Height::Solstice => NetworkVersion::V29,
+            Height::Xx => NetworkVersion::V30,
         }
     }
 }
@@ -440,10 +440,16 @@ impl ChainConfig {
         }
     }
 
-    fn network_height(&self, epoch: ChainEpoch) -> Option<Height> {
+    /// Upgrades from the latest down. A negative epoch disables the upgrade.
+    fn enabled_heights_rev(&self) -> impl Iterator<Item = (&Height, &HeightInfo)> {
         self.height_infos
             .iter()
             .rev()
+            .filter(|(_, info)| info.epoch >= 0)
+    }
+
+    fn network_height(&self, epoch: ChainEpoch) -> Option<Height> {
+        self.enabled_heights_rev()
             .find(|(_, info)| epoch > info.epoch)
             .map(|(height, _)| *height)
     }
@@ -454,9 +460,7 @@ impl ChainConfig {
         epoch: ChainEpoch,
     ) -> Option<HeightInfoWithActorManifest<'a>> {
         if let Some((height, info, manifest_cid)) = self
-            .height_infos
-            .iter()
-            .rev()
+            .enabled_heights_rev()
             .filter_map(|(height, info)| info.bundle.map(|bundle| (*height, info, bundle)))
             .find(|(_, info, _)| epoch > info.epoch)
         {
@@ -476,7 +480,6 @@ impl ChainConfig {
         self.network_height(epoch)
             .map(NetworkVersion::from)
             .unwrap_or_else(|| self.genesis_network_version())
-            .max(self.genesis_network)
     }
 
     /// Returns the network version revision at the given epoch for distinguishing network upgrades
@@ -616,14 +619,12 @@ fn get_upgrade_epoch_by_height<'a>(
 }
 
 fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
-    if let Ok(value) = std::env::var(env_var_key) {
-        if let Ok(epoch) = value.parse() {
-            return Some(epoch);
-        } else {
-            warn!("Failed to parse {env_var_key}={value}, value should be an integer");
-        }
-    }
-    None
+    let value = std::env::var(env_var_key).ok()?;
+    Some(
+        value
+            .parse()
+            .unwrap_or_else(|e| panic!("failed to parse {env_var_key}={value}: {e}")),
+    )
 }
 
 #[macro_export]
@@ -670,7 +671,7 @@ mod tests {
     fn heights_are_present(height_infos: &IndexMap<Height, HeightInfo>) {
         /// These are required heights that need to be defined for all networks, for, e.g., conformance
         /// with `Filecoin.StateGetNetworkParams` RPC method.
-        const REQUIRED_HEIGHTS: [Height; 32] = [
+        const REQUIRED_HEIGHTS: [Height; 33] = [
             Height::Breeze,
             Height::Smoke,
             Height::Ignition,
@@ -703,6 +704,7 @@ mod tests {
             Height::GoldenWeek,
             Height::FireHorse,
             Height::Solstice,
+            Height::Xx,
         ];
 
         for height in &REQUIRED_HEIGHTS {
@@ -766,10 +768,10 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "failed to parse FOREST_TEST_VAR_3=foo")]
     fn test_get_upgrade_height_invalid_env_var() {
         unsafe { std::env::set_var("FOREST_TEST_VAR_3", "foo") };
-        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
-        assert_eq!(epoch, None);
+        get_upgrade_height_from_env("FOREST_TEST_VAR_3");
     }
 
     #[test]
@@ -831,6 +833,22 @@ mod tests {
         ChainConfig::calibnet();
         ChainConfig::devnet();
         ChainConfig::butterflynet();
+    }
+
+    #[test]
+    fn network_version_keeps_an_upgrade_below_genesis() {
+        let mut cfg = ChainConfig::devnet();
+        cfg.height_infos.get_mut(&Height::Lightning).unwrap().epoch = 3;
+        assert_eq!(cfg.network_version(3), NetworkVersion::V28);
+        assert_eq!(cfg.network_version(4), NetworkVersion::V19);
+    }
+
+    #[test]
+    fn network_version_default_devnet_schedule() {
+        let cfg = ChainConfig::devnet();
+        assert_eq!(cfg.network_version(200), NetworkVersion::V28);
+        assert_eq!(cfg.network_version(201), NetworkVersion::V29);
+        assert!(cfg.network_height_with_actor_bundle(200).is_none());
     }
 
     #[test]

@@ -910,7 +910,7 @@ impl RpcMethod<2> for StateMinerPower {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         ctx.state_manager
-            .miner_power(&address, &ts)
+            .get_power(ts.parent_state(), &address)
             .map_err(From::from)
     }
 }
@@ -3355,6 +3355,7 @@ pub struct ForkUpgradeParams {
     upgrade_golden_week_height: ChainEpoch,
     upgrade_fire_horse_height: ChainEpoch,
     upgrade_solstice_height: ChainEpoch,
+    upgrade_xx_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -3405,6 +3406,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_golden_week_height: get_height(GoldenWeek)?,
             upgrade_fire_horse_height: get_height(FireHorse)?,
             upgrade_solstice_height: get_height(Solstice)?,
+            upgrade_xx_height: get_height(Xx)?,
         })
     }
 }

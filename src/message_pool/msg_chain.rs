@@ -1,6 +1,5 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::indexing_slicing)]
 use std::{
     cmp::Ordering,
     mem,
@@ -64,12 +63,14 @@ impl Chains {
         range: std::ops::RangeFrom<usize>,
     ) {
         let mut chains = mem::take(&mut self.key_vec);
-        chains[range].sort_by(|a, b| {
-            self.map
-                .get(*a)
-                .expect("key_vec keys reference live nodes")
-                .cmp_effective(self.map.get(*b).expect("key_vec keys reference live nodes"))
-        });
+        if let Some(tail) = chains.get_mut(range) {
+            tail.sort_by(|a, b| {
+                self.map
+                    .get(*a)
+                    .expect("key_vec keys reference live nodes")
+                    .cmp_effective(self.map.get(*b).expect("key_vec keys reference live nodes"))
+            });
+        }
         let _ = mem::replace(&mut self.key_vec, chains);
     }
 
@@ -247,8 +248,7 @@ impl Chains {
     pub(in crate::message_pool) fn bubble_down_after_trim(&mut self, from: usize) {
         let mut j = from;
         while j < self.key_vec.len().saturating_sub(1) {
-            #[allow(clippy::indexing_slicing)]
-            if self[j].compare(&self[j + 1]) == Ordering::Less {
+            if self[j].compare(&self[j + 1]) != Ordering::Greater {
                 break;
             }
             self.key_vec.swap(j, j + 1);
@@ -328,15 +328,11 @@ pub struct MsgChainNode {
 }
 
 impl MsgChainNode {
+    /// Ranks chains by gas performance, then gas reward. [`Ordering::Greater`] means `self` is the better chain.
     pub fn compare(&self, other: &Self) -> Ordering {
-        if approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Greater
-            || approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Equal
-                && self.gas_reward.cmp(&other.gas_reward) == Ordering::Greater
-        {
-            return Ordering::Greater;
-        }
-
-        Ordering::Less
+        self.gas_perf
+            .total_cmp(&other.gas_perf)
+            .then_with(|| self.gas_reward.cmp(&other.gas_reward))
     }
 
     pub fn set_eff_perf(&mut self, prev: Option<(f64, u64)>) {
@@ -357,29 +353,16 @@ impl MsgChainNode {
 }
 
 impl MsgChainNode {
+    /// Ranks chains by merged status, non-negative gas performance, effective performance, gas performance, then gas reward.
+    /// [`Ordering::Greater`] means `self` is the better chain.
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
-        // Highest priority: merged
         // Comment from Lotus: move merged chains to the front so we can discard them earlier
-        // Note: both cases need to be checked to ensure total ordering. Without it, the standard
-        // libraries' sorting methods may panic (since Rust 1.81).
-        match (self.merged, other.merged) {
-            (true, false) => return Ordering::Greater,
-            (false, true) => return Ordering::Less,
-            _ => {}
-        }
-
-        if self.gas_perf >= 0.0 && other.gas_perf < 0.0
-            || self.eff_perf > other.eff_perf
-            || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal
-                && self.gas_perf > other.gas_perf)
-            || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal
-                && approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Equal
-                && self.gas_reward > other.gas_reward)
-        {
-            return Ordering::Greater;
-        }
-
-        Ordering::Less
+        self.merged
+            .cmp(&other.merged)
+            .then_with(|| (self.gas_perf >= 0.0).cmp(&(other.gas_perf >= 0.0)))
+            .then_with(|| self.eff_perf.total_cmp(&other.eff_perf))
+            .then_with(|| self.gas_perf.total_cmp(&other.gas_perf))
+            .then_with(|| self.gas_reward.cmp(&other.gas_reward))
     }
 
     pub fn set_null_effective_perf(&mut self) {
@@ -621,27 +604,134 @@ where
     Ok(())
 }
 
-fn approx_cmp(a: f64, b: f64) -> Ordering {
-    if (a - b).abs() <= (a * f64::EPSILON).abs() {
-        Ordering::Equal
-    } else {
-        a.total_cmp(&b)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::{Itertools as _, iproduct};
+    use rand::{Rng as _, SeedableRng as _, rngs::StdRng};
+
+    fn sample_nodes() -> Vec<MsgChainNode> {
+        let gas_perfs = [
+            f64::NEG_INFINITY,
+            -1.0,
+            -0.0,
+            0.0,
+            1.0,
+            1.0 + f64::EPSILON,
+            1e9,
+            f64::INFINITY,
+            f64::NAN,
+        ];
+        let eff_perfs = [-1.0, -0.0, 0.0, 1.0, 1.0 + f64::EPSILON, f64::NAN];
+        iproduct!(gas_perfs, eff_perfs, [0u64, 1], [false, true])
+            .map(|(gas_perf, eff_perf, reward, merged)| node(gas_perf, eff_perf, reward, merged))
+            .collect()
+    }
+
+    fn node(gas_perf: f64, eff_perf: f64, reward: u64, merged: bool) -> MsgChainNode {
+        MsgChainNode {
+            gas_perf,
+            eff_perf,
+            gas_reward: TokenAmount::from_atto(reward),
+            merged,
+            ..Default::default()
+        }
+    }
+
+    fn assert_total_order(cmp: impl Fn(&MsgChainNode, &MsgChainNode) -> Ordering) {
+        let nodes = sample_nodes();
+        for (a, b) in iproduct!(&nodes, &nodes) {
+            assert_eq!(
+                cmp(a, b),
+                cmp(b, a).reverse(),
+                "antisymmetry: {a:?} vs {b:?}"
+            );
+        }
+        for (a, b, c) in iproduct!(&nodes, &nodes, &nodes) {
+            if cmp(a, b) != Ordering::Greater && cmp(b, c) != Ordering::Greater {
+                assert_ne!(
+                    cmp(a, c),
+                    Ordering::Greater,
+                    "transitivity: {a:?}, {b:?}, {c:?}"
+                );
+            }
+        }
+    }
 
     #[test]
-    fn approx_cmp_nan_does_not_panic() {
-        for (a, b) in [
-            (f64::NAN, 1.0),
-            (1.0, f64::NAN),
-            (f64::NAN, f64::NAN),
-            (f64::INFINITY, f64::NAN),
-        ] {
-            let _ = approx_cmp(a, b);
+    fn compare_is_total_order() {
+        assert_total_order(MsgChainNode::compare);
+    }
+
+    #[test]
+    fn cmp_effective_is_total_order() {
+        assert_total_order(MsgChainNode::cmp_effective);
+    }
+
+    #[test]
+    fn compare_key_priority() {
+        assert_eq!(
+            node(2.0, 0.0, 0, false).compare(&node(1.0, 0.0, 9, false)),
+            Ordering::Greater
+        );
+        assert_eq!(
+            node(1.0, 0.0, 2, false).compare(&node(1.0, 0.0, 1, false)),
+            Ordering::Greater
+        );
+        assert_eq!(
+            node(1.0, 0.0, 1, false).compare(&node(1.0, 0.0, 1, false)),
+            Ordering::Equal
+        );
+    }
+
+    #[test]
+    fn cmp_effective_key_priority() {
+        let cases = [
+            (node(-1.0, -1.0, 0, true), node(2.0, 2.0, 9, false)),
+            (node(0.0, -1.0, 0, false), node(-1.0, 0.0, 9, false)),
+            (node(1.0, 2.0, 0, false), node(2.0, 1.0, 9, false)),
+            (node(2.0, 1.0, 0, false), node(1.0, 1.0, 9, false)),
+            (node(1.0, 1.0, 2, false), node(1.0, 1.0, 1, false)),
+        ];
+        for (better, worse) in cases {
+            assert_eq!(
+                better.cmp_effective(&worse),
+                Ordering::Greater,
+                "{better:?} vs {worse:?}"
+            );
+        }
+    }
+
+    fn sorted_by(chains: &Chains, cmp: impl Fn(&MsgChainNode, &MsgChainNode) -> Ordering) -> bool {
+        chains
+            .key_vec
+            .iter()
+            .map(|k| &chains.map[*k])
+            .tuple_windows()
+            .all(|(a, b)| cmp(a, b) != Ordering::Greater)
+    }
+
+    #[test]
+    fn sorting_near_equal_chains_does_not_panic() {
+        let mut rng = StdRng::seed_from_u64(0);
+        for _ in 0..200 {
+            let mut chains = Chains::new();
+            let mut keys = vec![];
+            for _ in 0..rng.gen_range(2..400) {
+                let gas_perf = [-1.0, 0.0, 1.0, 1.0 + f64::EPSILON, 2.0, 3.0][rng.gen_range(0..6)];
+                let eff_perf = if rng.gen_bool(0.2) {
+                    gas_perf.min(0.0)
+                } else {
+                    gas_perf * [0.3, 0.5, 0.7, 1.0][rng.gen_range(0..4)]
+                };
+                let node = node(gas_perf, eff_perf, rng.gen_range(0..3), rng.gen_bool(0.2));
+                chains.push_with(node, &mut keys);
+            }
+            chains.key_vec = keys;
+            chains.sort_effective();
+            assert!(sorted_by(&chains, MsgChainNode::cmp_effective));
+            chains.sort(false);
+            assert!(sorted_by(&chains, MsgChainNode::compare));
         }
     }
 }

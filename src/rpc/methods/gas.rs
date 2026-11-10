@@ -11,6 +11,7 @@ use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, error::ServerError, types
 use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
+    bigint::MAX_BIGINT_BITS,
     econ::{BLOCK_GAS_LIMIT, TokenAmount},
     message::Message,
 };
@@ -366,7 +367,7 @@ pub async fn estimate_message_gas(
 }
 
 /// Caps the gas fee to ensure it doesn't exceed the maximum allowed fee.
-/// Returns an error if the msg `gas_limit` is zero
+/// Returns an error if the msg `gas_limit` is zero or the resulting fee cap does not fit the message encoding.
 pub(crate) fn cap_gas_fee(
     default_max_fee: &TokenAmount,
     msg: Message,
@@ -395,6 +396,11 @@ pub(crate) fn cap_gas_fee(
     } else {
         msg
     };
+
+    anyhow::ensure!(
+        msg.gas_fee_cap().atto().bits() <= MAX_BIGINT_BITS,
+        "gas fee cap exceeds {MAX_BIGINT_BITS} bits"
+    );
 
     // cap premium at FeeCap
     if msg.gas_premium() <= msg.gas_fee_cap() {
@@ -641,5 +647,36 @@ mod tests {
         let result = cap_gas_fee(&default_max_fee, msg, None);
 
         assert!(result.is_err());
+    }
+
+    fn max_encodable() -> BigInt {
+        (BigInt::from(1) << MAX_BIGINT_BITS) - 1
+    }
+
+    #[rstest::rstest]
+    #[case::uncapped_widest(TokenAmount::zero(), 0, Some(max_encodable()))]
+    #[case::uncapped_too_wide(TokenAmount::zero(), 1, None)]
+    #[case::capped(TokenAmount::from_atto(1_000_000), 1, Some(BigInt::from(1000)))]
+    fn test_cap_gas_fee_fee_cap_width(
+        #[case] default_max_fee: TokenAmount,
+        #[case] excess: u8,
+        #[case] expected_fee_cap: Option<BigInt>,
+    ) {
+        let msg = Message::builder()
+            .gas_limit(1000)
+            .gas_fee_cap(TokenAmount::from_atto(max_encodable() + excess))
+            .gas_premium(TokenAmount::from_atto(max_encodable()))
+            .build();
+
+        let result = cap_gas_fee(&default_max_fee, msg, None).ok();
+
+        assert_eq!(
+            result.as_ref().map(|msg| msg.gas_fee_cap().atto().clone()),
+            expected_fee_cap
+        );
+        if let Some(msg) = result {
+            assert_eq!(msg.gas_premium(), msg.gas_fee_cap());
+            msg.cid();
+        }
     }
 }

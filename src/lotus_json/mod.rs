@@ -192,7 +192,6 @@ decl_and_test!(
     actor_state for crate::shim::state_tree::ActorState,
     address for crate::shim::address::Address,
     beacon_entry for crate::beacon::BeaconEntry,
-    big_int for num::BigInt,
     block_header for crate::blocks::CachingBlockHeader,
     cid for ::cid::Cid,
     duration for std::time::Duration,
@@ -223,6 +222,7 @@ mod actors;
 mod allocation;
 mod arc;
 mod beneficiary_term; // crate::shim::actors::miner::BeneficiaryTerm: !quickcheck::Arbitrary
+mod big_int; // num::BigInt: Arbitrary exceeds MAX_BIGINT_BITS; tested by its own bounded round trip
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod bytecode_hash;
 mod entry;

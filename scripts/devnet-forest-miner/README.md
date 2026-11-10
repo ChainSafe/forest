@@ -16,3 +16,9 @@ validates and follows.
 ```shell
 mise run test:devnet:forest-miner
 ```
+
+The Lotus Miner suites (`forest-dev devnet miner`) run only against this devnet:
+
+```shell
+mise run test:devnet:miner
+```

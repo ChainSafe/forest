@@ -665,7 +665,7 @@ Inspect or interact with the chain synchronizer
 Usage: forest-cli sync <COMMAND>
 
 Commands:
-  wait       Display continuous sync data until sync is complete
+  wait       Display continuous sync data until sync is complete or until --target is reached
   status     Check sync status
   check-bad  Check if a given block is marked bad, and for what reason
   mark-bad   Mark a given block as bad
@@ -678,13 +678,14 @@ Options:
 ### `forest-cli sync wait`
 
 ```
-Display continuous sync data until sync is complete
+Display continuous sync data until sync is complete or until --target is reached
 
 Usage: forest-cli sync wait [OPTIONS]
 
 Options:
-  -w          Don't exit after node is synced
-  -h, --help  Print help
+  -w                    Don't exit after node is synced
+      --target <EPOCH>  Exit once the node reaches the given chain epoch
+  -h, --help            Print help
 ```
 
 ### `forest-cli sync status`
@@ -2930,6 +2931,7 @@ Commands:
   eth-gas          `eth_estimateGas` parity tests
   eth-pending-tx   `eth_getTransactionByHash` pending transaction tests
   eth-skip-sender  Skip-sender integration tests that need a private chain with a miner
+  miner            Lotus Miner integration tests on Forest (`scripts/devnet-forest-miner` only)
   state-call       `Filecoin.StateCall` gas limit parity tests
   help             Print this message or the help of the given subcommand(s)
 
@@ -2968,6 +2970,21 @@ Usage: forest-dev devnet state-call
 
 Options:
   -h, --help  Print help
+```
+
+### `forest-dev devnet miner`
+
+```
+Lotus Miner integration tests on Forest (`scripts/devnet-forest-miner` only)
+
+Usage: forest-dev devnet miner [OPTIONS] [FILTER]
+
+Arguments:
+  [FILTER]  Run only the tests whose name contains this string
+
+Options:
+      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding, wdpost]
+  -h, --help           Print help
 ```
 
 ### `forest-dev devnet eth-pending-tx`

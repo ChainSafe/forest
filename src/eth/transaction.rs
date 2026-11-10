@@ -4,6 +4,7 @@
 use super::{derive_eip_155_chain_id, validate_eip155_chain_id};
 use crate::eth::{LEGACY_V_VALUE_27, LEGACY_V_VALUE_28};
 use crate::rpc::eth::ApiEthTx;
+use crate::shim::bigint::MAX_BIGINT_BITS;
 use crate::shim::crypto::Signature;
 use crate::shim::fvm_shared_latest::{self, METHOD_CONSTRUCTOR};
 use anyhow::{Context, bail, ensure};
@@ -339,6 +340,26 @@ pub fn parse_eth_transaction(data: &[u8]) -> anyhow::Result<EthTx> {
     }
 }
 
+/// Rejects non-minimal encoding, as Lotus does: <https://github.com/filecoin-project/lotus/blob/29d72bdf77d13e6e3e20264d7a9167feb2a41ab0/chain/types/ethtypes/eth_transactions.go#L369-L381>
+fn parse_uint(rlp: Rlp) -> anyhow::Result<BigInt> {
+    let data: Vec<u8> = rlp.as_val()?;
+    ensure!(
+        data.first() != Some(&0),
+        "non-minimal integer encoding with leading zeros"
+    );
+    Ok(BigInt::from_bytes_be(Sign::Plus, &data))
+}
+
+/// Rejects amounts the CBOR encoding of the resulting [`Message`] cannot hold.
+fn parse_amount(rlp: Rlp) -> anyhow::Result<BigInt> {
+    let amount = parse_uint(rlp)?;
+    ensure!(
+        amount.bits() <= MAX_BIGINT_BITS,
+        "amount exceeds {MAX_BIGINT_BITS} bits"
+    );
+    Ok(amount)
+}
+
 fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
     // Decode RLP data, skipping the first byte (EIP_1559_TX_TYPE)
     let decoded = Rlp::new(data.get(1..).context("failed to get range of values")?);
@@ -349,17 +370,17 @@ fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
 
     let chain_id = decoded.at(0)?.as_val::<u64>()?;
     let nonce = decoded.at(1)?.as_val::<u64>()?;
-    let max_priority_fee_per_gas = BigInt::from_bytes_be(Sign::Plus, decoded.at(2)?.data()?);
-    let max_fee_per_gas = BigInt::from_bytes_be(Sign::Plus, decoded.at(3)?.data()?);
+    let max_priority_fee_per_gas = parse_amount(decoded.at(2)?)?;
+    let max_fee_per_gas = parse_amount(decoded.at(3)?)?;
     let gas_limit = decoded.at(4)?.as_val::<u64>()?;
 
-    let addr_data = decoded.at(5)?.data()?;
+    let addr_data: Vec<u8> = decoded.at(5)?.as_val()?;
     let to = (!addr_data.is_empty())
-        .then(|| EthAddress::try_from(addr_data))
+        .then(|| EthAddress::try_from(addr_data.as_slice()))
         .transpose()?;
 
-    let value = BigInt::from_bytes_be(Sign::Plus, decoded.at(6)?.data()?);
-    let input = decoded.at(7)?.data()?.to_vec();
+    let value = parse_amount(decoded.at(6)?)?;
+    let input: Vec<u8> = decoded.at(7)?.as_val()?;
 
     // Ensure access list is empty (should be an empty list)
     ensure!(
@@ -367,9 +388,9 @@ fn parse_eip1559_tx(data: &[u8]) -> anyhow::Result<EthTx> {
         "access list should be an empty list"
     );
 
-    let v = BigInt::from_bytes_be(Sign::Plus, decoded.at(9)?.data()?);
-    let r = BigInt::from_bytes_be(Sign::Plus, decoded.at(10)?.data()?);
-    let s = BigInt::from_bytes_be(Sign::Plus, decoded.at(11)?.data()?);
+    let v = parse_uint(decoded.at(9)?)?;
+    let r = parse_uint(decoded.at(10)?)?;
+    let s = parse_uint(decoded.at(11)?)?;
 
     // EIP-1559 transactions only support 0 or 1 for v
     ensure!(
@@ -404,21 +425,21 @@ fn parse_legacy_tx(data: &[u8]) -> anyhow::Result<EthTx> {
 
     // Parse transaction fields
     let nonce = decoded.at(0)?.as_val::<u64>()?;
-    let gas_price = BigInt::from_bytes_be(Sign::Plus, decoded.at(1)?.data()?);
+    let gas_price = parse_amount(decoded.at(1)?)?;
     let gas_limit = decoded.at(2)?.as_val::<u64>()?;
 
-    let addr_data = decoded.at(3)?.data()?;
+    let addr_data: Vec<u8> = decoded.at(3)?.as_val()?;
     let to = (!addr_data.is_empty())
-        .then(|| EthAddress::try_from(addr_data))
+        .then(|| EthAddress::try_from(addr_data.as_slice()))
         .transpose()?;
 
-    let value = BigInt::from_bytes_be(Sign::Plus, decoded.at(4)?.data()?);
-    let input = decoded.at(5)?.data()?.to_vec();
+    let value = parse_amount(decoded.at(4)?)?;
+    let input: Vec<u8> = decoded.at(5)?.as_val()?;
 
     // Parse signature fields
-    let v = BigInt::from_bytes_be(Sign::Plus, decoded.at(6)?.data()?);
-    let r = BigInt::from_bytes_be(Sign::Plus, decoded.at(7)?.data()?);
-    let s = BigInt::from_bytes_be(Sign::Plus, decoded.at(8)?.data()?);
+    let v = parse_uint(decoded.at(6)?)?;
+    let r = parse_uint(decoded.at(7)?)?;
+    let s = parse_uint(decoded.at(8)?)?;
 
     // Derive chain ID from the 'v' field
     let chain_id = derive_eip_155_chain_id(&v)?
@@ -523,6 +544,7 @@ pub(crate) mod tests {
     use num::{BigInt, Num as _, Zero as _, traits::FromBytes as _};
     use num_bigint::ToBigUint as _;
     use quickcheck_macros::quickcheck;
+    use rstest::rstest;
     use std::str::FromStr as _;
 
     const ETH_ADDR_LEN: usize = 20;
@@ -955,6 +977,55 @@ pub(crate) mod tests {
         let data = vec![];
         let padded = pad_leading_zeros(data, 4);
         assert_eq!(padded, vec![0, 0, 0, 0]);
+    }
+
+    fn homestead_args() -> EthLegacyHomesteadTxArgs {
+        EthLegacyHomesteadTxArgs {
+            gas_limit: 21000,
+            v: LEGACY_V_VALUE_27.into(),
+            r: 1.into(),
+            s: 1.into(),
+            ..Default::default()
+        }
+    }
+
+    fn eip1559_args() -> EthEip1559TxArgs {
+        EthEip1559TxArgs {
+            chain_id: calibnet::ETH_CHAIN_ID,
+            gas_limit: 21000,
+            r: 1.into(),
+            s: 1.into(),
+            ..Default::default()
+        }
+    }
+
+    #[rstest]
+    #[case::legacy_gas_price(|gas_price| EthLegacyHomesteadTxArgs { gas_price, ..homestead_args() }.rlp_signed_message())]
+    #[case::legacy_value(|value| EthLegacyHomesteadTxArgs { value, ..homestead_args() }.rlp_signed_message())]
+    #[case::max_priority_fee(|max_priority_fee_per_gas| EthEip1559TxArgs { max_priority_fee_per_gas, ..eip1559_args() }.rlp_signed_message())]
+    #[case::max_fee(|max_fee_per_gas| EthEip1559TxArgs { max_fee_per_gas, ..eip1559_args() }.rlp_signed_message())]
+    #[case::eip1559_value(|value| EthEip1559TxArgs { value, ..eip1559_args() }.rlp_signed_message())]
+    fn rejects_amounts_wider_than_cbor_allows(
+        #[case] encode: fn(BigInt) -> anyhow::Result<Vec<u8>>,
+    ) {
+        let widest = (BigInt::from(1) << MAX_BIGINT_BITS) - 1;
+        parse_eth_transaction(&encode(widest).unwrap()).unwrap();
+        parse_eth_transaction(&encode(BigInt::from(1) << MAX_BIGINT_BITS).unwrap()).unwrap_err();
+    }
+
+    #[rstest]
+    #[case::empty(&[0x80], Some(0))]
+    #[case::single_byte(&[0x05], Some(5))]
+    #[case::minimal(&[0x82, 1, 0], Some(256))]
+    #[case::leading_zero(&[0x82, 0, 1], None)]
+    #[case::zero_byte(&[0x00], None)]
+    #[case::needless_length_prefix(&[0x81, 0x05], None)]
+    #[case::list(&[0xc1, 0x05], None)]
+    fn parses_only_canonical_integers(#[case] encoded: &[u8], #[case] expected: Option<u32>) {
+        assert_eq!(
+            parse_uint(Rlp::new(encoded)).ok(),
+            expected.map(BigInt::from)
+        );
     }
 
     #[quickcheck]
