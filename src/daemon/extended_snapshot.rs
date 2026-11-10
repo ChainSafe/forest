@@ -61,11 +61,10 @@ struct ExtendedSnapshotFile {
     sha256: [u8; 32],
 }
 
-/// Fetches the `.metadata.json` published next to `snapshot_url`, or `None` when the host has
-/// none (a 404), which is normal for a snapshot without extended snapshots.
+/// Fetches the `.metadata.json` published next to `snapshot_url`.
 async fn fetch_metadata_snapshots_info(
     snapshot_url: &Url,
-) -> anyhow::Result<Option<SnapshotMetadataSection>> {
+) -> anyhow::Result<SnapshotMetadataSection> {
     // Append to the path, not the whole URL, so dont affect any query string.
     let mut metadata_url = snapshot_url.clone();
     metadata_url.set_path(&format!("{}.metadata.json", snapshot_url.path()));
@@ -74,15 +73,12 @@ async fn fetch_metadata_snapshots_info(
         .timeout(Duration::from_secs(30))
         .send()
         .await?;
-    if response.status() != reqwest::StatusCode::OK {
-        return Ok(None);
-    }
     let metadata: SnapshotMetadataFile = response
         .error_for_status()?
         .json()
         .await
         .with_context(|| format!("failed to parse snapshot metadata at {metadata_url}"))?;
-    Ok(Some(metadata.snapshot))
+    Ok(metadata.snapshot)
 }
 
 /// Downloads the extended snapshot `file`, published next to `snapshot_url`, into `temp_dir`
@@ -195,11 +191,7 @@ pub(super) async fn maybe_import_extended_snapshots(
     temp_dir: &Path,
 ) {
     let metadata = match fetch_metadata_snapshots_info(snapshot_url).await {
-        Ok(Some(metadata)) => metadata,
-        Ok(None) => {
-            warn!("No snapshot metadata at {snapshot_url}, skipping extended snapshots");
-            return;
-        }
+        Ok(metadata) => metadata,
         Err(e) => {
             warn!(
                 "Failed to fetch extended snapshots for {snapshot_url}: {e:#}; continuing without \
@@ -575,10 +567,9 @@ mod test {
         assert!(metadata.snapshot.extended.is_none());
     }
 
-    // A host without a `.metadata.json` (a 404) is normal, not a warning. Any other metadata
-    // response is still parsed, and a real failure stays an error.
+    // Metadata that cannot be fetched is an error whatever the status, a 404 included.
     #[tokio::test]
-    async fn fetch_metadata_snapshots_info_missing_is_none() {
+    async fn fetch_metadata_snapshots_info_missing_is_error() {
         let app = axum::Router::new()
             .route(
                 "/base.forest.car.zst.metadata.json",
@@ -593,18 +584,10 @@ mod test {
         tokio::spawn(async move { axum::serve(listener, app).await });
 
         let present = Url::parse(&format!("http://{addr}/base.forest.car.zst")).unwrap();
-        let metadata = fetch_metadata_snapshots_info(&present)
-            .await
-            .unwrap()
-            .unwrap();
+        let metadata = fetch_metadata_snapshots_info(&present).await.unwrap();
         assert_eq!(metadata.state_roots, 2000);
 
         let missing = Url::parse(&format!("http://{addr}/missing.forest.car.zst")).unwrap();
-        assert!(
-            fetch_metadata_snapshots_info(&missing)
-                .await
-                .unwrap()
-                .is_none()
-        );
+        assert!(fetch_metadata_snapshots_info(&missing).await.is_err());
     }
 }
