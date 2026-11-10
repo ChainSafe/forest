@@ -218,7 +218,7 @@ fn max_beacon_round_for_epoch_rejects_out_of_range_epochs(#[case] epoch: ChainEp
     );
 }
 
-/// `MockBeacon` is chained and serves entries locally, so the chained paths need no drand server.
+/// `MockBeacon` is chained and serves entries locally, so the chained paths need no `drand` server.
 #[tokio::test]
 async fn beacon_entries_for_block_chained_walks_elapsed_rounds() {
     let schedule = BeaconSchedule(vec![BeaconPoint::new(0, MockBeacon::default())]);

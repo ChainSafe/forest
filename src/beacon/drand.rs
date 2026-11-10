@@ -310,6 +310,24 @@ impl DrandBeacon {
         self.verified_beacons.get(&round).is_some()
     }
 
+    /// Whether some block can carry `round`. Assumes the nv16+ round mapping.
+    pub(crate) fn is_epoch_round(&self, round: u64) -> bool {
+        // Chained blocks carry every round elapsed since the parent.
+        if !self.network.is_unchained() {
+            return true;
+        }
+        // Unchained: the round whose period holds an epoch's randomness timestamp.
+        let Some(since_genesis) = self
+            .beacon_round_timestamp(round)
+            .and_then(|round_ts| round_ts.checked_sub(self.fil_gen_time))
+        else {
+            return false;
+        };
+        let until_epoch_ts =
+            (self.fil_round_time - since_genesis % self.fil_round_time) % self.fil_round_time;
+        until_epoch_ts < self.interval
+    }
+
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
     /// into `verified_beacons`. Only unchained rounds verify standalone, so chained ones are skipped.
     fn cache_fetched_entry(&self, entry: &BeaconEntry) {

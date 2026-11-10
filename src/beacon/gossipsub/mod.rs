@@ -108,6 +108,9 @@ impl DrandGossipListener {
         let entry = BeaconEntry::new(response.round, response.signature);
         let round = entry.round();
 
+        if !beacon.is_epoch_round(round) {
+            return verdict(MessageAcceptance::Ignore, Reason::OffEpoch);
+        }
         if beacon.has_round(round) {
             return verdict(MessageAcceptance::Ignore, Reason::Duplicate);
         }
@@ -172,6 +175,7 @@ mod tests {
         *,
     };
     use crate::beacon::tests::fake_drand_signer::FakeDrandSigner;
+    use quickcheck_macros::quickcheck;
 
     fn listener(schedule: &Arc<BeaconSchedule>) -> DrandGossipListener {
         DrandGossip::new(schedule.clone())
@@ -214,6 +218,18 @@ mod tests {
         assert!(!is_cached(&schedule, EPOCH_ROUND), "nothing cached");
     }
 
+    /// Peer bytes never panic the listener, and only a valid signature is accepted.
+    #[quickcheck]
+    fn arbitrary_payload_is_never_accepted(raw: Vec<u8>, round: u64, signature: Vec<u8>) {
+        let (_, schedule) = fake_drand_schedule();
+        let mut l = listener(&schedule);
+        for payload in [raw, FakeDrandSigner::encode_raw(round, &signature)] {
+            let verdict = l.handle_incomming_round(PeerId::random(), &payload);
+            assert!(!matches!(verdict, MessageAcceptance::Accept), "{payload:?}");
+        }
+        assert!(!is_cached(&schedule, round));
+    }
+
     /// Another relay, or an HTTP fetch, may already have cached the round.
     #[tokio::test]
     async fn cached_round_is_ignored() {
@@ -253,9 +269,9 @@ mod tests {
         let verdict = l.handle_incomming_round(source, &drand.encode(EPOCH_ROUND));
         assert_verdict(&verdict, MessageAcceptance::Accept);
 
-        let verdict = l.handle_incomming_round(source, &drand.encode(EPOCH_ROUND - 1));
+        let verdict = l.handle_incomming_round(source, &drand.encode(EPOCH_ROUND - 10));
         assert_verdict(&verdict, MessageAcceptance::Ignore);
-        assert!(!is_cached(&schedule, EPOCH_ROUND - 1));
+        assert!(!is_cached(&schedule, EPOCH_ROUND - 10));
     }
 
     /// Only accepted rounds move the progression mark.
@@ -265,7 +281,7 @@ mod tests {
         let source = PeerId::random();
         let mut l = listener(&schedule);
         let forged =
-            FakeDrandSigner::encode_raw(EPOCH_ROUND + 5, drand.entry(EPOCH_ROUND).signature());
+            FakeDrandSigner::encode_raw(EPOCH_ROUND + 10, drand.entry(EPOCH_ROUND).signature());
 
         let verdict = l.handle_incomming_round(source, &forged);
         assert_verdict(&verdict, MessageAcceptance::Reject);

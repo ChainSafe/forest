@@ -7,7 +7,10 @@ use libp2p::{
 };
 
 use crate::{
-    beacon::gossipsub::test_utils::assert_verdict,
+    beacon::gossipsub::{
+        DrandGossip,
+        test_utils::{assert_verdict, fake_drand_schedule},
+    },
     blocks::{CachingBlockHeader, GossipBlock, RawBlockHeader},
     libp2p::{
         NetworkEvent, PubsubMessage, PubsubTopic,
@@ -64,7 +67,8 @@ fn gossip_message() -> Vec<u8> {
     .unwrap()
 }
 
-/// Blocks and messages are accepted once decoded; anything else is ignored.
+/// Blocks and messages are accepted once decoded; anything else is ignored. None of them reaches
+/// the `drand` listener.
 #[rstest::rstest]
 #[case::block(
     Some(PubsubTopic::Blocks),
@@ -95,6 +99,8 @@ async fn filecoin_gossip_verdicts(
         None => "/unknown/topic".into(),
     });
     let (tx, rx) = flume::unbounded();
+    let (_, schedule) = fake_drand_schedule();
+    let (gossip, _listener) = DrandGossip::new(schedule).expect("unchained beacon");
 
     let Verdict {
         acceptance: verdict,
@@ -104,12 +110,17 @@ async fn filecoin_gossip_verdicts(
         &tx,
         &block_topic,
         &msg_topic,
-        None,
+        Some(&gossip),
     )
     .await
     .expect("an immediate verdict");
 
     assert_verdict(&verdict, expected);
+    assert_eq!(
+        gossip.rounds.len(),
+        0,
+        "nothing is queued for the drand listener"
+    );
     match rx.try_recv() {
         Ok(NetworkEvent::PubsubMessage {
             message: PubsubMessage::Block(_) | PubsubMessage::Message(_),
