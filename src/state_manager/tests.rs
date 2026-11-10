@@ -348,6 +348,15 @@ async fn replay_permits_are_sized_by_configured_concurrency() {
     assert_eq!(sm.replay_semaphore.available_permits(), permits - 1);
 }
 
+#[test]
+fn semaphore_permits_are_clamped_to_the_semaphore_maximum() {
+    assert_eq!(StateManager::semaphore_permits(nonzero!(3usize)), 3);
+    assert_eq!(
+        StateManager::semaphore_permits(NonZeroUsize::MAX),
+        tokio::sync::Semaphore::MAX_PERMITS
+    );
+}
+
 #[rstest]
 #[case(CallSource::External)]
 #[case(CallSource::Internal)]
