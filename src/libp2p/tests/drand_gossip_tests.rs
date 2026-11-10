@@ -39,3 +39,30 @@ async fn drand_gossip_is_handed_to_the_listener() {
         .unwrap();
     assert_verdict(&verdict.acceptance, MessageAcceptance::Accept);
 }
+
+/// A full listener queue drops the round instead of blocking the service.
+#[tokio::test]
+async fn full_listener_queue_ignores_the_round() {
+    let (drand, schedule) = fake_drand_schedule();
+    let (gossip, _listener) = DrandGossip::new(schedule).unwrap();
+    let (tx, _rx) = flume::unbounded();
+    let payload = drand.encode(EPOCH_ROUND);
+    let send = || {
+        handle_gossip_event(
+            gossip_message_event(payload.clone(), gossip.topic.clone()),
+            &tx,
+            "",
+            "",
+            Some(&gossip),
+        )
+    };
+
+    for _ in 0..gossip.rounds.capacity().unwrap() {
+        assert!(send().await.is_none(), "queued for the listener");
+    }
+    let verdict = tokio::time::timeout(Duration::from_secs(5), send())
+        .await
+        .expect("the service must not wait for the listener")
+        .expect("a verdict");
+    assert_verdict(&verdict.acceptance, MessageAcceptance::Ignore);
+}
