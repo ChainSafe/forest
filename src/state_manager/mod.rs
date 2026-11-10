@@ -222,6 +222,9 @@ pub struct StateManager {
     genesis_info: Arc<GenesisInfo>,
     /// Bounds concurrent RPC-triggered tipset replays, see [`Self::replay_concurrency`].
     replay_semaphore: Arc<tokio::sync::Semaphore>,
+    /// Bounds concurrent RPC-triggered chain walks for message receipts, see
+    /// [`Self::message_search_concurrency`].
+    message_search_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl ShallowClone for StateManager {
@@ -240,6 +243,7 @@ impl ShallowClone for StateManager {
             engine: self.engine.shallow_clone(),
             genesis_info: self.genesis_info.shallow_clone(),
             replay_semaphore: self.replay_semaphore.shallow_clone(),
+            message_search_semaphore: self.message_search_semaphore.shallow_clone(),
         }
     }
 }
@@ -304,6 +308,9 @@ impl StateManager {
                 DEFAULT_ID_TO_DETERMINISTIC_ADDRESS_CACHE_SIZE,
             )),
             replay_semaphore: Arc::new(tokio::sync::Semaphore::new(Self::replay_concurrency())),
+            message_search_semaphore: Arc::new(tokio::sync::Semaphore::new(
+                Self::message_search_concurrency(),
+            )),
         })
     }
 
@@ -318,9 +325,13 @@ impl StateManager {
                 .ok()
                 .and_then(|n| NonZeroUsize::new(n.get() / 2))
                 .unwrap_or_else(|| nonzero!(1usize));
-            crate::utils::misc::env::env_or_default("FOREST_RPC_REPLAY_CONCURRENCY", default)
+            crate::utils::misc::env::env_or_default_logged("FOREST_RPC_REPLAY_CONCURRENCY", default)
         });
-        VALUE.get()
+        Self::semaphore_permits(*VALUE)
+    }
+
+    fn semaphore_permits(configured: NonZeroUsize) -> usize {
+        configured.get().min(tokio::sync::Semaphore::MAX_PERMITS)
     }
 
     /// The returned permit is owned so it can be moved into the `spawn_blocking`
@@ -333,6 +344,20 @@ impl StateManager {
             .acquire_owned()
             .await
             .expect("replay semaphore is never closed")
+    }
+
+    /// Maximum concurrent RPC-triggered chain walks for message receipts. Each walk
+    /// holds a blocking thread for as long as it runs, and chain sync needs that
+    /// pool too, so the walks must not be able to fill it.
+    fn message_search_concurrency() -> usize {
+        static VALUE: std::sync::LazyLock<NonZeroUsize> = std::sync::LazyLock::new(|| {
+            let default = std::thread::available_parallelism().unwrap_or_else(|_| nonzero!(1usize));
+            crate::utils::misc::env::env_or_default_logged(
+                "FOREST_RPC_MESSAGE_SEARCH_CONCURRENCY",
+                default,
+            )
+        });
+        Self::semaphore_permits(*VALUE)
     }
 
     /// Disables caching of ID -> deterministic-address resolution. To be used strictly

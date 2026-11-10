@@ -49,6 +49,8 @@
 
 ### Fixed
 
+- [#7862](https://github.com/ChainSafe/forest/pull/7862): Fixed chain sync stalling under heavy `eth_getTransactionReceipt`, `eth_getTransactionByHash`, `StateSearchMsg`, `StateWaitMsg` or `StateGetReceipt` load. Chain walks for message receipts are now bounded to the available CPUs by default, configurable via `FOREST_RPC_MESSAGE_SEARCH_CONCURRENCY`, so they can no longer take every blocking thread that sync needs.
+
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
 
 - [#7527](https://github.com/ChainSafe/forest/issues/7527): Fixed well-connected nodes refusing all new inbound connections, including ProbeLab's crawler, once the incoming connection limit was reached. Forest now admits new peers and trims the least useful ones above `4 × target_peer_count` connections.

@@ -1247,18 +1247,22 @@ impl RpcMethod<2> for StateGetReceipt {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
-        let sm = ctx.state_manager.shallow_clone();
         let cancellation_token = CancellationToken::new();
         let _drop_guard = cancellation_token.drop_guard_ref();
-        Ok(tokio::time::timeout(
+        let (_, receipt) = tokio::time::timeout(
             SEARCH_FOR_MSG_TIMEOUT,
-            tokio::task::spawn_blocking({
-                let cancellation_token = cancellation_token.clone();
-                move || sm.get_receipt_blocking(tipset, cid, &cancellation_token)
-            }),
+            ctx.state_manager.search_for_message(
+                Some(tipset),
+                cid,
+                None,
+                Some(true),
+                &cancellation_token,
+            ),
         )
         .await
-        .context("timed out")???)
+        .context("timed out")??
+        .context("Could not get receipt from search back message")?;
+        Ok(receipt)
     }
 }
 

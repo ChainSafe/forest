@@ -81,27 +81,37 @@ impl StateManager {
             .unwrap_or(Ok(None))
     }
 
-    fn check_search_blocking(
+    /// Returns the sender's ID address when `message` may have executed at or
+    /// below `current`, or `None` when the sender's nonce rules that out.
+    fn search_back_sender_id(
         &self,
-        mut current: Tipset,
+        current: &Tipset,
         message: &ChainMessage,
-        lookback_max_epoch: ChainEpoch,
-        allow_replaced: bool,
-        cancellation_token: &CancellationToken,
-    ) -> Result<Option<(Tipset, Receipt)>, Error> {
+    ) -> Result<Option<Address>, Error> {
         let message_from_address = message.from();
-        let message_sequence = message.sequence();
         let current_actor_state = self
             .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(Error::state)?;
         // The sender's nonce only grows, so once it is at or below the message
         // nonce the message cannot have been executed yet. Walking back would
         // only end at the sender's creation or at pruned state.
-        if current_actor_state.sequence <= message_sequence {
+        if current_actor_state.sequence <= message.sequence() {
             return Ok(None);
         }
-        let message_from_id = self.lookup_required_id(&message_from_address, &current)?;
+        self.lookup_required_id(&message_from_address, current)
+            .map(Some)
+    }
 
+    fn walk_back_for_message_blocking(
+        &self,
+        mut current: Tipset,
+        message: &ChainMessage,
+        message_from_id: Address,
+        lookback_max_epoch: ChainEpoch,
+        allow_replaced: bool,
+        cancellation_token: &CancellationToken,
+    ) -> Result<Option<(Tipset, Receipt)>, Error> {
+        let message_sequence = message.sequence();
         while !cancellation_token.is_cancelled() && current.epoch() >= lookback_max_epoch {
             let parent_tipset = self
                 .chain_index()
@@ -135,33 +145,6 @@ impl StateManager {
         Ok(None)
     }
 
-    /// Searches backwards through the chain for a message receipt.
-    fn search_back_for_message_blocking(
-        &self,
-        current: Tipset,
-        message: &ChainMessage,
-        look_back_limit: Option<ChainEpoch>,
-        allow_replaced: Option<bool>,
-        cancellation_token: &CancellationToken,
-    ) -> Result<Option<(Tipset, Receipt)>, Error> {
-        let current_epoch = current.epoch();
-        let allow_replaced = allow_replaced.unwrap_or(true);
-
-        let Some(max_lookback_epoch_inclusive) =
-            Self::max_lookback_epoch_inclusive(current_epoch, look_back_limit)
-        else {
-            return Ok(None);
-        };
-
-        self.check_search_blocking(
-            current,
-            message,
-            max_lookback_epoch_inclusive,
-            allow_replaced,
-            cancellation_token,
-        )
-    }
-
     //. Calculates the max lookback epoch (inclusive lower bound) for the search.
     pub fn max_lookback_epoch_inclusive(
         current_epoch: ChainEpoch,
@@ -177,30 +160,6 @@ impl StateManager {
             // Search all the way to genesis (epoch 0)
             _ => Some(0),
         }
-    }
-
-    /// Returns a message receipt from a given tipset and message CID.
-    pub fn get_receipt_blocking(
-        &self,
-        tipset: Tipset,
-        msg: Cid,
-        cancellation_token: &CancellationToken,
-    ) -> Result<Receipt, Error> {
-        let m = crate::chain::get_chain_message(self.db(), &msg)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        let message_receipt = self.tipset_executed_message(&tipset, &m, true)?;
-        if let Some(receipt) = message_receipt {
-            return Ok(receipt);
-        }
-
-        let maybe_tuple =
-            self.search_back_for_message_blocking(tipset, &m, None, None, cancellation_token)?;
-        let message_receipt = maybe_tuple
-            .ok_or_else(|| {
-                Error::Other("Could not get receipt from search back message".to_string())
-            })?
-            .1;
-        Ok(message_receipt)
     }
 
     pub async fn wait_for_message_with_timeout(
@@ -276,7 +235,7 @@ impl StateManager {
         let search_back_candidate: Arc<OnceLock<(Tipset, Receipt)>> = Default::default();
         let reverted: Arc<RwLock<HashSet<TipsetKey>>> = Arc::new(RwLock::new(HashSet::default()));
         // Search back task
-        tokio::task::spawn_blocking({
+        tokio::task::spawn({
             let sm = self.shallow_clone();
             let message = message.shallow_clone();
             // Cloning tx to avoid all senders being dropped to make `search_back_rx.recv_async()` wait
@@ -284,15 +243,16 @@ impl StateManager {
             let search_back_candidate = search_back_candidate.shallow_clone();
             let reverted = reverted.shallow_clone();
             let cancellation_token = cancellation_token.clone();
-            move || {
+            async move {
                 if let Ok(Some((ts, receipt))) = sm
-                    .search_back_for_message_blocking(
+                    .search_back_for_message(
                         current_ts,
-                        &message,
+                        message,
                         look_back_limit,
                         allow_replaced,
-                        &cancellation_token,
+                        cancellation_token,
                     )
+                    .await
                     .inspect_err(|e| {
                         tracing::warn!("failed to search back for message: {e}");
                     })
@@ -410,21 +370,57 @@ impl StateManager {
         if let Some(r) = maybe_message_receipt {
             Ok(Some((from, r)))
         } else {
-            tokio::task::spawn_blocking({
-                let this = self.shallow_clone();
-                let cancellation_token = cancellation_token.clone();
-                move || {
-                    this.search_back_for_message_blocking(
-                        from,
-                        &message,
-                        look_back_limit,
-                        allow_replaced,
-                        &cancellation_token,
-                    )
-                }
-            })
-            .await?
+            self.search_back_for_message(
+                from,
+                Arc::new(message),
+                look_back_limit,
+                allow_replaced,
+                cancellation_token.clone(),
+            )
+            .await
         }
+    }
+
+    /// Searches backwards through the chain for a message receipt. The walk runs
+    /// on the blocking pool and holds a message-search permit until it ends, even
+    /// when orphaned, see [`Self::message_search_concurrency`]. Returns `Ok(None)`
+    /// if cancelled while queued for a permit.
+    async fn search_back_for_message(
+        &self,
+        current: Tipset,
+        message: Arc<ChainMessage>,
+        look_back_limit: Option<ChainEpoch>,
+        allow_replaced: Option<bool>,
+        cancellation_token: CancellationToken,
+    ) -> Result<Option<(Tipset, Receipt)>, Error> {
+        let Some(lookback_max_epoch) =
+            Self::max_lookback_epoch_inclusive(current.epoch(), look_back_limit)
+        else {
+            return Ok(None);
+        };
+        let Some(message_from_id) = self.search_back_sender_id(&current, &message)? else {
+            return Ok(None);
+        };
+        let permit = tokio::select! {
+            biased;
+            _ = cancellation_token.cancelled() => return Ok(None),
+            permit = self.message_search_semaphore.clone().acquire_owned() => {
+                permit.expect("message search semaphore is never closed")
+            }
+        };
+        let this = self.shallow_clone();
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            this.walk_back_for_message_blocking(
+                current,
+                &message,
+                message_from_id,
+                lookback_max_epoch,
+                allow_replaced.unwrap_or(true),
+                &cancellation_token,
+            )
+        })
+        .await?
     }
 }
 
@@ -673,27 +669,7 @@ mod tests {
     #[tokio::test]
     async fn search_finds_executed_message() {
         let db = Arc::new(MemoryDB::default());
-        let message = message_with_nonce(5);
-        let msg_cid = db.put_cbor_default(&message).unwrap();
-
-        let root_before = state_root_with_sender_nonce(&db, 5);
-        let root_after = state_root_with_sender_nonce(&db, 6);
-        let messages = tx_meta(&db, msg_cid);
-        let receipts = receipts_root(&db);
-        let c4u = Chain4U::with_blockstore(db.clone());
-        chain4u! {
-            in c4u;
-            [genesis = HeaderBuilder::new().with_timestamp(7777)]
-            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
-            -> [_e2 = HeaderBuilder::new()
-                    .with_state_root(root_before)
-                    .with_messages(messages)]
-            -> [_e3 = HeaderBuilder::new()
-                    .with_state_root(root_after)
-                    .with_message_receipts(receipts)]
-            -> head @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
-        };
-        let state_manager = state_manager_with_head(db.clone(), genesis, head);
+        let (state_manager, msg_cid) = state_manager_with_message_below_head(&db);
 
         let (tipset, receipt) = state_manager
             .search_for_message(None, msg_cid, None, Some(true), &CancellationToken::new())
@@ -1002,5 +978,151 @@ mod tests {
                 .contains("message confidence exceeds maximum"),
             "{err}"
         );
+    }
+
+    /// Chain where `msg_cid` executed two epochs below the head, so finding it
+    /// requires walking back.
+    fn state_manager_with_message_below_head(db: &Arc<MemoryDB>) -> (StateManager, Cid) {
+        let message = message_with_nonce(5);
+        let msg_cid = db.put_cbor_default(&message).unwrap();
+
+        let root_before = state_root_with_sender_nonce(db, 5);
+        let root_after = state_root_with_sender_nonce(db, 6);
+        let messages = tx_meta(db, msg_cid);
+        let receipts = receipts_root(db);
+        let c4u = Chain4U::with_blockstore(db.clone());
+        chain4u! {
+            in c4u;
+            [genesis = HeaderBuilder::new().with_timestamp(7777)]
+            -> [_e1 = HeaderBuilder::new().with_state_root(root_before)]
+            -> [_e2 = HeaderBuilder::new()
+                    .with_state_root(root_before)
+                    .with_messages(messages)]
+            -> [_e3 = HeaderBuilder::new()
+                    .with_state_root(root_after)
+                    .with_message_receipts(receipts)]
+            -> head @ [_e4 = HeaderBuilder::new().with_state_root(root_after)]
+        };
+        (state_manager_with_head(db.clone(), genesis, head), msg_cid)
+    }
+
+    async fn exhaust_message_search_permits(
+        state_manager: &StateManager,
+    ) -> tokio::sync::OwnedSemaphorePermit {
+        let permits = u32::try_from(StateManager::message_search_concurrency()).unwrap();
+        state_manager
+            .message_search_semaphore
+            .clone()
+            .acquire_many_owned(permits)
+            .await
+            .unwrap()
+    }
+
+    /// Polls `call` while every message-search permit is held, asserting it
+    /// cannot finish, then releases them and returns its output.
+    async fn run_with_permits_released_late<T>(
+        state_manager: &StateManager,
+        call: impl Future<Output = T>,
+    ) -> T {
+        let held = exhaust_message_search_permits(state_manager).await;
+        tokio::pin!(call);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut call)
+                .await
+                .is_err(),
+            "search back must not run without a permit"
+        );
+        drop(held);
+        call.await
+    }
+
+    #[tokio::test]
+    async fn search_for_message_waits_for_a_message_search_permit() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_message_below_head(&db);
+        let cancellation_token = CancellationToken::new();
+
+        let (tipset, _) = run_with_permits_released_late(
+            &state_manager,
+            state_manager.search_for_message(None, msg_cid, None, Some(true), &cancellation_token),
+        )
+        .await
+        .unwrap()
+        .expect("executed message should be found");
+        assert_eq!(tipset.epoch(), 3);
+        assert_eq!(
+            state_manager.message_search_semaphore.available_permits(),
+            StateManager::message_search_concurrency()
+        );
+    }
+
+    #[tokio::test]
+    async fn wait_for_message_waits_for_a_message_search_permit() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_message_below_head(&db);
+        let cancellation_token = CancellationToken::new();
+
+        let (tipset, _) = run_with_permits_released_late(
+            &state_manager,
+            state_manager.wait_for_message(msg_cid, 0, None, Some(true), &cancellation_token),
+        )
+        .await
+        .unwrap();
+        assert_eq!(tipset.epoch(), 3);
+    }
+
+    /// A message the sender's nonce rules out needs no walk, so it is answered
+    /// without waiting behind walks that hold every permit.
+    #[tokio::test]
+    async fn pending_message_search_skips_the_permit_queue() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, _) = state_manager_with_message_below_head(&db);
+        let pending = db.put_cbor_default(&message_with_nonce(6)).unwrap();
+        let _held = exhaust_message_search_permits(&state_manager).await;
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(5),
+            state_manager.search_for_message(
+                None,
+                pending,
+                None,
+                Some(true),
+                &CancellationToken::new(),
+            ),
+        )
+        .await
+        .expect("a pending message must not wait for a permit")
+        .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn search_back_cancelled_while_queued_returns_none() {
+        let db = Arc::new(MemoryDB::default());
+        let (state_manager, msg_cid) = state_manager_with_message_below_head(&db);
+        let message = Arc::new(crate::chain::get_chain_message(&db, &msg_cid).unwrap());
+        let _held = exhaust_message_search_permits(&state_manager).await;
+
+        let cancellation_token = CancellationToken::new();
+        let search = state_manager.search_back_for_message(
+            state_manager.heaviest_tipset(),
+            message,
+            None,
+            None,
+            cancellation_token.clone(),
+        );
+        tokio::pin!(search);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut search)
+                .await
+                .is_err()
+        );
+
+        cancellation_token.cancel();
+        let result = tokio::time::timeout(Duration::from_secs(5), search)
+            .await
+            .expect("cancellation must end the wait for a permit")
+            .unwrap();
+        assert!(result.is_none());
     }
 }
