@@ -208,11 +208,6 @@ pub trait Beacon {
         None
     }
 
-    /// Chain hash identifying the `drand` network, if any.
-    fn chain_hash(&self) -> Option<&str> {
-        None
-    }
-
     /// Fetches `round`, waiting only until that `drand` round is produced (per
     /// [`Self::beacon_round_timestamp`]) rather than until the later Filecoin epoch.
     async fn entry_when_available(&self, round: u64) -> anyhow::Result<BeaconEntry> {
@@ -303,6 +298,11 @@ impl DrandBeacon {
     /// Whether `entry` is the verified entry cached for its round.
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
+    }
+
+    /// Chain hash identifying the `drand` network.
+    pub fn chain_hash(&self) -> &str {
+        &self.hash
     }
 
     /// Whether a verified entry is cached for `round`.
@@ -519,9 +519,5 @@ impl Beacon for DrandBeacon {
             self.drand_gen_time
                 .saturating_add(round.saturating_sub(1).saturating_mul(self.interval)),
         )
-    }
-
-    fn chain_hash(&self) -> Option<&str> {
-        Some(&self.hash)
     }
 }

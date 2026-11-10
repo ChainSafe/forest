@@ -37,7 +37,7 @@ impl DrandGossip {
     /// `None` when the schedule has no unchained beacon, the only kind gossiped.
     pub fn new(schedule: Arc<BeaconSchedule>) -> Option<(Self, DrandGossipListener)> {
         let beacon = schedule.unchained_beacon()?;
-        let topic = TopicHash::from_raw(format!("{PUBSUB_DRAND_STR}/{}", beacon.chain_hash()?));
+        let topic = TopicHash::from_raw(format!("{PUBSUB_DRAND_STR}/{}", beacon.chain_hash()));
         let (rounds_tx, rounds_rx) = flume::bounded(16);
         let (verdicts_tx, verdicts_rx) = flume::unbounded();
 

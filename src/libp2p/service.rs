@@ -743,8 +743,17 @@ pub(in crate::libp2p) async fn handle_gossip_event(
             source,
             data: message,
         };
-        emit_event(&drand.rounds, round).await;
-        return None;
+        return match drand.rounds.try_send(round) {
+            Ok(()) => None,
+            Err(dropped) => {
+                debug!(%source, "drand round dropped, the listener queue is full");
+                Some(Verdict {
+                    message_id: dropped.into_inner().message_id,
+                    source,
+                    acceptance: MessageAcceptance::Ignore,
+                })
+            }
+        };
     }
 
     let topic = message.topic.as_str();
