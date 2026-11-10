@@ -44,9 +44,6 @@ pub mod mainnet;
 
 pub mod metrics;
 
-/// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V29;
-
 /// Placeholder epoch for a network upgrade that has no scheduled height yet.
 pub const UPGRADE_HEIGHT_UNSCHEDULED: ChainEpoch = 999_999_999_999_999;
 const ENV_FOREST_BLOCK_DELAY_SECS: &str = "FOREST_BLOCK_DELAY_SECS";

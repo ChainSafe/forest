@@ -21,7 +21,7 @@ use crate::message_pool::{
     provider::{Provider, ProviderExt},
     utils::get_base_fee_lower_bound,
 };
-use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
@@ -30,6 +30,7 @@ use crate::shim::{
     econ::TokenAmount,
     gas::{Gas, price_list_by_network_version},
     state_tree::ActorState,
+    version::NetworkVersion,
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
@@ -281,7 +282,9 @@ where
     where
         T: Send + Sync + 'static,
     {
-        validate_static(msg)?;
+        // The message can only be included in the next epoch and beyond, hence the +1.
+        let nv_next = self.chain_config.network_version(cur_ts.epoch() + 1);
+        validate_static(msg, nv_next)?;
         validate_signature(msg, &self.caches.sig_val, self.chain_config.eth_chain_id)?;
 
         let expected_sequence = self.get_state_sequence(&msg.from(), cur_ts).await?;
@@ -582,7 +585,7 @@ where
     }
 }
 
-fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
+fn validate_static(msg: &SignedMessage, nv_next: NetworkVersion) -> Result<(), Error> {
     if msg.signed_encoded_len() > MAX_MESSAGE_SIZE {
         return Err(Error::MessageTooBig);
     }
@@ -592,7 +595,7 @@ fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
             "message recipient {to} is a delegated address but not a valid Eth Address"
         ))?;
     }
-    valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
+    valid_for_block_inclusion(msg.message(), Gas::new(0), nv_next)?;
     if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
         return Err(Error::GasFeeCapTooLow);
     }
@@ -642,7 +645,7 @@ fn validate_with_state(
 
     let nv_cur = chain_config.network_version(cur_ts.epoch());
     let min_gas = price_list_by_network_version(nv_cur).on_chain_message(msg.chain_length()?);
-    valid_for_block_inclusion(msg.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
+    valid_for_block_inclusion(msg.message(), min_gas.total(), nv_next)?;
 
     let publish = check_base_fee_floor(msg, cur_ts, local)?;
 
