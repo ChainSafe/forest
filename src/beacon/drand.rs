@@ -208,11 +208,6 @@ pub trait Beacon {
         None
     }
 
-    /// Chain hash identifying the `drand` network, if any.
-    fn chain_hash(&self) -> Option<&str> {
-        None
-    }
-
     /// Fetches `round`, waiting only until that `drand` round is produced (per
     /// [`Self::beacon_round_timestamp`]) rather than until the later Filecoin epoch.
     async fn entry_when_available(&self, round: u64) -> anyhow::Result<BeaconEntry> {
@@ -279,8 +274,6 @@ impl DrandBeacon {
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
         const CACHE_SIZE: NonZeroUsize = nonzero!(1000usize);
-        // Registered eagerly so zero fetches export as 0.
-        LazyLock::force(&metrics::DRAND_HTTP_FETCH_TOTAL);
         Self {
             servers: config.servers.clone(),
             hash: config.chain_info.hash.to_string(),
@@ -526,9 +519,5 @@ impl Beacon for DrandBeacon {
             self.drand_gen_time
                 .saturating_add(round.saturating_sub(1).saturating_mul(self.interval)),
         )
-    }
-
-    fn chain_hash(&self) -> Option<&str> {
-        Some(&self.hash)
     }
 }

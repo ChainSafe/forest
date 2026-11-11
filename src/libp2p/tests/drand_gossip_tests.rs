@@ -22,7 +22,7 @@ use crate::{
     },
     libp2p::{
         Gossipsub, build_gossipsub,
-        drand::{DrandGossipValidator, test_utils::time_of},
+        gossip_params::ExtraTopic,
         pubsub_topics,
         service::{Verdict, handle_gossip_event},
     },
@@ -92,13 +92,9 @@ async fn only_verified_rounds_are_forwarded() {
     .await
     .expect("drand topic mesh never formed");
 
-    let (events_tx, events) = flume::unbounded();
-    let validator = DrandGossipValidator::with_max_verifications(schedule.clone(), events_tx, 4);
-    let now = time_of(&schedule, EPOCH_ROUND);
-
     // Forged first, so if forwarded it would arrive before the valid one.
-    let forged = drand.to_protobuf_raw(EPOCH_ROUND, drand.entry(EPOCH_ROUND + 1).signature());
-    let valid = drand.to_protobuf(EPOCH_ROUND);
+    let forged = FakeDrandSigner::encode_raw(EPOCH_ROUND, drand.entry(EPOCH_ROUND + 1).signature());
+    let valid = drand.encode(EPOCH_ROUND);
     relay
         .behaviour_mut()
         .publish(topic.clone(), forged)
@@ -116,9 +112,10 @@ async fn only_verified_rounds_are_forwarded() {
                 _ = relay.select_next_some() => {}
                 ev = node.select_next_some() => {
                     if let SwarmEvent::Behaviour(gossipsub::Event::Message {
-                        propagation_source, message_id, message,
+                        propagation_source: source, message_id, message,
                     }) = ev {
-                        validator.handle(&message.data, message_id, propagation_source, now);
+                        let round = Round { message_id, source, data: message.data };
+                        gossip.rounds.try_send(round).unwrap();
                     }
                 }
                 ev = observer.select_next_some() => {

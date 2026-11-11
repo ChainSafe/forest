@@ -89,10 +89,6 @@ impl FakeDrandSigner {
     pub fn chain_info_hash(&self) -> String {
         self.config.chain_info.hash.to_string()
     }
-
-    pub fn chain_info_hash(&self) -> String {
-        self.config.chain_info.hash.to_string()
-    }
 }
 
 // Two consecutive `quicknet` rounds captured from drand's `api.drand.sh` relay over gossipsub

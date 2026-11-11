@@ -4,7 +4,8 @@
 use std::time::Duration;
 
 use libp2p::gossipsub::{
-    IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams, score_parameter_decay,
+    IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicHash, TopicScoreParams,
+    score_parameter_decay,
 };
 
 use strum::IntoEnumIterator as _;
@@ -16,6 +17,15 @@ use crate::{libp2p::PubsubTopic, networks::GenesisNetworkName};
 pub(in crate::libp2p) struct ExtraTopic {
     pub(in crate::libp2p) topic: IdentTopic,
     pub(in crate::libp2p) score: TopicScoreParams,
+}
+
+impl ExtraTopic {
+    pub(in crate::libp2p) fn drand(topic: &TopicHash) -> Self {
+        Self {
+            topic: IdentTopic::new(topic.as_str()),
+            score: build_drand_topic_config(),
+        }
+    }
 }
 
 // All these parameters are copied from what Lotus has set for their Topic
@@ -84,6 +94,35 @@ fn build_block_topic_config() -> TopicScoreParams {
         // invalid messages decay after 1 hour
         invalid_message_deliveries_weight: -1000.0,
         invalid_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
+    }
+}
+
+/// Same as Lotus: <https://github.com/filecoin-project/lotus/blob/d5e6eb3c28aa1630b3fe97b06dbf3cc9f30772a1/node/modules/lp2p/pubsub.go#L119>.
+fn build_drand_topic_config() -> TopicScoreParams {
+    TopicScoreParams {
+        // 5x the block topic, as in Lotus
+        topic_weight: 0.5,
+
+        time_in_mesh_weight: 0.00027,
+        time_in_mesh_quantum: Duration::from_secs(1),
+        time_in_mesh_cap: 1.0,
+
+        first_message_deliveries_weight: 5.0,
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_hours(1)),
+        first_message_deliveries_cap: 25.0,
+
+        // Disabled, as in Lotus: it pruned peers without their own beacon source.
+        mesh_message_deliveries_weight: 0.0,
+        mesh_message_deliveries_decay: 0.0,
+        mesh_message_deliveries_cap: 0.0,
+        mesh_message_deliveries_threshold: 0.0,
+        mesh_message_deliveries_window: Duration::from_millis(0),
+        mesh_message_deliveries_activation: Duration::from_millis(0),
+        mesh_failure_penalty_weight: 0.0,
+        mesh_failure_penalty_decay: 0.0,
+
+        invalid_message_deliveries_weight: -1000.0,
+        invalid_message_deliveries_decay: score_parameter_decay(Duration::from_hours(1)),
     }
 }
 

@@ -211,7 +211,10 @@ impl Libp2pService {
         genesis_cid: Cid,
         drand: Option<DrandGossip>,
     ) -> anyhow::Result<Self> {
-        let extra_topics: Vec<ExtraTopic> = drand.iter().map(DrandGossip::extra_topic).collect();
+        let extra_topics: Vec<ExtraTopic> = drand
+            .iter()
+            .map(|drand| ExtraTopic::drand(&drand.topic))
+            .collect();
         let behaviour = ForestBehaviour::new(
             &net_keypair,
             &config,
@@ -765,8 +768,6 @@ pub(in crate::libp2p) async fn handle_gossip_event(
         };
     }
 
-    let topic = message.topic.as_str();
-    let message = message.data;
     let acceptance = if topic == pubsub_block_str {
         match from_slice_with_fallback::<GossipBlock>(&message) {
             Ok(b) => {
