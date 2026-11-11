@@ -5,17 +5,15 @@ mod metrics;
 
 use std::sync::Arc;
 
-use ahash::HashMap;
 use libp2p::{
-    Multiaddr, PeerId,
+    PeerId,
     gossipsub::{MessageAcceptance, MessageId, TopicHash},
-    multiaddr::Protocol,
 };
 use quick_protobuf::{BytesReader, MessageRead as _};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::{Beacon as _, BeaconEntry, BeaconSchedule, PublicRandResponse};
-use crate::libp2p::{Verdict, discovery::resolve_libp2p_dnsaddr};
+use crate::libp2p::Verdict;
 use metrics::Reason;
 
 /// `gossipsub` topic prefix of a `drand` network, followed by its chain hash.
@@ -31,22 +29,13 @@ pub(crate) struct Round {
 /// The network service's end of the `drand` listener: rounds go in, verdicts come back.
 pub struct DrandGossip {
     pub(crate) topic: TopicHash,
-    pub(crate) relays: HashMap<PeerId, Multiaddr>,
     pub(crate) rounds: flume::Sender<Round>,
     pub(crate) verdicts: flume::Receiver<Verdict>,
 }
 
 impl DrandGossip {
     /// `None` when the schedule has no unchained beacon, the only kind gossiped.
-    pub async fn new(schedule: Arc<BeaconSchedule>) -> Option<(Self, DrandGossipListener)> {
-        let relays = resolve_relays(schedule.unchained_beacon()?.relays()).await;
-        Self::with_relays(schedule, relays)
-    }
-
-    fn with_relays(
-        schedule: Arc<BeaconSchedule>,
-        relays: HashMap<PeerId, Multiaddr>,
-    ) -> Option<(Self, DrandGossipListener)> {
+    pub fn new(schedule: Arc<BeaconSchedule>) -> Option<(Self, DrandGossipListener)> {
         let beacon = schedule.unchained_beacon()?;
         let topic = TopicHash::from_raw(format!("{PUBSUB_DRAND_STR}/{}", beacon.chain_hash()));
         let (rounds_tx, rounds_rx) = flume::bounded(16);
@@ -54,7 +43,6 @@ impl DrandGossip {
 
         let gossip = Self {
             topic,
-            relays,
             rounds: rounds_tx,
             verdicts: verdicts_rx,
         };
@@ -66,28 +54,6 @@ impl DrandGossip {
         };
         Some((gossip, listener))
     }
-}
-
-/// Resolves the relays, skipping failures: HTTP is the fallback.
-async fn resolve_relays(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
-    let mut relays = HashMap::default();
-    for addr in addrs {
-        if let Some(Protocol::Dnsaddr(name)) = addr.iter().next() {
-            match resolve_libp2p_dnsaddr(&name).await {
-                Ok(resolved) => relays.extend(
-                    resolved
-                        .into_iter()
-                        .map(|(peer, addr)| (peer, addr.with(Protocol::P2p(peer)))),
-                ),
-                Err(e) => warn!("failed to resolve drand relay {addr}: {e:#}"),
-            }
-        } else if let Some(Protocol::P2p(peer)) = addr.iter().last() {
-            relays.insert(peer, addr.clone());
-        } else {
-            warn!("ignoring drand relay {addr}: no peer id");
-        }
-    }
-    relays
 }
 
 /// Verifies the rounds gossiped on the unchained beacon's topic. Only malformed payloads and bad
@@ -212,7 +178,7 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     fn listener(schedule: &Arc<BeaconSchedule>) -> DrandGossipListener {
-        DrandGossip::with_relays(schedule.clone(), HashMap::default())
+        DrandGossip::new(schedule.clone())
             .expect("unchained beacon")
             .1
     }

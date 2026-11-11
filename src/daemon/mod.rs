@@ -304,12 +304,15 @@ async fn create_p2p_service(
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     // The state manager's schedule, so gossiped entries fill the cache block validation reads.
-    let drand_gossip = DrandGossip::new(ctx.state_manager.beacon_schedule().clone())
-        .await
-        .map(|(gossip, listener)| {
-            services.spawn(listener.run());
-            gossip
-        });
+    let schedule = ctx.state_manager.beacon_schedule();
+    let drand_gossip = DrandGossip::new(schedule.clone()).map(|(gossip, listener)| {
+        services.spawn(listener.run());
+        gossip
+    });
+    let drand_relays = schedule
+        .unchained_beacon()
+        .map(|beacon| beacon.relays())
+        .unwrap_or_default();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -319,6 +322,7 @@ async fn create_p2p_service(
         config.chain.genesis_name(),
         *ctx.state_manager.chain_store().genesis_block_header().cid(),
         drand_gossip,
+        drand_relays,
     )
     .await?;
     Ok(p2p_service)

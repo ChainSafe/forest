@@ -38,7 +38,7 @@ use super::{
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
     chain_exchange::{ChainExchangeRequest, ChainExchangeResponse, make_chain_exchange_response},
     connection_manager::{ConnectionManager, PeerValue},
-    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
+    discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo, resolve_relays},
     gossip_params::ExtraTopic,
 };
 use crate::beacon::gossipsub::{DrandGossip, Round};
@@ -190,6 +190,7 @@ pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
     drand: Option<DrandGossip>,
+    drand_relays: HashMap<PeerId, Multiaddr>,
     connection_manager: ConnectionManager,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
@@ -202,6 +203,7 @@ pub struct Libp2pService {
 }
 
 impl Libp2pService {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         config: Libp2pConfig,
         cs: ChainStore,
@@ -210,6 +212,7 @@ impl Libp2pService {
         network_name: GenesisNetworkName,
         genesis_cid: Cid,
         drand: Option<DrandGossip>,
+        drand_relays: &[Multiaddr],
     ) -> anyhow::Result<Self> {
         let extra_topics: Vec<ExtraTopic> = drand
             .iter()
@@ -293,6 +296,7 @@ impl Libp2pService {
             swarm,
             bootstrap_peers,
             drand,
+            drand_relays: resolve_relays(drand_relays).await,
             connection_manager: ConnectionManager::new(config.target_peer_count),
             cs,
             peer_manager,
@@ -316,15 +320,13 @@ impl Libp2pService {
         }
 
         // Relays never speak hello. Connect them now rather than on the first re-dial tick.
-        if let Some(drand) = &self.drand {
-            for peer in drand.relays.keys() {
-                self.swarm
-                    .behaviour_mut()
-                    .hello
-                    .exempt_from_inbound_timeout(*peer);
-            }
-            dial_peers_if_needed(&mut self.swarm, &drand.relays, "drand relay");
+        for peer in self.drand_relays.keys() {
+            self.swarm
+                .behaviour_mut()
+                .hello
+                .exempt_from_inbound_timeout(*peer);
         }
+        dial_peers_if_needed(&mut self.swarm, &self.drand_relays, "drand relay");
         let mut drand_verdicts = match &self.drand {
             Some(drand) => drand.verdicts.clone().into_stream().left_stream(),
             None => futures::stream::pending().right_stream(),
@@ -381,7 +383,7 @@ impl Libp2pService {
                             cx_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,
-                            self.drand.as_ref()).await;
+                            self.drand.as_ref(), &self.drand_relays).await;
                     },
                     Some(SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. }) => {
                         self.connection_manager.on_connection_established(peer_id, endpoint.is_dialer(), Instant::now());
@@ -437,9 +439,7 @@ impl Libp2pService {
                 },
                 _ = bootstrap_peer_dialer_interval_stream.next() => {
                     dial_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers, "bootstrap");
-                    if let Some(drand) = &self.drand {
-                        dial_peers_if_needed(swarm_stream.get_mut(), &drand.relays, "drand relay");
-                    }
+                    dial_peers_if_needed(swarm_stream.get_mut(), &self.drand_relays, "drand relay");
                 }
                 verdict = drand_verdicts.next() => {
                     if let Some(Verdict { message_id, source, acceptance }) = verdict {
@@ -691,10 +691,10 @@ async fn handle_discovery_event(
     discovery_out: DiscoveryEvent,
     network_sender_out: &Sender<NetworkEvent>,
     peer_manager: &PeerManager,
-    drand: Option<&DrandGossip>,
+    drand_relays: &HashMap<PeerId, Multiaddr>,
 ) {
     // `drand` relays are not Filecoin peers: no hello, no chain sync, no protocol bans.
-    let is_drand_relay = |peer: &PeerId| drand.is_some_and(|d| d.relays.contains_key(peer));
+    let is_drand_relay = |peer: &PeerId| drand_relays.contains_key(peer);
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
             trace!("Peer connected, {peer_id}");
@@ -1050,6 +1050,7 @@ async fn handle_forest_behaviour_event(
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
     drand: Option<&DrandGossip>,
+    drand_relays: &HashMap<PeerId, Multiaddr>,
 ) {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
@@ -1058,7 +1059,7 @@ async fn handle_forest_behaviour_event(
                 discovery_out,
                 network_sender_out,
                 peer_manager,
-                drand,
+                drand_relays,
             )
             .await
         }

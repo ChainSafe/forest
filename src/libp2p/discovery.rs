@@ -547,9 +547,31 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 }
 
+/// Resolves the relays, skipping failures: HTTP is the fallback.
+pub(in crate::libp2p) async fn resolve_relays(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
+    let mut relays = HashMap::default();
+    for addr in addrs {
+        if let Some(Protocol::Dnsaddr(name)) = addr.iter().next() {
+            match resolve_libp2p_dnsaddr(&name).await {
+                Ok(resolved) => relays.extend(
+                    resolved
+                        .into_iter()
+                        .map(|(peer, addr)| (peer, addr.with(Protocol::P2p(peer)))),
+                ),
+                Err(e) => warn!("failed to resolve drand relay {addr}: {e:#}"),
+            }
+        } else if let Some(Protocol::P2p(peer)) = addr.iter().last() {
+            relays.insert(peer, addr.clone());
+        } else {
+            warn!("ignoring drand relay {addr}: no peer id");
+        }
+    }
+    relays
+}
+
 // Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of
 // the async API and does not work inside another tokio runtime
-pub(crate) async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
+async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
     let resolver = hickory_resolver::TokioResolver::builder_tokio()?.build();
 
     let name = ["_dnsaddr.", name].concat();
