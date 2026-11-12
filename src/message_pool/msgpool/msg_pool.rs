@@ -21,15 +21,16 @@ use crate::message_pool::{
     provider::{Provider, ProviderExt},
     utils::get_base_fee_lower_bound,
 };
-use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use crate::networks::ChainConfig;
 use crate::prelude::*;
 use crate::rpc::eth::types::EthAddress;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
-    gas::{Gas, price_list_by_network_version},
+    gas::Gas,
     state_tree::ActorState,
+    version::NetworkVersion,
 };
 use crate::state_manager::IdToAddressCache;
 use crate::state_manager::utils::is_valid_for_sending;
@@ -281,7 +282,9 @@ where
     where
         T: Send + Sync + 'static,
     {
-        validate_static(msg)?;
+        // The message can only be included in the next epoch and beyond, hence the +1.
+        let nv_next = self.chain_config.network_version(cur_ts.epoch() + 1);
+        validate_static(msg, nv_next)?;
         validate_signature(msg, &self.caches.sig_val, self.chain_config.eth_chain_id)?;
 
         let expected_sequence = self.get_state_sequence(&msg.from(), cur_ts).await?;
@@ -582,7 +585,7 @@ where
     }
 }
 
-fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
+fn validate_static(msg: &SignedMessage, nv_next: NetworkVersion) -> Result<(), Error> {
     if msg.signed_encoded_len() > MAX_MESSAGE_SIZE {
         return Err(Error::MessageTooBig);
     }
@@ -592,7 +595,7 @@ fn validate_static(msg: &SignedMessage) -> Result<(), Error> {
             "message recipient {to} is a delegated address but not a valid Eth Address"
         ))?;
     }
-    valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
+    valid_for_block_inclusion(msg.message(), Gas::new(0), nv_next)?;
     if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
         return Err(Error::GasFeeCapTooLow);
     }
@@ -627,8 +630,8 @@ fn validate_with_state(
         return Err(Error::SequenceTooLow);
     }
 
-    // The message can only be included in the next epoch and beyond, hence the +1.
-    let nv_next = chain_config.network_version(cur_ts.epoch() + 1);
+    let next_epoch = cur_ts.epoch() + 1;
+    let nv_next = chain_config.network_version(next_epoch);
     if msg.is_delegated() && !is_valid_eth_tx_for_sending(chain_config.eth_chain_id, nv_next, msg) {
         return Err(Error::Other(
             "Invalid Ethereum message for the current network version".to_owned(),
@@ -640,9 +643,10 @@ fn validate_with_state(
         ));
     }
 
-    let nv_cur = chain_config.network_version(cur_ts.epoch());
-    let min_gas = price_list_by_network_version(nv_cur).on_chain_message(msg.chain_length()?);
-    valid_for_block_inclusion(msg.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
+    let min_gas = chain_config
+        .price_list(next_epoch)
+        .on_chain_message(msg.chain_length()?);
+    valid_for_block_inclusion(msg.message(), min_gas.total(), nv_next)?;
 
     let publish = check_base_fee_floor(msg, cur_ts, local)?;
 
@@ -686,9 +690,11 @@ mod tests {
     use crate::blocks::RawBlockHeader;
     use crate::chain::ChainStore;
     use crate::db::{DbImpl, MemoryDB};
+    use crate::message_pool::msgpool::tests::message_at_gas_floor;
     use crate::message_pool::provider::Provider;
     use crate::message_pool::test_provider::TestApi;
-    use crate::networks::ChainConfig;
+    use crate::networks::{ChainConfig, Height};
+    use crate::shim::clock::ChainEpoch;
     use crate::shim::econ::TokenAmount;
     use crate::shim::state_tree::{ActorState, StateTree, StateTreeVersion};
     use crate::test_utils::dummy_ticket;
@@ -1055,5 +1061,39 @@ mod tests {
         // f0400 exists only in head state (root_b), not in lookback → fails.
         Provider::resolve_to_deterministic_address_at_finality(&cs, &Address::new_id(400), &head)
             .expect_err("actor only in head state must not resolve via finality lookback");
+    }
+
+    /// Lotus prices the admission gas floor at
+    /// [`PricelistByEpoch(head + 1)`](https://github.com/filecoin-project/lotus/blob/a277be4961eb217bd1586c1c9630cda2e33dde08/chain/messagepool/messagepool.go#L654-L655),
+    /// so the [`Height::Hygge`] prices apply from the epoch right before that upgrade.
+    #[rstest::rstest]
+    #[case::two_epochs_before_hygge(2, true)]
+    #[case::one_epoch_before_hygge(1, false)]
+    fn admission_gas_floor_switches_at_upgrade_epoch(
+        #[case] epochs_before_hygge: ChainEpoch,
+        #[case] pre_hygge_floor_accepted: bool,
+    ) {
+        let chain_config = ChainConfig::calibnet();
+        let hygge = chain_config.epoch(Height::Hygge);
+        let from = Address::new_id(1000);
+        let pre_hygge_msg = message_at_gas_floor(from, &chain_config.price_list(hygge - 2));
+        let hygge_msg = message_at_gas_floor(from, &chain_config.price_list(hygge));
+
+        let cur_ts = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            epoch: hygge - epochs_before_hygge,
+            ..Default::default()
+        }));
+        let sender = ActorState::new(
+            crate::test_utils::account_actor_code(),
+            Cid::default(),
+            TokenAmount::from_whole(1),
+            0,
+            None,
+        );
+        let validate = |msg| validate_with_state(msg, &chain_config, &cur_ts, &sender, 0, true);
+
+        validate(&hygge_msg).unwrap();
+        assert_eq!(validate(&pre_hygge_msg).is_ok(), pre_hygge_floor_accepted);
     }
 }
