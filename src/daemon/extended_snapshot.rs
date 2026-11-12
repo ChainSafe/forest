@@ -436,7 +436,13 @@ mod test {
         let snapshot_url = serve_extended_snapshot(metadata, car).await;
 
         let temp_dir = tempfile::tempdir().unwrap();
-        maybe_import_extended_snapshots(&sm, &head, &snapshot_url, temp_dir.path()).await;
+        maybe_import_extended_snapshots(
+            &sm,
+            &head,
+            &SnapshotImportPath::Url(snapshot_url),
+            temp_dir.path(),
+        )
+        .await;
 
         assert_eq!(
             sm.chain_store().get_mapping(&hash).unwrap(),
@@ -455,7 +461,13 @@ mod test {
         let snapshot_url = serve_extended_snapshot(metadata, car).await;
 
         let temp_dir = tempfile::tempdir().unwrap();
-        maybe_import_extended_snapshots(&sm, &head, &snapshot_url, temp_dir.path()).await;
+        maybe_import_extended_snapshots(
+            &sm,
+            &head,
+            &SnapshotImportPath::Url(snapshot_url),
+            temp_dir.path(),
+        )
+        .await;
 
         assert_eq!(sm.chain_store().get_mapping(&hash).unwrap(), None);
     }
