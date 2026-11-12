@@ -27,7 +27,7 @@
 
 ### Breaking
 
-- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): `eth_call`, `eth_estimateGas` and `trace_call` reject `value`, `gasPrice` and `maxFeePerGas` that are not canonical quantities: `0x`-prefixed hex, at most 256 bits, no leading zeros (`0x0` for zero). Previously `0x01` and unprefixed hex were accepted.
+- [#7870](https://github.com/ChainSafe/forest/pull/7870): `eth_call`, `eth_estimateGas` and `trace_call` reject `value`, `gasPrice` and `maxFeePerGas` that are not canonical quantities: `0x`-prefixed hex, at most 256 bits, no leading zeros (`0x0` for zero). Previously `0x01` and unprefixed hex were accepted.
 
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): A devnet refuses to start when a `FOREST_*_HEIGHT` variable is not an integer or the enabled upgrades are not in increasing order, matching Lotus. Previously a bad height fell back to the default.
 
