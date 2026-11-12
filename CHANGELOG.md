@@ -39,7 +39,7 @@
 
 ### Changed
 
-- [#XXXX](https://github.com/ChainSafe/forest/pull/XXXX): Drand HTTP requests contains `User-Agent` headers defined as `drand-client-forest/<version>`.
+- [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand HTTP requests contains `User-Agent` headers defined as `drand-client-forest/<version>`.
 
 - [#7850](https://github.com/ChainSafe/forest/pull/7850): `Filecoin.StateGetNetworkParams` now reports `UpgradeXxHeight` (NV30), matching Lotus v1.39.0. The upgrade is not scheduled on any network yet.
 
