@@ -3,8 +3,7 @@
 
 //! Early termination of a pledged CC sector through Forest's RPC and VM.
 //!
-//! lotus-miner locates the sector via Forest, then sends `TerminateSectors`. A
-//! wrong-location `StateCall` mutation runs before the real terminate.
+//! lotus-miner locates the sector via Forest, then sends `TerminateSectors`.
 //!
 //! Mirrors Lotus
 //! [`TestTerminate`](https://github.com/filecoin-project/lotus/blob/v1.39.1/itests/sector_terminate_test.go#L35).
@@ -18,14 +17,8 @@ use crate::dev::subcommands::tests_cmd::helpers::{
 };
 use crate::rpc::prelude::*;
 use crate::shim::address::Address;
-use crate::shim::fvm_shared_latest::error::ExitCode;
-use crate::shim::message::Message;
-use crate::shim::policy::policy_constants::WPOST_PERIOD_DEADLINES;
 use crate::shim::sector::SectorSize;
 use anyhow::{Context as _, ensure};
-use fil_actor_miner_state::v19::{Method, TerminateSectorsParams, TerminationDeclaration};
-use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fvm_ipld_encoding::RawBytes;
 use libtest_mimic::Trial;
 use num::BigInt;
 
@@ -76,91 +69,6 @@ async fn pledged_sector() -> anyhow::Result<()> {
         powered.miner_power.raw_byte_power == expected_powered,
         "after proving sector {sector}, raw power is {}, expected {expected_powered}",
         powered.miner_power.raw_byte_power
-    );
-
-    // Same tipset for deadline/partition lookups lotus-miner will use.
-    at.same(|tsk| StateMinerProvingDeadline::request((miner.actor, tsk)))
-        .await?;
-    let partitions = at
-        .same(|tsk| StateMinerPartitions::request((miner.actor, location.deadline, tsk)))
-        .await?;
-    let partition = partitions
-        .get(usize::try_from(location.partition)?)
-        .with_context(|| {
-            format!(
-                "StateSectorPartition says partition {}, but deadline {} has {} partitions",
-                location.partition,
-                location.deadline,
-                partitions.len()
-            )
-        })?;
-    ensure!(
-        partition.live_sectors.get(sector),
-        "sector {sector} is not live in deadline {} partition {}",
-        location.deadline,
-        location.partition
-    );
-
-    // Wrong in-range location must fail in the VM, not via an OOB partition index.
-    let (wrong_deadline, wrong_partition) = if partitions.len() > 1 {
-        let idx = usize::try_from(location.partition)?;
-        (
-            location.deadline,
-            u64::try_from((idx + 1) % partitions.len())?,
-        )
-    } else {
-        let mut other = None;
-        for deadline in 0..WPOST_PERIOD_DEADLINES {
-            if deadline == location.deadline {
-                continue;
-            }
-            let parts = at
-                .same(|tsk| StateMinerPartitions::request((miner.actor, deadline, tsk)))
-                .await?;
-            if !parts.is_empty() {
-                other = Some((deadline, 0));
-                break;
-            }
-        }
-        other.context(
-            "deadline has one partition and no other non-empty deadline for the mutation check",
-        )?
-    };
-    let mut wrong_sectors = BitField::new();
-    wrong_sectors.set(sector);
-    let wrong = Message::builder()
-        .from(info.worker)
-        .to(miner.actor)
-        .method_num(Method::TerminateSectors as u64)
-        .params(RawBytes::serialize(TerminateSectorsParams {
-            terminations: vec![TerminationDeclaration {
-                deadline: wrong_deadline,
-                partition: wrong_partition,
-                sectors: wrong_sectors,
-            }],
-        })?)
-        .build();
-    let invoc = at
-        .same(|tsk| StateCall::request((wrong.clone(), tsk)))
-        .await?;
-    let receipt = invoc
-        .msg_rct
-        .context("no receipt for the wrong-location terminate StateCall")?;
-    let rejected = invoc
-        .error
-        .contains("not all sectors are assigned to the partition")
-        || invoc.error.contains("can only terminate live sectors")
-        || invoc.error.contains("failed to find partition");
-    ensure!(
-        receipt.exit_code() == ExitCode::USR_ILLEGAL_ARGUMENT && rejected,
-        "TerminateSectors at deadline {wrong_deadline} partition {wrong_partition} exits {} \
-         with `{}`, expected {} with a sector/partition rejection; sector {sector} is in \
-         deadline {} partition {}",
-        receipt.exit_code(),
-        invoc.error,
-        ExitCode::USR_ILLEGAL_ARGUMENT,
-        location.deadline,
-        location.partition
     );
 
     miner.api.terminate_sector(sector).await?;

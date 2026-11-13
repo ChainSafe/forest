@@ -184,9 +184,12 @@ impl MinerApi {
                     SectorState::Terminating => {
                         if terminate_cid.lock().is_none() {
                             let pending = self.terminate_pending().await?;
+                            if pending.is_empty() {
+                                return Ok(None);
+                            }
                             ensure!(
-                                pending.contains(&sector),
-                                "sector {sector} is Terminating but not in SectorTerminatePending ({pending:?})"
+                                pending.as_slice() == [sector],
+                                "SectorTerminatePending is {pending:?}, expected exactly [{sector}]"
                             );
                             if let Some(cid) = self.terminate_flush().await? {
                                 eprintln!("terminate message: {cid}");
