@@ -34,12 +34,6 @@ impl<K: Eq + Hash> KeyedLock<K> {
         mutex.lock_owned().await
     }
 
-    /// `true` when the lock for `key` is held or contended (`Arc` cloned by a waiter/holder).
-    pub(crate) fn is_held(&self, key: &K) -> bool {
-        let map = self.inner.lock();
-        map.get(key).is_some_and(|v| Arc::strong_count(v) > 1)
-    }
-
     #[cfg(test)]
     fn len(&self) -> usize {
         self.inner.lock().len()
@@ -100,6 +94,42 @@ mod tests {
         let _ = release_first_tx.send(());
         t1.await.unwrap();
         t2.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_take_lock_different_keys_in_parallel() {
+        let locker = Arc::new(KeyedLock::default());
+        let key_a = Address::new_id(1);
+        let key_b = Address::new_id(2);
+
+        let (a_acquired_tx, a_acquired_rx) = oneshot::channel();
+        let (release_a_tx, release_a_rx) = oneshot::channel();
+        let (b_acquired_tx, b_acquired_rx) = oneshot::channel();
+
+        let locker_a = locker.clone();
+        let t_a = tokio::spawn(async move {
+            let _guard = locker_a.take_lock(key_a).await;
+            let _ = a_acquired_tx.send(());
+            let _ = release_a_rx.await;
+        });
+
+        a_acquired_rx.await.unwrap();
+
+        let locker_b = locker.clone();
+        let t_b = tokio::spawn(async move {
+            let _guard = locker_b.take_lock(key_b).await;
+            let _ = b_acquired_tx.send(());
+        });
+
+        // Key B must acquire while key A is still held.
+        timeout(Duration::from_millis(50), b_acquired_rx)
+            .await
+            .expect("timeout waiting for different-key lock")
+            .expect("task holding key B dropped before sending");
+
+        let _ = release_a_tx.send(());
+        t_a.await.unwrap();
+        t_b.await.unwrap();
     }
 
     #[tokio::test]
