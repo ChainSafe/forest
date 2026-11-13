@@ -165,13 +165,16 @@ impl MinerApi {
         Ok(pending.into_iter().map(|s| s.number).collect())
     }
 
-    /// After [`Self::terminate_sector`], flushes the terminate batch and waits until `sector` is
-    /// `TerminateFinality`. Returns the `TerminateSectors` message CID.
+    /// After [`Self::terminate_sector`], waits until `sector` is `TerminateWait`,
+    /// `TerminateFinality`, or `Removed`, flushing the terminate batch once while
+    /// `Terminating`; a failed terminate exit fails at once. Returns the
+    /// `TerminateSectors` message CID.
     pub async fn wait_until_terminated(&self, sector: u64) -> anyhow::Result<Cid> {
         let last_state = AtomicU8::new(u8::MAX);
-        let terminate_cid = std::sync::Mutex::new(None::<Cid>);
+        // Lotus `msgTriggerred`: once-only flush latch via the captured CID.
+        let terminate_cid = parking_lot::Mutex::new(None::<Cid>);
         let waited = poll(
-            &format!("sector {sector} to reach TerminateFinality"),
+            &format!("sector {sector} terminate success"),
             || async {
                 let status = self.sectors_status(sector).await?;
                 if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
@@ -179,41 +182,40 @@ impl MinerApi {
                 }
                 match status.state {
                     SectorState::Terminating => {
-                        let pending = self.terminate_pending().await?;
-                        ensure!(
-                            pending.contains(&sector),
-                            "sector {sector} is Terminating but not in SectorTerminatePending ({pending:?})"
-                        );
-                        if let Some(cid) = self.terminate_flush().await? {
-                            eprintln!("terminate message: {cid}");
-                            *terminate_cid.lock().expect("terminate_cid lock") = Some(cid);
+                        if terminate_cid.lock().is_none() {
                             let pending = self.terminate_pending().await?;
                             ensure!(
-                                !pending.contains(&sector),
-                                "sector {sector} still pending after terminate flush: {pending:?}"
+                                pending.contains(&sector),
+                                "sector {sector} is Terminating but not in SectorTerminatePending ({pending:?})"
                             );
+                            if let Some(cid) = self.terminate_flush().await? {
+                                eprintln!("terminate message: {cid}");
+                                *terminate_cid.lock() = Some(cid);
+                                let pending = self.terminate_pending().await?;
+                                ensure!(
+                                    pending.is_empty(),
+                                    "SectorTerminatePending not empty after flush: {pending:?}"
+                                );
+                            }
                         }
                         Ok(None)
                     }
-                    SectorState::TerminateWait => Ok(None),
-                    SectorState::TerminateFinality => {
-                        let cid = terminate_cid
-                            .lock()
-                            .expect("terminate_cid lock")
-                            .clone()
-                            .with_context(|| {
-                                format!(
-                                    "sector {sector} reached TerminateFinality without a terminate message CID"
-                                )
-                            })?;
+                    SectorState::TerminateWait
+                    | SectorState::TerminateFinality
+                    | SectorState::Removed => {
+                        let cid = terminate_cid.lock().ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "sector {sector} reached {:?} without a terminate message CID",
+                                status.state
+                            )
+                        })?;
                         Ok(Some(cid))
                     }
                     SectorState::TerminateFailed
                     | SectorState::Removing
                     | SectorState::RemoveFailed
-                    | SectorState::Removed
                     | SectorState::FailedUnrecoverable => bail!(
-                        "sector {sector} reached {:?}, which never leads to TerminateFinality",
+                        "sector {sector} reached {:?}, which is not a successful terminate exit",
                         status.state
                     ),
                     _ => Ok(None),
@@ -221,29 +223,27 @@ impl MinerApi {
             },
         )
         .await;
-        match waited {
-            Ok(cid) => Ok(cid),
-            Err(e) => {
-                let Ok(status) = self.sectors_status(sector).await else {
-                    return Err(e);
-                };
-                let log = status
-                    .log
-                    .iter()
-                    .map(|l| {
-                        if l.trace.is_empty() {
-                            format!("{} {}", l.kind, l.message)
-                        } else {
-                            format!("{} {}\n{}", l.kind, l.message, l.trace)
-                        }
-                    })
-                    .join("\n");
-                Err(e.context(format!(
-                    "sector {sector} is in {:?}\nsector log:\n{log}",
-                    status.state
-                )))
-            }
-        }
+        let Err(e) = waited else {
+            return waited;
+        };
+        let Ok(status) = self.sectors_status(sector).await else {
+            return Err(e);
+        };
+        let log = status
+            .log
+            .iter()
+            .map(|l| {
+                if l.trace.is_empty() {
+                    format!("{} {}", l.kind, l.message)
+                } else {
+                    format!("{} {}\n{}", l.kind, l.message, l.trace)
+                }
+            })
+            .join("\n");
+        Err(e.context(format!(
+            "sector {sector} is in {:?}\nsector log:\n{log}",
+            status.state
+        )))
     }
 }
 
