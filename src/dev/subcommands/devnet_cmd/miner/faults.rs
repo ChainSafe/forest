@@ -125,7 +125,7 @@ async fn declare_recovery<'a>(
     Ok(at)
 }
 
-/// Power after a `WindowPoSt`` for `index` activates the sector. One missed challenge is retried.
+/// Power after a `WindowPoSt` for `index` activates the sector. One missed challenge is retried.
 async fn activated_power(
     net: &Devnet,
     miner: Address,
