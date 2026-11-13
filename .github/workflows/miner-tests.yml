@@ -84,7 +84,8 @@ jobs:
       fail-fast: false
       matrix:
         # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
-        group: [onboarding, wdpost, faults]
+        # `faults` needs multi-period waits (~hours); omit until WPoSt is shortened.
+        group: [onboarding, wdpost]
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
