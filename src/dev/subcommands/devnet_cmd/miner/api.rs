@@ -5,10 +5,12 @@
 //! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
 
 use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
+use crate::lotus_json::LotusJson;
 use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
 use crate::utils::UrlFromMultiAddr;
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
+use cid::Cid;
 use itertools::Itertools as _;
 use serde::Deserialize;
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -138,6 +140,110 @@ impl MinerApi {
             "sector {sector} is in {:?}\nsector log:\n{log}",
             status.state
         )))
+    }
+
+    /// Queues `sector` for early termination.
+    pub async fn terminate_sector(&self, sector: u64) -> anyhow::Result<()> {
+        self.call::<IgnoredAny>("Filecoin.SectorTerminate", json!([sector]))
+            .await?;
+        Ok(())
+    }
+
+    /// Flushes the terminate batch; returns the message CID when one was sent.
+    pub async fn terminate_flush(&self) -> anyhow::Result<Option<Cid>> {
+        Ok(self
+            .call::<Option<LotusJson<Cid>>>("Filecoin.SectorTerminateFlush", json!([]))
+            .await?
+            .map(|c| c.into_inner()))
+    }
+
+    /// Sectors waiting in the terminate batch.
+    pub async fn terminate_pending(&self) -> anyhow::Result<Vec<u64>> {
+        let pending: Vec<SectorId> = self
+            .call("Filecoin.SectorTerminatePending", json!([]))
+            .await?;
+        Ok(pending.into_iter().map(|s| s.number).collect())
+    }
+
+    /// After [`Self::terminate_sector`], flushes the terminate batch and waits until `sector` is
+    /// `TerminateFinality`. Returns the `TerminateSectors` message CID.
+    pub async fn wait_until_terminated(&self, sector: u64) -> anyhow::Result<Cid> {
+        let last_state = AtomicU8::new(u8::MAX);
+        let terminate_cid = std::sync::Mutex::new(None::<Cid>);
+        let waited = poll(
+            &format!("sector {sector} to reach TerminateFinality"),
+            || async {
+                let status = self.sectors_status(sector).await?;
+                if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
+                    eprintln!("sector {sector} state: {:?}", status.state);
+                }
+                match status.state {
+                    SectorState::Terminating => {
+                        let pending = self.terminate_pending().await?;
+                        ensure!(
+                            pending.contains(&sector),
+                            "sector {sector} is Terminating but not in SectorTerminatePending ({pending:?})"
+                        );
+                        if let Some(cid) = self.terminate_flush().await? {
+                            eprintln!("terminate message: {cid}");
+                            *terminate_cid.lock().expect("terminate_cid lock") = Some(cid);
+                            let pending = self.terminate_pending().await?;
+                            ensure!(
+                                !pending.contains(&sector),
+                                "sector {sector} still pending after terminate flush: {pending:?}"
+                            );
+                        }
+                        Ok(None)
+                    }
+                    SectorState::TerminateWait => Ok(None),
+                    SectorState::TerminateFinality => {
+                        let cid = terminate_cid
+                            .lock()
+                            .expect("terminate_cid lock")
+                            .clone()
+                            .with_context(|| {
+                                format!(
+                                    "sector {sector} reached TerminateFinality without a terminate message CID"
+                                )
+                            })?;
+                        Ok(Some(cid))
+                    }
+                    SectorState::TerminateFailed
+                    | SectorState::Removing
+                    | SectorState::RemoveFailed
+                    | SectorState::Removed
+                    | SectorState::FailedUnrecoverable => bail!(
+                        "sector {sector} reached {:?}, which never leads to TerminateFinality",
+                        status.state
+                    ),
+                    _ => Ok(None),
+                }
+            },
+        )
+        .await;
+        match waited {
+            Ok(cid) => Ok(cid),
+            Err(e) => {
+                let Ok(status) = self.sectors_status(sector).await else {
+                    return Err(e);
+                };
+                let log = status
+                    .log
+                    .iter()
+                    .map(|l| {
+                        if l.trace.is_empty() {
+                            format!("{} {}", l.kind, l.message)
+                        } else {
+                            format!("{} {}\n{}", l.kind, l.message, l.trace)
+                        }
+                    })
+                    .join("\n");
+                Err(e.context(format!(
+                    "sector {sector} is in {:?}\nsector log:\n{log}",
+                    status.state
+                )))
+            }
+        }
     }
 }
 
