@@ -655,6 +655,26 @@ mod tests {
         );
     }
 
+    /// Nil UUID skips record lookup.
+    #[tokio::test]
+    async fn nil_uuid_skips_dedup_hit() {
+        let ctx = genesis_ctx();
+        let (_, recorded) = recorded_for_unknown_id();
+        let different = Message::builder()
+            .from(Address::new_id(999_999))
+            .to(Address::new_id(202))
+            .sequence(0)
+            .build();
+        seed_uuid(&ctx, Uuid::nil(), &recorded).await;
+
+        let result = push_with_uuid(ctx, different, Uuid::nil()).await;
+        assert_ne!(
+            result.ok(),
+            Some(recorded),
+            "nil MsgUuid must not hit UUID records"
+        );
+    }
+
     #[tokio::test]
     async fn failed_attempt_records_nothing() {
         let ctx = genesis_ctx();
