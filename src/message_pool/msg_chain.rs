@@ -8,11 +8,7 @@ use std::{
 
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::networks::ChainConfig;
-use crate::shim::{
-    address::Address,
-    econ::TokenAmount,
-    gas::{Gas, price_list_by_network_version},
-};
+use crate::shim::{address::Address, econ::TokenAmount, gas::Gas};
 use crate::{
     blocks::{BLOCK_MESSAGE_LIMIT, Tipset},
     shim::crypto::SignatureType,
@@ -428,6 +424,7 @@ where
     let mut skip = 0;
     let mut i = 0;
     let mut rewards = Vec::with_capacity(msgs.len());
+    let price_list = chain_config.price_list(ts.epoch());
 
     while let Some(m) = msgs.get(i) {
         if m.sequence() < cur_seq {
@@ -447,11 +444,7 @@ where
         }
         cur_seq += 1;
 
-        let network_version = chain_config.network_version(ts.epoch());
-
-        let min_gas = price_list_by_network_version(network_version)
-            .on_chain_message(m.chain_length()?)
-            .total();
+        let min_gas = price_list.on_chain_message(m.chain_length()?).total();
 
         if Gas::new(m.gas_limit()) < min_gas {
             break;
