@@ -70,18 +70,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_process_car_genesis_mainnet() {
-        use crate::networks::mainnet::{DEFAULT_GENESIS, GENESIS_CID};
+        use crate::networks::mainnet::{DEFAULT_GENESIS, GENESIS_CID, GENESIS_TIMESTAMP};
 
         let header = load_header_from_car(DEFAULT_GENESIS).await;
         assert_eq!(header.cid(), &GENESIS_CID as &Cid);
+        assert_eq!(header.timestamp, GENESIS_TIMESTAMP);
     }
 
     #[tokio::test]
     async fn test_process_car_genesis_calibnet() {
-        use crate::networks::calibnet::{DEFAULT_GENESIS, GENESIS_CID};
+        use crate::networks::calibnet::{DEFAULT_GENESIS, GENESIS_CID, GENESIS_TIMESTAMP};
 
         let header = load_header_from_car(DEFAULT_GENESIS).await;
         assert_eq!(header.cid(), &GENESIS_CID as &Cid);
+        assert_eq!(header.timestamp, GENESIS_TIMESTAMP);
     }
 
     async fn load_header_from_car(genesis_bytes: &[u8]) -> CachingBlockHeader {
