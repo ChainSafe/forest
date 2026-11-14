@@ -58,6 +58,17 @@ pub struct MessageSendSpec {
     pub maximize_fee_cap: bool,
 }
 
+impl MessageSendSpec {
+    /// Spec with only `MsgUuid` set.
+    pub fn with_uuid(msg_uuid: uuid::Uuid) -> Self {
+        Self {
+            max_fee: TokenAmount::default(),
+            msg_uuid,
+            maximize_fee_cap: false,
+        }
+    }
+}
+
 lotus_json_with_self!(MessageSendSpec);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
