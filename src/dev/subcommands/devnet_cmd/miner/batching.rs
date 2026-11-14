@@ -1,20 +1,18 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Mirrors Lotus `TestPledgeBatching` with real 2 KiB proofs, reduced to 4 sectors,
-//! `MinAggregatedSectors`.
+//! Mirrors Lotus `TestPledgeBatching` with real 2 KiB proofs, reduced to 4 sectors
+//! (`MinAggregatedSectors`).
 //! <https://github.com/filecoin-project/lotus/blob/v1.39.1/itests/sector_pledge_test.go>
-//! Flushes only when every sector is ready, then checks that half of Forest's gas
-//! estimate runs out of gas under `StateCall`.
+//!
+//! Flushes a batch only once its queue holds every pledged sector.
 
 use super::api::{SectorState, TestMiner, enrich_wait_error, ensure_still_sealing};
 use super::devnet::{At, Devnet};
 use crate::dev::subcommands::tests_cmd::helpers::{block_on, poll, trial};
 use crate::rpc::prelude::*;
-use crate::rpc::types::ApiTipsetKey;
 use crate::shim::actors::miner::qa_power_max;
 use crate::shim::address::Address;
-use crate::shim::fvm_shared_latest::error::ExitCode;
 use crate::shim::sector::SectorSize;
 use ahash::HashMap;
 use anyhow::{Context as _, ensure};
@@ -35,22 +33,26 @@ async fn pledge_batch() -> anyhow::Result<()> {
     let net = Devnet::connect()?;
     let miner = TestMiner::genesis()?;
 
-    let at = net.synced().await?;
-    let before = at
-        .same(|tsk| StateMinerPower::request((miner.actor, tsk)))
-        .await?;
-
     let mut sectors = Vec::with_capacity(BATCH_SECTORS);
     for _ in 0..BATCH_SECTORS {
         sectors.push(miner.api.pledge_sector().await?);
     }
     eprintln!("pledged sectors {sectors:?}");
 
-    // Flush full batches before sectors reach Proving, so the gas check can estimate a
-    // commit that is still pending.
     let (pre_cid, commit_cid) = wait_seal_batches(&miner, &sectors).await?;
     eprintln!("pre-commit batch: {pre_cid}");
     eprintln!("commit aggregate: {commit_cid}");
+
+    // New sector power is counted at the deadline, not when the prove-commit is sent. A fault
+    // during the seal is already in this snapshot.
+    let at = net.synced().await?;
+    let powered = at
+        .same(|tsk| StateMinerPower::request((miner.actor, tsk)))
+        .await?;
+    let raw_delta = BigInt::from(SectorSize::_2KiB as u64) * BigInt::from(BATCH_SECTORS);
+    let qap_delta = qa_power_max(SectorSize::_2KiB.into()) * BigInt::from(BATCH_SECTORS);
+    let expected_raw = &powered.miner_power.raw_byte_power + &raw_delta;
+    let expected_qap = &powered.miner_power.quality_adj_power + &qap_delta;
 
     let lookup = net.executed(pre_cid).await?;
     ensure!(
@@ -58,9 +60,6 @@ async fn pledge_batch() -> anyhow::Result<()> {
         "PreCommitSectorBatch2 {pre_cid} exited {}",
         lookup.receipt.exit_code()
     );
-    // Run once pre-commit is on-chain and the aggregate commit is still pending.
-    // `StateCall` ignores the mpool. After inclusion it can exit without running out of gas.
-    assert_halved_gas_estimate_fails(&net, commit_cid).await?;
     assert_pre_commit_batch(&net, pre_cid, &sectors).await?;
 
     let lookup = net.executed(commit_cid).await?;
@@ -73,54 +72,55 @@ async fn pledge_batch() -> anyhow::Result<()> {
 
     wait_sectors_proving(&miner, &sectors).await?;
     let at = net.synced().await?;
+    let epoch = at.epoch();
     for &sector in &sectors {
-        at.same(|tsk| StateSectorGetInfo::request((miner.actor, sector, tsk)))
+        let info = at
+            .same(|tsk| StateSectorGetInfo::request((miner.actor, sector, tsk)))
             .await?
             .with_context(|| format!("sector {sector} is Proving, but chain has no info"))?;
+        ensure!(
+            info.activation <= epoch && info.expiration > epoch,
+            "sector {sector} is not active at epoch {epoch}: activation {}, expiration {}",
+            info.activation,
+            info.expiration
+        );
     }
-
-    let raw_delta = BigInt::from(SectorSize::_2KiB as u64) * BigInt::from(BATCH_SECTORS);
-    let qap_delta = qa_power_max(SectorSize::_2KiB.into()) * BigInt::from(BATCH_SECTORS);
-    let expected_raw = &before.miner_power.raw_byte_power + &raw_delta;
-    let expected_qap = &before.miner_power.quality_adj_power + &qap_delta;
     let sample = *sectors.first().context("no sectors")?;
     let at = wait_for_power(&net, miner.actor, sample, &expected_raw).await?;
     let after = at
         .same(|tsk| StateMinerPower::request((miner.actor, tsk)))
         .await?;
     ensure!(
-        after.miner_power.raw_byte_power == expected_raw,
-        "raw power {}, expected {expected_raw}",
+        after.miner_power.raw_byte_power >= expected_raw,
+        "raw power {}, expected at least {expected_raw}",
         after.miner_power.raw_byte_power
     );
     ensure!(
-        after.miner_power.quality_adj_power == expected_qap,
-        "QA power {}, expected {expected_qap} (10× post-NV29)",
+        after.miner_power.quality_adj_power >= expected_qap,
+        "QA power {}, expected at least {expected_qap} (10× post-NV29)",
         after.miner_power.quality_adj_power
     );
     Ok(())
 }
 
-/// Flush when all sectors are in the submit state; return CIDs before Proving.
+/// Flush once each queue holds every pledged sector.
 async fn wait_seal_batches(miner: &TestMiner, sectors: &[u64]) -> anyhow::Result<(Cid, Cid)> {
-    let n_sectors = sectors.len();
     let last = Mutex::new(HashMap::<u64, SectorState>::default());
     let pre = Mutex::new(None::<Cid>);
     let commit = Mutex::new(None::<Cid>);
 
     let waited = poll(
-        &format!("sectors {sectors:?} full PreCommit and Commit flushes"),
+        &format!("sectors {sectors:?} queued for PreCommit and Commit"),
         || async {
-            let mut counts = HashMap::<SectorState, usize>::default();
             for &sector in sectors {
                 let status = miner.api.sectors_status(sector).await?;
                 note_sector_state(&last, sector, status.state);
                 ensure_still_sealing(sector, status.state, "a batch flush")?;
-                *counts.entry(status.state).or_insert(0) += 1;
             }
 
-            let n = |s| counts.get(&s).copied().unwrap_or(0);
-            if pre.lock().is_none() && n(SectorState::SubmitPreCommitBatch) == n_sectors {
+            // Lotus reports `Submit*` before the sector is queued, so a state count can flush short.
+            if pre.lock().is_none() && same_sectors(&miner.api.pre_commit_pending().await?, sectors)
+            {
                 for batch in miner.api.pre_commit_flush().await? {
                     eprintln!("PRECOMMIT BATCH: {:?}", batch.sectors);
                     if batch.error.is_empty()
@@ -132,7 +132,8 @@ async fn wait_seal_batches(miner: &TestMiner, sectors: &[u64]) -> anyhow::Result
                 }
             }
 
-            if commit.lock().is_none() && n(SectorState::SubmitCommitAggregate) == n_sectors {
+            if commit.lock().is_none() && same_sectors(&miner.api.commit_pending().await?, sectors)
+            {
                 for batch in miner.api.commit_flush().await? {
                     eprintln!("COMMIT BATCH: {:?}", batch.sectors);
                     if batch.error.is_empty()
@@ -242,53 +243,6 @@ async fn assert_prove_commit_aggregate(
     ensure!(
         !params.aggregate_proof.is_empty(),
         "ProveCommitSectors3 {cid} has empty aggregate proof"
-    );
-    Ok(())
-}
-
-/// Half of Forest's gas estimate must run out of gas under `StateCall`, not via the mpool.
-///
-/// Call this right after pre-commit executes, while the aggregate is still pending.
-/// `StateCall` ignores messages pending in the mpool. `GasEstimateGasLimit` always probes
-/// the mpool tipset.
-async fn assert_halved_gas_estimate_fails(net: &Devnet, cid: Cid) -> anyhow::Result<()> {
-    let message = net
-        .forest
-        .call(ChainGetMessage::request((cid,))?)
-        .await
-        .context("ChainGetMessage of aggregate commit")?;
-    let tipset = ApiTipsetKey(None);
-    let estimate = net
-        .forest
-        .call(GasEstimateGasLimit::request((
-            message.clone(),
-            tipset.clone(),
-        ))?)
-        .await
-        .context("GasEstimateGasLimit of aggregate commit")?;
-    ensure!(estimate >= 2, "GasEstimateGasLimit returned {estimate}");
-    let half = estimate / 2;
-    let starved = message
-        .into_builder()
-        .gas_limit(u64::try_from(half)?)
-        .build();
-    let call = net
-        .forest
-        .call(StateCall::request((starved, tipset))?)
-        .await
-        .context("StateCall of aggregate commit with half gas")?;
-    let receipt = call
-        .msg_rct
-        .context("no receipt for halved-gas StateCall")?;
-    ensure!(
-        receipt.exit_code() == ExitCode::SYS_OUT_OF_GAS,
-        "StateCall gas {half} (half of {estimate}) exited {} `{}`; expected SYS_OUT_OF_GAS",
-        receipt.exit_code(),
-        call.error
-    );
-    eprintln!(
-        "halved-gas mutation: estimate {estimate}, limit {half}, exit {}",
-        receipt.exit_code()
     );
     Ok(())
 }

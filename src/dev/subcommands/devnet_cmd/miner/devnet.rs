@@ -106,6 +106,10 @@ pub(super) struct At<'a> {
 }
 
 impl At<'_> {
+    pub(super) fn epoch(&self) -> ChainEpoch {
+        self.head.epoch()
+    }
+
     /// Calls the request, built with this tipset's key, on both nodes and returns the answer they agree on.
     pub async fn same<T>(
         &self,

@@ -49,7 +49,8 @@ impl MinerApi {
         Ok(Self(Client::from_url(url)))
     }
 
-    /// Retries brief connection drops under `PoRep` load.
+    /// Retries a dropped connection for read-only methods. A pledge or a flush is not retried:
+    /// Lotus may already have applied it.
     async fn call<T: DeserializeOwned>(
         &self,
         method: &'static str,
@@ -69,7 +70,7 @@ impl MinerApi {
                     return serde_json::from_value(result)
                         .with_context(|| format!("decoding the Lotus Miner {method} result"));
                 }
-                Err(e) if attempt < ATTEMPTS && is_transient_rpc(&e) => {
+                Err(e) if attempt < ATTEMPTS && is_retryable_read(method, &e) => {
                     eprintln!(
                         "Lotus Miner {method} transient failure on attempt {attempt}/{ATTEMPTS}: {e:#}"
                     );
@@ -89,8 +90,7 @@ impl MinerApi {
     }
 
     pub(super) async fn sectors_status(&self, sector: u64) -> anyhow::Result<SectorStatus> {
-        self.call("Filecoin.SectorsStatus", json!([sector, false]))
-            .await
+        self.call(SECTORS_STATUS, json!([sector, false])).await
     }
 
     /// Flushes the pre-commit and commit batches, which Lotus may otherwise hold for up to a day
@@ -115,6 +115,21 @@ impl MinerApi {
         Ok(batches.unwrap_or_default())
     }
 
+    /// Sectors Lotus will put in the next pre-commit batch.
+    pub(super) async fn pre_commit_pending(&self) -> anyhow::Result<Vec<u64>> {
+        self.pending_sectors(SECTOR_PRE_COMMIT_PENDING).await
+    }
+
+    /// Sectors Lotus will put in the next commit aggregate.
+    pub(super) async fn commit_pending(&self) -> anyhow::Result<Vec<u64>> {
+        self.pending_sectors(SECTOR_COMMIT_PENDING).await
+    }
+
+    async fn pending_sectors(&self, method: &'static str) -> anyhow::Result<Vec<u64>> {
+        let queued: Vec<SectorId> = self.call(method, json!([])).await?;
+        Ok(queued.into_iter().map(|sector| sector.number).collect())
+    }
+
     /// Waits until `sector` is `Proving` or `Available`, flushing the sealing batches on every
     /// poll; a state that never leads to `Proving` fails at once.
     pub async fn wait_until_proving(&self, sector: u64) -> anyhow::Result<()> {
@@ -134,7 +149,20 @@ impl MinerApi {
     }
 }
 
-fn is_transient_rpc(err: &anyhow::Error) -> bool {
+const SECTORS_STATUS: &str = "Filecoin.SectorsStatus";
+const SECTOR_PRE_COMMIT_PENDING: &str = "Filecoin.SectorPreCommitPending";
+const SECTOR_COMMIT_PENDING: &str = "Filecoin.SectorCommitPending";
+
+const READ_ONLY_MINER_METHODS: &[&str] = &[
+    SECTORS_STATUS,
+    SECTOR_PRE_COMMIT_PENDING,
+    SECTOR_COMMIT_PENDING,
+];
+
+fn is_retryable_read(method: &str, err: &anyhow::Error) -> bool {
+    if !READ_ONLY_MINER_METHODS.contains(&method) {
+        return false;
+    }
     let msg = format!("{err:#}").to_lowercase();
     msg.contains("connection")
         || msg.contains("reset by peer")
@@ -196,6 +224,7 @@ pub(super) async fn enrich_wait_error(
 
 /// Lotus `abi.SectorID`
 /// (<https://github.com/filecoin-project/go-state-types/blob/v0.19.0/abi/sector.go>).
+/// `Miner` is present on the pending-batch results and ignored.
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct SectorId {
@@ -381,6 +410,39 @@ impl SectorState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn call_retries_only_read_only_miner_methods() {
+        let reset = anyhow::anyhow!("connection reset by peer");
+        for method in READ_ONLY_MINER_METHODS {
+            assert!(is_retryable_read(method, &reset), "{method}");
+            assert!(!is_retryable_read(
+                method,
+                &anyhow::anyhow!("sector not found"),
+            ));
+        }
+        for method in [
+            "Filecoin.PledgeSector",
+            "Filecoin.SectorPreCommitFlush",
+            "Filecoin.SectorCommitFlush",
+        ] {
+            assert!(
+                !is_retryable_read(method, &reset),
+                "{method} is mutating and must not be retried"
+            );
+        }
+    }
+
+    #[test]
+    fn pending_sectors_decode_the_lotus_shape() {
+        let queued: Vec<SectorId> = serde_json::from_value(json!([
+            {"Miner": 1000, "Number": 2},
+            {"Miner": 1000, "Number": 4},
+        ]))
+        .unwrap();
+        let numbers: Vec<u64> = queued.into_iter().map(|sector| sector.number).collect();
+        assert_eq!(numbers, vec![2, 4]);
+    }
 
     #[test]
     fn sector_status_decodes_the_lotus_shape() {
