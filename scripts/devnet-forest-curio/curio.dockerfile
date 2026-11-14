@@ -4,7 +4,7 @@
 ARG CURIO_COMMIT
 FROM rust:1.86.0-slim-bookworm AS rust-toolchain
 
-FROM golang:1.26-trixie AS curio-builder
+FROM golang:1.26.10-trixie AS curio-builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG CURIO_COMMIT
 RUN test -n "$CURIO_COMMIT"
