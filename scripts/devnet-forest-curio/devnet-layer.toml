@@ -1,0 +1,18 @@
+# A layer title does not enable tasks; these flags do.
+[Subsystems]
+EnableWindowPost = true
+EnableWinningPost = true
+EnableSealSDR = true
+EnableSealSDRTrees = true
+EnableSendPrecommitMsg = true
+EnablePoRepProof = true
+EnableSendCommitMsg = true
+EnableMoveStorage = true
+
+[Batching.PreCommit]
+Timeout = "0h0m5s"
+Slack = "6h0m0s"
+
+[Batching.Commit]
+Timeout = "0h0m5s"
+Slack = "1h0m0s"

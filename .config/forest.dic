@@ -1,4 +1,4 @@
-303
+304
 ABI
 Algorand/M
 API's
@@ -64,6 +64,7 @@ coreos
 CPUs
 cron
 crypto
+Curio
 daemon
 daemonize
 Datacap
