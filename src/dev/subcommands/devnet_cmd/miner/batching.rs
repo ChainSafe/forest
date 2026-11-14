@@ -1,10 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Lotus
-//! [`TestPledgeBatching`](https://github.com/filecoin-project/lotus/blob/v1.39.1/itests/sector_pledge_test.go)
-//! seal loop (real 2 KiB proofs), reduced to 4 sectors (`MinAggregatedSectors`).
-//! Flushes only when all sectors are ready (full batch). Then #7791 Forest checks.
+//! Mirrors Lotus `TestPledgeBatching` with real 2 KiB proofs, reduced to 4 sectors,
+//! `MinAggregatedSectors`.
+//! <https://github.com/filecoin-project/lotus/blob/v1.39.1/itests/sector_pledge_test.go>
+//! Flushes only when every sector is ready, then checks that half of Forest's gas
+//! estimate runs out of gas under `StateCall`.
 
 use super::api::{SectorState, TestMiner, enrich_wait_error, ensure_still_sealing};
 use super::devnet::{At, Devnet};
@@ -45,7 +46,8 @@ async fn pledge_batch() -> anyhow::Result<()> {
     }
     eprintln!("pledged sectors {sectors:?}");
 
-    // Flush full batches first (before Proving) so the gas mutation can estimate a pending commit.
+    // Flush full batches before sectors reach Proving, so the gas check can estimate a
+    // commit that is still pending.
     let (pre_cid, commit_cid) = wait_seal_batches(&miner, &sectors).await?;
     eprintln!("pre-commit batch: {pre_cid}");
     eprintln!("commit aggregate: {commit_cid}");
@@ -56,8 +58,8 @@ async fn pledge_batch() -> anyhow::Result<()> {
         "PreCommitSectorBatch2 {pre_cid} exited {}",
         lookup.receipt.exit_code()
     );
-    // Immediately after pre is on-chain (StateCall has no mpool), before decode work,
-    // while commit is still pending (post-inclusion StateCall can exit non-OOG).
+    // Run once pre-commit is on-chain and the aggregate commit is still pending.
+    // `StateCall` ignores the mpool. After inclusion it can exit without running out of gas.
     assert_halved_gas_estimate_fails(&net, commit_cid).await?;
     assert_pre_commit_batch(&net, pre_cid, &sectors).await?;
 
@@ -158,7 +160,7 @@ async fn wait_seal_batches(miner: &TestMiner, sectors: &[u64]) -> anyhow::Result
     Ok((pre, commit))
 }
 
-/// Wait until every sector is `Proving` or `Available` (do not flush again).
+/// Wait until every sector is `Proving` or `Available`, and do not flush again.
 async fn wait_sectors_proving(miner: &TestMiner, sectors: &[u64]) -> anyhow::Result<()> {
     let last = Mutex::new(HashMap::<u64, SectorState>::default());
     let waited = poll(&format!("sectors {sectors:?} to reach Proving"), || async {
@@ -244,10 +246,11 @@ async fn assert_prove_commit_aggregate(
     Ok(())
 }
 
-/// #7791: half of Forest's gas estimate must OOG under `StateCall` (not mpool).
+/// Half of Forest's gas estimate must run out of gas under `StateCall`, not via the mpool.
 ///
-/// Call right after pre-commit executes (StateCall ignores mpool pending) and while the
-/// aggregate is still pending. `GasEstimateGasLimit` always probes the mpool tipset.
+/// Call this right after pre-commit executes, while the aggregate is still pending.
+/// `StateCall` ignores messages pending in the mpool. `GasEstimateGasLimit` always probes
+/// the mpool tipset.
 async fn assert_halved_gas_estimate_fails(net: &Devnet, cid: Cid) -> anyhow::Result<()> {
     let message = net
         .forest

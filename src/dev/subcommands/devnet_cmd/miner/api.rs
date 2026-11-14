@@ -49,7 +49,7 @@ impl MinerApi {
         Ok(Self(Client::from_url(url)))
     }
 
-    /// Retries brief connection drops under PoRep load.
+    /// Retries brief connection drops under `PoRep` load.
     async fn call<T: DeserializeOwned>(
         &self,
         method: &'static str,
@@ -335,7 +335,7 @@ pub(super) enum SectorState {
 }
 
 impl SectorState {
-    /// States whose Lotus name contains `Fail` (batching fail-fast).
+    /// States whose Lotus name contains `Fail`. The batching wait uses these to fail fast.
     pub(super) fn is_failed(self) -> bool {
         matches!(
             self,
@@ -359,7 +359,7 @@ impl SectorState {
         )
     }
 
-    /// Non-Fail terminals that still never reach `Proving` (onboarding / batching).
+    /// Terminal states that never reach `Proving`, aside from names containing `Fail`.
     pub(super) fn is_terminal_unhappy(self) -> bool {
         matches!(
             self,
