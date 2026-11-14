@@ -4,21 +4,18 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::TIPSET_LOOKUP_HAMT_BIT_WIDTH;
+use crate::chain::import_tipset_lookup_snapshot;
 use crate::cli::subcommands::prompt_confirm;
 use crate::cli_shared::{chain_path, delete_chain_data, read_config};
 use crate::daemon::db_util::load_all_forest_cars;
-use crate::db::car::{AnyCar, ManyCar};
+use crate::db::CAR_DB_DIR_NAME;
+use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME, EthMappingsStore};
 use crate::networks::NetworkChain;
 use crate::prelude::*;
-use crate::utils::db::car_stream::CarStream;
+use crate::utils::db::car_util::import_car_blocks;
 use clap::Subcommand;
-use fil_actors_shared::fvm_ipld_hamt::Hamt;
 use indicatif::{ProgressBar, ProgressStyle};
-use tokio_stream::StreamExt;
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {
@@ -123,8 +120,6 @@ impl DBCommands {
                 db,
                 skip_validation: no_validation,
             } => {
-                const DB_WRITE_BUFFER_CAPACITY: usize = 10000;
-
                 let db_root_path = if let Some(db) = db {
                     db
                 } else {
@@ -132,10 +127,7 @@ impl DBCommands {
                     db_root(&chain_path(&config))?
                 };
                 println!("Opening parity-db at {}", db_root_path.display());
-                let db_writer = BlockstoreWithWriteBuffer::new_with_capacity(
-                    open_db(db_root_path, &Default::default())?,
-                    DB_WRITE_BUFFER_CAPACITY,
-                );
+                let db = open_db(db_root_path, &Default::default())?;
 
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {msg}")
@@ -145,18 +137,12 @@ impl DBCommands {
 
                 let mut total = 0;
                 for snap in snapshot_files {
-                    let mut car = CarStream::new_from_path(&snap).await?;
-                    while let Some(b) = car.try_next().await? {
-                        if !no_validation {
-                            b.validate()?;
-                        }
-                        db_writer.put_keyed(&b.cid, &b.data)?;
+                    import_car_blocks(&db, &snap, !no_validation, || {
                         total += 1;
-                        let text = format!("{total} blocks imported");
-                        pb.set_message(text);
-                    }
+                        pb.set_message(format!("{total} blocks imported"));
+                    })
+                    .await?;
                 }
-                drop(db_writer);
                 pb.finish();
                 Ok(())
             }
@@ -166,17 +152,6 @@ impl DBCommands {
                 db,
             } => {
                 let start = Instant::now();
-                println!("Loading tipset lookup hamt...");
-                let hamt_car = AnyCar::try_from(snapshot.as_path())?;
-                anyhow::ensure!(
-                    hamt_car.header_v1().roots.len() == 1,
-                    "hamt car should have a single root"
-                );
-                let hamt_root = *hamt_car.header_v1().roots.first();
-                let hamt: Hamt<_, TipsetKey, ChainEpoch> =
-                    Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)?;
-                println!("Loaded tipset lookup hamt");
-
                 let db_root_path = if let Some(db) = db {
                     db
                 } else {
@@ -190,27 +165,13 @@ impl DBCommands {
                     load_all_forest_cars(&db, &forest_car_db_dir)?;
                     db
                 };
-                println!("Validating tipset lookup hamt...");
-                hamt.for_each_cacheless(|&epoch, tsk| {
-                    let ts = Tipset::load_required(&db, tsk)?;
-                    anyhow::ensure!(
-                        ts.epoch() == epoch,
-                        "epochs do not match, {epoch} in hamt, {} in database",
-                        ts.epoch()
-                    );
-                    anyhow::Ok(())
-                })?;
-                println!("Successfully validated tipset lookup hamt");
+                println!("Validating and importing tipset lookup hamt...");
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
-                hamt.for_each_cacheless(|&epoch, tsk| {
-                    db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
-                    pb.inc(1);
-                    anyhow::Ok(())
-                })?;
+                import_tipset_lookup_snapshot(&db, &snapshot, || pb.inc(1))?;
                 drop(db);
                 let total = pb.position();
                 pb.finish();

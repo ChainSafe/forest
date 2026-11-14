@@ -1,11 +1,14 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::Path;
+
 use crate::prelude::*;
 use futures::{Stream, StreamExt as _, TryStreamExt as _};
 use tokio::io::{AsyncBufRead, AsyncSeek, BufReader};
 
 use crate::cid_collections::CidHashSet;
+use crate::db::BlockstoreWithWriteBuffer;
 use crate::utils::db::car_stream::{CarBlock, CarStream, CarV1Header};
 
 /// Stream key-value pairs from a CAR archive into a block store.
@@ -19,6 +22,26 @@ where
         db.put_keyed(&block.cid, &block.data)?;
     }
     Ok(stream.header_v1)
+}
+
+/// Streams the blocks of the CAR archive at `path` into `db` through a write buffer, validating
+/// each block when `validate` is set and calling `on_block` after each block is buffered.
+pub async fn import_car_blocks(
+    db: &impl Blockstore,
+    path: &Path,
+    validate: bool,
+    mut on_block: impl FnMut(),
+) -> anyhow::Result<()> {
+    let db = BlockstoreWithWriteBuffer::new_with_capacity(db, 10_000);
+    let mut car_stream = CarStream::new_from_path(path).await?;
+    while let Some(block) = car_stream.try_next().await? {
+        if validate {
+            block.validate()?;
+        }
+        db.put_keyed(&block.cid, &block.data)?;
+        on_block();
+    }
+    db.flush()
 }
 
 pub fn merge_car_streams<R>(
@@ -195,5 +218,53 @@ mod tests {
 
             Ok::<_, anyhow::Error>(())
         })
+    }
+
+    #[tokio::test]
+    async fn import_car_blocks_writes_blocks_and_reports_each() {
+        use crate::db::MemoryDB;
+
+        let blocks = Blocks(vec![
+            CarBlock {
+                cid: Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"one")),
+                data: b"one".to_vec().into(),
+            },
+            CarBlock {
+                cid: Cid::new_v1(DAG_CBOR, MultihashCode::Blake2b256.digest(b"two")),
+                data: b"two".to_vec().into(),
+            },
+        ]);
+        let car = blocks.clone().into_forest_car_zst_bytes().await;
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("blocks.forest.car.zst");
+        std::fs::write(&path, car).unwrap();
+
+        let db = MemoryDB::default();
+        let mut imported = 0;
+        import_car_blocks(&db, &path, true, || imported += 1)
+            .await
+            .unwrap();
+
+        assert_eq!(imported, 2);
+        for block in &blocks.0 {
+            assert_eq!(db.get(&block.cid).unwrap(), Some(block.data.to_vec()));
+        }
+
+        // The trailing buffer is flushed before returning, so a failed write is an error.
+        import_car_blocks(&FailingBlockstore, &path, true, || {})
+            .await
+            .unwrap_err();
+    }
+
+    struct FailingBlockstore;
+
+    impl Blockstore for FailingBlockstore {
+        fn get(&self, _k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+            Ok(None)
+        }
+
+        fn put_keyed(&self, _k: &Cid, _block: &[u8]) -> anyhow::Result<()> {
+            anyhow::bail!("write failed")
+        }
     }
 }
