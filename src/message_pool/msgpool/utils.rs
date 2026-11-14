@@ -30,10 +30,11 @@ pub(in crate::message_pool) fn get_gas_reward(
     base_fee: &TokenAmount,
 ) -> TokenAmount {
     let max_prem = msg.gas_fee_cap() - base_fee;
-    if max_prem < *msg.gas_premium() {
-        msg.gas_premium() * msg.gas_limit()
+    let reward = std::cmp::min(&max_prem, msg.gas_premium()) * msg.gas_limit();
+    if reward.is_negative() {
+        reward * 3u64
     } else {
-        max_prem * msg.gas_limit()
+        reward
     }
 }
 
@@ -115,6 +116,38 @@ pub(crate) fn compute_rbf(premium: &TokenAmount, replace_by_fee_ratio: Percent) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
+
+    fn msg(fee_cap: u64, premium: u64, gas_limit: u64) -> SignedMessage {
+        SignedMessage::mock_bls_signed_message(
+            Message::builder()
+                .gas_fee_cap(TokenAmount::from_atto(fee_cap))
+                .gas_premium(TokenAmount::from_atto(premium))
+                .gas_limit(gas_limit)
+                .build(),
+        )
+    }
+
+    // Cases from Lotus v1.36.2 `TestGasReward`, see <https://github.com/filecoin-project/lotus/blob/v1.36.2/chain/messagepool/selection_test.go#L1469>
+    #[rstest]
+    #[case(100, 200, 100, 100)]
+    #[case(100, 200, 210, -10 * 3)]
+    #[case(200, 250, 210, 40)]
+    #[case(200, 250, 2000, -1750 * 3)]
+    fn gas_reward_matches_lotus(
+        #[case] premium: u64,
+        #[case] fee_cap: u64,
+        #[case] base_fee: u64,
+        #[case] reward: i64,
+    ) {
+        assert_eq!(
+            get_gas_reward(
+                &msg(fee_cap, premium, 10),
+                &TokenAmount::from_atto(base_fee)
+            ),
+            TokenAmount::from_atto(reward * 10)
+        );
+    }
 
     #[test]
     fn test_compute_rbf() {
