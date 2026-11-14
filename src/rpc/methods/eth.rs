@@ -132,9 +132,28 @@ pub struct EthBigInt(
     // which matches the Ethereum JSON-RPC wire format used by Lotus.
     #[schemars(with = "String")]
     #[get_size(ignore)]
+    #[serde(deserialize_with = "deserialize_quantity")]
     ethereum_types::U256,
 );
 lotus_json_with_self!(EthBigInt);
+
+/// Canonical quantities only: `0x` prefix, no leading zeros, at most 256 bits.
+fn deserialize_quantity<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<ethereum_types::U256, D::Error> {
+    let s = String::deserialize(deserializer)?;
+    s.strip_prefix("0x")
+        // `from_str_radix` checks the digits and the size, but accepts leading zeros, a second
+        // prefix and no digits at all.
+        .filter(|digits| *digits == "0" || digits.starts_with(|c| c != '0'))
+        .and_then(|digits| ethereum_types::U256::from_str_radix(digits, 16).ok())
+        .ok_or_else(|| {
+            serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(&s),
+                &"a 0x-prefixed unsigned quantity of at most 256 bits with no leading zeros",
+            )
+        })
+}
 
 impl From<BigInt> for EthBigInt {
     fn from(value: BigInt) -> Self {
@@ -4562,6 +4581,36 @@ mod test {
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r, decoded);
+    }
+
+    #[rstest]
+    #[case::zero("0x0", ethereum_types::U256::zero())]
+    #[case::mixed_case("0xABcd", ethereum_types::U256::from(0xabcd))]
+    #[case::max(
+        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        ethereum_types::U256::MAX
+    )]
+    fn eth_big_int_deserialize_canonical(
+        #[case] input: &str,
+        #[case] expected: ethereum_types::U256,
+    ) {
+        let decoded: EthBigInt = serde_json::from_value(serde_json::json!(input)).unwrap();
+        assert_eq!(decoded.0, expected);
+    }
+
+    #[rstest]
+    #[case::empty("")]
+    #[case::no_digits("0x")]
+    #[case::unprefixed("ff")]
+    #[case::leading_zero("0x01")]
+    #[case::zero_padded_zero("0x00")]
+    #[case::second_prefix("0x0x1")]
+    #[case::sign("0x-1")]
+    #[case::whitespace("0x12 34")]
+    #[case::not_hex("0xzz")]
+    #[case::oversized("0x1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")]
+    fn eth_big_int_deserialize_rejects(#[case] input: &str) {
+        serde_json::from_value::<EthBigInt>(serde_json::json!(input)).unwrap_err();
     }
 
     #[rstest]
