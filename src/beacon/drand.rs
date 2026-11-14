@@ -390,6 +390,10 @@ impl Beacon for DrandBeacon {
             metrics::DRAND_HTTP_FETCH_TOTAL.inc();
             let resp: BeaconEntryJson = global_http_client()
                 .get(url)
+                .header(
+                    reqwest::header::USER_AGENT,
+                    concat!("drand-client-forest/", env!("CARGO_PKG_VERSION")),
+                )
                 // More tolerance on slow networks
                 .timeout(Duration::from_secs(15))
                 .send()
