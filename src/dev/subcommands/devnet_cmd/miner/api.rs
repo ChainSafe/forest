@@ -173,58 +173,55 @@ impl MinerApi {
         let last_state = AtomicU8::new(u8::MAX);
         // Lotus `msgTriggerred`: once-only flush latch via the captured CID.
         let terminate_cid = parking_lot::Mutex::new(None::<Cid>);
-        let waited = poll(
-            &format!("sector {sector} terminate success"),
-            || async {
-                let status = self.sectors_status(sector).await?;
-                if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
-                    eprintln!("sector {sector} state: {:?}", status.state);
-                }
-                match status.state {
-                    SectorState::Terminating => {
-                        if terminate_cid.lock().is_none() {
-                            let pending = self.terminate_pending().await?;
-                            if pending.is_empty() {
-                                return Ok(None);
-                            }
-                            ensure!(
-                                pending.as_slice() == [sector],
-                                "SectorTerminatePending is {pending:?}, expected exactly [{sector}]"
-                            );
-                            if let Some(cid) = self.terminate_flush().await? {
-                                eprintln!("terminate message: {cid}");
-                                *terminate_cid.lock() = Some(cid);
-                                let pending = self.terminate_pending().await?;
-                                ensure!(
-                                    pending.is_empty(),
-                                    "SectorTerminatePending not empty after flush: {pending:?}"
-                                );
-                            }
+        let waited = poll(&format!("sector {sector} terminate success"), || async {
+            let status = self.sectors_status(sector).await?;
+            if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
+                eprintln!("sector {sector} state: {:?}", status.state);
+            }
+            match status.state {
+                SectorState::Terminating => {
+                    if terminate_cid.lock().is_none() {
+                        let pending = self.terminate_pending().await?;
+                        if pending.is_empty() {
+                            return Ok(None);
                         }
-                        Ok(None)
+                        ensure!(
+                            pending.as_slice() == [sector],
+                            "SectorTerminatePending is {pending:?}, expected exactly [{sector}]"
+                        );
+                        if let Some(cid) = self.terminate_flush().await? {
+                            eprintln!("terminate message: {cid}");
+                            *terminate_cid.lock() = Some(cid);
+                            let pending = self.terminate_pending().await?;
+                            ensure!(
+                                pending.is_empty(),
+                                "SectorTerminatePending not empty after flush: {pending:?}"
+                            );
+                        }
                     }
-                    SectorState::TerminateWait
-                    | SectorState::TerminateFinality
-                    | SectorState::Removed => {
-                        let cid = terminate_cid.lock().ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "sector {sector} reached {:?} without a terminate message CID",
-                                status.state
-                            )
-                        })?;
-                        Ok(Some(cid))
-                    }
-                    SectorState::TerminateFailed
-                    | SectorState::Removing
-                    | SectorState::RemoveFailed
-                    | SectorState::FailedUnrecoverable => bail!(
-                        "sector {sector} reached {:?}, which is not a successful terminate exit",
-                        status.state
-                    ),
-                    _ => Ok(None),
+                    Ok(None)
                 }
-            },
-        )
+                SectorState::TerminateWait
+                | SectorState::TerminateFinality
+                | SectorState::Removed => {
+                    let cid = terminate_cid.lock().ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "sector {sector} reached {:?} without a terminate message CID",
+                            status.state
+                        )
+                    })?;
+                    Ok(Some(cid))
+                }
+                SectorState::TerminateFailed
+                | SectorState::Removing
+                | SectorState::RemoveFailed
+                | SectorState::FailedUnrecoverable => bail!(
+                    "sector {sector} reached {:?}, which is not a successful terminate exit",
+                    status.state
+                ),
+                _ => Ok(None),
+            }
+        })
         .await;
         let Err(e) = waited else {
             return waited;
