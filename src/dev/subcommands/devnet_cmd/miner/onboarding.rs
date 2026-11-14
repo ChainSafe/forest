@@ -80,9 +80,7 @@ async fn create_miner() -> anyhow::Result<()> {
         .call(StateLookupID::request((worker_key, ApiTipsetKey(None)))?)
         .await?;
     let at = net.synced().await?;
-    let info = at
-        .same(|tsk| StateMinerInfo::request((miner, tsk)))
-        .await?;
+    let info = at.same(|tsk| StateMinerInfo::request((miner, tsk))).await?;
     ensure!(
         info.owner == owner_id && info.worker == worker_id,
         "miner {miner}: owner {} and worker {}, expected {owner_id} and {worker_id}",
