@@ -19,6 +19,7 @@ env:
   CI: 1
   CACHE_TIMEOUT_MINUTES: 5
   SCRIPT_TIMEOUT_MINUTES: 30
+  MINER_TEST_TIMEOUT_MINUTES: 240
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
   SHELL_IMAGE: busybox
 
@@ -84,7 +85,7 @@ jobs:
       fail-fast: false
       matrix:
         # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
-        group: [onboarding, wdpost]
+        group: [onboarding, wdpost, terminate]
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
@@ -127,7 +128,7 @@ jobs:
           source ./scripts/devnet/test_harness.sh
           devnet_test_env_init
           forest-dev devnet miner --group "$MINER_TEST_GROUP"
-        timeout-minutes: 120
+        timeout-minutes: ${{ fromJSON(env.MINER_TEST_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2

@@ -7,6 +7,7 @@
 mod api;
 mod devnet;
 mod onboarding;
+mod terminate;
 mod wdpost;
 
 use crate::dev::subcommands::tests_cmd::helpers::harness_env;
@@ -33,6 +34,7 @@ pub struct MinerTestCommand {
 enum Group {
     Onboarding,
     Wdpost,
+    Terminate,
 }
 
 impl MinerTestCommand {
@@ -59,6 +61,7 @@ fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
         Group::Wdpost => wdpost::tests(),
+        Group::Terminate => terminate::tests(),
     }
 }
 
