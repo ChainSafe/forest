@@ -5,13 +5,16 @@
 //! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
 
 use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
+use crate::lotus_json::LotusJson;
 use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
 use crate::utils::UrlFromMultiAddr;
-use anyhow::{Context as _, bail};
+use ahash::HashMap;
+use anyhow::{Context as _, ensure};
+use cid::Cid;
 use itertools::Itertools as _;
 use serde::Deserialize;
-use serde::de::{DeserializeOwned, IgnoredAny};
+use serde::de::DeserializeOwned;
 use serde_json::json;
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -46,19 +49,37 @@ impl MinerApi {
         Ok(Self(Client::from_url(url)))
     }
 
+    /// Retries brief connection drops under PoRep load.
     async fn call<T: DeserializeOwned>(
         &self,
         method: &'static str,
         params: serde_json::Value,
     ) -> anyhow::Result<T> {
-        let result: serde_json::Value = super::call(
-            &self.0,
-            "Lotus Miner",
-            Request::new(method, params, ApiPaths::V0),
-        )
-        .await?;
-        serde_json::from_value(result)
-            .with_context(|| format!("decoding the Lotus Miner {method} result"))
+        const ATTEMPTS: u32 = 5;
+        let mut last_err = None;
+        for attempt in 1..=ATTEMPTS {
+            match super::call(
+                &self.0,
+                "Lotus Miner",
+                Request::new(method, params.clone(), ApiPaths::V0),
+            )
+            .await
+            {
+                Ok(result) => {
+                    return serde_json::from_value(result)
+                        .with_context(|| format!("decoding the Lotus Miner {method} result"));
+                }
+                Err(e) if attempt < ATTEMPTS && is_transient_rpc(&e) => {
+                    eprintln!(
+                        "Lotus Miner {method} transient failure on attempt {attempt}/{ATTEMPTS}: {e:#}"
+                    );
+                    last_err = Some(e);
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Err(last_err.expect("retry loop left no error"))
     }
 
     /// Starts sealing a new CC sector and returns its number.
@@ -67,7 +88,7 @@ impl MinerApi {
         Ok(id.number)
     }
 
-    async fn sectors_status(&self, sector: u64) -> anyhow::Result<SectorStatus> {
+    pub(super) async fn sectors_status(&self, sector: u64) -> anyhow::Result<SectorStatus> {
         self.call("Filecoin.SectorsStatus", json!([sector, false]))
             .await
     }
@@ -75,13 +96,23 @@ impl MinerApi {
     /// Flushes the pre-commit and commit batches, which Lotus may otherwise hold for up to a day
     /// (<https://github.com/filecoin-project/lotus/blob/v1.38.3/node/config/def.go#L129-L137>).
     async fn flush_sealing_batches(&self) -> anyhow::Result<()> {
-        for method in [
-            "Filecoin.SectorPreCommitFlush",
-            "Filecoin.SectorCommitFlush",
-        ] {
-            self.call::<IgnoredAny>(method, json!([])).await?;
-        }
+        let _ = self.pre_commit_flush().await?;
+        let _ = self.commit_flush().await?;
         Ok(())
+    }
+
+    /// Lotus returns JSON `null` when nothing was sent.
+    pub async fn pre_commit_flush(&self) -> anyhow::Result<Vec<PreCommitBatchRes>> {
+        let batches: Option<Vec<_>> = self
+            .call("Filecoin.SectorPreCommitFlush", json!([]))
+            .await?;
+        Ok(batches.unwrap_or_default())
+    }
+
+    /// Lotus returns JSON `null` when nothing was sent.
+    pub async fn commit_flush(&self) -> anyhow::Result<Vec<CommitBatchRes>> {
+        let batches: Option<Vec<_>> = self.call("Filecoin.SectorCommitFlush", json!([])).await?;
+        Ok(batches.unwrap_or_default())
     }
 
     /// Waits until `sector` is `Proving` or `Available`, flushing the sealing batches on every
@@ -95,33 +126,51 @@ impl MinerApi {
             if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
                 eprintln!("sector {sector} state: {:?}", status.state);
             }
-            match status.state {
-                SectorState::Proving | SectorState::Available => Ok(Some(())),
-                SectorState::FailedUnrecoverable
-                | SectorState::PackingFailed
-                | SectorState::DealsExpired
-                | SectorState::Faulty
-                | SectorState::FaultReported
-                | SectorState::FaultedFinal
-                | SectorState::Terminating
-                | SectorState::TerminateWait
-                | SectorState::TerminateFinality
-                | SectorState::TerminateFailed
-                | SectorState::Removing
-                | SectorState::RemoveFailed
-                | SectorState::Removed => bail!(
-                    "sector {sector} reached {:?}, which never leads to Proving",
-                    status.state
-                ),
-                _ => Ok(None),
-            }
+            ensure_still_sealing(sector, status.state, "Proving")?;
+            Ok(matches!(status.state, SectorState::Proving | SectorState::Available).then_some(()))
         })
         .await;
-        let Err(e) = waited else {
-            return Ok(());
-        };
-        let Ok(status) = self.sectors_status(sector).await else {
-            return Err(e);
+        enrich_wait_error(self, &[sector], waited).await
+    }
+}
+
+fn is_transient_rpc(err: &anyhow::Error) -> bool {
+    let msg = format!("{err:#}").to_lowercase();
+    msg.contains("connection")
+        || msg.contains("reset by peer")
+        || msg.contains("broken pipe")
+        || msg.contains("temporarily unavailable")
+}
+
+/// Fail-fast on Lotus `*Fail*` states and other terminals that never reach `goal`.
+pub(super) fn ensure_still_sealing(
+    sector: u64,
+    state: SectorState,
+    goal: &str,
+) -> anyhow::Result<()> {
+    ensure!(
+        !state.is_failed(),
+        "sector {sector} in a failed state: {state:?}"
+    );
+    ensure!(
+        !state.is_terminal_unhappy(),
+        "sector {sector} reached {state:?}, which never leads to {goal}"
+    );
+    Ok(())
+}
+
+pub(super) async fn enrich_wait_error(
+    api: &MinerApi,
+    sectors: &[u64],
+    waited: anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    let Err(e) = waited else {
+        return Ok(());
+    };
+    let mut details = Vec::new();
+    for &sector in sectors {
+        let Ok(status) = api.sectors_status(sector).await else {
+            continue;
         };
         let log = status
             .log
@@ -134,11 +183,15 @@ impl MinerApi {
                 }
             })
             .join("\n");
-        Err(e.context(format!(
+        details.push(format!(
             "sector {sector} is in {:?}\nsector log:\n{log}",
             status.state
-        )))
+        ));
     }
+    if details.is_empty() {
+        return Err(e);
+    }
+    Err(e.context(details.join("\n")))
 }
 
 /// Lotus `abi.SectorID`
@@ -149,12 +202,46 @@ struct SectorId {
     number: u64,
 }
 
+/// Lotus `sealiface.PreCommitBatchRes`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(super) struct PreCommitBatchRes {
+    pub sectors: Vec<u64>,
+    pub msg: Option<LotusJson<Cid>>,
+    #[serde(default)]
+    pub error: String,
+}
+
+impl PreCommitBatchRes {
+    pub fn msg(&self) -> Option<Cid> {
+        self.msg.as_ref().map(|c| c.clone().into_inner())
+    }
+}
+
+/// Lotus `sealiface.CommitBatchRes`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(super) struct CommitBatchRes {
+    pub sectors: Vec<u64>,
+    #[serde(default)]
+    pub failed_sectors: HashMap<String, String>,
+    pub msg: Option<LotusJson<Cid>>,
+    #[serde(default)]
+    pub error: String,
+}
+
+impl CommitBatchRes {
+    pub fn msg(&self) -> Option<Cid> {
+        self.msg.as_ref().map(|c| c.clone().into_inner())
+    }
+}
+
 /// The fields of Lotus `api.SectorInfo` these tests read
 /// (<https://github.com/filecoin-project/lotus/blob/v1.38.3/api/api_storage.go#L272-L305>).
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
-struct SectorStatus {
-    state: SectorState,
+pub(super) struct SectorStatus {
+    pub state: SectorState,
     log: Vec<SectorLog>,
 }
 
@@ -170,8 +257,8 @@ struct SectorLog {
 
 /// Lotus `api.SectorState`
 /// (<https://github.com/filecoin-project/lotus/blob/v1.38.3/storage/pipeline/sector_state.go#L74-L157>).
-#[derive(Debug, Clone, Copy, Deserialize)]
-enum SectorState {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+pub(super) enum SectorState {
     /// A new sector, before Lotus processes its first event.
     #[serde(rename = "")]
     Undefined,
@@ -247,6 +334,50 @@ enum SectorState {
     Removed,
 }
 
+impl SectorState {
+    /// States whose Lotus name contains `Fail` (batching fail-fast).
+    pub(super) fn is_failed(self) -> bool {
+        matches!(
+            self,
+            Self::FailedUnrecoverable
+                | Self::AddPieceFailed
+                | Self::SealPreCommit1Failed
+                | Self::SealPreCommit2Failed
+                | Self::PreCommitFailed
+                | Self::ComputeProofFailed
+                | Self::RemoteCommitFailed
+                | Self::CommitFailed
+                | Self::PackingFailed
+                | Self::FinalizeFailed
+                | Self::CommitFinalizeFailed
+                | Self::SnapDealsAddPieceFailed
+                | Self::ReplicaUpdateFailed
+                | Self::ReleaseSectorKeyFailed
+                | Self::FinalizeReplicaUpdateFailed
+                | Self::TerminateFailed
+                | Self::RemoveFailed
+        )
+    }
+
+    /// Non-Fail terminals that still never reach `Proving` (onboarding / batching).
+    pub(super) fn is_terminal_unhappy(self) -> bool {
+        matches!(
+            self,
+            Self::DealsExpired
+                | Self::Faulty
+                | Self::FaultReported
+                | Self::FaultedFinal
+                | Self::Terminating
+                | Self::TerminateWait
+                | Self::TerminateFinality
+                | Self::Removing
+                | Self::Removed
+                | Self::SnapDealsDealsExpired
+                | Self::AbortUpgrade
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,6 +391,62 @@ mod tests {
         }))
         .unwrap();
         assert!(matches!(status.state, SectorState::Undefined));
-        assert_eq!(status.log[0].trace, "boom");
+        assert_eq!(status.log.first().unwrap().trace, "boom");
+    }
+
+    #[test]
+    fn batch_flush_results_decode_the_lotus_shape() {
+        let cid_str = "bafy2bzacedhl5cowfmp7hq2ke3irf7indry55px44cbbjthazwvpm7ktf676w";
+        let want = Cid::from_str(cid_str).unwrap();
+        let pre: Vec<PreCommitBatchRes> = serde_json::from_value(json!([{
+            "Sectors": [2, 3],
+            "Msg": {"/": cid_str},
+            "Error": "",
+        }]))
+        .unwrap();
+        let pre = pre.first().unwrap();
+        assert_eq!(pre.sectors, vec![2, 3]);
+        assert_eq!(pre.msg(), Some(want));
+        assert!(pre.error.is_empty());
+
+        let commit: Vec<CommitBatchRes> = serde_json::from_value(json!([{
+            "Sectors": [2, 3, 4, 5],
+            "FailedSectors": {},
+            "Msg": {"/": cid_str},
+            "Error": "",
+        }]))
+        .unwrap();
+        let commit = commit.first().unwrap();
+        assert_eq!(commit.sectors, vec![2, 3, 4, 5]);
+        assert!(commit.failed_sectors.is_empty());
+        assert_eq!(commit.msg(), Some(want));
+        assert!(commit.error.is_empty());
+    }
+
+    #[test]
+    fn batch_flush_results_decode_null_msg_error_and_failed_sectors() {
+        let pre: Vec<PreCommitBatchRes> = serde_json::from_value(json!([{
+            "Sectors": [1],
+            "Msg": null,
+            "Error": "held",
+        }]))
+        .unwrap();
+        let pre = pre.first().unwrap();
+        assert!(pre.msg().is_none());
+        assert_eq!(pre.error, "held");
+
+        let commit: Vec<CommitBatchRes> = serde_json::from_value(json!([{
+            "Sectors": [1],
+            "FailedSectors": {"1": "boom"},
+            "Msg": null,
+            "Error": "",
+        }]))
+        .unwrap();
+        let commit = commit.first().unwrap();
+        assert!(commit.msg().is_none());
+        assert_eq!(
+            commit.failed_sectors.get("1").map(String::as_str),
+            Some("boom")
+        );
     }
 }
