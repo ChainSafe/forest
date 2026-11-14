@@ -1385,13 +1385,14 @@ impl RpcMethod<4> for StateSearchMsg {
         else {
             return Ok(None);
         };
-        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        // Lotus leaves ReturnDec unset on search; only StateWaitMsg decodes it.
+        // <https://github.com/filecoin-project/lotus/blob/v1.39.1/node/impl/full/state.go#L664-L670>
         Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
-            return_dec: ipld,
+            return_dec: Ipld::Null,
         }))
     }
 }
@@ -1431,13 +1432,14 @@ impl RpcMethod<2> for StateSearchMsgLimited {
         else {
             return Ok(None);
         };
-        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        // Lotus leaves ReturnDec unset on search; only StateWaitMsg decodes it.
+        // <https://github.com/filecoin-project/lotus/blob/v1.39.1/node/impl/full/state.go#L664-L670>
         Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
-            return_dec: ipld,
+            return_dec: Ipld::Null,
         }))
     }
 }

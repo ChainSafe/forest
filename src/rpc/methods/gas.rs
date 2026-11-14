@@ -245,8 +245,14 @@ impl GasEstimateGasLimit {
         };
 
         let pending = data.mpool.pending_for(&from_a).await;
+        // Stop at this nonce. A copy already in the pool must not run before the estimate,
+        // or a prove-commit consumes its precommit and the estimate cannot find it.
+        // <https://github.com/filecoin-project/lotus/blob/v1.39.1/node/impl/gasutils/gasutils.go#L126-L131>
+        let nonce = msg.sequence();
         let prior_messages: Arc<Vec<ChainMessage>> = pending
-            .map(|s| s.into_iter().map(Into::into).collect_vec())
+            .map(|pending| {
+                priors_before_nonce(pending.into_iter().map(Into::into).collect(), nonce)
+            })
             .unwrap_or_default()
             .into();
 
@@ -294,6 +300,19 @@ impl GasEstimateGasLimit {
         }
         Err(EthErrors::execution_reverted_from_apply_ret(&apply_ret).into())
     }
+}
+
+/// Pending messages Lotus would run before `nonce`. The pool is ordered by nonce, and the
+/// message being estimated is the first one that must not run as a prior.
+fn priors_before_nonce(pending: Vec<ChainMessage>, nonce: u64) -> Vec<ChainMessage> {
+    let mut priors = Vec::with_capacity(pending.len());
+    for message in pending {
+        if message.message().sequence() == nonce {
+            break;
+        }
+        priors.push(message);
+    }
+    priors
 }
 
 /// `msg` at `gas_limit` with zero fees, so a run judges gas alone and not the sender's funds.
@@ -582,6 +601,31 @@ mod tests {
             .gas_fee_cap(TokenAmount::from_atto(gas_fee_cap))
             .gas_premium(TokenAmount::from_atto(gas_premium))
             .build()
+    }
+
+    fn chain_message(nonce: u64) -> ChainMessage {
+        Message::builder()
+            .sequence(nonce)
+            .from(Address::new_id(1))
+            .to(Address::new_id(2))
+            .build()
+            .into()
+    }
+
+    #[test]
+    fn priors_stop_at_the_nonce_being_estimated() {
+        let pending = vec![chain_message(1), chain_message(2), chain_message(4)];
+        let priors = priors_before_nonce(pending, 2);
+        assert_eq!(
+            priors
+                .iter()
+                .map(|message| message.message().sequence())
+                .collect::<Vec<_>>(),
+            vec![1]
+        );
+
+        let pending = vec![chain_message(3), chain_message(5)];
+        assert_eq!(priors_before_nonce(pending, 9).len(), 2);
     }
 
     #[test]
