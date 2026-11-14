@@ -49,6 +49,7 @@ fn new_beacon_mainnet() -> DrandBeacon {
                 ),
             },
             network_type: DrandNetwork::Mainnet,
+            relays: vec![],
             register_metrics: false,
         },
     )
@@ -62,6 +63,7 @@ pub fn new_beacon_quicknet() -> DrandBeacon {
             servers: vec![FAKE_DRAND.url().clone()],
             chain_info: QUICKNET_CHAIN_INFO,
             network_type: DrandNetwork::Quicknet,
+            relays: vec![],
             register_metrics: false,
         },
     )
@@ -187,6 +189,31 @@ fn max_beacon_round_for_epoch_mainnet(
     let round = |nv| MAINNET.max_beacon_round_for_epoch(nv, epoch).unwrap();
     assert_eq!(round(NetworkVersion::V15), chained);
     assert_eq!(round(NetworkVersion::V16), unchained);
+}
+
+#[test]
+fn quicknet_has_one_epoch_round_in_ten() {
+    let beacon = new_beacon_quicknet();
+    // Mainnet epochs last 30s and `quicknet` rounds 3s: one round in ten feeds an epoch.
+    let epoch_rounds = (30_663_000..30_663_100)
+        .filter(|round| beacon.is_epoch_round(*round))
+        .collect_vec();
+    assert_eq!(epoch_rounds.len(), 10);
+    assert!(
+        epoch_rounds
+            .iter()
+            .tuple_windows()
+            .all(|(a, b)| b - a == 10)
+    );
+    // Every epoch's round counts as an epoch round.
+    for epoch in 6_216_190..6_216_210 {
+        let round = beacon
+            .max_beacon_round_for_epoch(NetworkVersion::V16, epoch)
+            .unwrap();
+        assert!(beacon.is_epoch_round(round), "epoch {epoch}, round {round}");
+    }
+    // Chained networks verify each round against the previous one, so every round counts.
+    assert!(new_beacon_mainnet().is_epoch_round(30_663_001));
 }
 
 #[rstest]

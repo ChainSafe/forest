@@ -101,20 +101,8 @@ impl<'a> DiscoveryConfig<'a> {
         mut self,
         user_defined: impl IntoIterator<Item = Multiaddr>,
     ) -> anyhow::Result<Self> {
-        for mut addr in user_defined.into_iter() {
-            if let Some((_, Protocol::Dnsaddr(addr))) = addr
-                .iter()
-                .enumerate()
-                .find(|(_, p)| matches!(p, Protocol::Dnsaddr(_)))
-            {
-                for pair in resolve_libp2p_dnsaddr(&addr).await? {
-                    self.user_defined.push(pair)
-                }
-            } else if let Some(Protocol::P2p(peer_id)) = addr.pop() {
-                self.user_defined.push((peer_id, addr))
-            } else {
-                anyhow::bail!("Failed to parse peer id from {addr}")
-            }
+        for addr in user_defined {
+            self.user_defined.extend(resolve_peers(&addr).await?);
         }
         Ok(self)
     }
@@ -545,6 +533,34 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         Poll::Pending
     }
+}
+
+/// Resolves non-IP addresses, giving the id and address of every peer behind `addr`.
+async fn resolve_peers(addr: &Multiaddr) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
+    if let Some(Protocol::Dnsaddr(name)) = addr.iter().find(|p| matches!(p, Protocol::Dnsaddr(_))) {
+        return resolve_libp2p_dnsaddr(&name).await;
+    }
+    let mut stripped = addr.clone();
+    match stripped.pop() {
+        Some(Protocol::P2p(peer)) => Ok(vec![(peer, stripped)]),
+        _ => anyhow::bail!("Failed to parse peer id from {addr}"),
+    }
+}
+
+/// Resolves the `drand` relays, skipping the ones that fail: HTTP is the fallback.
+pub(in crate::libp2p) async fn resolve_relays(addrs: &[Multiaddr]) -> HashMap<PeerId, Multiaddr> {
+    let mut relays = HashMap::default();
+    for addr in addrs {
+        match resolve_peers(addr).await {
+            Ok(peers) => relays.extend(
+                peers
+                    .into_iter()
+                    .map(|(peer, addr)| (peer, addr.with(Protocol::P2p(peer)))),
+            ),
+            Err(e) => warn!("ignoring drand relay {addr}: {e:#}"),
+        }
+    }
+    relays
 }
 
 // Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of

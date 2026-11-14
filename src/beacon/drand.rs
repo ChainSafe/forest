@@ -66,6 +66,9 @@ pub struct DrandConfig<'a> {
     pub chain_info: ChainInfo<'a>,
     /// Network type
     pub network_type: DrandNetwork,
+    /// `gossipsub` relays
+    #[serde(default)]
+    pub relays: Vec<libp2p::Multiaddr>,
     /// Whether this beacon's entry cache reports Prometheus metrics.
     #[serde(default)]
     pub register_metrics: bool,
@@ -255,6 +258,7 @@ pub struct BeaconEntryJson {
 /// Filecoin chain. Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
     servers: Vec<Url>,
+    relays: Vec<libp2p::Multiaddr>,
     hash: String,
     network: DrandNetwork,
 
@@ -276,6 +280,7 @@ impl DrandBeacon {
         const CACHE_SIZE: NonZeroUsize = nonzero!(1000usize);
         Self {
             servers: config.servers.clone(),
+            relays: config.relays.clone(),
             hash: config.chain_info.hash.to_string(),
             network: config.network_type,
             public_key: hex::decode(config.chain_info.public_key.as_ref())
@@ -326,6 +331,11 @@ impl DrandBeacon {
         let until_epoch_ts =
             (self.fil_round_time - since_genesis % self.fil_round_time) % self.fil_round_time;
         until_epoch_ts < self.interval
+    }
+
+    /// `gossipsub` relays publishing this network's rounds.
+    pub(crate) fn relays(&self) -> &[libp2p::Multiaddr] {
+        &self.relays
     }
 
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
