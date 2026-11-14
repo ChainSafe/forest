@@ -98,14 +98,11 @@ impl StateManager {
         )
         .await?;
 
-        // If the miner actor doesn't exist in the current tipset, it is a
-        // user-error and we must return an error message. If the miner exists
-        // in the current tipset but not in the lookback tipset, we may not
-        // error and should instead return None.
-        let actor = self.get_required_actor(&addr, *tipset.parent_state())?;
-        if self.get_actor(&addr, lb_state_root)?.is_none() {
+        // None for a miner created after the lookback; an error if it does not exist now either.
+        let Some(actor) = self.get_actor(&addr, lb_state_root)? else {
+            self.get_required_actor(&addr, *tipset.parent_state())?;
             return Ok(None);
-        }
+        };
 
         let miner_state = miner::State::load(self.db(), actor.code, actor.state)?;
 
