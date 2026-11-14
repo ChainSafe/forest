@@ -140,6 +140,14 @@ impl BeaconSchedule {
         }
     }
 
+    /// The first unchained beacon in schedule order.
+    pub fn unchained_beacon(&self) -> Option<&DrandBeacon> {
+        self.0.iter().find_map(|point| match &point.beacon {
+            BeaconImpl::Drand(beacon) if beacon.network().is_unchained() => Some(beacon),
+            _ => None,
+        })
+    }
+
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
@@ -287,8 +295,37 @@ impl DrandBeacon {
         }
     }
 
+    /// Whether `entry` is the verified entry cached for its round.
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
+    }
+
+    /// Chain hash identifying the `drand` network.
+    pub fn chain_hash(&self) -> &str {
+        &self.hash
+    }
+
+    /// Whether a verified entry is cached for `round`.
+    pub(crate) fn has_round(&self, round: u64) -> bool {
+        self.verified_beacons.get(&round).is_some()
+    }
+
+    /// Whether some block can carry `round`. Assumes the nv16+ round mapping.
+    pub(crate) fn is_epoch_round(&self, round: u64) -> bool {
+        // Chained blocks carry every round elapsed since the parent.
+        if !self.network.is_unchained() {
+            return true;
+        }
+        // Unchained: the round whose period holds an epoch's randomness timestamp.
+        let Some(since_genesis) = self
+            .beacon_round_timestamp(round)
+            .and_then(|round_ts| round_ts.checked_sub(self.fil_gen_time))
+        else {
+            return false;
+        };
+        let until_epoch_ts =
+            (self.fil_round_time - since_genesis % self.fil_round_time) % self.fil_round_time;
+        until_epoch_ts < self.interval
     }
 
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
