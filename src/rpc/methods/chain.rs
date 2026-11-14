@@ -362,6 +362,7 @@ async fn export_chain_inner(
         include_tipset_keys,
         include_tipset_lookup: tipset_lookup,
         seen: FileBackedCidHashSet::new(ctx.temp_dir.as_path())?,
+        diff_base: None,
     };
     let tmp_path = tempfile::TempPath::try_from_path(tmp_exporting_forest_car_path(&output_path))?;
     let writer = if dry_run {
@@ -901,6 +902,7 @@ async fn export_diff_inner(
         depth,
         Some(to),
         Some(chain_finality),
+        ctx.temp_dir.as_path(),
         true,
     );
 

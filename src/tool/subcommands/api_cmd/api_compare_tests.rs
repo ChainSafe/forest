@@ -977,6 +977,16 @@ fn state_tests_with_tipset<DB: Blockstore + ShallowClone>(
             Address::new_id(0xdeadbeef),
             tipset.key().into(),
         ))?),
+        // A miner with no power and an account, which has no power claim at all: both get the real
+        // network total and `HasMinPower: false`.
+        RpcTest::identity(StateMinerPower::request((
+            MINER_ADDRESS,
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateMinerPower::request((
+            ACCOUNT_ADDRESS,
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateVerifiedRegistryRootKey::request((tipset
             .key()
             .into(),))?),
@@ -2790,7 +2800,8 @@ fn eth_expensive_fork_error_tests(store: Arc<ManyCar>) -> anyhow::Result<Vec<Rpc
             EthCallMessage::default(),
             BlockNumberOrHash::from_block_number(expensive_fork_epoch),
         ))?)
-        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError),
+        .policy_on_rejected(PolicyOnRejected::PassWithQuasiIdenticalError)
+        .ignore("Lotus error object has a `meta` member that jsonrpsee rejects"),
     ])
 }
 

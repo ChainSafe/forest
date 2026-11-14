@@ -106,7 +106,7 @@ fvm_ipld_encoding = "0.5.3"
 fvm_ipld_kamt = "0.4.5"
 fvm_shared2 = { package = "fvm_shared", version = "~2.12.2" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.14.2", features = ["proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.8.3", features = ["proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.8.4", features = ["proofs"] }
 get-size2 = { workspace = true }
 gethostname = "1"
 git-version = "0.3"
@@ -239,7 +239,6 @@ zstd = "0.14"
 # optional dependencies
 console-subscriber = { version = "0.5", features = ["parking_lot"], optional = true }
 libtest-mimic = "0.8"
-sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "macros"], optional = true }
 tikv-jemallocator = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
 
@@ -255,7 +254,7 @@ cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
 fickle = "0.3"
 fvm_shared3 = { package = "fvm_shared", version = "~3.14.2", features = ["arb", "proofs", "testing"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.8.3", features = ["arb", "proofs", "testing"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.8.4", features = ["arb", "proofs", "testing"] }
 hex = { version = "0.4", features = ["serde"] }
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
@@ -343,7 +342,7 @@ debug = "line-tables-only"
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tracing-loki", "sqlite"]
+default = ["jemalloc", "tracing-loki"]
 test = [] # default feature set for unit tests
 slim = ["rustalloc"]
 doctest-private = [] # see lib.rs::doctest_private
@@ -354,7 +353,6 @@ jemalloc-profiling = [
   "tikv-jemallocator?/profiling",
   "tikv-jemallocator?/unprefixed_malloc_on_supported_platforms",
 ] # enable jemalloc profiling features, use with `release-symbols` build profile for best results
-sqlite = ["dep:sqlx"]
 
 # Allocator. Use at most one of these.
 rustalloc = []

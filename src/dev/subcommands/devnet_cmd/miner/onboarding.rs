@@ -79,9 +79,8 @@ async fn create_miner() -> anyhow::Result<()> {
         .forest
         .call(StateLookupID::request((worker_key, ApiTipsetKey(None)))?)
         .await?;
-    let info = net
-        .synced()
-        .await?
+    let at = net.synced().await?;
+    let info = at
         .same(|tsk| StateMinerInfo::request((miner, tsk)))
         .await?;
     ensure!(
@@ -106,6 +105,13 @@ async fn create_miner() -> anyhow::Result<()> {
             "miner {miner}: no peer ID recorded"
         ),
     }
+    let power = at
+        .same(|tsk| StateMinerPower::request((miner, tsk)))
+        .await?;
+    ensure!(
+        !power.has_min_power,
+        "miner {miner}: has the minimum power before pledging a sector"
+    );
     Ok(())
 }
 

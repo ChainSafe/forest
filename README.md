@@ -271,13 +271,9 @@ server, allowing you to chain some RPC command immediately after.
 
 ### Reporting a Security Bug
 
-We take all security issues seriously, if you believe you have found a security
-issue within a ChainSafe project please notify us immediately. If an issue is
-confirmed, we will take all necessary precautions to ensure a statement and
-patch release is made in a timely manner.
-
-Please email a description of the flaw and any related information (e.g.
-reproduction steps, version) to `security (at) chainsafe (dot) io`.
+We take all security issues seriously. If you believe you have found a security
+issue in Forest, please follow [SECURITY.md] to report it privately. Do not open
+a public issue for security bugs.
 
 ## License
 
@@ -289,6 +285,7 @@ Forest is dual licensed under [MIT] + [Apache 2.0].
 [Forest Book]: https://docs.forest.chainsafe.io/
 [Forest Q&A]: https://github.com/ChainSafe/forest/discussions/categories/forest-q-a
 [CONTRIBUTING.md]: CONTRIBUTING.md
+[SECURITY.md]: SECURITY.md
 [Forest IaC]: https://github.com/ChainSafe/forest-iac
 [MIT]: https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT
 [Apache 2.0]: https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE

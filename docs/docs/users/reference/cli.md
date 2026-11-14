@@ -2983,7 +2983,7 @@ Arguments:
   [FILTER]  Run only the tests whose name contains this string
 
 Options:
-      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding]
+      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding, wdpost]
   -h, --help           Print help
 ```
 

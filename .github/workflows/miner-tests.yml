@@ -83,8 +83,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Add groups as more Lotus itests are ported.
-        group: [onboarding]
+        # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
+        group: [onboarding, wdpost]
         devnet: [devnet-forest-miner, devnet-forest-curio]
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
