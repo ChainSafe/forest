@@ -41,6 +41,8 @@
 
 ### Changed
 
+- [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand and other outgoing HTTP requests (snapshot, proof parameter and actor bundle downloads) contain a `User-Agent` header defined as `forest/<version>`.
+
 - [#7850](https://github.com/ChainSafe/forest/pull/7850): `Filecoin.StateGetNetworkParams` now reports `UpgradeXxHeight` (NV30), matching Lotus v1.39.0. The upgrade is not scheduled on any network yet.
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): Big integers in JSON-RPC parameters must fit the 1016-bit limit of their CBOR encoding. Larger values are rejected when the request is decoded.
