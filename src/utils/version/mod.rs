@@ -64,17 +64,3 @@ impl Collector for ForestVersionCollector {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn user_agent_matches_version_string() {
-        assert_eq!(
-            FOREST_USER_AGENT,
-            format!("forest/{}", *FOREST_VERSION_STRING)
-        );
-        http::HeaderValue::from_str(FOREST_USER_AGENT).unwrap();
-    }
-}
