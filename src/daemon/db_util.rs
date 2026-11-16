@@ -159,6 +159,7 @@ pub async fn import_chain_as_forest_car(
                     &url,
                     &downloaded_car_temp_path,
                     DownloadFileOption::Resumable,
+                    None,
                     snapshot_progress_tracker.create_callback(),
                 )
                 .await?;

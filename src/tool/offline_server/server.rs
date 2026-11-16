@@ -304,6 +304,7 @@ async fn handle_snapshots(
         &downloaded_snapshot_path,
         DownloadFileOption::Resumable,
         None,
+        None,
     )
     .await?;
     info!("Snapshot downloaded");
