@@ -18,6 +18,13 @@ pub const GIT_HASH: &str =
 pub static FOREST_VERSION_STRING: LazyLock<String> =
     LazyLock::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
+/// `User-Agent` advertised by Forest's HTTP clients, e.g. `forest/0.33.7+git.e69baf3e4`.
+///
+/// Some public RPC providers (e.g. Filfox, fronted by Cloudflare) reject requests
+/// without a `User-Agent` with a `403`.
+pub const FOREST_USER_AGENT: &str =
+    const_format::concatcp!("forest/", env!("CARGO_PKG_VERSION"), "+git.", GIT_HASH);
+
 pub static FOREST_VERSION: LazyLock<semver::Version> =
     LazyLock::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
 
@@ -52,5 +59,19 @@ impl Collector for ForestVersionCollector {
             .set(1);
         self.version.encode(metric_encoder)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_agent_matches_version_string() {
+        assert_eq!(
+            FOREST_USER_AGENT,
+            format!("forest/{}", *FOREST_VERSION_STRING)
+        );
+        http::HeaderValue::from_str(FOREST_USER_AGENT).unwrap();
     }
 }
