@@ -588,7 +588,7 @@ pub mod tests {
     /// Builds a chain with two competing tipsets at checkpoint epoch 20: `full` (canonical,
     /// two blocks), `partial` (one block, different min ticket), and a canonical chain up to
     /// epoch 30 built on `full`. Returns `(genesis, partial, full, head)`.
-    fn chain_with_competing_tipsets_at_checkpoint(
+    pub fn chain_with_competing_tipsets_at_checkpoint(
         db: &Arc<MemoryDB>,
     ) -> (Tipset, Tipset, Tipset, Tipset) {
         let genesis = genesis_tipset();

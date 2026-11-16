@@ -11,9 +11,12 @@ use crate::cli_shared::{chain_path, delete_chain_data, read_config};
 use crate::daemon::db_util::load_all_forest_cars;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME, EthMappingsStore};
+use crate::db::{
+    BlockstoreWithWriteBuffer, CAR_DB_DIR_NAME, EthMappingsStore, HeaviestTipsetKeyProvider,
+};
 use crate::networks::NetworkChain;
 use crate::prelude::*;
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::utils::db::car_stream::CarStream;
 use clap::Subcommand;
 use fil_actors_shared::fvm_ipld_hamt::Hamt;
@@ -201,12 +204,24 @@ impl DBCommands {
                     anyhow::Ok(())
                 })?;
                 println!("Successfully validated tipset lookup hamt");
+                let head_epoch = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
+                    .map(|tsk| Tipset::load_required(&db, &tsk).map(|ts| ts.epoch()))
+                    .transpose()?;
+                let finality_boundary = head_epoch.map(|e| e - CHAIN_FINALITY);
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 hamt.for_each_cacheless(|&epoch, tsk| {
+                    // skip unfinalized entries
+                    if finality_boundary.is_some_and(|b| epoch > b) {
+                        return anyhow::Ok(());
+                    }
+                    // never overwrite an entry already recorded by the node
+                    if db.tipset_key_by_epoch(epoch)?.is_some() {
+                        return anyhow::Ok(());
+                    }
                     db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
                     pb.inc(1);
                     anyhow::Ok(())
@@ -221,5 +236,89 @@ impl DBCommands {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chain::store::index::tests::{
+        chain_with_competing_tipsets_at_checkpoint, persist_tipset, tipset_child,
+    };
+    use crate::db::MemoryDB;
+    use fil_actors_shared::fvm_ipld_hamt::Hamt;
+    use std::sync::Arc;
+
+    /// Regression test for #7860: import must not overwrite an entry the node already recorded.
+    #[tokio::test]
+    async fn import_tipset_lookup_does_not_overwrite_existing_entry() {
+        let mem_db = Arc::new(MemoryDB::default());
+        let (_genesis, partial, full, mut head) =
+            chain_with_competing_tipsets_at_checkpoint(&mem_db);
+        // Extend chain past CHAIN_FINALITY (900) so epoch 20 is finalized (head - 900 >= 20).
+        for epoch in head.epoch() + 1..=920 {
+            let ts = tipset_child(&head, epoch);
+            persist_tipset(&ts, &mem_db);
+            head = ts;
+        }
+
+        // Export the chain to a CAR file for the paritydb to load.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_root_path = temp_dir.path().join("db");
+        let car_dir = db_root_path.join(CAR_DB_DIR_NAME);
+        std::fs::create_dir_all(&car_dir).unwrap();
+        let mut car = vec![];
+        mem_db
+            .export_forest_car_with_roots(head.key().to_cids(), &mut car)
+            .await
+            .unwrap();
+        std::fs::write(car_dir.join("chain.forest.car.zst"), car).unwrap();
+
+        let make_db = || {
+            let db = ManyCar::new(open_db(db_root_path.clone(), &Default::default()).unwrap());
+            load_all_forest_cars(&db, &car_dir).unwrap();
+            Arc::new(db)
+        };
+
+        // Record the canonical entry for epoch 20 (the two-block tipset).
+        let db = make_db();
+        db.set_tipset_key_at_epoch_raw(full.epoch(), full.key())
+            .unwrap();
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(full.key())
+        );
+        drop(db);
+
+        // Build a lookup HAMT that maps epoch 20 to the one-block partial tipset.
+        let hamt_store = Arc::new(MemoryDB::default());
+        let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
+            Hamt::new_with_bit_width(hamt_store.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+        hamt.set(partial.epoch(), partial.key().clone()).unwrap();
+        let root = hamt.flush().unwrap();
+        let mut lookup_bytes = vec![];
+        hamt_store
+            .export_forest_car_with_roots(nunny::vec![root], &mut lookup_bytes)
+            .await
+            .unwrap();
+        let lookup_path = temp_dir.path().join("lookup.forest.car.zst");
+        std::fs::write(&lookup_path, lookup_bytes).unwrap();
+
+        // Import should skip the entry because epoch 20 already has a canonical value.
+        DBCommands::ImportTipsetLookup {
+            snapshot: lookup_path,
+            chain: NetworkChain::Calibnet,
+            db: Some(db_root_path.clone()),
+        }
+        .run()
+        .await
+        .unwrap();
+
+        let db = make_db();
+        assert_eq!(
+            db.tipset_key_by_epoch(20).unwrap().as_ref(),
+            Some(full.key()),
+            "import must not replace a canonical entry with an imported one",
+        );
     }
 }
