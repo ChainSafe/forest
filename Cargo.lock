@@ -3260,7 +3260,6 @@ dependencies = [
  "clap_complete",
  "colored 3.1.1",
  "console-subscriber",
- "const_format",
  "criterion",
  "crossbeam-utils",
  "crypto_secretbox",

@@ -61,7 +61,6 @@ cid = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 colored = "3"
-const_format = "0.2"
 criterion = { version = "0.8", default-features = false, features = ["async_tokio"], optional = true }
 crossbeam-utils = "0.8"
 crypto_secretbox = "0.1"

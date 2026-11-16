@@ -22,8 +22,11 @@ pub static FOREST_VERSION_STRING: LazyLock<String> =
 ///
 /// Some public RPC providers (e.g. Filfox, fronted by Cloudflare) reject requests
 /// without a `User-Agent` with a `403`.
-pub const FOREST_USER_AGENT: &str =
-    const_format::concatcp!("forest/", env!("CARGO_PKG_VERSION"), "+git.", GIT_HASH);
+pub const FOREST_USER_AGENT: &str = git_version!(
+    args = ["--always", "--exclude", "*"],
+    prefix = concat!("forest/", env!("CARGO_PKG_VERSION"), "+git."),
+    fallback = concat!("forest/", env!("CARGO_PKG_VERSION"), "+git.unknown")
+);
 
 pub static FOREST_VERSION: LazyLock<semver::Version> =
     LazyLock::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
