@@ -29,17 +29,20 @@ const MIN_GAS: u64 = 1298450;
 pub mod tests {
     use std::{borrow::BorrowMut, time::Duration};
 
-    use crate::blocks::Tipset;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader, Tipset};
     use crate::key_management::{KeyStore, KeyStoreConfig, Wallet};
     use crate::libp2p::NetworkMessage;
     use crate::message::{MessageRead as _, SignedMessage};
-    use crate::networks::ChainConfig;
+    use crate::networks::{ChainConfig, Height};
     use crate::shim::{
         address::Address,
+        clock::ChainEpoch,
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
+        gas::PriceList,
         message::{Message, Message_v3},
     };
+    use crate::test_utils::dummy_ticket;
     use ahash::{HashMap, HashMapExt};
     use num_traits::Zero;
     use test_provider::*;
@@ -124,6 +127,61 @@ pub mod tests {
             mpool.add(last.clone()).await,
             Err(Error::TooManyPendingMessages(sender.to_string(), true))
         );
+    }
+
+    /// A message whose gas limit equals its own on-chain storage floor under `price_list`.
+    pub fn message_at_gas_floor(from: Address, price_list: &PriceList) -> SignedMessage {
+        let msg = |gas_limit| {
+            SignedMessage::mock_bls_signed_message(
+                Message::builder().from(from).gas_limit(gas_limit).build(),
+            )
+        };
+        let floor = |gas_limit| {
+            price_list
+                .on_chain_message(msg(gas_limit).chain_length().unwrap())
+                .total()
+                .round_up()
+        };
+        // The gas limit is part of the encoding, so iterate until the floor covers its own encoding.
+        let gas_limit = floor(floor(0));
+        assert_eq!(floor(gas_limit), gas_limit);
+        msg(gas_limit)
+    }
+
+    /// Lotus prices the selection gas floor at
+    /// [`PricelistByEpoch(ts.Height())`](https://github.com/filecoin-project/lotus/blob/a277be4961eb217bd1586c1c9630cda2e33dde08/chain/messagepool/selection.go#L820),
+    /// so the [`Height::Hygge`] prices apply from the upgrade epoch itself.
+    #[rstest::rstest]
+    #[case::epoch_before_hygge(1, 1)]
+    #[case::hygge_epoch(0, 0)]
+    fn selection_gas_floor_switches_at_upgrade_epoch(
+        #[case] epochs_before_hygge: ChainEpoch,
+        #[case] expected_chains: usize,
+    ) {
+        let chain_config = ChainConfig::calibnet();
+        let hygge = chain_config.epoch(Height::Hygge);
+        let from = Address::new_id(1000);
+        let msg = message_at_gas_floor(from, &chain_config.price_list(hygge - 1));
+        let ts = Tipset::from(CachingBlockHeader::new(RawBlockHeader {
+            ticket: dummy_ticket(0),
+            epoch: hygge - epochs_before_hygge,
+            ..Default::default()
+        }));
+        let api = TestApi::default();
+        api.set_state_balance_raw(&from, TokenAmount::from_whole(1));
+
+        let mut chains = Chains::new();
+        create_message_chains(
+            &api,
+            &from,
+            &HashMap::from_iter([(0, msg)]),
+            &TokenAmount::zero(),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .unwrap();
+        assert_eq!(chains.len(), expected_chains);
     }
 
     pub fn create_smsg(
