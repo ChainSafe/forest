@@ -77,7 +77,6 @@ pub async fn fetch(
         &filename,
         DownloadFileOption::Resumable,
         None,
-        None,
     )
     .await
 }

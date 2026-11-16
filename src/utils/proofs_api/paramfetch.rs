@@ -154,7 +154,7 @@ async fn fetch_verify_params(
             path = path.display()
         );
         let fetched = async {
-            download_to(&url, &path, DownloadFileOption::NonResumable, None, None)
+            download_to(&url, &path, DownloadFileOption::NonResumable, None)
                 .await
                 .with_context(|| format!("failed to download {url}"))?;
             check_parameter_file(&path, info).await

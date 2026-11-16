@@ -24,7 +24,7 @@
 //! let destination = Path::new("./large-file.zst");
 //!
 //! // Download with parallel connections (automatic for Resumable option)
-//! download_to(&url, destination, DownloadFileOption::Resumable, None, None).await?;
+//! download_to(&url, destination, DownloadFileOption::Resumable, None).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -170,7 +170,6 @@ pub async fn download_file_with_cache(
                     )
                 })?,
             option,
-            None,
             None,
         )
         .await?;
@@ -545,18 +544,16 @@ pub async fn download_http(
     }
 }
 
-/// `timeout` caps the whole download, retries included; `None` means no limit.
 pub async fn download_file_with_retry(
     url: &Url,
     directory: &Path,
     filename: &str,
     option: DownloadFileOption,
-    timeout: Option<Duration>,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
     Ok(retry(
         RetryArgs {
-            timeout,
+            timeout: None,
             ..Default::default()
         },
         || download_http(url, directory, filename, option, callback.clone()),
@@ -564,12 +561,10 @@ pub async fn download_file_with_retry(
     .await?)
 }
 
-/// See [`download_file_with_retry`] for `timeout`.
 pub async fn download_to(
     url: &Url,
     destination: &Path,
     option: DownloadFileOption,
-    timeout: Option<Duration>,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<()> {
     download_file_with_retry(
@@ -585,7 +580,6 @@ pub async fn download_to(
             .and_then(OsStr::to_str)
             .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
         option,
-        timeout,
         callback,
     )
     .await?;
