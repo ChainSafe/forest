@@ -15,7 +15,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use forest::doctest_private::{download_to, DownloadFileOption};
+//! use forest::doctest_private::{download_to, DownloadFileOption, DownloadOpts};
 //! use url::Url;
 //! use std::path::Path;
 //!
@@ -24,7 +24,8 @@
 //! let destination = Path::new("./large-file.zst");
 //!
 //! // Download with parallel connections (automatic for Resumable option)
-//! download_to(&url, destination, DownloadFileOption::Resumable, None).await?;
+//! let opts = DownloadOpts::new(destination, DownloadFileOption::Resumable)?;
+//! download_to(&url, opts, None).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -113,6 +114,36 @@ pub enum DownloadFileOption {
     Resumable,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct DownloadOpts<'a> {
+    pub directory: &'a Path,
+    pub filename: &'a str,
+    pub option: DownloadFileOption,
+    /// `None` means no limit.
+    pub timeout: Option<Duration>,
+}
+
+impl<'a> DownloadOpts<'a> {
+    pub fn new(destination: &'a Path, option: DownloadFileOption) -> anyhow::Result<Self> {
+        Ok(Self {
+            directory: destination.parent().with_context(|| {
+                format!(
+                    "Error getting the parent directory of {}",
+                    destination.display()
+                )
+            })?,
+            filename: destination
+                .file_name()
+                .and_then(OsStr::to_str)
+                .with_context(|| {
+                    format!("Error getting the file name of {}", destination.display())
+                })?,
+            option,
+            timeout: Some(Duration::from_mins(10)),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DownloadFileResult {
     pub path: PathBuf,
@@ -157,22 +188,11 @@ pub async fn download_file_with_cache(
     if cache_hit {
         tracing::debug!(%url, "loaded from cache");
     } else {
-        download_file_with_retry(
-            url,
-            cache_file_path.parent().unwrap_or_else(|| Path::new(".")),
-            cache_file_path
-                .file_name()
-                .and_then(OsStr::to_str)
-                .with_context(|| {
-                    format!(
-                        "Error getting the file name of {}",
-                        cache_file_path.display()
-                    )
-                })?,
-            option,
-            None,
-        )
-        .await?;
+        let opts = DownloadOpts {
+            timeout: None,
+            ..DownloadOpts::new(&cache_file_path, option)?
+        };
+        download_to(url, opts, None).await?;
     }
 
     Ok(DownloadFileResult {
@@ -544,47 +564,25 @@ pub async fn download_http(
     }
 }
 
-pub async fn download_file_with_retry(
+pub async fn download_to(
     url: &Url,
-    directory: &Path,
-    filename: &str,
-    option: DownloadFileOption,
+    opts: DownloadOpts<'_>,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
+    let DownloadOpts {
+        directory,
+        filename,
+        option,
+        timeout,
+    } = opts;
     Ok(retry(
         RetryArgs {
-            timeout: None,
+            timeout,
             ..Default::default()
         },
         || download_http(url, directory, filename, option, callback.clone()),
     )
     .await?)
-}
-
-pub async fn download_to(
-    url: &Url,
-    destination: &Path,
-    option: DownloadFileOption,
-    callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
-) -> anyhow::Result<()> {
-    download_file_with_retry(
-        url,
-        destination.parent().with_context(|| {
-            format!(
-                "Error getting the parent directory of {}",
-                destination.display()
-            )
-        })?,
-        destination
-            .file_name()
-            .and_then(OsStr::to_str)
-            .with_context(|| format!("Error getting the file name of {}", destination.display()))?,
-        option,
-        callback,
-    )
-    .await?;
-
-    Ok(())
 }
 
 #[cfg(test)]

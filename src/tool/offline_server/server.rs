@@ -20,7 +20,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
-use crate::utils::net::{DownloadFileOption, download_to};
+use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 
 use arc_swap::ArcSwap;
@@ -299,13 +299,12 @@ async fn handle_snapshots(
         indicatif::HumanBytes(num_bytes)
     );
     let downloaded_snapshot_path = std::env::current_dir()?.join(path);
-    download_to(
-        &snapshot_url,
-        &downloaded_snapshot_path,
-        DownloadFileOption::Resumable,
-        None,
-    )
-    .await?;
+    let opts = DownloadOpts {
+        // A full snapshot can take hours to download.
+        timeout: None,
+        ..DownloadOpts::new(&downloaded_snapshot_path, DownloadFileOption::Resumable)?
+    };
+    download_to(&snapshot_url, opts, None).await?;
     info!("Snapshot downloaded");
     Ok(vec![downloaded_snapshot_path])
 }
