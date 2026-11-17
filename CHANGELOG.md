@@ -27,6 +27,8 @@
 
 ### Breaking
 
+- [#7870](https://github.com/ChainSafe/forest/pull/7870): `eth_call`, `eth_estimateGas` and `trace_call` reject `value`, `gasPrice` and `maxFeePerGas` that are not canonical quantities: `0x`-prefixed hex, at most 256 bits, no leading zeros (`0x0` for zero). Previously `0x01` and unprefixed hex were accepted.
+
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): A devnet refuses to start when a `FOREST_*_HEIGHT` variable is not an integer or the enabled upgrades are not in increasing order, matching Lotus. Previously a bad height fell back to the default.
 
 ### Added
@@ -38,6 +40,8 @@
 - [#7729](https://github.com/ChainSafe/forest/issues/7729): Blocks built by `Filecoin.MinerCreateBlock` set the header `ForkSignaling` field to `0xF02E57ED` to mark them as produced through Forest. Set `FOREST_BLOCK_FORK_SIGNALING` to override it, or to `0` to opt out.
 
 ### Changed
+
+- [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand and other outgoing HTTP requests (snapshot, proof parameter and actor bundle downloads) contain a `User-Agent` header defined as `forest/<version>`.
 
 - [#7850](https://github.com/ChainSafe/forest/pull/7850): `Filecoin.StateGetNetworkParams` now reports `UpgradeXxHeight` (NV30), matching Lotus v1.39.0. The upgrade is not scheduled on any network yet.
 
