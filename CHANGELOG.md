@@ -53,7 +53,7 @@
 
 ### Fixed
 
-- [#7767](https://github.com/ChainSafe/forest/issues/7767): `Filecoin.MpoolPushMessage` returns the message already pushed for the same non-nil `MsgUuid`.
+- [#7767](https://github.com/ChainSafe/forest/issues/7767): `Filecoin.MpoolPushMessage` returns the message already pushed for the same non-zero `MsgUuid`.
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
 
