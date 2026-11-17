@@ -204,18 +204,19 @@ impl DBCommands {
                     anyhow::Ok(())
                 })?;
                 println!("Successfully validated tipset lookup hamt");
-                let head_epoch = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
+                let finality_boundary = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
                     .map(|tsk| Tipset::load_required(&db, &tsk).map(|ts| ts.epoch()))
-                    .transpose()?;
-                let finality_boundary = head_epoch.map(|e| e - CHAIN_FINALITY);
+                    .transpose()?
+                    .map(|e| e - CHAIN_FINALITY)
+                    .expect("chain head must be present in the database before importing a tipset lookup");
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 hamt.for_each_cacheless(|&epoch, tsk| {
-                    // skip unfinalized entries
-                    if finality_boundary.is_some_and(|b| epoch > b) {
+                    // skip entries that are not yet beyond the EC finality threshold
+                    if epoch > finality_boundary {
                         return anyhow::Ok(());
                     }
                     // never overwrite an entry already recorded by the node
@@ -255,7 +256,7 @@ mod tests {
         let mem_db = Arc::new(MemoryDB::default());
         let (_genesis, partial, full, mut head) =
             chain_with_competing_tipsets_at_checkpoint(&mem_db);
-        // Extend chain past CHAIN_FINALITY (900) so epoch 20 is finalized (head - 900 >= 20).
+        // Extend past CHAIN_FINALITY so epoch 20 is finalized (head - 900 >= 20 requires head >= 920).
         for epoch in head.epoch() + 1..=920 {
             let ts = tipset_child(&head, epoch);
             persist_tipset(&ts, &mem_db);
@@ -320,5 +321,99 @@ mod tests {
             Some(full.key()),
             "import must not replace a canonical entry with an imported one",
         );
+    }
+
+    /// End-to-end test against a real imported snapshot.
+    /// Set FOREST_TEST_DB to a paritydb root (created by `forest-tool db import`) to run.
+    ///
+    /// Run with:
+    ///   cargo test --profile quick --lib -- --ignored calibnet_import_tipset_lookup_roundtrip --nocapture
+    #[ignore]
+    #[tokio::test]
+    async fn calibnet_import_tipset_lookup_roundtrip() {
+        use crate::shim::policy::policy_constants::CHAIN_FINALITY;
+
+        let db_root = std::env::var("FOREST_TEST_DB")
+            .expect("set FOREST_TEST_DB to a path with car_db/<snapshot>.forest.car.zst");
+        let db_root = std::path::PathBuf::from(db_root);
+        let car_dir = db_root.join(CAR_DB_DIR_NAME);
+
+        let make_db = || {
+            let db = ManyCar::new(open_db(db_root.clone(), &Default::default()).unwrap());
+            load_all_forest_cars(&db, &car_dir).unwrap();
+            Arc::new(db)
+        };
+
+        let db = make_db();
+        let head = db
+            .heaviest_tipset()
+            .expect("ManyCar must surface a head from the loaded CAR file");
+        let finality_boundary = head.epoch() - CHAIN_FINALITY;
+        println!(
+            "head epoch: {}, finality boundary: {finality_boundary}",
+            head.epoch()
+        );
+
+        // Walk back from head to find a checkpoint epoch (multiple of 20) at or below the
+        // finality boundary.
+        let mut ts = head.shallow_clone();
+        while ts.epoch() > finality_boundary || ts.epoch() % 20 != 0 {
+            ts = Tipset::load_required(&db, ts.parents()).unwrap();
+        }
+        let checkpoint_epoch = ts.epoch();
+        let checkpoint_key = ts.key().clone();
+        println!("checkpoint epoch: {checkpoint_epoch}, key: {checkpoint_key}");
+        drop(db);
+
+        // Build a one-entry HAMT with that checkpoint.
+        let hamt_store = Arc::new(MemoryDB::default());
+        let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
+            Hamt::new_with_bit_width(hamt_store.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+        hamt.set(checkpoint_epoch, checkpoint_key.clone()).unwrap();
+        let root = hamt.flush().unwrap();
+        let mut lookup_bytes = vec![];
+        hamt_store
+            .export_forest_car_with_roots(nunny::vec![root], &mut lookup_bytes)
+            .await
+            .unwrap();
+        let lookup_path = db_root.parent().unwrap().join("test-lookup.forest.car.zst");
+        std::fs::write(&lookup_path, &lookup_bytes).unwrap();
+        println!("wrote lookup HAMT to {}", lookup_path.display());
+
+        // First import: should write the entry (DB has no prior lookup entries).
+        DBCommands::ImportTipsetLookup {
+            snapshot: lookup_path.clone(),
+            chain: NetworkChain::Calibnet,
+            db: Some(db_root.clone()),
+        }
+        .run()
+        .await
+        .unwrap();
+        let db = make_db();
+        assert_eq!(
+            db.tipset_key_by_epoch(checkpoint_epoch).unwrap().as_ref(),
+            Some(&checkpoint_key),
+            "first import must write the entry",
+        );
+        drop(db);
+
+        // Second import: should write 0 entries (all already exist).
+        DBCommands::ImportTipsetLookup {
+            snapshot: lookup_path.clone(),
+            chain: NetworkChain::Calibnet,
+            db: Some(db_root.clone()),
+        }
+        .run()
+        .await
+        .unwrap();
+        let db = make_db();
+        assert_eq!(
+            db.tipset_key_by_epoch(checkpoint_epoch).unwrap().as_ref(),
+            Some(&checkpoint_key),
+            "second import must preserve the existing entry",
+        );
+
+        // Cleanup lookup file; the caller owns the DB dir.
+        std::fs::remove_file(&lookup_path).unwrap();
     }
 }
