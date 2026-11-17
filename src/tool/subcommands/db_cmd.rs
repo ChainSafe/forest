@@ -208,18 +208,16 @@ impl DBCommands {
                     .map(|tsk| Tipset::load_required(&db, &tsk).map(|ts| ts.epoch()))
                     .transpose()?
                     .map(|e| e - CHAIN_FINALITY)
-                    .expect("chain head must be present in the database before importing a tipset lookup");
+                    .ok_or_else(|| anyhow::anyhow!("chain head must be present in the database before importing a tipset lookup"))?;
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 hamt.for_each_cacheless(|&epoch, tsk| {
-                    // skip entries that are not yet beyond the EC finality threshold
                     if epoch > finality_boundary {
                         return anyhow::Ok(());
                     }
-                    // never overwrite an entry already recorded by the node
                     if db.tipset_key_by_epoch(epoch)?.is_some() {
                         return anyhow::Ok(());
                     }
@@ -257,11 +255,17 @@ mod tests {
         let (_genesis, partial, full, mut head) =
             chain_with_competing_tipsets_at_checkpoint(&mem_db);
         // Extend past CHAIN_FINALITY so epoch 20 is finalized (head - 900 >= 20 requires head >= 920).
+        // Capture epoch 500 to use as an unfinalized HAMT entry for guard-1 coverage.
+        let mut unfinalized_tipset = None;
         for epoch in head.epoch() + 1..=920 {
             let ts = tipset_child(&head, epoch);
             persist_tipset(&ts, &mem_db);
+            if epoch == 500 {
+                unfinalized_tipset = Some(ts.clone());
+            }
             head = ts;
         }
+        let unfinalized_tipset = unfinalized_tipset.unwrap();
 
         // Export the chain to a CAR file for the paritydb to load.
         let temp_dir = tempfile::tempdir().unwrap();
@@ -291,11 +295,13 @@ mod tests {
         );
         drop(db);
 
-        // Build a lookup HAMT that maps epoch 20 to the one-block partial tipset.
+        // Build a lookup HAMT: epoch 20 → partial (exists, guard 2 fires), epoch 500 → unfinalized (guard 1 fires).
         let hamt_store = Arc::new(MemoryDB::default());
         let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
             Hamt::new_with_bit_width(hamt_store.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
         hamt.set(partial.epoch(), partial.key().clone()).unwrap();
+        hamt.set(unfinalized_tipset.epoch(), unfinalized_tipset.key().clone())
+            .unwrap();
         let root = hamt.flush().unwrap();
         let mut lookup_bytes = vec![];
         hamt_store
@@ -320,6 +326,13 @@ mod tests {
             db.tipset_key_by_epoch(20).unwrap().as_ref(),
             Some(full.key()),
             "import must not replace a canonical entry with an imported one",
+        );
+        assert_eq!(
+            db.tipset_key_by_epoch(unfinalized_tipset.epoch())
+                .unwrap()
+                .as_ref(),
+            None,
+            "import must not write an entry for an unfinalized epoch",
         );
     }
 }
