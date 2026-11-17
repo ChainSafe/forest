@@ -19,7 +19,7 @@ use crate::cli_shared::{
 };
 use crate::daemon::{
     context::AppContext,
-    db_util::{import_chain_as_forest_car, path_as_url},
+    db_util::{SnapshotImportPath, import_chain_as_forest_car},
     extended_snapshot::maybe_import_extended_snapshots,
 };
 use crate::db::gc::SnapshotGarbageCollector;
@@ -43,7 +43,7 @@ use anyhow::{Context as _, bail};
 use backon::{ExponentialBuilder, Retryable};
 use dialoguer::theme::ColorfulTheme;
 use futures::{Future, FutureExt};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -127,39 +127,25 @@ fn startup_init(config: &Config) -> anyhow::Result<()> {
 
 async fn maybe_import_snapshot(
     opts: &CliOpts,
-    config: &mut Config,
+    config: &Config,
     ctx: &AppContext,
 ) -> anyhow::Result<()> {
-    let chain_config = ctx.state_manager.chain_config();
-    // Sets the latest snapshot if needed for downloading later
-    if config.client.snapshot_path.is_none() && !opts.stateless {
-        maybe_set_snapshot_path(
-            config,
-            chain_config,
-            ctx.state_manager.chain_store().heaviest_tipset().epoch(),
-            opts.auto_download_snapshot,
-            &ctx.db_meta_data.get_root_dir(),
-        )
-        .await?;
-    }
+    let snapshot = maybe_get_snapshot_path(
+        opts,
+        config,
+        ctx.state_manager.chain_config(),
+        ctx.state_manager.chain_store().heaviest_tipset().epoch(),
+        &ctx.db_meta_data.get_root_dir(),
+    )
+    .await?;
 
     let snapshot_tracker = ctx.snapshot_progress_tracker.clone();
     // Import chain if needed
     if !opts.skip_load.unwrap_or_default()
-        && let Some(path) = &config.client.snapshot_path
+        && let Some(path) = snapshot
     {
-        // Resolve a moving alias once so the base and its extended snapshots come from the same
-        // snapshot.
-        let url = match path_as_url(path) {
-            Some(url) => Some(snapshot::peek_url(url).await),
-            None => None,
-        };
-        let path = &match &url {
-            Some(url) => PathBuf::from(url.as_str()),
-            None => path.clone(),
-        };
         let (car_db_path, ts) = import_chain_as_forest_car(
-            path,
+            &path,
             &ctx.db_meta_data.get_forest_car_db_dir(),
             config.client.import_mode,
             config.client.rpc_v1_endpoint()?,
@@ -180,15 +166,13 @@ async fn maybe_import_snapshot(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
         );
-        if let Some(url) = &url {
-            maybe_import_extended_snapshots(
-                &ctx.state_manager,
-                &ts,
-                url,
-                &ctx.db_meta_data.get_forest_car_db_dir(),
-            )
-            .await;
-        }
+        maybe_import_extended_snapshots(
+            &ctx.state_manager,
+            &ts,
+            &path,
+            &ctx.db_meta_data.get_forest_car_db_dir(),
+        )
+        .await;
     }
 
     // If the snapshot progress state is not completed,
@@ -843,7 +827,7 @@ pub(super) async fn start_services(
         &ctx,
     )?;
 
-    maybe_import_snapshot(opts, &mut config, &ctx).await?;
+    maybe_import_snapshot(opts, &config, &ctx).await?;
     if opts.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
@@ -889,17 +873,33 @@ fn warmup_in_background(ctx: &AppContext) {
     });
 }
 
-/// If our current chain is below a supported height, we need a snapshot to bring it up
-/// to a supported height. If we've not been given a snapshot by the user, get one.
+/// Returns the snapshot to import, if any.
+///
+/// A snapshot given by the user is used, unless loading is skipped. Otherwise, if our chain is
+/// below a supported height, we need a snapshot to bring it up to a supported height, so get
+/// the latest one, except in stateless mode.
 ///
 /// An [`Err`] should be considered fatal.
-async fn maybe_set_snapshot_path(
-    config: &mut Config,
+async fn maybe_get_snapshot_path(
+    opts: &CliOpts,
+    config: &Config,
     chain_config: &ChainConfig,
     epoch: ChainEpoch,
-    auto_download_snapshot: bool,
     download_directory: &Path,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<SnapshotImportPath>> {
+    let skip_load = opts.skip_load.unwrap_or_default();
+
+    if let Some(path) = &config.client.snapshot_path {
+        if skip_load {
+            return Ok(None);
+        }
+        return Ok(Some(SnapshotImportPath::resolve(path.clone()).await));
+    }
+
+    if opts.stateless {
+        return Ok(None);
+    }
+
     if !download_directory.is_dir() {
         anyhow::bail!(
             "`download_directory` does not exist: {}",
@@ -917,19 +917,20 @@ async fn maybe_set_snapshot_path(
     // We don't support small network versions (we can't validate from e.g genesis).
     // So we need a snapshot (which will be from a recent network version)
     let require_a_snapshot = network_version_is_small;
-    let have_a_snapshot = config.client.snapshot_path.is_some();
 
-    match (require_a_snapshot, have_a_snapshot, auto_download_snapshot) {
-        (false, _, _) => {}   // noop - don't need a snapshot
-        (true, true, _) => {} // noop - we need a snapshot, and we have one
-        (true, false, true) => {
+    let snapshot = match (require_a_snapshot, opts.auto_download_snapshot) {
+        (false, _) => None, // noop - don't need a snapshot
+        (true, true) => {
             const AUTO_SNAPSHOT_PATH_ENV_KEY: &str = "FOREST_AUTO_DOWNLOAD_SNAPSHOT_PATH";
             match std::env::var(AUTO_SNAPSHOT_PATH_ENV_KEY) {
                 Ok(path) if !path.is_empty() => {
                     tracing::info!(
                         "importing snapshot from {path} set by `{AUTO_SNAPSHOT_PATH_ENV_KEY}`"
                     );
-                    config.client.snapshot_path = Some(path.into());
+                    if skip_load {
+                        return Ok(None);
+                    }
+                    Some(SnapshotImportPath::resolve(path.into()).await)
                 }
                 _ => {
                     // Resolve the redirect URL to get the actual snapshot URL
@@ -938,11 +939,11 @@ async fn maybe_set_snapshot_path(
                     let (resolved_url, _num_bytes, filename) =
                         crate::cli_shared::snapshot::peek(vendor, chain).await?;
                     tracing::info!("Downloading snapshot: {filename}");
-                    config.client.snapshot_path = Some(resolved_url.to_string().into());
+                    Some(SnapshotImportPath::Url(resolved_url))
                 }
             }
         }
-        (true, false, false) => {
+        (true, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let (url, num_bytes, filename) = crate::cli_shared::snapshot::peek(vendor, chain)
                 .await
@@ -971,11 +972,11 @@ async fn maybe_set_snapshot_path(
                 )
             }
             tracing::info!("Downloading snapshot: {filename}");
-            config.client.snapshot_path = Some(url.to_string().into());
+            Some(SnapshotImportPath::Url(url))
         }
     };
 
-    Ok(())
+    Ok(snapshot)
 }
 
 /// returns the first error with which any of the services end, or never returns at all
@@ -1036,5 +1037,35 @@ mod tests {
                 assert!(result.is_err());
             }
         }
+    }
+
+    #[rstest]
+    #[case::stateless_keeps_given_snapshot(
+        true,
+        false,
+        Some("snapshot.car"),
+        Some(SnapshotImportPath::FilePath("snapshot.car".into()))
+    )]
+    #[case::stateless_without_snapshot(true, false, None, None)]
+    #[case::skip_load_ignores_given_url(false, true, Some("http://127.0.0.1:9/snapshot.car"), None)]
+    #[tokio::test]
+    async fn get_snapshot_path(
+        #[case] stateless: bool,
+        #[case] skip_load: bool,
+        #[case] snapshot_path: Option<&str>,
+        #[case] expected: Option<SnapshotImportPath>,
+    ) {
+        let opts = CliOpts {
+            stateless,
+            skip_load: Some(skip_load),
+            ..Default::default()
+        };
+        let mut config = Config::default();
+        config.client.snapshot_path = snapshot_path.map(Into::into);
+        let snapshot =
+            maybe_get_snapshot_path(&opts, &config, &ChainConfig::mainnet(), 0, Path::new("."))
+                .await
+                .unwrap();
+        assert_eq!(snapshot, expected);
     }
 }
