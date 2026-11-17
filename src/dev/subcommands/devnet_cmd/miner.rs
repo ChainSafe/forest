@@ -27,7 +27,7 @@ pub struct MinerTestCommand {
     group: Option<Group>,
     /// Run only the tests whose name contains this string
     filter: Option<String>,
-    /// Run only the ignored tests: the long variants the daily schedule runs
+    /// Run only the ignored tests: the long variants
     #[arg(long)]
     ignored: bool,
 }

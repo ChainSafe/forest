@@ -5,10 +5,11 @@
 //! the change takes effect, and lotus-miner keeps producing blocks Lotus accepts. Validators check
 //! a block's ticket, election proof and signature against the worker in the state `chain_finality`
 //! epochs back, so for that long after the change `MinerGetBaseInfo` must still answer the old
-//! key. Mirrors Lotus `TestWorkerKeyChange` and `TestSolsticeWorkerHandover`.
+//! key. After Lotus `TestWorkerKeyChange`, with the two messages its `lotus-miner actor` commands
+//! send pushed by the trial itself, as `TestSolsticeWorkerHandover` does.
 //!
-//! `window_start` stops a few epochs into that window, where the chain stalls without the fix;
-//! `whole_window` (ignored, about 2 h) runs through it to the switch to the new key.
+//! `window_start` stops a few epochs into that window, where a wrong worker key shows first;
+//! `whole_window` (ignored, about 2 h) runs through it and across the switch to the new key.
 
 use super::api::TestMiner;
 use super::call;
@@ -16,7 +17,7 @@ use super::devnet::{At, Devnet};
 use crate::dev::subcommands::tests_cmd::helpers::{FOREST_TEST_PRELOADED_ADDRESS, block_on, trial};
 use crate::networks::ChainConfig;
 use crate::rpc::prelude::*;
-use crate::rpc::types::{ApiTipsetKey, MessageLookup};
+use crate::rpc::types::MessageLookup;
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::crypto::SignatureType;
@@ -40,24 +41,31 @@ pub(super) fn tests() -> Vec<Trial> {
 
 async fn window_start() -> anyhow::Result<()> {
     let net = Devnet::connect()?;
-    let rotation = rotate(&net).await?;
-    old_key_signs(&net, &rotation, 3 * CHECK_EVERY).await
+    let r = rotate(&net).await?;
+    old_key_signs(&net, &r, r.confirmed + 2 * CHECK_EVERY).await
 }
 
 async fn whole_window() -> anyhow::Result<()> {
     let net = Devnet::connect()?;
-    let rotation = rotate(&net).await?;
-    let lookback = ChainConfig::devnet().policy.chain_finality;
-    old_key_signs(&net, &rotation, lookback).await?;
-    new_key_signs(&net, &rotation, lookback).await
+    let r = rotate(&net).await?;
+    // Validators read a round's worker from the parent state of the first tipset at height
+    // `round - 899` or above, so blocks switch to the new key at round `confirmed + 899`, one
+    // round earlier per null round right below the change or per epoch the deadline cron
+    // applied it before the confirm. The trial does not predict the round: the old key is
+    // asserted only up to a margin before it, and across it both nodes only have to agree at
+    // every head.
+    let switch = r.confirmed + ChainConfig::devnet().policy.chain_finality - 1;
+    old_key_signs(&net, &r, switch - CHECK_EVERY).await?;
+    new_key_signs(&net, &r, switch - 2 * CHECK_EVERY, switch + CHECK_EVERY).await
 }
 
-/// The miner, its worker keys, and the first epoch whose state has the new one.
+/// The miner, its worker keys, and the epoch the confirm executed at: the change took effect
+/// then, or a few epochs earlier when the deadline cron applied it first.
 struct Rotation {
     miner: Address,
     old_key: Address,
     new_key: Address,
-    effective: ChainEpoch,
+    confirmed: ChainEpoch,
 }
 
 /// Queues a new BLS worker from the owner and confirms it once effective.
@@ -79,17 +87,19 @@ async fn rotate(net: &Devnet) -> anyhow::Result<Rotation> {
     let sender = Address::from_str(&FOREST_TEST_PRELOADED_ADDRESS)
         .context("parsing FOREST_TEST_PRELOADED_ADDRESS")?;
     let fund = Message::transfer(sender, new_key, TokenAmount::from_whole(1));
-    push(net, "funding the new worker", fund).await?;
+    push(net, fund).await.context("funding the new worker")?;
     let new_id = net
         .synced()
         .await?
         .same(|tsk| StateLookupID::request((new_key, tsk)))
         .await?;
 
-    // Only the owner may queue the change, which takes effect `worker_key_change_delay` epochs later.
+    // Only the owner may queue the change, which takes effect `worker_key_change_delay` epochs
+    // later. The actor replaces the control addresses with the list sent, so the current ones go
+    // along.
     let params = ChangeWorkerAddressParams {
         new_worker: (&new_key).into(),
-        new_control_addresses: vec![],
+        new_control_addresses: info.control_addresses.iter().map(Into::into).collect(),
     };
     let change = Message::builder()
         .from(info.owner)
@@ -97,7 +107,9 @@ async fn rotate(net: &Devnet) -> anyhow::Result<Rotation> {
         .method_num(Method::ChangeWorkerAddress as u64)
         .params(RawBytes::serialize(params)?)
         .build();
-    push(net, "queuing the worker change", change).await?;
+    push(net, change)
+        .await
+        .context("queuing the worker change")?;
     let pending = net
         .synced()
         .await?
@@ -111,19 +123,18 @@ async fn rotate(net: &Devnet) -> anyhow::Result<Rotation> {
         info.worker
     );
 
-    // The confirmation applies the pending key once effective, unless the deadline cron already did.
+    // The confirmation applies the pending key once effective, unless the deadline cron already
+    // did.
     net.wait_for_epoch(pending.worker_change_epoch).await?;
     let confirm = Message::builder()
         .from(info.owner)
         .to(miner)
         .method_num(Method::ConfirmChangeWorkerAddress as u64)
         .build();
-    let mut effective = push(net, "confirming the worker change", confirm)
-        .await?
+    let confirmed = push(net, confirm)
+        .await
+        .context("confirming the worker change")?
         .height;
-    while worker_at(net, miner, effective - 1).await? == new_id {
-        effective -= 1;
-    }
     let info = net
         .synced()
         .await?
@@ -135,89 +146,84 @@ async fn rotate(net: &Devnet) -> anyhow::Result<Rotation> {
         info.worker,
         info.new_worker
     );
-    eprintln!("worker changed at epoch {effective}: {old_key} -> {new_key}");
+    eprintln!("worker change confirmed at epoch {confirmed}: {old_key} -> {new_key}");
     Ok(Rotation {
         miner,
         old_key,
         new_key,
-        effective,
+        confirmed,
     })
 }
 
-/// Every `CHECK_EVERY` epochs over the first `window` epochs after the change, stopping
-/// `CHECK_EVERY` short of it: Lotus accepts Forest's head, and both nodes still answer the old
-/// key, the one validators check the next block against. The gap covers the head overshooting a
-/// checkpoint by an epoch or two, and the null rounds right before the change, each of which
-/// brings the switch to the new key an epoch closer.
-async fn old_key_signs(net: &Devnet, r: &Rotation, window: ChainEpoch) -> anyhow::Result<()> {
-    let mut epoch = r.effective;
-    while epoch < r.effective + window - CHECK_EVERY {
+/// Fails unless, every `CHECK_EVERY` epochs from the confirm while below `until`, Lotus holds
+/// Forest's head and both nodes answer the old key for the next round, the one validators check
+/// it against.
+async fn old_key_signs(net: &Devnet, r: &Rotation, until: ChainEpoch) -> anyhow::Result<()> {
+    let mut epoch = r.confirmed;
+    while epoch < until {
         let at = net.wait_for_epoch(epoch).await?;
-        ensure_worker_key(&at, r.miner, r.old_key).await?;
+        let key = worker_key(&at, r.miner).await?;
+        ensure!(
+            key == r.old_key,
+            "round {} signs with {key}, expected {}",
+            at.epoch() + 1,
+            r.old_key
+        );
         epoch += CHECK_EVERY;
     }
     Ok(())
 }
 
-/// Ten epochs past the window, safely behind the switch, both nodes answer the new key; twenty
-/// epochs later blocks are still accepted, so the new key signs them.
-async fn new_key_signs(net: &Devnet, r: &Rotation, lookback: ChainEpoch) -> anyhow::Result<()> {
-    let at = net.wait_for_epoch(r.effective + lookback + 10).await?;
-    ensure_worker_key(&at, r.miner, r.new_key).await?;
-    net.wait_for_epoch(r.effective + lookback + 30).await?;
+/// Fails unless both nodes give the same `MinerGetBaseInfo` at every head from `from` to `until`
+/// and answer the new key at the end. The switch from the old key lies in between, so a node
+/// that switches a round early or late fails at that head instead of losing one block.
+async fn new_key_signs(
+    net: &Devnet,
+    r: &Rotation,
+    from: ChainEpoch,
+    until: ChainEpoch,
+) -> anyhow::Result<()> {
+    let mut at = net.wait_for_epoch(from).await?;
+    let mut key = worker_key(&at, r.miner).await?;
+    while at.epoch() < until {
+        at = net.wait_for_epoch(at.epoch() + 1).await?;
+        key = worker_key(&at, r.miner).await?;
+    }
+    ensure!(
+        key == r.new_key,
+        "round {} signs with {key}, expected {}",
+        at.epoch() + 1,
+        r.new_key
+    );
     Ok(())
 }
 
-/// Both nodes answer `key` as the worker signing the round after `at`.
-async fn ensure_worker_key(at: &At<'_>, miner: Address, key: Address) -> anyhow::Result<()> {
+/// Returns the worker both nodes answer for the round after `at`; fails if they differ or neither
+/// has base info for the miner.
+async fn worker_key(at: &At<'_>, miner: Address) -> anyhow::Result<Address> {
     let round = at.epoch() + 1;
     let info = at
         .same(|tsk| MinerGetBaseInfo::request((miner, round, tsk)))
         .await?
         .with_context(|| format!("no mining base info for {miner} at round {round}"))?;
-    ensure!(
-        info.worker_key == key,
-        "round {round} signs with {}, expected {key}",
-        info.worker_key
-    );
-    Ok(())
+    Ok(info.worker_key)
 }
 
-/// Pushes `message`, described by `label`, through Forest and returns where it executed, which
-/// must be with exit code 0.
-async fn push(net: &Devnet, label: &str, message: Message) -> anyhow::Result<MessageLookup> {
+/// Pushes `message` through Forest and returns where it executed; fails unless both nodes find it
+/// executed with exit code 0.
+async fn push(net: &Devnet, message: Message) -> anyhow::Result<MessageLookup> {
     let pushed = call(
         &net.forest,
         "forest",
         MpoolPushMessage::request((message, None))?,
     )
-    .await
-    .with_context(|| label.to_owned())?;
+    .await?;
     let cid = pushed.cid();
     let lookup = net
         .executed(cid)
         .await
-        .with_context(|| format!("{label}: {cid}"))?;
+        .with_context(|| format!("message {cid}"))?;
     let exit = lookup.receipt.exit_code();
-    ensure!(exit.is_success(), "{label}: {cid} exits {exit}");
+    ensure!(exit.is_success(), "message {cid} exits {exit}");
     Ok(lookup)
-}
-
-/// The miner's worker in the state at `epoch`, or at the nearest older tipset when `epoch` is
-/// null, as Forest has it.
-async fn worker_at(net: &Devnet, miner: Address, epoch: ChainEpoch) -> anyhow::Result<Address> {
-    let tipset = call(
-        &net.forest,
-        "forest",
-        ChainGetTipSetByHeight::request((epoch, ApiTipsetKey(None)))?,
-    )
-    .await?;
-    let key = ApiTipsetKey(Some(tipset.key().clone()));
-    let info = call(
-        &net.forest,
-        "forest",
-        StateMinerInfo::request((miner, key))?,
-    )
-    .await?;
-    Ok(info.worker)
 }

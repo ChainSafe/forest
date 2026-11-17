@@ -86,8 +86,8 @@ jobs:
         # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
         group: [onboarding, wdpost, worker-key]
         include:
-          # The worker-key window takes about 2 h: pull requests stop at its start, scheduled
-          # and manual runs check all of it.
+          # The worker-key window takes about 1 h and opens 1 h after the proposal: pull requests
+          # stop at its start, scheduled and manual runs check all of it, about 2 h.
           - group: worker-key
             args: ${{ github.event_name != 'pull_request' && '--ignored' || '' }}
             timeout: 240
