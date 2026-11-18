@@ -46,9 +46,9 @@ use crate::tool::subcommands::api_cmd::report::ReportBuilder;
 use crate::tool::subcommands::api_cmd::state_decode_params_tests::create_all_state_decode_params_tests;
 use crate::utils::encoding::hex;
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
+use crate::utils::time::Timestamp;
 use ahash::HashMap;
 use bls_signatures::Serialize as _;
-use chrono::Utc;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
@@ -3170,7 +3170,7 @@ fn dump_test_data(dump_dir: &Path, success: bool, test_dump: &TestDump) -> anyho
             .as_ref()
             .replace(".", "_")
             .to_lowercase(),
-        Utc::now().timestamp_micros()
+        Timestamp::now().unix_micros()
     );
     std::fs::write(
         dir.join(file_name),

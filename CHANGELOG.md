@@ -27,15 +27,21 @@
 
 ### Breaking
 
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `Filecoin.AuthNew` returns an error when `expirationSecs` puts the expiry before 1970 or past the year 9999; previously a pre-1970 expiry produced a token that never expires, and some far-future values crashed the node.
+
 ### Added
 
 ### Changed
+
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli sync status` and the `forest-tool api compare` report print timestamps in RFC 3339 with a `Z` suffix.
 
 ### Removed
 
 ### Fixed
 
 - [#7917](https://github.com/ChainSafe/forest/pull/7917): `StateSearchMsg` and `StateSearchMsgLimited` leave `ReturnDec` null, matching Lotus.
+
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli info show` no longer crashes when the client's clock is behind the node's start time.
 
 ## Forest v0.40.0 "Copperhead"
 

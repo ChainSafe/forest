@@ -10,7 +10,7 @@ use prometheus_client::{
 };
 
 use super::calculate_expected_epoch;
-use crate::{networks::ChainConfig, shim::clock::ChainEpoch};
+use crate::{networks::ChainConfig, shim::clock::ChainEpoch, utils::time};
 
 #[derive(derive_more::Constructor, derive_more::Debug)]
 pub struct NetworkHeightCollector<F>
@@ -46,7 +46,7 @@ where
         {
             let expected_network_height: Gauge = Default::default();
             let expected_epoch = calculate_expected_epoch(
-                chrono::Utc::now().timestamp() as u64,
+                time::now_unix_secs(),
                 self.genesis_timestamp,
                 self.block_delay_secs,
             );

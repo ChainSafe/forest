@@ -156,7 +156,7 @@ fn print_sync_report_details(
             report.current_head_epoch
         ),
         format!("Network Head: Epoch {}", report.network_head_epoch),
-        format!("Last Update: {}", report.last_updated.to_rfc3339()),
+        format!("Last Update: {}", report.last_updated),
     ];
 
     // Print active sync tasks (forks)
