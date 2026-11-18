@@ -5,7 +5,7 @@
 //! step of Lotus `testNonGenesisMiner` (which also starts the new miner) and `TestPledgeSectors`
 //! (single sector, real 2 KiB proofs).
 
-use super::api::TestMiner;
+use super::api::{TestMiner, lotus_miner_exec};
 use super::devnet::Devnet;
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::key_management::generate_key;
@@ -119,15 +119,14 @@ async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
 }
 
 fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
-    let port = harness_env("FOREST_RPC_PORT")?;
-    let data_dir = harness_env("FOREST_DATA_DIR")?;
-    let script = format!(
-        "export LOTUS_MINER_PATH='{repo}' \
-         FULLNODE_API_INFO=\"$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http\" && \
-         exec lotus-miner init --owner='{owner}' --worker='{worker}' --sector-size=2KiB \
-         --no-local-storage --nosync"
-    );
-    docker(&["exec", "lotus-miner", "sh", "-c", &script])
-        .context("`lotus-miner init` against Forest failed")?;
+    lotus_miner_exec(&[
+        &format!("--miner-repo={repo}"),
+        "init",
+        &format!("--owner={owner}"),
+        &format!("--worker={worker}"),
+        "--sector-size=2KiB",
+        "--no-local-storage",
+        "--nosync",
+    ])?;
     Ok(())
 }

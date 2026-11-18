@@ -4,7 +4,7 @@
 //! The miner the trials drive: a `lotus-miner` whose full node is Forest, reached through the
 //! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
 
-use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
+use crate::dev::subcommands::tests_cmd::helpers::{docker, harness_env, poll};
 use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
 use crate::utils::UrlFromMultiAddr;
@@ -33,6 +33,31 @@ impl TestMiner {
             api: MinerApi::connect()?,
         })
     }
+}
+
+/// Runs `lotus-miner <args>` in the miner's container with Forest as the command's full node and
+/// returns its trimmed stdout.
+///
+/// # Errors
+/// The command exits non-zero; the error carries its stderr.
+pub(super) fn lotus_miner_exec(args: &[&str]) -> anyhow::Result<String> {
+    let port = harness_env("FOREST_RPC_PORT")?;
+    let data_dir = harness_env("FOREST_DATA_DIR")?;
+    // A `docker exec` gets nothing the container's entrypoint shell exports, hence the export. The
+    // shell in the container reads the token, so it stays out of the `docker` arguments that a
+    // failure prints.
+    let script = format!(
+        "export FULLNODE_API_INFO=\"$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http\" && \
+         exec lotus-miner \"$@\""
+    );
+    let mut full = vec!["exec", "lotus-miner", "sh", "-c", &script, "lotus-miner"];
+    full.extend_from_slice(args);
+    docker(&full).with_context(|| {
+        format!(
+            "`lotus-miner {}` with Forest as its full node",
+            args.join(" ")
+        )
+    })
 }
 
 /// The Lotus Miner API; its token must be admin, since the batch flushes are admin methods.
