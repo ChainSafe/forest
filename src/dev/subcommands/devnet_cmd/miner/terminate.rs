@@ -11,11 +11,10 @@
 //! production stays intact.
 
 use super::api::TestMiner;
-use super::devnet::{At, Devnet};
-use crate::dev::subcommands::tests_cmd::helpers::{
-    block_on, poll, poll_until_message_executed, trial,
-};
+use super::devnet::Devnet;
+use crate::dev::subcommands::tests_cmd::helpers::{block_on, poll, trial};
 use crate::rpc::prelude::*;
+use crate::rpc::state::SectorLocation;
 use crate::shim::address::Address;
 use crate::shim::sector::SectorSize;
 use anyhow::{Context as _, ensure};
@@ -54,26 +53,23 @@ async fn pledged_sector() -> anyhow::Result<()> {
         .await?
         .same(|tsk| StateSectorPartition::request((miner.actor, sector, tsk)))
         .await?;
-    let at = wait_for_sector_power(
+    let powered = wait_for_sector_power(
         &net,
         miner.actor,
         sector,
+        &location,
         &before.miner_power.raw_byte_power,
     )
     .await?;
-    let powered = at
-        .same(|tsk| StateMinerPower::request((miner.actor, tsk)))
-        .await?;
     let expected_powered = &before.miner_power.raw_byte_power + &sector_power;
     ensure!(
-        powered.miner_power.raw_byte_power == expected_powered,
-        "after proving sector {sector}, raw power is {}, expected {expected_powered}",
-        powered.miner_power.raw_byte_power
+        powered == expected_powered,
+        "after proving sector {sector}, raw power is {powered}, expected {expected_powered}"
     );
 
     miner.api.terminate_sector(sector).await?;
     let terminate_cid = miner.api.wait_until_terminated(sector).await?;
-    let lookup = poll_until_message_executed(&net.forest, terminate_cid).await?;
+    let lookup = net.executed(terminate_cid).await?;
     ensure!(
         lookup.receipt.exit_code().is_success(),
         "TerminateSectors {terminate_cid} exited {}",
@@ -84,10 +80,8 @@ async fn pledged_sector() -> anyhow::Result<()> {
         .same(|tsk| StateMinerPower::request((miner.actor, tsk)))
         .await?;
     ensure!(
-        after.miner_power.raw_byte_power == before.miner_power.raw_byte_power,
-        "after terminating sector {sector}, raw power is {}, expected the pre-pledge {}",
-        after.miner_power.raw_byte_power,
-        before.miner_power.raw_byte_power
+        after == before,
+        "after terminating sector {sector}, power is {after:?}, expected the pre-pledge {before:?}"
     );
 
     let partitions = at
@@ -118,24 +112,22 @@ async fn pledged_sector() -> anyhow::Result<()> {
 
 /// Waits until `miner`'s raw power is `baseline` plus one 2 KiB sector, waiting through the
 /// sector's next deadline close when prove-commit has not added power yet.
-async fn wait_for_sector_power<'a>(
-    net: &'a Devnet,
+async fn wait_for_sector_power(
+    net: &Devnet,
     miner: Address,
     sector: u64,
+    location: &SectorLocation,
     baseline: &BigInt,
-) -> anyhow::Result<At<'a>> {
+) -> anyhow::Result<BigInt> {
     let target = baseline + BigInt::from(SectorSize::_2KiB as u64);
     let at = net.synced().await?;
     let power = at
         .same(|tsk| StateMinerPower::request((miner, tsk)))
         .await?;
     if power.miner_power.raw_byte_power >= target {
-        return Ok(at);
+        return Ok(power.miner_power.raw_byte_power);
     }
 
-    let location = at
-        .same(|tsk| StateSectorPartition::request((miner, sector, tsk)))
-        .await?;
     let current = at
         .same(|tsk| StateMinerProvingDeadline::request((miner, tsk)))
         .await?
@@ -156,7 +148,8 @@ async fn wait_for_sector_power<'a>(
             let power = at
                 .same(|tsk| StateMinerPower::request((miner, tsk)))
                 .await?;
-            Ok((power.miner_power.raw_byte_power >= target).then_some(at))
+            Ok((power.miner_power.raw_byte_power >= target)
+                .then_some(power.miner_power.raw_byte_power))
         },
     )
     .await
