@@ -21,6 +21,7 @@ use crate::shim::address::Address;
 use crate::tool::offline_server::start_offline_server;
 use crate::tool::subcommands::api_cmd::stateful_tests::TestTransaction;
 use crate::tool::subcommands::api_cmd::test_snapshot::{Index, Payload};
+use crate::utils;
 use crate::utils::UrlFromMultiAddr;
 use crate::utils::encoding::hex;
 use anyhow::bail;
@@ -427,7 +428,7 @@ impl ApiCommands {
                         Ok(_) => {
                             println!(
                                 "  succeeded, took {}.",
-                                humantime::format_duration(start.elapsed())
+                                utils::format_duration(start.elapsed())
                             );
                         }
                         Err(e) => {

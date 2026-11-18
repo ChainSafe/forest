@@ -23,6 +23,7 @@ use crate::{
         prelude::*,
     },
     shim::fvm_shared_latest::ActorID,
+    utils,
 };
 use ahash::HashSet;
 use clap::{Subcommand, ValueEnum};
@@ -54,9 +55,7 @@ static TEMPLATES: LazyLock<Tera> = LazyLock::new(|| {
     ) -> tera::Result<serde_json::Value> {
         if let Some(duration_nano_secs) = value.as_u64() {
             let duration = Duration::from_lotus_json(duration_nano_secs);
-            return Ok(serde_json::Value::String(
-                humantime::format_duration(duration).to_string(),
-            ));
+            return Ok(serde_json::Value::String(utils::format_duration(duration)));
         }
 
         Ok(value.clone())
@@ -103,8 +102,8 @@ pub enum F3Commands {
         #[arg(long, default_value_t = 20)]
         threshold: usize,
         /// Exit after F3 making no progress for this duration.
-        #[arg(long, default_value = "10m", requires = "wait")]
-        no_progress_timeout: humantime::Duration,
+        #[arg(long, default_value = "10m", requires = "wait", value_parser = utils::parse_duration)]
+        no_progress_timeout: Duration,
     },
 }
 
@@ -164,7 +163,6 @@ impl F3Commands {
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
                 let mut num_consecutive_fetch_failtures = 0;
-                let no_progress_timeout_duration: Duration = no_progress_timeout.into();
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
                 let mut last_f3_head_epoch = 0;
                 let mut last_progress = Instant::now();
@@ -217,9 +215,10 @@ impl F3Commands {
                         }
                     }
 
-                    if last_progress + no_progress_timeout_duration < Instant::now() {
+                    if last_progress + no_progress_timeout < Instant::now() {
                         eprintln!(
-                            "Warning: F3 made no progress in the past {no_progress_timeout}. Exiting..."
+                            "Warning: F3 made no progress in the past {}. Exiting...",
+                            utils::format_duration(no_progress_timeout)
                         );
                         std::process::exit(EXIT_CODE_F3_NO_PROGRESS_TIMEOUT);
                     }

@@ -190,7 +190,10 @@ pub mod state_compute {
         networks::{ChainConfig, NetworkChain},
         prelude::*,
         state_manager::{ExecutedTipset, StateManager},
-        utils::net::{DownloadFileOption, download_file_with_cache},
+        utils::{
+            self,
+            net::{DownloadFileOption, download_file_with_cache},
+        },
     };
     use directories::ProjectDirs;
     use sonic_rs::JsonValueTrait;
@@ -311,7 +314,7 @@ pub mod state_compute {
             .await?;
         tracing::info!(
             "epoch: {epoch}, state_root: {state_root}, receipt_root: {receipt_root}, took {}.",
-            humantime::format_duration(start.elapsed())
+            utils::format_duration(start.elapsed())
         );
         anyhow::ensure!(
             state_root == expected_state_root,
