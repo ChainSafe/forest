@@ -166,15 +166,11 @@ impl DBCommands {
                     load_all_forest_cars(&db, &forest_car_db_dir)?;
                     db
                 };
-                let head = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
-                    .map(|tsk| Tipset::load_required(&db, &tsk))
-                    .transpose()?
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "chain head must be present in the database before importing a \
-                             tipset lookup"
-                        )
-                    })?;
+                let tsk = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
+                    .context(
+                        "chain head must be present in the database before importing a tipset lookup",
+                    )?;
+                let head = Tipset::load_required(&db, &tsk)?;
                 println!("Validating and importing tipset lookup hamt...");
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
