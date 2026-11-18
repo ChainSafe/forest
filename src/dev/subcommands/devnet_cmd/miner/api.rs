@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! The miner the trials drive: a `lotus-miner` whose full node is Forest, reached through the
-//! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
+//! Lotus Miner JSON-RPC API, which Forest's RPC does not define, and through its CLI.
 
 use crate::dev::subcommands::tests_cmd::helpers::{docker, harness_env, poll};
 use crate::rpc::{ApiPaths, Client, Request};
@@ -35,26 +35,42 @@ impl TestMiner {
     }
 }
 
-/// Runs `lotus-miner <args>` in the miner's container with Forest as the command's full node and
+/// The full node of one `lotus-miner` command.
+#[derive(Debug)]
+pub(super) enum Node {
+    /// Called with its admin token.
+    Forest,
+    /// Called without a token, so with read permission only
+    /// (<https://github.com/filecoin-project/lotus/blob/v1.39.1/api/permissioned.go#L17>).
+    Lotus,
+}
+
+/// Runs `lotus-miner <args>` in the miner's container with `node` as the command's full node and
 /// returns its trimmed stdout.
 ///
 /// # Errors
 /// The command exits non-zero; the error carries its stderr.
-pub(super) fn lotus_miner_exec(args: &[&str]) -> anyhow::Result<String> {
-    let port = harness_env("FOREST_RPC_PORT")?;
-    let data_dir = harness_env("FOREST_DATA_DIR")?;
-    // A `docker exec` gets nothing the container's entrypoint shell exports, hence the export. The
-    // shell in the container reads the token, so it stays out of the `docker` arguments that a
-    // failure prints.
-    let script = format!(
-        "export FULLNODE_API_INFO=\"$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http\" && \
-         exec lotus-miner \"$@\""
-    );
+pub(super) fn lotus_miner_exec(node: Node, args: &[&str]) -> anyhow::Result<String> {
+    let api_info = match node {
+        Node::Forest => {
+            let port = harness_env("FOREST_RPC_PORT")?;
+            let data_dir = harness_env("FOREST_DATA_DIR")?;
+            // The shell in the container reads the token, so it stays out of the `docker`
+            // arguments that a failure prints.
+            format!("$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http")
+        }
+        Node::Lotus => {
+            let port = harness_env("LOTUS_RPC_PORT")?;
+            format!("/dns/lotus/tcp/{port}/http")
+        }
+    };
+    // A `docker exec` gets nothing the container's entrypoint shell exports, hence the export.
+    let script = format!("export FULLNODE_API_INFO=\"{api_info}\" && exec lotus-miner \"$@\"");
     let mut full = vec!["exec", "lotus-miner", "sh", "-c", &script, "lotus-miner"];
     full.extend_from_slice(args);
     docker(&full).with_context(|| {
         format!(
-            "`lotus-miner {}` with Forest as its full node",
+            "`lotus-miner {}` with {node:?} as its full node",
             args.join(" ")
         )
     })
