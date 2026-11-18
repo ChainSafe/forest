@@ -633,6 +633,12 @@ async fn import_tipset_lookup(
         chain.push(ts.shallow_clone());
         parent = ts;
     }
+    // Extend past CHAIN_FINALITY so epoch 40 is finalized (head - 900 >= 40 requires head >= 940).
+    for epoch in 41..=940 {
+        let ts = tipset_child(&parent, epoch);
+        persist_tipset(&ts, &db);
+        parent = ts;
+    }
 
     let hamt_store = MemoryDB::default();
     let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
@@ -661,7 +667,7 @@ async fn import_tipset_lookup(
     let car_path = temp_dir.path().join("tipset_lookup.forest.car.zst");
     std::fs::write(&car_path, car).unwrap();
 
-    let result = import_tipset_lookup_snapshot(&db, &car_path, None, || {});
+    let result = import_tipset_lookup_snapshot(&db, &car_path, &parent, || {});
     match expected_err {
         None => result.unwrap(),
         Some(expected) => {

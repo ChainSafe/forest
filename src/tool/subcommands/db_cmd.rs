@@ -181,7 +181,7 @@ impl DBCommands {
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
-                import_tipset_lookup_snapshot(&db, &snapshot, Some(&head), || pb.inc(1))?;
+                import_tipset_lookup_snapshot(&db, &snapshot, &head, || pb.inc(1))?;
                 drop(db);
                 let total = pb.position();
                 pb.finish();

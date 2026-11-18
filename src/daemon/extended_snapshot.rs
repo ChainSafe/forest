@@ -229,7 +229,7 @@ pub(super) async fn maybe_import_extended_snapshots(
             let head = state_manager.heaviest_tipset();
             tokio::task::spawn_blocking(move || {
                 let mut progress = Progress::new("Importing tipset lookup entries");
-                import_tipset_lookup_snapshot(&db, &path, Some(&head), || progress.inc(1))
+                import_tipset_lookup_snapshot(&db, &path, &head, || progress.inc(1))
             })
             .await?
         }

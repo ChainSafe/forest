@@ -509,16 +509,14 @@ where
 /// Imports a tipset lookup snapshot into `db`, calling `on_imported` after each entry is written.
 /// Every entry is validated against the stored chain before the first write.
 ///
-/// When `head` is `Some`, three guards apply:
+/// Three guards apply:
 /// 1. Entries above `head.epoch() - CHAIN_FINALITY` (not yet finalized) are skipped.
 /// 2. Entries the db already holds are skipped to preserve canonical data.
 /// 3. Each new entry is verified to be an ancestor of `head` by walking the parent chain.
-///
-/// When `head` is `None` only structure validation runs.
 pub fn import_tipset_lookup_snapshot<DB>(
     db: &DB,
     path: &Path,
-    head: Option<&Tipset>,
+    head: &Tipset,
     mut on_imported: impl FnMut(),
 ) -> anyhow::Result<()>
 where
@@ -535,11 +533,11 @@ where
         Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
             .context("failed to load tipset lookup HAMT")?;
     tracing::info!("Validating tipset lookup entries against the chain, this can take a while");
-    let finality_boundary = head.map(|ts| ts.epoch() - CHAIN_FINALITY);
+    let finality_boundary = head.epoch() - CHAIN_FINALITY;
     let mut to_write: Vec<(ChainEpoch, TipsetKey)> = Vec::new();
     hamt.for_each_cacheless(|&epoch, tsk| {
         validate_tipset_lookup_entry(db, epoch, tsk)?;
-        if finality_boundary.is_some_and(|b| epoch > b) {
+        if epoch > finality_boundary {
             return Ok(());
         }
         if db.tipset_key_by_epoch(epoch)?.is_some() {
@@ -552,18 +550,16 @@ where
     // Sort descending so we can walk the parent chain from the head once.
     to_write.sort_unstable_by_key(|&(epoch, _)| std::cmp::Reverse(epoch));
 
-    let mut cursor: Option<Tipset> = head.map(|ts| ts.shallow_clone());
+    let mut cursor = head.shallow_clone();
     for (epoch, tsk) in &to_write {
-        if let Some(ref mut current_ts) = cursor {
-            while current_ts.epoch() > *epoch {
-                let parent_key = current_ts.parents().clone();
-                *current_ts = Tipset::load_required(db, &parent_key)?;
-            }
-            anyhow::ensure!(
-                current_ts.epoch() == *epoch && current_ts.key() == tsk,
-                "tipset at epoch {epoch} in the snapshot is not on the canonical chain"
-            );
+        while cursor.epoch() > *epoch {
+            let parent_key = cursor.parents().clone();
+            cursor = Tipset::load_required(db, &parent_key)?;
         }
+        anyhow::ensure!(
+            cursor.epoch() == *epoch && cursor.key() == tsk,
+            "tipset at epoch {epoch} in the snapshot is not on the canonical chain"
+        );
         db.set_tipset_key_at_epoch_raw(*epoch, tsk)?;
         on_imported();
     }
