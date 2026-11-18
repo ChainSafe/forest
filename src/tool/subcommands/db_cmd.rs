@@ -213,17 +213,22 @@ mod tests {
         let mem_db = Arc::new(MemoryDB::default());
         let (_genesis, partial, full, mut head) =
             chain_with_competing_tipsets_at_checkpoint(&mem_db);
-        // Extend past CHAIN_FINALITY so epoch 20 is finalized (head - 900 >= 20 requires head >= 920).
-        // Capture epoch 500 to use as an unfinalized HAMT entry for guard-1 coverage.
+        // Extend to epoch 960 so the boundary is 60 (960-900), giving room for:
+        //   epoch 20 → already in db (guard 2), epoch 40 → new entry to write, epoch 500 → unfinalized (guard 1).
+        let mut new_tipset = None;
         let mut unfinalized_tipset = None;
-        for epoch in head.epoch() + 1..=920 {
+        for epoch in head.epoch() + 1..=960 {
             let ts = tipset_child(&head, epoch);
             persist_tipset(&ts, &mem_db);
+            if epoch == 40 {
+                new_tipset = Some(ts.clone());
+            }
             if epoch == 500 {
                 unfinalized_tipset = Some(ts.clone());
             }
             head = ts;
         }
+        let new_tipset = new_tipset.unwrap();
         let unfinalized_tipset = unfinalized_tipset.unwrap();
 
         // Export the chain to a CAR file for the paritydb to load.
@@ -254,11 +259,16 @@ mod tests {
         );
         drop(db);
 
-        // Build a lookup HAMT: epoch 20 → partial (exists, guard 2 fires), epoch 500 → unfinalized (guard 1 fires).
+        // Build a lookup HAMT:
+        //   epoch 20 → partial (exists in db, guard 2 fires)
+        //   epoch 40 → new_tipset (finalized, not in db → must be written)
+        //   epoch 500 → unfinalized (guard 1 fires)
         let hamt_store = Arc::new(MemoryDB::default());
         let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
             Hamt::new_with_bit_width(hamt_store.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
         hamt.set(partial.epoch(), partial.key().clone()).unwrap();
+        hamt.set(new_tipset.epoch(), new_tipset.key().clone())
+            .unwrap();
         hamt.set(unfinalized_tipset.epoch(), unfinalized_tipset.key().clone())
             .unwrap();
         let root = hamt.flush().unwrap();
@@ -270,7 +280,7 @@ mod tests {
         let lookup_path = temp_dir.path().join("lookup.forest.car.zst");
         std::fs::write(&lookup_path, lookup_bytes).unwrap();
 
-        // Import should skip the entry because epoch 20 already has a canonical value.
+        // Import: epoch 20 skipped (guard 2), epoch 40 written, epoch 500 skipped (guard 1).
         DBCommands::ImportTipsetLookup {
             snapshot: lookup_path,
             chain: NetworkChain::Calibnet,
@@ -285,6 +295,11 @@ mod tests {
             db.tipset_key_by_epoch(20).unwrap().as_ref(),
             Some(full.key()),
             "import must not replace a canonical entry with an imported one",
+        );
+        assert_eq!(
+            db.tipset_key_by_epoch(new_tipset.epoch()).unwrap().as_ref(),
+            Some(new_tipset.key()),
+            "import must write a finalized entry that is not yet present",
         );
         assert_eq!(
             db.tipset_key_by_epoch(unfinalized_tipset.epoch())
