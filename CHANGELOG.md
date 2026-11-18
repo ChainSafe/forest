@@ -45,6 +45,8 @@
 
 ### Changed
 
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `Filecoin.AuthNew` returns an error when `expirationSecs` puts the expiry before 1970 or past the year 9999; previously a pre-1970 expiry produced a token that never expires, and some far-future values crashed the node. `forest-cli sync status` and the `forest-tool api compare` report print timestamps in RFC 3339 with a `Z` suffix.
+
 - [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand and other outgoing HTTP requests (snapshot, proof parameter and actor bundle downloads) contain a `User-Agent` header defined as `forest/<version>`.
 
 - [#7850](https://github.com/ChainSafe/forest/pull/7850): `Filecoin.StateGetNetworkParams` now reports `UpgradeXxHeight` (NV30), matching Lotus v1.39.0. The upgrade is not scheduled on any network yet.

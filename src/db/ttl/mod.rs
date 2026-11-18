@@ -71,7 +71,7 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
     pub async fn run(&mut self) -> anyhow::Result<()> {
         loop {
             tokio::time::sleep(self.ttl).await;
-            let duration = Duration::from_secs(chrono::Utc::now().timestamp() as u64);
+            let duration = Duration::from_secs(crate::utils::time::now_unix_secs());
             self.ttl_workflow(duration)?;
         }
     }
@@ -82,7 +82,7 @@ mod test {
     use std::convert::TryFrom;
     use std::sync::Arc;
 
-    use chrono::{DateTime, TimeZone, Utc};
+    use crate::utils::time::Timestamp;
     use cid::Cid;
 
     use crate::chain_sync::TipsetValidator;
@@ -120,14 +120,13 @@ mod test {
         .expect("Computing message root should succeed");
         assert_eq!(root, expected_root);
 
-        // Unix epoch corresponds to 1970-01-01 00:00:00 UTC
-        let unix_timestamp: DateTime<Utc> = Utc.timestamp_opt(0, 0).unwrap();
+        let unix_timestamp = Timestamp::UNIX_EPOCH;
 
         // Add key0 with unix epoch
         let (_, tx0) = eth_tx_from_signed_eth_message(&secp0, ETH_CHAIN_ID).unwrap();
         let key0 = tx0.eth_hash().unwrap().into();
 
-        let timestamp = unix_timestamp.timestamp() as u64;
+        let timestamp = unix_timestamp.unix_secs() as u64;
         blockstore
             .write_obj(&key0, &(secp0.cid(), timestamp))
             .unwrap();
@@ -149,7 +148,7 @@ mod test {
                 &key1,
                 &(
                     secp1.cid(),
-                    unix_timestamp.timestamp() as u64 + 2 * ttl_duration.as_secs(),
+                    unix_timestamp.unix_secs() as u64 + 2 * ttl_duration.as_secs(),
                 ),
             )
             .unwrap();

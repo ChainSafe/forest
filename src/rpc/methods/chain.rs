@@ -648,7 +648,7 @@ pub struct ApiIndexBackfillStatus {
     pub target_epoch: ChainEpoch,
     pub indexed: u64,
     pub skipped: u64,
-    pub start_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub start_time: Option<crate::utils::time::Timestamp>,
 }
 lotus_json_with_self!(ApiIndexBackfillStatus);
 

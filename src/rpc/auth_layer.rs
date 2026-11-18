@@ -216,7 +216,6 @@ mod tests {
     use self::chain::ChainHead;
     use super::*;
     use crate::rpc::wallet;
-    use chrono::Duration;
 
     fn empty_keystore() -> Arc<RwLock<KeyStore>> {
         Arc::new(RwLock::new(
@@ -237,7 +236,7 @@ mod tests {
         let token = create_token(
             perms.iter().map(ToString::to_string).collect(),
             key_info.private_key(),
-            Duration::hours(1),
+            3600,
         )
         .unwrap();
         (keystore, token)

@@ -72,7 +72,7 @@ impl RPCState {
             sync_status: Default::default(),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             eth_logs_feed: Default::default(),
-            start_time: chrono::Utc::now(),
+            start_time: crate::utils::time::Timestamp::now(),
             shutdown: mpsc::channel(1).0,
             tipset_send,
             block_validation_subscriber: Default::default(),

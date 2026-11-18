@@ -205,7 +205,7 @@ pub trait Beacon {
     /// [`Self::beacon_round_timestamp`]) rather than until the later Filecoin epoch.
     async fn entry_when_available(&self, round: u64) -> anyhow::Result<BeaconEntry> {
         if let Some(round_ts) = self.beacon_round_timestamp(round) {
-            let wait = beacon_round_wait(round_ts, chrono::Utc::now().timestamp());
+            let wait = beacon_round_wait(round_ts, crate::utils::time::now_unix_secs());
             if !wait.is_zero() {
                 tokio::time::sleep(wait).await;
             }
@@ -216,8 +216,7 @@ pub trait Beacon {
 
 /// How long to wait until the `drand` round produced at `round_ts` (Unix seconds) is
 /// available, given the current time `now`. Includes a 1s publish-latency buffer.
-pub(crate) fn beacon_round_wait(round_ts: u64, now: i64) -> Duration {
-    let now = now.max(0) as u64;
+pub(crate) fn beacon_round_wait(round_ts: u64, now: u64) -> Duration {
     Duration::from_secs(round_ts.saturating_add(1).saturating_sub(now))
 }
 

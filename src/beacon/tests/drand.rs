@@ -125,14 +125,12 @@ fn beacon_round_timestamp_no_panic(round: u64) {
 #[case(1_000, 1_001, Duration::ZERO)]
 // Round long past: no wait.
 #[case(1_000, 5_000, Duration::ZERO)]
-// Negative clock is clamped to 0, never panics or under-waits.
-#[case(1_000, -5, Duration::from_secs(1_001))]
-fn beacon_round_wait_cases(#[case] round_ts: u64, #[case] now: i64, #[case] expected: Duration) {
+fn beacon_round_wait_cases(#[case] round_ts: u64, #[case] now: u64, #[case] expected: Duration) {
     assert_eq!(beacon_round_wait(round_ts, now), expected);
 }
 
 #[quickcheck]
-fn beacon_round_wait_no_panic(round_ts: u64, now: i64) {
+fn beacon_round_wait_no_panic(round_ts: u64, now: u64) {
     let _ = beacon_round_wait(round_ts, now);
 }
 

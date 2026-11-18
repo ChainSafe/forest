@@ -84,7 +84,7 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
 pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
-    let start_time = chrono::Utc::now();
+    let start_time = crate::utils::time::Timestamp::now();
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
@@ -547,7 +547,7 @@ fn maybe_start_rpc_service(
     config: &Config,
     mpool: MessagePool<ChainStore>,
     chain_follower: &ChainFollower,
-    start_time: chrono::DateTime<chrono::Utc>,
+    start_time: crate::utils::time::Timestamp,
     shutdown: mpsc::Sender<()>,
     rpc_stop_handle: jsonrpsee::server::StopHandle,
     ctx: &AppContext,
@@ -767,7 +767,7 @@ fn maybe_start_indexer_service(
 
 /// Starts daemon process
 pub(super) async fn start(
-    start_time: chrono::DateTime<chrono::Utc>,
+    start_time: crate::utils::time::Timestamp,
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
@@ -789,7 +789,7 @@ pub(super) async fn start(
 }
 
 pub(super) async fn start_services(
-    start_time: chrono::DateTime<chrono::Utc>,
+    start_time: crate::utils::time::Timestamp,
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,

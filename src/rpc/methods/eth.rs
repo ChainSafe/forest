@@ -3241,7 +3241,7 @@ fn eth_tx_hash_and_signed_message(
 /// Indexes a just-submitted tx immediately; `process_signed_messages` also indexes it once mined.
 fn index_sent_tx(ctx: &Ctx, tx_hash: EthHash, cid: Cid) -> Result<(), ServerError> {
     ctx.chain_store()
-        .put_mapping(tx_hash, cid, chrono::Utc::now().timestamp() as u64)?;
+        .put_mapping(tx_hash, cid, crate::utils::time::now_unix_secs())?;
     Ok(())
 }
 

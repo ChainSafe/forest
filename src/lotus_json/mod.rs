@@ -555,7 +555,7 @@ lotus_json_with_self!(
     i64,
     f64,
     String,
-    chrono::DateTime<chrono::Utc>,
+    crate::utils::time::Timestamp,
     serde_json::Value,
     (),
     std::path::PathBuf,
