@@ -9,9 +9,9 @@ use crate::chain::import_tipset_lookup_snapshot;
 use crate::cli::subcommands::prompt_confirm;
 use crate::cli_shared::{chain_path, delete_chain_data, read_config};
 use crate::daemon::db_util::load_all_forest_cars;
-use crate::db::{CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider};
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
+use crate::db::{CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider};
 use crate::networks::NetworkChain;
 use crate::prelude::*;
 use crate::shim::policy::policy_constants::CHAIN_FINALITY;
@@ -178,7 +178,9 @@ impl DBCommands {
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
-                import_tipset_lookup_snapshot(&db, &snapshot, Some(finality_boundary), || pb.inc(1))?;
+                import_tipset_lookup_snapshot(&db, &snapshot, Some(finality_boundary), || {
+                    pb.inc(1)
+                })?;
                 drop(db);
                 let total = pb.position();
                 pb.finish();
@@ -196,10 +198,10 @@ impl DBCommands {
 mod tests {
     use super::*;
     use crate::blocks::TipsetKey;
+    use crate::chain::TIPSET_LOOKUP_HAMT_BIT_WIDTH;
     use crate::chain::store::index::tests::{
         chain_with_competing_tipsets_at_checkpoint, persist_tipset, tipset_child,
     };
-    use crate::chain::TIPSET_LOOKUP_HAMT_BIT_WIDTH;
     use crate::db::{EthMappingsStore as _, MemoryDB};
     use fil_actors_shared::fvm_ipld_hamt::Hamt;
     use std::sync::Arc;

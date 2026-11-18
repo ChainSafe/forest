@@ -6,12 +6,12 @@
 
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, import_tipset_lookup_snapshot};
-use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::daemon::db_util::{
     BackfillGuard, BackfillOptions, BackfillReport, RangeSpec, SnapshotImportPath, run_backfill,
 };
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::prelude::*;
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::import_car_blocks;
 use crate::utils::io::progress_log::Progress;
@@ -230,7 +230,9 @@ pub(super) async fn maybe_import_extended_snapshots(
             let finality_boundary = state_manager.heaviest_tipset().epoch() - CHAIN_FINALITY;
             tokio::task::spawn_blocking(move || {
                 let mut progress = Progress::new("Importing tipset lookup entries");
-                import_tipset_lookup_snapshot(&db, &path, Some(finality_boundary), || progress.inc(1))
+                import_tipset_lookup_snapshot(&db, &path, Some(finality_boundary), || {
+                    progress.inc(1)
+                })
             })
             .await?
         }
