@@ -55,7 +55,7 @@
 
 ### Fixed
 
-- [#7860](https://github.com/ChainSafe/forest/issues/7860): Fixed `forest-tool db import-tipset-lookup` overwriting canonical tipset entries — it now skips unfinalized epochs and never replaces entries the node already recorded.
+- [#7860](https://github.com/ChainSafe/forest/issues/7860): Defines strict rules for tipset lookup import entries.
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
 
