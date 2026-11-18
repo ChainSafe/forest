@@ -4,6 +4,7 @@
 mod types;
 pub use types::*;
 
+use crate::utils;
 use std::num::NonZeroU64;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -451,7 +452,7 @@ impl RpcMethod<3> for NetChainExchange {
         Ok(format!(
             "fetched {} tipsets, took {}",
             result.len(),
-            humantime::format_duration(timer.elapsed())
+            utils::format_duration(timer.elapsed())
         ))
     }
 }

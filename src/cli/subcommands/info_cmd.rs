@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::blocks::Tipset;
@@ -11,7 +12,6 @@ use crate::shim::clock::{BLOCKS_PER_EPOCH, ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
-use humantime::format_duration;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -99,7 +99,7 @@ impl NodeStatusInfo {
                 .to_std()
                 .expect("failed converting to std duration");
             let uptime = Duration::from_secs(uptime.as_secs());
-            let fmt_uptime = format_duration(uptime);
+            let fmt_uptime = utils::format_duration(uptime);
             format!(
                 "Uptime: {fmt_uptime} (Started at: {})",
                 self.start_time.with_timezone(&chrono::offset::Local)
@@ -108,7 +108,7 @@ impl NodeStatusInfo {
 
         let chain = {
             let base_fee_fmt = self.base_fee.pretty();
-            let lag_time = humantime::format_duration(Duration::from_secs(self.lag.unsigned_abs()));
+            let lag_time = utils::format_duration(Duration::from_secs(self.lag.unsigned_abs()));
             let behind = if self.lag < 0 {
                 format!("{lag_time} ahead")
             } else {
