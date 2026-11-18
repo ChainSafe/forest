@@ -23,6 +23,7 @@ use crate::{
     },
     networks::{ChainConfig, NetworkChain},
     shim::version::NetworkVersion,
+    utils,
 };
 
 #[derive(Debug, Args)]
@@ -94,7 +95,7 @@ impl MigrateStateCommand {
             let new_state = migrate(&chain_config, &db, &state_root, epoch)?;
             println!(
                 "Done. old_state: {state_root}, new_state: {new_state}, took: {}",
-                humantime::format_duration(start.elapsed())
+                utils::format_duration(start.elapsed())
             );
             state_root = new_state;
         }

@@ -33,7 +33,7 @@ use crate::{
         clock::ChainEpoch,
         crypto::Signature,
     },
-    utils::misc::env::is_env_set_and_truthy,
+    utils::{self, misc::env::is_env_set_and_truthy},
 };
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -462,7 +462,7 @@ impl RpcMethod<1> for GetPowerTable {
         let start = std::time::Instant::now();
         let ts = ctx.chain_index().load_required_tipset(&tsk)?;
         let power_entries = Self::compute(&ctx, &ts).await?;
-        tracing::debug!(epoch=%ts.epoch(), %tsk, "F3.GetPowerTable, took {}", humantime::format_duration(start.elapsed()));
+        tracing::debug!(epoch=%ts.epoch(), %tsk, "F3.GetPowerTable, took {}", utils::format_duration(start.elapsed()));
         Ok(power_entries)
     }
 }

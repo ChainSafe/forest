@@ -19,6 +19,7 @@ use crate::db::{EthMappingsStore, IndexMapBlockstore};
 use crate::ipld::{IpldStream, should_save_block_to_snapshot, stream_chain};
 use crate::prelude::*;
 use crate::shim::executor::Receipt;
+use crate::utils;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::multihash::MultihashCode;
@@ -187,7 +188,7 @@ pub async fn prepare_diff_export(
             while stream.try_next().await?.is_some() {}
             tracing::info!(
                 "built the diff base CID set, took {}",
-                humantime::format_duration(start.elapsed())
+                utils::format_duration(start.elapsed())
             );
             (stream.into_seen(), Some(diff_base))
         }
@@ -401,7 +402,7 @@ async fn export_to_forest_car<D: Digest, S: CidHashSetLike + Send + Sync + 'stat
 
     tracing::info!(
         "Exported snapshot, took {}",
-        humantime::format_duration(start.elapsed())
+        utils::format_duration(start.elapsed())
     );
 
     Ok(ExportResult {
@@ -477,7 +478,7 @@ pub async fn export_receipts_events_to_forest_car(
 
     tracing::info!(
         "Exported message receipts and events snapshot, took {}",
-        humantime::format_duration(start.elapsed())
+        utils::format_duration(start.elapsed())
     );
 
     Ok(())
