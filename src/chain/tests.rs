@@ -604,3 +604,73 @@ async fn ensure_recent_roots_present_checks_oldest_walked_tipset(
         expected
     );
 }
+
+// Imports a lookup table with the given `hamt_epoch -> tipset at tipset_epoch` entries into a
+// chain of tipsets at epochs 20, 21 and 40; `None` points at a tipset missing from the chain.
+// On an error nothing may have been written, so one invalid entry rejects the valid ones too.
+#[rstest]
+#[case::checkpoint(&[(40, Some(40))], None)]
+#[case::non_checkpoint_epoch(
+    &[(20, Some(20)), (21, Some(21)), (40, Some(40))],
+    Some("is not a tipset lookup checkpoint")
+)]
+#[case::epoch_mismatch(&[(40, Some(20))], Some("epochs do not match"))]
+#[case::unknown_tipset(&[(40, None)], Some("Required tipset missing"))]
+#[tokio::test]
+async fn import_tipset_lookup(
+    #[case] entries: &[(ChainEpoch, Option<ChainEpoch>)],
+    #[case] expected_err: Option<&str>,
+) {
+    use crate::chain::index::tests::{genesis_tipset, persist_tipset, tipset_child};
+
+    let db = MemoryDB::default();
+    let mut parent = genesis_tipset();
+    persist_tipset(&parent, &db);
+    let mut chain = vec![];
+    for epoch in [20, 21, 40] {
+        let ts = tipset_child(&parent, epoch);
+        persist_tipset(&ts, &db);
+        chain.push(ts.shallow_clone());
+        parent = ts;
+    }
+
+    let hamt_store = MemoryDB::default();
+    let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
+        Hamt::new_with_bit_width(&hamt_store, TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+    let mut expected = vec![];
+    for &(hamt_epoch, tipset_epoch) in entries {
+        let tsk = match tipset_epoch {
+            Some(epoch) => chain
+                .iter()
+                .find(|ts| ts.epoch() == epoch)
+                .unwrap()
+                .key()
+                .clone(),
+            None => tipset_child(&parent, 40).key().clone(),
+        };
+        hamt.set(hamt_epoch, tsk.clone()).unwrap();
+        expected.push((hamt_epoch, tsk));
+    }
+    let root = hamt.flush().unwrap();
+    let mut car = vec![];
+    hamt_store
+        .export_forest_car_with_roots(nunny::vec![root], &mut car)
+        .await
+        .unwrap();
+    let temp_dir = tempfile::tempdir().unwrap();
+    let car_path = temp_dir.path().join("tipset_lookup.forest.car.zst");
+    std::fs::write(&car_path, car).unwrap();
+
+    let result = import_tipset_lookup_snapshot(&db, &car_path, || {});
+    match expected_err {
+        None => result.unwrap(),
+        Some(expected) => {
+            let err = format!("{:#}", result.unwrap_err());
+            assert!(err.contains(expected), "{err}");
+        }
+    }
+    for (hamt_epoch, tsk) in expected {
+        let written = expected_err.is_none().then_some(tsk);
+        assert_eq!(db.tipset_key_by_epoch(hamt_epoch).unwrap(), written);
+    }
+}

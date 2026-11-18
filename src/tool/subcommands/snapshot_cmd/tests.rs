@@ -18,12 +18,12 @@ enum HamtEntries {
 #[case::bad_checkpoint_entry(
     HamtEntries::Checkpoints,
     Some(40),
-    Some("tipset mismatch, checkpoint epoch: 40")
+    Some("epochs do not match, 40 in hamt")
 )]
 #[case::null_checkpoint_entry(
     HamtEntries::Checkpoints,
     Some(20),
-    Some("tipset mismatch, checkpoint epoch: 20")
+    Some("epochs do not match, 20 in hamt")
 )]
 fn test_validate_tipset_lookup_hamt(
     #[case] entries: HamtEntries,

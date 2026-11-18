@@ -13,8 +13,9 @@ pub use self::{snapshot_format::*, store::*, weight::*};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
 use crate::cid_collections::{CidHashSet, CidHashSetLike, FileBackedCidHashSet};
-use crate::db::IndexMapBlockstore;
+use crate::db::car::AnyCar;
 use crate::db::car::forest::{self, ForestCarFrame, finalize_frame};
+use crate::db::{EthMappingsStore, IndexMapBlockstore};
 use crate::ipld::{IpldStream, should_save_block_to_snapshot, stream_chain};
 use crate::prelude::*;
 use crate::shim::executor::Receipt;
@@ -479,5 +480,64 @@ pub async fn export_receipts_events_to_forest_car(
         humantime::format_duration(start.elapsed())
     );
 
+    Ok(())
+}
+
+/// Check that the entry is at a checkpoint epoch and that the stored tipset is at that epoch.
+pub fn validate_tipset_lookup_entry<DB>(
+    db: &DB,
+    epoch: ChainEpoch,
+    tsk: &TipsetKey,
+) -> anyhow::Result<Tipset>
+where
+    DB: Blockstore,
+{
+    anyhow::ensure!(
+        ChainIndex::is_tipset_lookup_checkpoint(epoch),
+        "epoch {epoch} is not a tipset lookup checkpoint"
+    );
+    let ts: Tipset = Tipset::load_required(db, tsk)?;
+    anyhow::ensure!(
+        ts.epoch() == epoch,
+        "epochs do not match, {epoch} in hamt, {} in database",
+        ts.epoch()
+    );
+    Ok(ts)
+}
+
+/// Imports a tipset lookup snapshot into `db`, calling `on_imported` after each entry is written.
+/// Every entry is validated against the stored chain before the first write.
+pub fn import_tipset_lookup_snapshot<DB>(
+    db: &DB,
+    path: &Path,
+    mut on_imported: impl FnMut(),
+) -> anyhow::Result<()>
+where
+    DB: Blockstore + EthMappingsStore,
+{
+    let started = Instant::now();
+    let hamt_car = AnyCar::try_from(path)?;
+    anyhow::ensure!(
+        hamt_car.header_v1().roots.len() == 1,
+        "hamt car should have a single root"
+    );
+    let hamt_root = *hamt_car.header_v1().roots.first();
+    let hamt: Hamt<_, TipsetKey, ChainEpoch> =
+        Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
+            .context("failed to load tipset lookup HAMT")?;
+    tracing::info!("Validating tipset lookup entries against the chain, this can take a while");
+    hamt.for_each_cacheless(|&epoch, tsk| {
+        validate_tipset_lookup_entry(db, epoch, tsk)?;
+        Ok(())
+    })?;
+    hamt.for_each_cacheless(|&epoch, tsk| {
+        db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
+        on_imported();
+        Ok(())
+    })?;
+    tracing::info!(
+        "Imported tipset lookup entries in {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
     Ok(())
 }
