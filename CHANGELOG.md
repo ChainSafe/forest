@@ -79,7 +79,7 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 
 - [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.StateMinerPower` now reports a miner's real power and the network total below the consensus minimum, and zero power with the real total for an address without a claim, matching Lotus.
 
-- [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.MinerGetBaseInfo` no longer fails for a miner below the minimum, and block validation no longer rejects a block whose miner dropped below the minimum within the lookback tipset.
+- [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.MinerGetBaseInfo` no longer fails for a miner below the consensus minimum, and block validation no longer rejects a block whose miner's power fell below the minimum during the lookback tipset's execution (it met the minimum before that tipset and not after), matching Lotus.
 
 - [#7809](https://github.com/ChainSafe/forest/pull/7809): Fixed a possible panic in message pool selection (`Filecoin.MpoolSelect`, block production) caused by an inconsistent ordering of message chains ([#4490](https://github.com/ChainSafe/forest/issues/4490)).
 
