@@ -137,7 +137,7 @@ pub fn import_f3_snapshot(
             }
             tracing::info!(
                 "Imported F3 snapshot, took {}",
-                humantime::format_duration(sw.elapsed())
+                crate::utils::format_duration(sw.elapsed())
             );
         }
     } else {

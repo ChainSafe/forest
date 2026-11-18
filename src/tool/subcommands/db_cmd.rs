@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -166,10 +167,9 @@ impl DBCommands {
                     load_all_forest_cars(&db, &forest_car_db_dir)?;
                     db
                 };
-                let tsk = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
-                    .context(
-                        "chain head must be present in the database before importing a tipset lookup",
-                    )?;
+                let tsk = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?.context(
+                    "chain head must be present in the database before importing a tipset lookup",
+                )?;
                 let head = Tipset::load_required(&db, &tsk)?;
                 println!("Validating and importing tipset lookup hamt...");
                 let pb = ProgressBar::new_spinner().with_style(
@@ -183,7 +183,7 @@ impl DBCommands {
                 pb.finish();
                 println!(
                     "Imported {total} tipset lookup entries, took {}",
-                    humantime::format_duration(start.elapsed())
+                    utils::format_duration(start.elapsed())
                 );
                 Ok(())
             }

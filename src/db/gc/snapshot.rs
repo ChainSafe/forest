@@ -52,6 +52,7 @@ use crate::interpreter::VMTrace;
 use crate::ipld::{ChainExportGuard, ChainExportKind, should_save_block_to_snapshot};
 use crate::prelude::*;
 use crate::shim::clock::EPOCHS_IN_DAY;
+use crate::utils;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -327,7 +328,7 @@ impl SnapshotGarbageCollector {
         tracing::info!(
             "exported lite snapshot at {}, took {}",
             target_path.display(),
-            humantime::format_duration(start.elapsed())
+            utils::format_duration(start.elapsed())
         );
         *self.blessed_lite_snapshot.write() = Some(target_path);
         *self.exported_head_key.write() = Some(head_ts.key().clone());
@@ -445,7 +446,7 @@ impl SnapshotGarbageCollector {
                 tracing::info!(
                     "backfilled {count} new db records since snapshot epoch, approximate heap size: {}, took {}",
                     approximate_heap_size.human_count_bytes(),
-                    humantime::format_duration(start.elapsed())
+                    utils::format_duration(start.elapsed())
                 );
             }
 
