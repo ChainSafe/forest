@@ -5,7 +5,7 @@
 //! step of Lotus `testNonGenesisMiner` (which also starts the new miner) and `TestPledgeSectors`
 //! (single sector, real 2 KiB proofs).
 
-use super::api::{TestMiner, lotus_miner_exec};
+use super::api::{Node, TestMiner, lotus_miner_exec};
 use super::devnet::Devnet;
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::key_management::generate_key;
@@ -119,14 +119,17 @@ async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
 }
 
 fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
-    lotus_miner_exec(&[
-        &format!("--miner-repo={repo}"),
-        "init",
-        &format!("--owner={owner}"),
-        &format!("--worker={worker}"),
-        "--sector-size=2KiB",
-        "--no-local-storage",
-        "--nosync",
-    ])?;
+    lotus_miner_exec(
+        Node::Forest,
+        &[
+            &format!("--miner-repo={repo}"),
+            "init",
+            &format!("--owner={owner}"),
+            &format!("--worker={worker}"),
+            "--sector-size=2KiB",
+            "--no-local-storage",
+            "--nosync",
+        ],
+    )?;
     Ok(())
 }
