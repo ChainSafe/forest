@@ -219,9 +219,9 @@ impl MinerApi {
         match state {
             SectorState::TerminateFailed
             | SectorState::RemoveFailed
-            | SectorState::FailedUnrecoverable => bail!(
-                "sector {sector} reached {state:?}, which is not a successful terminate exit"
-            ),
+            | SectorState::FailedUnrecoverable => {
+                bail!("sector {sector} reached {state:?}, which is not a successful terminate exit")
+            }
             _ => Ok(()),
         }
     }
