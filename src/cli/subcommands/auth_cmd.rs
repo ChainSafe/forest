@@ -3,7 +3,6 @@
 
 use crate::rpc::{self, auth::AuthNewParams, prelude::*};
 use crate::utils;
-use chrono::Duration;
 use clap::Subcommand;
 use libp2p::multiaddr;
 
@@ -37,16 +36,32 @@ impl AuthCommands {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = AuthNewParams::process_perms(perm)?;
-                let token_exp = Duration::from_std(expire_in)?;
-                let res = AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?;
+                let token_exp_secs = i64::try_from(expire_in.as_secs())?;
+                let res = AuthNew::call(
+                    &client,
+                    AuthNewParams {
+                        perms,
+                        token_exp_secs,
+                    }
+                    .into(),
+                )
+                .await?;
                 print_rpc_res_bytes(res)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = AuthNewParams::process_perms(perm)?;
-                let token_exp = Duration::from_std(expire_in)?;
+                let token_exp_secs = i64::try_from(expire_in.as_secs())?;
                 let token = String::from_utf8(
-                    AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?,
+                    AuthNew::call(
+                        &client,
+                        AuthNewParams {
+                            perms,
+                            token_exp_secs,
+                        }
+                        .into(),
+                    )
+                    .await?,
                 )?;
                 let addr = multiaddr::from_url(client.base_url().as_str())?;
                 println!("FULLNODE_API_INFO=\"{token}:{addr}\"");

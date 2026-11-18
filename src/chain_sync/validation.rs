@@ -1,8 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use crate::blocks::{BLOCK_MESSAGE_LIMIT, Block, FullTipset, GossipBlock, Tipset, TxMeta};
 use crate::chain::ChainStore;
 use crate::shim::clock::ChainEpoch;
@@ -32,13 +30,6 @@ fn max_allowed_epoch(
     }
     let epoch = ChainEpoch::try_from(elapsed / delay).unwrap_or(ChainEpoch::MAX);
     Some(epoch.saturating_add(MAX_HEIGHT_DRIFT))
-}
-
-fn now_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
 }
 
 #[derive(Debug, Error)]
@@ -112,8 +103,12 @@ impl TipsetValidator<'_> {
         genesis_tipset: &Tipset,
         block_delay: u32,
     ) -> Result<(), TipsetValidationError> {
-        let max = max_allowed_epoch(now_secs(), genesis_tipset.min_timestamp(), block_delay)
-            .unwrap_or(ChainEpoch::MAX);
+        let max = max_allowed_epoch(
+            crate::utils::time::now_unix_secs(),
+            genesis_tipset.min_timestamp(),
+            block_delay,
+        )
+        .unwrap_or(ChainEpoch::MAX);
         if self.0.epoch() > max {
             Err(TipsetValidationError::EpochTooLarge)
         } else {
@@ -272,8 +267,12 @@ impl<'a> GossipBlockValidator<'a> {
         if epoch < 0 {
             return Err(GossipBlockRejectReason::NegativeEpoch(epoch));
         }
-        let max = max_allowed_epoch(now_secs(), genesis_tipset.min_timestamp(), block_delay)
-            .unwrap_or(ChainEpoch::MAX);
+        let max = max_allowed_epoch(
+            crate::utils::time::now_unix_secs(),
+            genesis_tipset.min_timestamp(),
+            block_delay,
+        )
+        .unwrap_or(ChainEpoch::MAX);
         if epoch > max {
             return Err(GossipBlockRejectReason::EpochTooFarAhead(epoch));
         }

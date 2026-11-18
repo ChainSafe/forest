@@ -575,7 +575,7 @@ fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), TipsetSyncerEr
 
 /// Check the clock drift.
 fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetSyncerError> {
-    let time_now = chrono::Utc::now().timestamp() as u64;
+    let time_now = crate::utils::time::now_unix_secs();
     if header.timestamp > time_now.saturating_add(ALLOWABLE_CLOCK_DRIFT) {
         return Err(TipsetSyncerError::TimeTravellingBlock(
             time_now,

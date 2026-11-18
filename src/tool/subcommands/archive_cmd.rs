@@ -51,8 +51,8 @@ use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages_blo
 use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
+use crate::utils::time::Timestamp;
 use anyhow::{Context as _, bail};
-use chrono::DateTime;
 use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
@@ -539,10 +539,9 @@ fn build_output_path(
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+            Timestamp::from_unix_secs(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS)
                 .unwrap_or_default()
-                .naive_utc()
-                .date(),
+                .utc_date(),
             epoch,
             true,
         )),
@@ -898,9 +897,9 @@ fn steps_in_range(
 
 fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> anyhow::Result<String> {
     Ok(
-        DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+        Timestamp::from_unix_secs(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS)
             .unwrap_or_default()
-            .format("%Y-%m-%d")
+            .utc_date()
             .to_string(),
     )
 }

@@ -87,7 +87,7 @@ impl BackupCommands {
                 } else {
                     let path = PathBuf::from(format!(
                         "forest-backup-{}.tar",
-                        chrono::Utc::now().format("%Y-%m-%d_%H-%M-%S")
+                        crate::utils::time::Timestamp::now().strftime("%Y-%m-%d_%H-%M-%S")
                     ));
                     if path.exists() {
                         bail!("Backup file already exists at {}", path.display());

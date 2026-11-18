@@ -4,15 +4,10 @@
 use crate::{
     KeyStore,
     auth::*,
-    lotus_json::lotus_json_with_self,
     rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError},
 };
-use anyhow::{Context as _, Result};
-use chrono::Duration;
+use anyhow::Result;
 use enumflags2::BitFlags;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use serde_with::{DurationSeconds, serde_as};
 
 /// RPC call to create a new JWT Token
 pub enum AuthNew {}
@@ -20,11 +15,11 @@ pub enum AuthNew {}
 impl AuthNew {
     pub fn create_token(
         keystore: &KeyStore,
-        token_exp: Duration,
+        token_exp_secs: i64,
         permissions: Vec<String>,
     ) -> anyhow::Result<String> {
         let ki = keystore.get(JWT_IDENTIFIER)?;
-        Ok(create_token(permissions, ki.private_key(), token_exp)?)
+        create_token(permissions, ki.private_key(), token_exp_secs)
     }
 }
 
@@ -45,14 +40,7 @@ impl RpcMethod<2> for AuthNew {
         _: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read();
-        // Lotus admin tokens do not expire but Forest requires all JWT tokens to
-        // have an expiration date. So we set the expiration date to 100 years in
-        // the future to match user-visible behavior of Lotus.
-        let token_exp = match expiration_secs {
-            Some(secs) => Duration::try_seconds(secs)
-                .with_context(|| format!("expirationSecs out of range: {secs}"))?,
-            None => Duration::days(365 * 100),
-        };
+        let token_exp = expiration_secs.unwrap_or(NON_EXPIRING_TOKEN_SECS);
         let token = Self::create_token(&ks, token_exp, permissions)?;
         Ok(token.as_bytes().to_vec())
     }
@@ -80,15 +68,11 @@ impl RpcMethod<1> for AuthVerify {
     }
 }
 
-#[serde_as]
-#[derive(Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone)]
 pub struct AuthNewParams {
     pub perms: Vec<String>,
-    #[serde_as(as = "DurationSeconds<i64>")]
-    #[schemars(with = "i64")]
-    pub token_exp: Duration,
+    pub token_exp_secs: i64,
 }
-lotus_json_with_self!(AuthNewParams);
 
 impl AuthNewParams {
     pub fn process_perms(perm: String) -> Result<Vec<String>, ServerError> {
@@ -107,6 +91,6 @@ impl AuthNewParams {
 
 impl From<AuthNewParams> for (Vec<String>, Option<i64>) {
     fn from(value: AuthNewParams) -> Self {
-        (value.perms, Some(value.token_exp.num_seconds()))
+        (value.perms, Some(value.token_exp_secs))
     }
 }

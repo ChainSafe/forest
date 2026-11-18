@@ -92,7 +92,7 @@ impl RpcMethod<0> for StartTime {
     const DESCRIPTION: &'static str = "Returns the time at which the node was started.";
 
     type Params = ();
-    type Ok = chrono::DateTime<chrono::Utc>;
+    type Ok = crate::utils::time::Timestamp;
 
     async fn handle(
         ctx: Ctx,
