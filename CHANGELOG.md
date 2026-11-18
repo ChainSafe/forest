@@ -27,6 +27,20 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.40.0 "Copperhead"
+
+Non-mandatory release for all node operators. Highlights: importing enriched snapshots (receipts, events and the tipset lookup) from a URL, verification of downloaded actor bundles, peer pruning so well-connected nodes keep accepting new peers, and stricter, Lotus-aligned validation of Ethereum and Filecoin JSON-RPC inputs. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
+
+### Breaking
+
 - [#7887](https://github.com/ChainSafe/forest/issues/7887): Duration flags (`--expire-in`, `--timeout`, `--no-progress-timeout`, `--wait-timeout`) count months and years as calendar units from now. The `M` suffix for months and fractional days, weeks, months or years (`1.5d`) are no longer accepted; use `mo` or `months`, and smaller units such as `36h`. Units must be written from largest to smallest and not repeated, e.g. `1h 2m` instead of `2 minutes 1 hour`, and `3m` instead of `1m 2m`.
 
 - [#7870](https://github.com/ChainSafe/forest/pull/7870): `eth_call`, `eth_estimateGas` and `trace_call` reject `value`, `gasPrice` and `maxFeePerGas` that are not canonical quantities: `0x`-prefixed hex, at most 256 bits, no leading zeros (`0x0` for zero). Previously `0x01` and unprefixed hex were accepted.
@@ -53,8 +67,6 @@
 
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048. An enabled upgrade below genesis keeps its own version.
 
-### Removed
-
 ### Fixed
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
@@ -65,9 +77,13 @@
 
 - [#7830](https://github.com/ChainSafe/forest/issues/7830): Fixed `forest-cli snapshot export-diff` (`Forest.ChainExportDiff`) and `forest-tool archive export --diff` possibly timing out. The export walk now stops at the diff base, and with a diff depth set (always for `Forest.ChainExportDiff`), building the diff base set no longer walks every block header down to genesis.
 
-- [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.StateMinerPower` now reports a miner's real power and the network total below the consensus minimum, and zero power with the real total for an address without a claim, matching Lotus. 
+- [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.StateMinerPower` now reports a miner's real power and the network total below the consensus minimum, and zero power with the real total for an address without a claim, matching Lotus.
 
 - [#7816](https://github.com/ChainSafe/forest/pull/7816): `Filecoin.MinerGetBaseInfo` no longer fails for a miner below the minimum, and block validation no longer rejects a block whose miner dropped below the minimum within the lookback tipset.
+
+- [#7809](https://github.com/ChainSafe/forest/pull/7809): Fixed a possible panic in message pool selection (`Filecoin.MpoolSelect`, block production) caused by an inconsistent ordering of message chains ([#4490](https://github.com/ChainSafe/forest/issues/4490)).
+
+- [#7857](https://github.com/ChainSafe/forest/pull/7857): The message pool uses the new network version's gas prices starting at the upgrade epoch itself, matching Lotus. Previously the switch happened one epoch late.
 
 ## Forest v0.39.0 "Vijayadashami"
 
