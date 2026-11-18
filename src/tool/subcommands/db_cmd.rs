@@ -14,7 +14,6 @@ use crate::db::db_engine::{db_root, open_db};
 use crate::db::{CAR_DB_DIR_NAME, HeaviestTipsetKeyProvider};
 use crate::networks::NetworkChain;
 use crate::prelude::*;
-use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::utils::db::car_util::import_car_blocks;
 use clap::Subcommand;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -167,20 +166,22 @@ impl DBCommands {
                     load_all_forest_cars(&db, &forest_car_db_dir)?;
                     db
                 };
-                let finality_boundary = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
-                    .map(|tsk| Tipset::load_required(&db, &tsk).map(|ts| ts.epoch()))
+                let head = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?
+                    .map(|tsk| Tipset::load_required(&db, &tsk))
                     .transpose()?
-                    .ok_or_else(|| anyhow::anyhow!("chain head must be present in the database before importing a tipset lookup"))?
-                    - CHAIN_FINALITY;
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "chain head must be present in the database before importing a \
+                             tipset lookup"
+                        )
+                    })?;
                 println!("Validating and importing tipset lookup hamt...");
                 let pb = ProgressBar::new_spinner().with_style(
                     ProgressStyle::with_template("{spinner} {pos} entries imported")
                         .expect("indicatif template must be valid"),
                 );
                 pb.enable_steady_tick(std::time::Duration::from_millis(100));
-                import_tipset_lookup_snapshot(&db, &snapshot, Some(finality_boundary), || {
-                    pb.inc(1)
-                })?;
+                import_tipset_lookup_snapshot(&db, &snapshot, Some(&head), || pb.inc(1))?;
                 drop(db);
                 let total = pb.position();
                 pb.finish();

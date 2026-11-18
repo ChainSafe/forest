@@ -11,7 +11,6 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::forest::new_forest_car_temp_path_in;
 use crate::prelude::*;
-use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::import_car_blocks;
 use crate::utils::io::progress_log::Progress;
@@ -227,12 +226,10 @@ pub(super) async fn maybe_import_extended_snapshots(
         let result = async {
             let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
             let db = state_manager.db_owned();
-            let finality_boundary = state_manager.heaviest_tipset().epoch() - CHAIN_FINALITY;
+            let head = state_manager.heaviest_tipset();
             tokio::task::spawn_blocking(move || {
                 let mut progress = Progress::new("Importing tipset lookup entries");
-                import_tipset_lookup_snapshot(&db, &path, Some(finality_boundary), || {
-                    progress.inc(1)
-                })
+                import_tipset_lookup_snapshot(&db, &path, Some(&head), || progress.inc(1))
             })
             .await?
         }
