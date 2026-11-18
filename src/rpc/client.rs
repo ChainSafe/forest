@@ -27,18 +27,6 @@ use url::Url;
 
 use super::{ApiPaths, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE, Request};
 
-/// `User-Agent` advertised by the RPC client, e.g. `forest/0.33.7+git.e69baf3e4`.
-///
-/// Built once and cloned per client. Some public RPC providers (e.g. Filfox,
-/// fronted by Cloudflare) reject requests without a `User-Agent` with a `403`.
-static USER_AGENT: LazyLock<HeaderValue> = LazyLock::new(|| {
-    HeaderValue::from_str(&format!(
-        "forest/{}",
-        crate::utils::version::FOREST_VERSION_STRING.as_str()
-    ))
-    .expect("Forest version string is a valid header value")
-});
-
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
     /// SHOULD end in a slash, due to our use of [`Url::join`].
@@ -209,7 +197,10 @@ impl Debug for UrlClient {
 impl UrlClient {
     pub async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
         const ONE_DAY: Duration = Duration::from_secs(24 * 3600); // we handle timeouts ourselves.
-        let mut headers = HeaderMap::from_iter([(header::USER_AGENT, USER_AGENT.clone())]);
+        let mut headers = HeaderMap::from_iter([(
+            header::USER_AGENT,
+            HeaderValue::from_static(crate::utils::version::FOREST_USER_AGENT),
+        )]);
         if let Some(token) = token.into() {
             let value = HeaderValue::try_from(format!("Bearer {token}"))
                 .map_err(|e| ClientError::Custom(format!("Invalid authorization token: {e}")))?;

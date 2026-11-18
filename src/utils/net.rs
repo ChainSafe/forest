@@ -50,7 +50,12 @@ pub async fn bind_tcp_listener(addr: SocketAddr, backlog: u32) -> anyhow::Result
 }
 
 pub fn global_http_client() -> reqwest::Client {
-    static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+    static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+        reqwest::Client::builder()
+            .user_agent(crate::utils::version::FOREST_USER_AGENT)
+            .build()
+            .expect("failed to build the global HTTP client")
+    });
     CLIENT.clone()
 }
 
