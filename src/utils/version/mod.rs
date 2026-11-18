@@ -18,6 +18,16 @@ pub const GIT_HASH: &str =
 pub static FOREST_VERSION_STRING: LazyLock<String> =
     LazyLock::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
+/// `User-Agent` advertised by Forest's HTTP clients, e.g. `forest/0.33.7+git.e69baf3e4`.
+///
+/// Some public RPC providers (e.g. Filfox, fronted by Cloudflare) reject requests
+/// without a `User-Agent` with a `403`.
+pub const FOREST_USER_AGENT: &str = git_version!(
+    args = ["--always", "--exclude", "*"],
+    prefix = concat!("forest/", env!("CARGO_PKG_VERSION"), "+git."),
+    fallback = concat!("forest/", env!("CARGO_PKG_VERSION"), "+git.unknown")
+);
+
 pub static FOREST_VERSION: LazyLock<semver::Version> =
     LazyLock::new(|| semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("Invalid version"));
 
