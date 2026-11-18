@@ -85,6 +85,12 @@ impl MsgUuidRecords {
                 recorded_at,
             },
         );
+        // Oldest expired records sit at the front; pop until the front is still fresh.
+        while records.front().is_some_and(|(_, rec)| {
+            recorded_at.saturating_duration_since(rec.recorded_at) > RECORD_TTL
+        }) {
+            records.pop_front();
+        }
         while records.len() > self.capacity {
             records.pop_front();
         }
@@ -143,5 +149,38 @@ mod tests {
         );
         let last = records.take_lock(Uuid::from_u128(3)).await;
         assert!(records.get(&last).is_some());
+    }
+
+    #[tokio::test]
+    async fn record_sweeps_expired_prefix() {
+        let records = MsgUuidRecords::default();
+        let smsg = mock_smsg();
+        let t = Instant::now();
+        let oldest = Uuid::from_u128(1);
+        let middle = Uuid::from_u128(2);
+        let newest = Uuid::from_u128(3);
+
+        let lock = records.take_lock(oldest).await;
+        records.record_at(&lock, &smsg, t);
+        drop(lock);
+        let lock = records.take_lock(middle).await;
+        records.record_at(&lock, &smsg, t + Duration::from_secs(10));
+        drop(lock);
+        let lock = records.take_lock(newest).await;
+        records.record_at(&lock, &smsg, t + RECORD_TTL + Duration::from_secs(1));
+        drop(lock);
+
+        // Inspect the map directly: `get` uses wall-clock TTL and would not
+        // prove that `record_at` already dropped the expired prefix.
+        let map = records.records.lock();
+        assert!(
+            !map.contains_key(&oldest),
+            "expired prefix must be swept on a later record"
+        );
+        assert!(
+            map.contains_key(&middle),
+            "record within TTL of the newest insert must survive"
+        );
+        assert!(map.contains_key(&newest));
     }
 }
