@@ -195,6 +195,7 @@ macro_rules! for_each_rpc_method {
 
         // net vertical
         $callback!($crate::rpc::net::NetAddrsListen);
+        $callback!($crate::rpc::net::ID);
         $callback!($crate::rpc::net::NetAgentVersion);
         $callback!($crate::rpc::net::NetAutoNatStatus);
         $callback!($crate::rpc::net::NetBandwidthStats);

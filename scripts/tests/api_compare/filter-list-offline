@@ -3,6 +3,7 @@
 !Filecoin.EthSyncing
 !eth_syncing
 !Filecoin.NetAddrsListen
+!Filecoin.ID
 !Filecoin.NetAgentVersion
 !Filecoin.NetAutoNatStatus
 !Filecoin.NetBandwidthStats
