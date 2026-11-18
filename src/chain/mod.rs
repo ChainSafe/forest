@@ -536,10 +536,10 @@ where
     let finality_boundary = head.epoch() - CHAIN_FINALITY;
     let mut to_write: Vec<(ChainEpoch, TipsetKey)> = Vec::new();
     hamt.for_each_cacheless(|&epoch, tsk| {
-        validate_tipset_lookup_entry(db, epoch, tsk)?;
         if epoch > finality_boundary {
             return Ok(());
         }
+        validate_tipset_lookup_entry(db, epoch, tsk)?;
         if db.tipset_key_by_epoch(epoch)?.is_some() {
             return Ok(());
         }
