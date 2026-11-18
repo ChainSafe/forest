@@ -3488,6 +3488,8 @@ dependencies = [
 [[package]]
 name = "frc42_dispatch"
 version = "11.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f233df056e199a0771703cb925f4435b512bf5a330e23411ae15e22c0d394b5"
 dependencies = [
  "frc42_hasher",
  "frc42_macros",
@@ -3500,6 +3502,8 @@ dependencies = [
 [[package]]
 name = "frc42_hasher"
 version = "9.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ebc49661d3aed2d87d82b1709f2d976a5e2c80530ad7c15cfddbdb121bb7eec"
 dependencies = [
  "fvm_sdk",
  "fvm_shared 4.9.0",
@@ -3509,10 +3513,11 @@ dependencies = [
 [[package]]
 name = "frc42_macros"
 version = "9.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21c0edb8f3bd571eb3bb76c704bb9339a9fccad579cb5e0f15da1d08fe19bac7"
 dependencies = [
  "blake2b_simd",
  "frc42_hasher",
- "proc-macro2",
  "quote",
  "syn 2.0.119",
 ]
@@ -3520,6 +3525,8 @@ dependencies = [
 [[package]]
 name = "frc46_token"
 version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b55df38f2ed324745e71670472f11802e3c7d04a370462841b97d81b57089448"
 dependencies = [
  "cid",
  "frc42_dispatch",
@@ -3822,6 +3829,8 @@ dependencies = [
 [[package]]
 name = "fvm_actor_utils"
 version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b9339c9a1ee73f64095abf42fe8a35cbb15bef7be501e63d48ae0c0b8a59d0c"
 dependencies = [
  "anyhow",
  "cid",
@@ -4319,6 +4328,12 @@ checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
  "foldhash 0.1.5",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 
 [[package]]
 name = "hashbrown"
