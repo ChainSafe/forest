@@ -20,7 +20,7 @@ use crate::rpc::eth::filter::EthEventHandler;
 use crate::rpc::{RPCState, start_rpc};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
-use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
+use crate::utils::net::{DOWNLOAD_TIMEOUT, DownloadFileOption, DownloadOpts, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
 
 use arc_swap::ArcSwap;
@@ -302,7 +302,7 @@ async fn handle_snapshots(
     let opts = DownloadOpts {
         destination: downloaded_snapshot_path.clone(),
         option: DownloadFileOption::Resumable,
-        timeout: None,
+        timeout: Some(DOWNLOAD_TIMEOUT),
     };
     download_to(&snapshot_url, opts, None).await?;
     info!("Snapshot downloaded");

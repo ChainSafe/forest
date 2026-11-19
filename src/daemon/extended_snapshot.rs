@@ -14,7 +14,7 @@ use crate::prelude::*;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::import_car_blocks;
 use crate::utils::io::progress_log::Progress;
-use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
+use crate::utils::net::{DOWNLOAD_TIMEOUT, DownloadFileOption, DownloadOpts, download_to};
 use anyhow::Context;
 use regex::Regex;
 use serde::Deserialize;
@@ -102,7 +102,7 @@ async fn download_extended_snapshot(
     let opts = DownloadOpts {
         destination: path.to_path_buf(),
         option: DownloadFileOption::Resumable,
-        timeout: Some(Duration::from_mins(30)),
+        timeout: Some(DOWNLOAD_TIMEOUT),
     };
     download_to(&url, opts, None)
         .await
@@ -515,7 +515,6 @@ mod test {
         }
     }
 
-    // A stalled companion download must surface as a timeout instead of blocking startup.
     #[tokio::test(start_paused = true)]
     async fn download_extended_snapshot_times_out() {
         let app = axum::Router::new().route(

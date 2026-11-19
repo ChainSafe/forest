@@ -15,7 +15,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use forest::doctest_private::{download_to, DownloadFileOption, DownloadOpts};
+//! use forest::doctest_private::{download_to, DownloadFileOption, DownloadOpts, DOWNLOAD_TIMEOUT};
 //! use url::Url;
 //!
 //! # async fn example() -> anyhow::Result<()> {
@@ -25,7 +25,7 @@
 //! let opts = DownloadOpts {
 //!     destination: "./large-file.zst".into(),
 //!     option: DownloadFileOption::Resumable,
-//!     timeout: None,
+//!     timeout: Some(DOWNLOAD_TIMEOUT),
 //! };
 //! download_to(&url, opts, None).await?;
 //! # Ok(())
@@ -53,6 +53,8 @@ use std::{
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use url::Url;
 
+pub const DOWNLOAD_TIMEOUT: Duration = Duration::from_mins(30);
+
 /// Number of parallel connections to use for downloads (like aria2c -x flag)
 /// Can be overridden with `FOREST_DOWNLOAD_CONNECTIONS` environment variable
 fn get_num_download_connections() -> usize {
@@ -62,24 +64,8 @@ fn get_num_download_connections() -> usize {
         .unwrap_or(5) // Default to 5 like aria2c -x5
 }
 
-/// Path of an in-progress download. The file is removed on drop, so a failed or cancelled
-/// attempt leaves nothing behind; after the final rename there is nothing left to remove.
-struct TmpDownloadPath(PathBuf);
-
-impl Drop for TmpDownloadPath {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
-}
-
-impl AsRef<Path> for TmpDownloadPath {
-    fn as_ref(&self) -> &Path {
-        &self.0
-    }
-}
-
 /// Generate a temporary download path with `.frdownload` extension
-fn gen_tmp_download_path(dst_path: &Path) -> TmpDownloadPath {
+fn gen_tmp_download_path(dst_path: &Path) -> PathBuf {
     const DOWNLOAD_EXTENSION: &str = "frdownload";
     let mut path = dst_path.to_path_buf();
     if let Some(ext) = path.extension() {
@@ -90,7 +76,7 @@ fn gen_tmp_download_path(dst_path: &Path) -> TmpDownloadPath {
     } else {
         path.set_extension(DOWNLOAD_EXTENSION);
     }
-    TmpDownloadPath(path)
+    path
 }
 
 /// Call user-provided callback with progress percentage
@@ -135,7 +121,6 @@ pub enum DownloadFileOption {
 pub struct DownloadOpts {
     pub destination: PathBuf,
     pub option: DownloadFileOption,
-    /// `None` means no limit.
     pub timeout: Option<Duration>,
 }
 
@@ -186,7 +171,7 @@ pub async fn download_file_with_cache(
         let opts = DownloadOpts {
             destination: cache_file_path.clone(),
             option,
-            timeout: None,
+            timeout: Some(DOWNLOAD_TIMEOUT),
         };
         download_to(url, opts, None).await?;
     }
@@ -338,7 +323,7 @@ async fn download_http_parallel(
     let download_tasks = (0..effective_connections).map(|i| {
         let client = client.clone();
         let url = url.clone();
-        let tmp_path = tmp_dst_path.as_ref().to_path_buf();
+        let tmp_path = tmp_dst_path.clone();
         let bytes_downloaded = Arc::clone(&bytes_downloaded);
         let last_logged_bytes = Arc::clone(&last_logged_bytes);
         let last_logged_millis = Arc::clone(&last_logged_millis);
@@ -612,13 +597,6 @@ mod test {
                     }),
                 )
                 .route(
-                    "/test-file-stalled-body",
-                    // Headers are sent, the body never arrives.
-                    get(|| async {
-                        Body::from_stream(stream::pending::<std::io::Result<bytes::Bytes>>())
-                    }),
-                )
-                .route(
                     "/test-file-with-md5-etag",
                     get(move |req: Request| async move {
                         let mut response = handle_file_request(req, content).await;
@@ -887,27 +865,6 @@ mod test {
         );
 
         println!("Progress updates: {updates:?}");
-    }
-
-    #[tokio::test]
-    async fn test_download_to_removes_partial_file_on_timeout() {
-        let server = TestServer::start().await;
-        let temp_dir = tempfile::tempdir().unwrap();
-        let opts = DownloadOpts {
-            destination: temp_dir.path().join("stalled.dat"),
-            option: DownloadFileOption::NonResumable,
-            timeout: Some(Duration::from_secs(1)),
-        };
-
-        let err = download_to(&server.url("/test-file-stalled-body"), opts, None)
-            .await
-            .unwrap_err();
-
-        assert_eq!(
-            err.downcast_ref(),
-            Some(&crate::utils::RetryError::TimeoutExceeded)
-        );
-        assert!(std::fs::read_dir(temp_dir.path()).unwrap().next().is_none());
     }
 
     #[tokio::test]

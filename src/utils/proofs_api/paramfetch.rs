@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     shim::sector::SectorSize,
-    utils::net::{DownloadFileOption, DownloadOpts, download_to},
+    utils::net::{DOWNLOAD_TIMEOUT, DownloadFileOption, DownloadOpts, download_to},
 };
 use anyhow::Context as _;
 use futures::{TryStreamExt, stream::FuturesUnordered};
@@ -157,8 +157,7 @@ async fn fetch_verify_params(
             let opts = DownloadOpts {
                 destination: path.clone(),
                 option: DownloadFileOption::NonResumable,
-                // Parameter files run to tens of gigabytes.
-                timeout: None,
+                timeout: Some(DOWNLOAD_TIMEOUT),
             };
             download_to(&url, opts, None)
                 .await
