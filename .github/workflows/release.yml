@@ -20,16 +20,16 @@ jobs:
             file: forest-${{ github.ref_name }}-macos-arm64.zip
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Homebrew Utils
         if: contains(matrix.os, 'macos')
         run: |
           brew install --verbose coreutils
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         timeout-minutes: 5
         continue-on-error: true
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
@@ -46,7 +46,7 @@ jobs:
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md forest-${{ github.ref_name }}
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
           repo_token: ${{ github.token }}
           file: ${{ matrix.file }}
@@ -61,5 +61,5 @@ jobs:
       contents: read
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo publish --locked --token ${{ secrets.CARGO_REGISTRY_TOKEN }}

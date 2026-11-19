@@ -34,8 +34,8 @@ jobs:
     outputs:
       changesFound: ${{ steps.filter.outputs.changesFound }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -53,17 +53,17 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Link Checker
         id: lychee
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --user-agent "curl/8.5.0" --no-progress --config ./.config/lychee.toml './*.md' './AGENTS.md'
 
       - name: Create Issue From File
         if: env.lychee_exit_code != 0 && github.event_name == 'schedule'
-        uses: peter-evans/create-issue-from-file@v6
+        uses: peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710 # v6.0.0
         with:
           title: Link Checker Report
           content-filepath: ./lychee-report.md
