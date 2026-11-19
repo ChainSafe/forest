@@ -12,7 +12,7 @@ use crate::{
         db_mode::{DbMode, get_latest_versioned_database},
         migration::migration_map::create_migration_chain,
     },
-    utils::version::FOREST_VERSION,
+    utils::{self, version::FOREST_VERSION},
 };
 
 /// Governs the database migration process. This is the entry point for the migration process.
@@ -81,7 +81,7 @@ impl DbMigration {
                 "Successfully migrated from version {} to {}, took {}",
                 migration.from(),
                 migration.to(),
-                humantime::format_duration(std::time::Instant::now() - start),
+                utils::format_duration(std::time::Instant::now() - start),
             );
         }
 

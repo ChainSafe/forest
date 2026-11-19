@@ -32,8 +32,8 @@
 //! - Add and move progressively to new API (Iterator, Streams)
 //! - Add a more accurate ETA etc
 
+use crate::utils;
 use human_repr::HumanCount as _;
-use humantime::format_duration;
 use pin_project_lite::pin_project;
 use std::io;
 use std::pin::Pin;
@@ -111,7 +111,7 @@ enum ItemType {
 }
 
 impl Progress {
-    fn new(message: &str) -> Self {
+    pub(crate) fn new(message: &str) -> Self {
         let now = Instant::now();
         Self {
             completed_items: 0,
@@ -135,7 +135,7 @@ impl Progress {
         self
     }
 
-    fn inc(&mut self, value: u64) {
+    pub(crate) fn inc(&mut self, value: u64) {
         self.completed_items += value;
 
         self.emit_log_if_required();
@@ -157,7 +157,7 @@ impl Progress {
     fn msg(&self, now: Instant) -> String {
         let message = &self.message;
         let elapsed_secs = (now - self.start).as_secs_f64();
-        let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
+        let elapsed_duration = utils::format_duration(Duration::from_secs(elapsed_secs as u64));
         // limit minimum duration to 0.1s to avoid inifinities.
         let seconds_since_last_msg = (now - self.last_logged).as_secs_f64().max(0.1);
 

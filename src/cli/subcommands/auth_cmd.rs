@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::{self, auth::AuthNewParams, prelude::*};
+use crate::utils;
 use chrono::Duration;
 use clap::Subcommand;
 use libp2p::multiaddr;
@@ -16,8 +17,8 @@ pub enum AuthCommands {
         #[arg(short, long)]
         perm: String,
         /// Token is revoked after this duration
-        #[arg(long, default_value = "2 months")]
-        expire_in: humantime::Duration,
+        #[arg(long, default_value = "2 months", value_parser = utils::parse_duration)]
+        expire_in: std::time::Duration,
     },
     /// Get RPC API Information
     ApiInfo {
@@ -25,8 +26,8 @@ pub enum AuthCommands {
         #[arg(short, long)]
         perm: String,
         /// Token is revoked after this duration
-        #[arg(long, default_value = "2 months")]
-        expire_in: humantime::Duration,
+        #[arg(long, default_value = "2 months", value_parser = utils::parse_duration)]
+        expire_in: std::time::Duration,
     },
 }
 
@@ -36,14 +37,14 @@ impl AuthCommands {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = AuthNewParams::process_perms(perm)?;
-                let token_exp = Duration::from_std(expire_in.into())?;
+                let token_exp = Duration::from_std(expire_in)?;
                 let res = AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?;
                 print_rpc_res_bytes(res)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = AuthNewParams::process_perms(perm)?;
-                let token_exp = Duration::from_std(expire_in.into())?;
+                let token_exp = Duration::from_std(expire_in)?;
                 let token = String::from_utf8(
                     AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?,
                 )?;

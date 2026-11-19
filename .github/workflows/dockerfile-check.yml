@@ -14,7 +14,7 @@ jobs:
   docker-check:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: |
           docker build -t forest-test .
           docker run --rm forest-test --version
@@ -24,7 +24,7 @@ jobs:
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           echo "${WORKFLOW_URL}"
           echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
-      - uses: JasonEtco/create-an-issue@v2
+      - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
