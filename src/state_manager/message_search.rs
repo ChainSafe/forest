@@ -4,6 +4,7 @@
 use super::*;
 use crate::blocks::TipsetKey;
 use crate::message::MessageRead as _;
+use crate::utils;
 use ahash::HashSet;
 use parking_lot::RwLock;
 use std::sync::OnceLock;
@@ -227,7 +228,7 @@ impl StateManager {
         .map_err(|_| {
             Error::other(format!(
                 "wait_for_message timed out after {}",
-                humantime::format_duration(timeout)
+                utils::format_duration(timeout)
             ))
         })?
     }

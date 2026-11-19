@@ -33,7 +33,7 @@ use crate::{
     prelude::*,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
-    utils::misc::env::env_or_default_logged,
+    utils::{self, misc::env::env_or_default_logged},
 };
 use arc_swap::ArcSwap;
 use chrono::Utc;
@@ -170,7 +170,7 @@ impl ChainFollower {
         }
         tracing::info!(
             "chain follower reset, took {}",
-            humantime::format_duration(start.elapsed())
+            utils::format_duration(start.elapsed())
         );
     }
 

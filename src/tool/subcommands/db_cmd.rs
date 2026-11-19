@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -177,7 +178,7 @@ impl DBCommands {
                 pb.finish();
                 println!(
                     "Imported {total} tipset lookup entries, took {}",
-                    humantime::format_duration(start.elapsed())
+                    utils::format_duration(start.elapsed())
                 );
                 Ok(())
             }
