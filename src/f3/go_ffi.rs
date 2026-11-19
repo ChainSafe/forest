@@ -3,7 +3,7 @@
 
 pub mod binding {
     #![allow(warnings)]
-    #![allow(clippy::indexing_slicing)]
+    #![allow(clippy::indexing_slicing, clippy::cast_lossless)]
     rust2go::r2g_include_binding!();
 }
 

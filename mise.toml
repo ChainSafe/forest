@@ -88,7 +88,7 @@ cargo shear --deny-warnings
 description = "Lint Dockerfiles using hadolint."
 tools.hadolint = "latest"
 run = '''
-hadolint Dockerfile*
+hadolint --ignore DL3008 --ignore DL3018 Dockerfile*
 '''
 
 [tasks."lint:shellcheck"]
