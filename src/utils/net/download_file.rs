@@ -17,14 +17,16 @@
 //! ```no_run
 //! use forest::doctest_private::{download_to, DownloadFileOption, DownloadOpts};
 //! use url::Url;
-//! use std::path::Path;
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let url = Url::parse("https://example.com/large-file.zst")?;
-//! let destination = Path::new("./large-file.zst");
 //!
 //! // Download with parallel connections (automatic for Resumable option)
-//! let opts = DownloadOpts::new(destination, DownloadFileOption::Resumable)?;
+//! let opts = DownloadOpts {
+//!     destination: "./large-file.zst".into(),
+//!     option: DownloadFileOption::Resumable,
+//!     timeout: None,
+//! };
 //! download_to(&url, opts, None).await?;
 //! # Ok(())
 //! # }
@@ -42,7 +44,6 @@ use humantime::format_duration;
 use md5::{Digest as _, Md5};
 use std::sync::atomic::Ordering;
 use std::{
-    ffi::OsStr,
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
@@ -132,36 +133,10 @@ pub enum DownloadFileOption {
 
 #[derive(Debug, Clone)]
 pub struct DownloadOpts {
-    pub directory: PathBuf,
-    pub filename: String,
+    pub destination: PathBuf,
     pub option: DownloadFileOption,
     /// `None` means no limit.
     pub timeout: Option<Duration>,
-}
-
-impl DownloadOpts {
-    pub fn new(destination: &Path, option: DownloadFileOption) -> anyhow::Result<Self> {
-        Ok(Self {
-            directory: destination
-                .parent()
-                .with_context(|| {
-                    format!(
-                        "Error getting the parent directory of {}",
-                        destination.display()
-                    )
-                })?
-                .to_path_buf(),
-            filename: destination
-                .file_name()
-                .and_then(OsStr::to_str)
-                .with_context(|| {
-                    format!("Error getting the file name of {}", destination.display())
-                })?
-                .to_owned(),
-            option,
-            timeout: Some(Duration::from_mins(10)),
-        })
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -209,8 +184,9 @@ pub async fn download_file_with_cache(
         tracing::debug!(%url, "loaded from cache");
     } else {
         let opts = DownloadOpts {
+            destination: cache_file_path.clone(),
+            option,
             timeout: None,
-            ..DownloadOpts::new(&cache_file_path, option)?
         };
         download_to(url, opts, None).await?;
     }
@@ -269,8 +245,7 @@ async fn get_content_md5_hash_from_url(url: Url) -> anyhow::Result<Option<Vec<u8
 /// which can significantly improve download speeds for large files.
 async fn download_http_parallel(
     url: &Url,
-    directory: &Path,
-    filename: &str,
+    dst_path: &Path,
     num_connections: usize,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
@@ -278,11 +253,12 @@ async fn download_http_parallel(
         num_connections > 0,
         "Number of connections must be greater than 0"
     );
-    if !directory.is_dir() {
-        std::fs::create_dir_all(directory)?;
+    if let Some(dir) = dst_path.parent()
+        && !dir.is_dir()
+    {
+        std::fs::create_dir_all(dir)?;
     }
-    let dst_path = directory.join(filename);
-    let tmp_dst_path = gen_tmp_download_path(&dst_path);
+    let tmp_dst_path = gen_tmp_download_path(dst_path);
 
     let client = global_http_client();
 
@@ -323,14 +299,7 @@ async fn download_http_parallel(
             status = %test_response.status(),
             "Server doesn't support range requests, falling back to single connection"
         );
-        return download_http_single(
-            url,
-            directory,
-            filename,
-            DownloadFileOption::Resumable,
-            callback,
-        )
-        .await;
+        return download_http_single(url, dst_path, DownloadFileOption::Resumable, callback).await;
     }
 
     // Create the file and allocate space
@@ -497,27 +466,27 @@ async fn download_http_parallel(
     );
 
     // Rename to final destination
-    tokio::fs::rename(&tmp_dst_path, &dst_path)
+    tokio::fs::rename(&tmp_dst_path, dst_path)
         .await
         .context("couldn't rename file")?;
 
     tracing::debug!("successfully downloaded file to {}", dst_path.display());
-    Ok(dst_path)
+    Ok(dst_path.to_path_buf())
 }
 
 /// Download the file at `url` with a single HTTP connection, returning the path to the downloaded file
 async fn download_http_single(
     url: &Url,
-    directory: &Path,
-    filename: &str,
+    dst_path: &Path,
     option: DownloadFileOption,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
-    if !directory.is_dir() {
-        std::fs::create_dir_all(directory)?;
+    if let Some(dir) = dst_path.parent()
+        && !dir.is_dir()
+    {
+        std::fs::create_dir_all(dir)?;
     }
-    let dst_path = directory.join(filename);
-    let tmp_dst_path = gen_tmp_download_path(&dst_path);
+    let tmp_dst_path = gen_tmp_download_path(dst_path);
     let destination = dst_path.display();
     tracing::info!(%url, %destination, "downloading with single connection");
     let mut reader = crate::utils::net::reader(url.as_str(), option, callback).await?;
@@ -530,10 +499,10 @@ async fn download_http_single(
         .await
         .context("couldn't download file")?;
     tempfile.flush().await.context("couldn't flush file")?;
-    tokio::fs::rename(&tmp_dst_path, &dst_path)
+    tokio::fs::rename(&tmp_dst_path, dst_path)
         .await
         .context("couldn't rename file")?;
-    Ok(dst_path)
+    Ok(dst_path.to_path_buf())
 }
 
 /// Download the file at `url` using the global HTTP client (via [`download_http_parallel`] or
@@ -542,8 +511,7 @@ async fn download_http_single(
 /// Uses [`global_http_client`] for all HTTP requests.
 pub async fn download_http(
     url: &Url,
-    directory: &Path,
-    filename: &str,
+    dst_path: &Path,
     option: DownloadFileOption,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
@@ -553,33 +521,19 @@ pub async fn download_http(
             let num_connections = get_num_download_connections();
 
             // Try parallel download, fall back to single connection on error
-            match download_http_parallel(
-                url,
-                directory,
-                filename,
-                num_connections,
-                callback.clone(),
-            )
-            .await
-            {
+            match download_http_parallel(url, dst_path, num_connections, callback.clone()).await {
                 Ok(path) => Ok(path),
                 Err(e) => {
                     tracing::warn!(
                         "Parallel download failed ({e:#}), falling back to single connection"
                     );
-                    download_http_single(
-                        url,
-                        directory,
-                        filename,
-                        DownloadFileOption::Resumable,
-                        callback,
-                    )
-                    .await
+                    download_http_single(url, dst_path, DownloadFileOption::Resumable, callback)
+                        .await
                 }
             }
         }
         DownloadFileOption::NonResumable => {
-            download_http_single(url, directory, filename, option, callback).await
+            download_http_single(url, dst_path, option, callback).await
         }
     }
 }
@@ -590,8 +544,7 @@ pub async fn download_to(
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
     let DownloadOpts {
-        directory,
-        filename,
+        destination,
         option,
         timeout,
     } = opts;
@@ -600,7 +553,7 @@ pub async fn download_to(
             timeout,
             ..Default::default()
         },
-        || download_http(url, &directory, &filename, option, callback.clone()),
+        || download_http(url, &destination, option, callback.clone()),
     )
     .await?)
 }
@@ -847,8 +800,7 @@ mod test {
 
         let result = download_http_parallel(
             &url,
-            temp_dir.path(),
-            "test-parallel.dat",
+            &temp_dir.path().join("test-parallel.dat"),
             3, // Use 3 connections for testing
             None,
         )
@@ -871,8 +823,7 @@ mod test {
         // Test with Resumable option (should use parallel)
         let result = download_http(
             &url,
-            temp_dir.path(),
-            "test-resumable.dat",
+            &temp_dir.path().join("test-resumable.dat"),
             DownloadFileOption::Resumable,
             None,
         )
@@ -902,8 +853,7 @@ mod test {
 
         let result = download_http_parallel(
             &url,
-            temp_dir.path(),
-            "test-progress.dat",
+            &temp_dir.path().join("test-progress.dat"),
             3,
             Some(callback),
         )
@@ -944,8 +894,7 @@ mod test {
         let server = TestServer::start().await;
         let temp_dir = tempfile::tempdir().unwrap();
         let opts = DownloadOpts {
-            directory: temp_dir.path().to_path_buf(),
-            filename: "stalled.dat".into(),
+            destination: temp_dir.path().join("stalled.dat"),
             option: DownloadFileOption::NonResumable,
             timeout: Some(Duration::from_secs(1)),
         };
@@ -971,8 +920,7 @@ mod test {
         // Try to download with parallel (should fallback to single connection)
         let result = download_http(
             &url,
-            temp_dir.path(),
-            "test-fallback.dat",
+            &temp_dir.path().join("test-fallback.dat"),
             DownloadFileOption::Resumable,
             None,
         )
@@ -996,7 +944,7 @@ mod test {
         let url = server.url("/test-file");
 
         // Try to download with more connections than bytes
-        let result = download_http_parallel(&url, temp_dir.path(), "tiny.dat", 5, None)
+        let result = download_http_parallel(&url, &temp_dir.path().join("tiny.dat"), 5, None)
             .await
             .unwrap();
 

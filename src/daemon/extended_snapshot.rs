@@ -99,7 +99,11 @@ async fn download_extended_snapshot(
 
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
-    let opts = DownloadOpts::new(&path, DownloadFileOption::Resumable)?;
+    let opts = DownloadOpts {
+        destination: path.to_path_buf(),
+        option: DownloadFileOption::Resumable,
+        timeout: Some(Duration::from_mins(30)),
+    };
     download_to(&url, opts, None)
         .await
         .with_context(|| format!("failed to download {}", file.filename))?;

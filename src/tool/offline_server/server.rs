@@ -300,9 +300,9 @@ async fn handle_snapshots(
     );
     let downloaded_snapshot_path = std::env::current_dir()?.join(path);
     let opts = DownloadOpts {
-        // A full snapshot can take hours to download.
+        destination: downloaded_snapshot_path.clone(),
+        option: DownloadFileOption::Resumable,
         timeout: None,
-        ..DownloadOpts::new(&downloaded_snapshot_path, DownloadFileOption::Resumable)?
     };
     download_to(&snapshot_url, opts, None).await?;
     info!("Snapshot downloaded");

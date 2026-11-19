@@ -155,9 +155,10 @@ async fn fetch_verify_params(
         );
         let fetched = async {
             let opts = DownloadOpts {
+                destination: path.clone(),
+                option: DownloadFileOption::NonResumable,
                 // Parameter files run to tens of gigabytes.
                 timeout: None,
-                ..DownloadOpts::new(&path, DownloadFileOption::NonResumable)?
             };
             download_to(&url, opts, None)
                 .await

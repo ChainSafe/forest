@@ -178,12 +178,9 @@ pub async fn import_chain_as_forest_car(
             match from {
                 SnapshotImportPath::Url(url) => {
                     let opts = DownloadOpts {
-                        // A full snapshot can take hours to download.
+                        destination: downloaded_car_temp_path.to_path_buf(),
+                        option: DownloadFileOption::Resumable,
                         timeout: None,
-                        ..DownloadOpts::new(
-                            &downloaded_car_temp_path,
-                            DownloadFileOption::Resumable,
-                        )?
                     };
                     download_to(url, opts, snapshot_progress_tracker.create_callback()).await?;
 
