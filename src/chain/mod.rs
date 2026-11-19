@@ -535,10 +535,12 @@ where
         if epoch > finality_boundary {
             return Ok(());
         }
-        validate_tipset_lookup_entry(db, epoch, tsk)?;
+
         if db.tipset_key_by_epoch(epoch)?.is_some() {
             return Ok(());
         }
+
+        validate_tipset_lookup_entry(db, epoch, tsk)?;
         to_write.push((epoch, tsk.clone()));
         Ok(())
     })?;
@@ -556,6 +558,8 @@ where
             cursor.epoch() == *epoch && cursor.key() == tsk,
             "tipset at epoch {epoch} in the snapshot is not on the canonical chain"
         );
+    }
+    for (epoch, tsk) in &to_write {
         db.set_tipset_key_at_epoch_raw(*epoch, tsk)?;
         on_imported();
     }

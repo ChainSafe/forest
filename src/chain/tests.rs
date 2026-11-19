@@ -680,3 +680,64 @@ async fn import_tipset_lookup(
         assert_eq!(db.tipset_key_by_epoch(hamt_epoch).unwrap(), written);
     }
 }
+
+// Regression: a later ancestry failure must not leave earlier entries partially written.
+#[tokio::test]
+async fn import_tipset_lookup_no_partial_write_on_ancestry_failure() {
+    use crate::chain::index::tests::{genesis_tipset, persist_tipset, tipset_child};
+
+    let db = MemoryDB::default();
+    let mut parent = genesis_tipset();
+    persist_tipset(&parent, &db);
+    let genesis = parent.shallow_clone();
+    let mut canonical_40 = None;
+    for epoch in 1..=960 {
+        let ts = tipset_child(&parent, epoch);
+        persist_tipset(&ts, &db);
+        if epoch == 40 {
+            canonical_40 = Some(ts.shallow_clone());
+        }
+        parent = ts;
+    }
+    let canonical_40 = canonical_40.unwrap();
+
+    // Fork tipset at epoch 20: in the blockstore (passes validate_tipset_lookup_entry),
+    // but its parent is genesis rather than epoch 19, so it is not on the canonical chain.
+    let fork_20 = tipset_child(&genesis, 20);
+    persist_tipset(&fork_20, &db);
+
+    let hamt_store = MemoryDB::default();
+    let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
+        Hamt::new_with_bit_width(&hamt_store, TIPSET_LOOKUP_HAMT_BIT_WIDTH);
+    hamt.set(canonical_40.epoch(), canonical_40.key().clone())
+        .unwrap();
+    hamt.set(fork_20.epoch(), fork_20.key().clone()).unwrap();
+    let root = hamt.flush().unwrap();
+    let mut car = vec![];
+    hamt_store
+        .export_forest_car_with_roots(nunny::vec![root], &mut car)
+        .await
+        .unwrap();
+    let temp_dir = tempfile::tempdir().unwrap();
+    let car_path = temp_dir.path().join("tipset_lookup.forest.car.zst");
+    std::fs::write(&car_path, car).unwrap();
+
+    let mut callbacks = 0u32;
+    let err =
+        import_tipset_lookup_snapshot(&db, &car_path, &parent, || callbacks += 1).unwrap_err();
+    assert!(
+        format!("{err:#}").contains("not on the canonical chain"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(callbacks, 0, "no callback before all ancestry checks pass");
+    assert_eq!(
+        db.tipset_key_by_epoch(canonical_40.epoch()).unwrap(),
+        None,
+        "epoch 40 must not be written when a later entry fails ancestry"
+    );
+    assert_eq!(
+        db.tipset_key_by_epoch(fork_20.epoch()).unwrap(),
+        None,
+        "epoch 20 must not be written"
+    );
+}
