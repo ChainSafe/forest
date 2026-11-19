@@ -75,8 +75,8 @@ pub async fn fetch(
     tracing::info!("Downloading snapshot: {filename}");
 
     let opts = DownloadOpts {
-        directory,
-        filename: &filename,
+        directory: directory.to_path_buf(),
+        filename,
         option: DownloadFileOption::Resumable,
         // A full snapshot can take hours to download.
         timeout: None,

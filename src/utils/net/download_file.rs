@@ -130,30 +130,34 @@ pub enum DownloadFileOption {
     Resumable,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct DownloadOpts<'a> {
-    pub directory: &'a Path,
-    pub filename: &'a str,
+#[derive(Debug, Clone)]
+pub struct DownloadOpts {
+    pub directory: PathBuf,
+    pub filename: String,
     pub option: DownloadFileOption,
     /// `None` means no limit.
     pub timeout: Option<Duration>,
 }
 
-impl<'a> DownloadOpts<'a> {
-    pub fn new(destination: &'a Path, option: DownloadFileOption) -> anyhow::Result<Self> {
+impl DownloadOpts {
+    pub fn new(destination: &Path, option: DownloadFileOption) -> anyhow::Result<Self> {
         Ok(Self {
-            directory: destination.parent().with_context(|| {
-                format!(
-                    "Error getting the parent directory of {}",
-                    destination.display()
-                )
-            })?,
+            directory: destination
+                .parent()
+                .with_context(|| {
+                    format!(
+                        "Error getting the parent directory of {}",
+                        destination.display()
+                    )
+                })?
+                .to_path_buf(),
             filename: destination
                 .file_name()
                 .and_then(OsStr::to_str)
                 .with_context(|| {
                     format!("Error getting the file name of {}", destination.display())
-                })?,
+                })?
+                .to_owned(),
             option,
             timeout: Some(Duration::from_mins(10)),
         })
@@ -582,7 +586,7 @@ pub async fn download_http(
 
 pub async fn download_to(
     url: &Url,
-    opts: DownloadOpts<'_>,
+    opts: DownloadOpts,
     callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 ) -> anyhow::Result<PathBuf> {
     let DownloadOpts {
@@ -596,7 +600,7 @@ pub async fn download_to(
             timeout,
             ..Default::default()
         },
-        || download_http(url, directory, filename, option, callback.clone()),
+        || download_http(url, &directory, &filename, option, callback.clone()),
     )
     .await?)
 }
@@ -940,8 +944,8 @@ mod test {
         let server = TestServer::start().await;
         let temp_dir = tempfile::tempdir().unwrap();
         let opts = DownloadOpts {
-            directory: temp_dir.path(),
-            filename: "stalled.dat",
+            directory: temp_dir.path().to_path_buf(),
+            filename: "stalled.dat".into(),
             option: DownloadFileOption::NonResumable,
             timeout: Some(Duration::from_secs(1)),
         };
