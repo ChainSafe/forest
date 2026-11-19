@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::db::{BlockstoreWriteOpsSubscribable, HeaviestTipsetKeyProvider};
+use crate::utils;
 use parking_lot::RwLock;
 use std::time::{Duration, Instant};
 
@@ -71,7 +72,7 @@ impl GarbageCollectableParityDb {
             }
             tracing::info!(
                 "pruned parity-db column {col}, took {}",
-                humantime::format_duration(start.elapsed())
+                utils::format_duration(start.elapsed())
             );
         }
         Ok(())

@@ -30,14 +30,13 @@
 //! ```
 
 use crate::utils::encoding::hex;
-use crate::utils::{RetryArgs, net::global_http_client, retry};
+use crate::utils::{self, RetryArgs, net::global_http_client, retry};
 use anyhow::{Context as _, ensure};
 use backon::{ExponentialBuilder, Retryable as _};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use digest_io::IoWrapper;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use human_repr::HumanCount as _;
-use humantime::format_duration;
 use md5::{Digest as _, Md5};
 use std::sync::atomic::Ordering;
 use std::{
@@ -103,7 +102,7 @@ fn log_download_progress(downloaded: u64, total_size: u64, bytes_per_sec: f64, e
         total_size.human_count_bytes(),
         percent,
         bytes_per_sec.human_count_bytes(),
-        format_duration(Duration::from_secs(elapsed.as_secs()))
+        utils::format_duration(Duration::from_secs(elapsed.as_secs()))
     );
 }
 
