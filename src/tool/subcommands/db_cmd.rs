@@ -203,14 +203,11 @@ mod tests {
     use fil_actors_shared::fvm_ipld_hamt::Hamt;
     use std::sync::Arc;
 
-    /// Regression test for #7860: import must not overwrite an entry the node already recorded.
     #[tokio::test]
     async fn import_tipset_lookup_does_not_overwrite_existing_entry() {
         let mem_db = Arc::new(MemoryDB::default());
         let (_genesis, partial, full, mut head) =
             chain_with_competing_tipsets_at_checkpoint(&mem_db);
-        // Extend to epoch 960 so the boundary is 60 (960-900), giving room for:
-        //   epoch 20 → already in db (guard 2), epoch 40 → new entry to write, epoch 500 → unfinalized (guard 1).
         let mut new_tipset = None;
         let mut unfinalized_tipset = None;
         for epoch in head.epoch() + 1..=960 {
@@ -227,7 +224,6 @@ mod tests {
         let new_tipset = new_tipset.unwrap();
         let unfinalized_tipset = unfinalized_tipset.unwrap();
 
-        // Export the chain to a CAR file for the paritydb to load.
         let temp_dir = tempfile::tempdir().unwrap();
         let db_root_path = temp_dir.path().join("db");
         let car_dir = db_root_path.join(CAR_DB_DIR_NAME);
@@ -245,7 +241,6 @@ mod tests {
             Arc::new(db)
         };
 
-        // Record the canonical entry for epoch 20 (the two-block tipset).
         let db = make_db();
         db.set_tipset_key_at_epoch_raw(full.epoch(), full.key())
             .unwrap();
@@ -255,10 +250,6 @@ mod tests {
         );
         drop(db);
 
-        // Build a lookup HAMT:
-        //   epoch 20 → partial (exists in db, guard 2 fires)
-        //   epoch 40 → new_tipset (finalized, not in db → must be written)
-        //   epoch 500 → unfinalized (guard 1 fires)
         let hamt_store = Arc::new(MemoryDB::default());
         let mut hamt: Hamt<_, TipsetKey, ChainEpoch> =
             Hamt::new_with_bit_width(hamt_store.shallow_clone(), TIPSET_LOOKUP_HAMT_BIT_WIDTH);
@@ -276,7 +267,6 @@ mod tests {
         let lookup_path = temp_dir.path().join("lookup.forest.car.zst");
         std::fs::write(&lookup_path, lookup_bytes).unwrap();
 
-        // Import: epoch 20 skipped (guard 2), epoch 40 written, epoch 500 skipped (guard 1).
         DBCommands::ImportTipsetLookup {
             snapshot: lookup_path,
             chain: NetworkChain::Calibnet,

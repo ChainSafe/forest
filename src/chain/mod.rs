@@ -545,7 +545,6 @@ where
         Ok(())
     })?;
 
-    // Sort descending so we can walk the parent chain from the head once.
     to_write.sort_unstable_by_key(|&(epoch, _)| std::cmp::Reverse(epoch));
 
     let mut cursor = head.shallow_clone();

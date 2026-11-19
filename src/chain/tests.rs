@@ -633,7 +633,6 @@ async fn import_tipset_lookup(
         chain.push(ts.shallow_clone());
         parent = ts;
     }
-    // Extend past CHAIN_FINALITY so epoch 40 is finalized (head - 900 >= 40 requires head >= 940).
     for epoch in 41..=940 {
         let ts = tipset_child(&parent, epoch);
         persist_tipset(&ts, &db);
@@ -681,7 +680,6 @@ async fn import_tipset_lookup(
     }
 }
 
-// Regression: a later ancestry failure must not leave earlier entries partially written.
 #[tokio::test]
 async fn import_tipset_lookup_no_partial_write_on_ancestry_failure() {
     use crate::chain::index::tests::{genesis_tipset, persist_tipset, tipset_child};
@@ -701,8 +699,6 @@ async fn import_tipset_lookup_no_partial_write_on_ancestry_failure() {
     }
     let canonical_40 = canonical_40.unwrap();
 
-    // Fork tipset at epoch 20: in the blockstore (passes validate_tipset_lookup_entry),
-    // but its parent is genesis rather than epoch 19, so it is not on the canonical chain.
     let fork_20 = tipset_child(&genesis, 20);
     persist_tipset(&fork_20, &db);
 
