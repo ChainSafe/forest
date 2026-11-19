@@ -19,16 +19,16 @@ jobs:
     name: Butterflynet checks
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: rui314/setup-mold@v1
+      - uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
         with:
           make-default: false
       - name: Checkout Sources
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       - name: Build and install Forest binaries
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
