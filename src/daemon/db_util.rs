@@ -17,7 +17,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use crate::utils::net::{DOWNLOAD_TIMEOUT, DownloadFileOption, DownloadOpts, download_to};
+use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
 use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -180,7 +180,7 @@ pub async fn import_chain_as_forest_car(
                     let opts = DownloadOpts {
                         destination: downloaded_car_temp_path.to_path_buf(),
                         option: DownloadFileOption::Resumable,
-                        timeout: Some(DOWNLOAD_TIMEOUT),
+                        timeout: None,
                     };
                     download_to(url, opts, snapshot_progress_tracker.create_callback()).await?;
 

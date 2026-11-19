@@ -12,7 +12,7 @@ use crate::prelude::*;
 use crate::{cli_shared::snapshot::parse::ParsedFilename, utils::net::download_to};
 use crate::{
     networks::NetworkChain,
-    utils::net::{DOWNLOAD_TIMEOUT, DownloadFileOption, DownloadOpts},
+    utils::net::{DownloadFileOption, DownloadOpts},
 };
 use anyhow::bail;
 use chrono::NaiveDate;
@@ -77,7 +77,7 @@ pub async fn fetch(
     let opts = DownloadOpts {
         destination: directory.join(&filename),
         option: DownloadFileOption::Resumable,
-        timeout: Some(DOWNLOAD_TIMEOUT),
+        timeout: None,
     };
     download_to(&url, opts, None).await
 }

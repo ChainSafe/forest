@@ -15,7 +15,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use forest::doctest_private::{download_to, DownloadFileOption, DownloadOpts, DOWNLOAD_TIMEOUT};
+//! use forest::doctest_private::{download_to, DownloadFileOption, DownloadOpts};
 //! use url::Url;
 //!
 //! # async fn example() -> anyhow::Result<()> {
@@ -25,7 +25,7 @@
 //! let opts = DownloadOpts {
 //!     destination: "./large-file.zst".into(),
 //!     option: DownloadFileOption::Resumable,
-//!     timeout: Some(DOWNLOAD_TIMEOUT),
+//!     timeout: None,
 //! };
 //! download_to(&url, opts, None).await?;
 //! # Ok(())
@@ -52,8 +52,6 @@ use std::{
 };
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use url::Url;
-
-pub const DOWNLOAD_TIMEOUT: Duration = Duration::from_mins(30);
 
 /// Number of parallel connections to use for downloads (like aria2c -x flag)
 /// Can be overridden with `FOREST_DOWNLOAD_CONNECTIONS` environment variable
@@ -171,7 +169,7 @@ pub async fn download_file_with_cache(
         let opts = DownloadOpts {
             destination: cache_file_path.clone(),
             option,
-            timeout: Some(DOWNLOAD_TIMEOUT),
+            timeout: None,
         };
         download_to(url, opts, None).await?;
     }
