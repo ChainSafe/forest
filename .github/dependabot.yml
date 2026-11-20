@@ -27,6 +27,10 @@ updates:
       - dependency-name: "filecoin*"
         update-types:
           ["version-update:semver-major", "version-update:semver-minor"]
+      # BigInt is part of the fvm_shared and num public APIs; bump together with them.
+      - dependency-name: "num-bigint"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
     groups:
       patch-versions:
@@ -38,17 +42,13 @@ updates:
   # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot#enabling-dependabot-version-updates-for-actions
   - package-ecosystem: "github-actions"
     directory: "/"
-    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
-      artifact:
-        patterns:
-          - "actions/upload-artifact"
-          - "actions/download-artifact"
-      docker:
-        patterns:
-          - "docker/*"
+      github-actions:
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/docs" # Location of package manifests

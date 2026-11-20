@@ -18,6 +18,7 @@ use crate::{
         index::{ChainIndex, ResolveNullTipset},
     },
     db::{Either, parity_db::ParityDb, parity_db_config::ParityDbConfig},
+    utils,
 };
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
@@ -287,7 +288,7 @@ async fn benchmark_blockstore_import(
     println!(
         "imported {n} records into {db:?} blockstore(size={}), took {}",
         db_size.human_count_bytes(),
-        humantime::format_duration(start.elapsed())
+        utils::format_duration(start.elapsed())
     );
     Ok(head_tsk)
 }
@@ -308,7 +309,7 @@ async fn benchmark_blockstore_traversal(
     }
     println!(
         "Traversed {n} records, took {}",
-        humantime::format_duration(start.elapsed())
+        utils::format_duration(start.elapsed())
     );
     Ok(())
 }

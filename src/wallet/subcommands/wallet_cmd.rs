@@ -24,6 +24,7 @@ use crate::{
         address::{Address, Protocol},
         message::{METHOD_SEND, Message},
     },
+    utils,
 };
 use crate::{
     KeyStore, KeyStoreConfig,
@@ -320,7 +321,7 @@ pub enum WalletCommands {
         #[arg(long)]
         wait_confidence: Option<u32>,
         /// Timeout duration for `--wait-confidence`, e.g. `30s`, `5m`. If not set, the timeout will be `confidence + 5` epochs.
-        #[arg(long, requires = "wait_confidence", value_parser = humantime::parse_duration)]
+        #[arg(long, requires = "wait_confidence", value_parser = utils::parse_duration)]
         wait_timeout: Option<Duration>,
         /// Specify method to invoke (default 0; selected automatically for ETH)
         #[arg(long)]
@@ -613,7 +614,7 @@ impl WalletCommands {
                         {
                             match e {
                                 ClientError::RequestTimeout => {
-                                    anyhow::anyhow!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", humantime::format_duration(start.elapsed()))
+                                    anyhow::anyhow!("timed out waiting for the message {msg_cid} with confidence {confidence}, took {}", utils::format_duration(start.elapsed()))
                                 }
                                 e => {
                                     anyhow::anyhow!("failed to wait for the message {msg_cid} with confidence {confidence}: {e}")

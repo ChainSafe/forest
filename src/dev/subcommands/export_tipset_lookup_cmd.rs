@@ -13,6 +13,7 @@ use crate::{
     genesis::read_genesis_header,
     networks::{ChainConfig, NetworkChain},
     shim::clock::ChainEpoch,
+    utils,
 };
 use clap::Args;
 use fil_actors_shared::fvm_ipld_amt::Amt;
@@ -95,7 +96,7 @@ impl ExportTipsetLookupCommand {
             "Exported tipset lookup AMT with root CID: {root}, len: {}, size: {}, took {}",
             amt_db.blockstore_len(),
             amt_db.blockstore_size_bytes().human_count_bytes(),
-            humantime::format_duration(start.elapsed())
+            utils::format_duration(start.elapsed())
         );
         amt_db
             .export_forest_car_with_roots(
