@@ -5,14 +5,17 @@
 //! Lotus Miner JSON-RPC API, which Forest's RPC does not define.
 
 use crate::dev::subcommands::tests_cmd::helpers::{harness_env, poll};
+use crate::lotus_json::LotusJson;
 use crate::rpc::{ApiPaths, Client, Request};
 use crate::shim::address::Address;
 use crate::utils::UrlFromMultiAddr;
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
+use cid::Cid;
 use itertools::Itertools as _;
 use serde::Deserialize;
 use serde::de::{DeserializeOwned, IgnoredAny};
 use serde_json::json;
+use std::future::Future;
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -89,36 +92,169 @@ impl MinerApi {
     pub async fn wait_until_proving(&self, sector: u64) -> anyhow::Result<()> {
         // `poll` logs every attempt, so the state is printed only when it changes.
         let last_state = AtomicU8::new(u8::MAX);
-        let waited = poll(&format!("sector {sector} to reach Proving"), || async {
-            self.flush_sealing_batches().await?;
+        self.wait_sector(
+            sector,
+            &format!("sector {sector} to reach Proving"),
+            &last_state,
+            || async { self.flush_sealing_batches().await },
+            |state| async move {
+                match state {
+                    SectorState::Proving | SectorState::Available => Ok(Some(())),
+                    SectorState::FailedUnrecoverable
+                    | SectorState::PackingFailed
+                    | SectorState::DealsExpired
+                    | SectorState::Faulty
+                    | SectorState::FaultReported
+                    | SectorState::FaultedFinal
+                    | SectorState::Terminating
+                    | SectorState::TerminateWait
+                    | SectorState::TerminateFinality
+                    | SectorState::TerminateFailed
+                    | SectorState::Removing
+                    | SectorState::RemoveFailed
+                    | SectorState::Removed => {
+                        bail!("sector {sector} reached {state:?}, which never leads to Proving")
+                    }
+                    _ => Ok(None),
+                }
+            },
+        )
+        .await
+    }
+
+    /// Queues `sector` for early termination.
+    pub async fn terminate_sector(&self, sector: u64) -> anyhow::Result<()> {
+        self.call::<IgnoredAny>("Filecoin.SectorTerminate", json!([sector]))
+            .await?;
+        Ok(())
+    }
+
+    /// Flushes the terminate batch; returns the message CID when one was sent.
+    async fn terminate_flush(&self) -> anyhow::Result<Option<Cid>> {
+        Ok(self
+            .call::<Option<LotusJson<Cid>>>("Filecoin.SectorTerminateFlush", json!([]))
+            .await?
+            .map(|c| c.into_inner()))
+    }
+
+    /// Sectors waiting in the terminate batch.
+    async fn terminate_pending(&self) -> anyhow::Result<Vec<u64>> {
+        let pending: Vec<SectorId> = self
+            .call("Filecoin.SectorTerminatePending", json!([]))
+            .await?;
+        Ok(pending.into_iter().map(|s| s.number).collect())
+    }
+
+    /// After [`Self::terminate_sector`], waits until `sector` is
+    /// `TerminateFinality`, `Removing`, or `Removed`, flushing the terminate
+    /// batch while `Terminating` until a CID is returned; a failed terminate
+    /// exit fails at once. Returns the `TerminateSectors` message CID.
+    pub async fn wait_until_terminated(&self, sector: u64) -> anyhow::Result<Cid> {
+        let last_state = AtomicU8::new(u8::MAX);
+        let cid = self
+            .wait_sector(
+                sector,
+                &format!("sector {sector} terminate flush"),
+                &last_state,
+                || async { Ok(()) },
+                |state| async move {
+                    match state {
+                        SectorState::Terminating => {
+                            let pending = self.terminate_pending().await?;
+                            if pending.is_empty() {
+                                return Ok(None);
+                            }
+                            ensure!(
+                                pending.as_slice() == [sector],
+                                "SectorTerminatePending is {pending:?}, expected exactly [{sector}]"
+                            );
+                            let Some(cid) = self.terminate_flush().await? else {
+                                return Ok(None);
+                            };
+                            eprintln!("terminate message: {cid}");
+                            let pending = self.terminate_pending().await?;
+                            ensure!(
+                                pending.is_empty(),
+                                "SectorTerminatePending not empty after flush: {pending:?}"
+                            );
+                            Ok(Some(cid))
+                        }
+                        SectorState::TerminateWait
+                        | SectorState::TerminateFinality
+                        | SectorState::Removing
+                        | SectorState::Removed => bail!(
+                            "sector {sector} reached {state:?} without a terminate message CID"
+                        ),
+                        state => {
+                            Self::ensure_terminate_not_failed(sector, state)?;
+                            Ok(None)
+                        }
+                    }
+                },
+            )
+            .await?;
+        self.wait_sector(
+            sector,
+            &format!("sector {sector} terminate success"),
+            &last_state,
+            || async { Ok(()) },
+            |state| async move {
+                match state {
+                    SectorState::TerminateFinality
+                    | SectorState::Removing
+                    | SectorState::Removed => Ok(Some(())),
+                    state => {
+                        Self::ensure_terminate_not_failed(sector, state)?;
+                        Ok(None)
+                    }
+                }
+            },
+        )
+        .await?;
+        Ok(cid)
+    }
+
+    /// Fails when `state` cannot lead to a successful terminate.
+    fn ensure_terminate_not_failed(sector: u64, state: SectorState) -> anyhow::Result<()> {
+        match state {
+            SectorState::TerminateFailed
+            | SectorState::RemoveFailed
+            | SectorState::FailedUnrecoverable => {
+                bail!("sector {sector} reached {state:?}, which is not a successful terminate exit")
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Polls until `check` returns `Some`, printing sector state changes and
+    /// attaching the sector log when the wait fails. `prepare` runs before each
+    /// status read.
+    async fn wait_sector<P, PF, F, Fut, T>(
+        &self,
+        sector: u64,
+        label: &str,
+        last_state: &AtomicU8,
+        prepare: P,
+        check: F,
+    ) -> anyhow::Result<T>
+    where
+        P: Fn() -> PF,
+        PF: Future<Output = anyhow::Result<()>>,
+        F: Fn(SectorState) -> Fut,
+        Fut: Future<Output = anyhow::Result<Option<T>>>,
+    {
+        let waited = poll(label, || async {
+            prepare().await?;
             let status = self.sectors_status(sector).await?;
-            if last_state.swap(status.state as u8, Ordering::Relaxed) != status.state as u8 {
-                eprintln!("sector {sector} state: {:?}", status.state);
+            let state = status.state;
+            if last_state.swap(state as u8, Ordering::Relaxed) != state as u8 {
+                eprintln!("sector {sector} state: {state:?}");
             }
-            match status.state {
-                SectorState::Proving | SectorState::Available => Ok(Some(())),
-                SectorState::FailedUnrecoverable
-                | SectorState::PackingFailed
-                | SectorState::DealsExpired
-                | SectorState::Faulty
-                | SectorState::FaultReported
-                | SectorState::FaultedFinal
-                | SectorState::Terminating
-                | SectorState::TerminateWait
-                | SectorState::TerminateFinality
-                | SectorState::TerminateFailed
-                | SectorState::Removing
-                | SectorState::RemoveFailed
-                | SectorState::Removed => bail!(
-                    "sector {sector} reached {:?}, which never leads to Proving",
-                    status.state
-                ),
-                _ => Ok(None),
-            }
+            check(state).await
         })
         .await;
         let Err(e) = waited else {
-            return Ok(());
+            return waited;
         };
         let Ok(status) = self.sectors_status(sector).await else {
             return Err(e);

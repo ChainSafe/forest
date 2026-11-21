@@ -393,7 +393,7 @@ lotus_json_with_self!(MinerSectors);
 pub struct MinerPartitions {
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
-    all_sectors: BitField,
+    pub all_sectors: BitField,
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     faulty_sectors: BitField,
@@ -405,7 +405,7 @@ pub struct MinerPartitions {
     pub live_sectors: BitField,
     #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
-    active_sectors: BitField,
+    pub active_sectors: BitField,
 }
 lotus_json_with_self!(MinerPartitions);
 
