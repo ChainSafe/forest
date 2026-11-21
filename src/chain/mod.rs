@@ -19,6 +19,7 @@ use crate::db::{EthMappingsStore, IndexMapBlockstore};
 use crate::ipld::{IpldStream, should_save_block_to_snapshot, stream_chain};
 use crate::prelude::*;
 use crate::shim::executor::Receipt;
+use crate::shim::policy::policy_constants::CHAIN_FINALITY;
 use crate::utils;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite};
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
@@ -511,6 +512,7 @@ where
 pub fn import_tipset_lookup_snapshot<DB>(
     db: &DB,
     path: &Path,
+    head: &Tipset,
     mut on_imported: impl FnMut(),
 ) -> anyhow::Result<()>
 where
@@ -527,15 +529,39 @@ where
         Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
             .context("failed to load tipset lookup HAMT")?;
     tracing::info!("Validating tipset lookup entries against the chain, this can take a while");
+    let finality_boundary = head.epoch() - CHAIN_FINALITY;
+    let mut to_write: Vec<(ChainEpoch, TipsetKey)> = Vec::new();
     hamt.for_each_cacheless(|&epoch, tsk| {
+        if epoch > finality_boundary {
+            return Ok(());
+        }
+
+        if db.tipset_key_by_epoch(epoch)?.is_some() {
+            return Ok(());
+        }
+
         validate_tipset_lookup_entry(db, epoch, tsk)?;
+        to_write.push((epoch, tsk.clone()));
         Ok(())
     })?;
-    hamt.for_each_cacheless(|&epoch, tsk| {
-        db.set_tipset_key_at_epoch_raw(epoch, tsk)?;
+
+    to_write.sort_unstable_by_key(|&(epoch, _)| std::cmp::Reverse(epoch));
+
+    let mut cursor = head.shallow_clone();
+    for (epoch, tsk) in &to_write {
+        while cursor.epoch() > *epoch {
+            let parent_key = cursor.parents().clone();
+            cursor = Tipset::load_required(db, &parent_key)?;
+        }
+        anyhow::ensure!(
+            cursor.epoch() == *epoch && cursor.key() == tsk,
+            "tipset at epoch {epoch} in the snapshot is not on the canonical chain"
+        );
+    }
+    for (epoch, tsk) in &to_write {
+        db.set_tipset_key_at_epoch_raw(*epoch, tsk)?;
         on_imported();
-        Ok(())
-    })?;
+    }
     tracing::info!(
         "Imported tipset lookup entries in {:.1}s",
         started.elapsed().as_secs_f64()
