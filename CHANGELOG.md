@@ -85,6 +85,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 
 - [#7857](https://github.com/ChainSafe/forest/pull/7857): The message pool uses the new network version's gas prices starting at the upgrade epoch itself, matching Lotus. Previously the switch happened one epoch late.
 
+- [#7842](https://github.com/ChainSafe/forest/pull/7842): `Filecoin.MinerGetBaseInfo` now reads the worker key from the lookback state, as Lotus does. Previously it returned the current worker, so for the 900 epochs after a worker key change took effect, blocks mined through Forest carried ticket and election proofs signed with a key validators did not yet accept.
+
 ## Forest v0.39.0 "Vijayadashami"
 
 Non-mandatory release for all node operators. It includes fixes and improvements, notably around the Ethereum and state RPC methods. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
