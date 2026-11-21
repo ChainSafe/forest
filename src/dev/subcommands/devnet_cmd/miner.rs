@@ -5,6 +5,7 @@
 //! `scripts/devnet-forest-miner`, where Lotus Miner seals and mines through Forest's RPC.
 
 mod api;
+mod batching;
 mod devnet;
 mod onboarding;
 mod wdpost;
@@ -33,6 +34,7 @@ pub struct MinerTestCommand {
 enum Group {
     Onboarding,
     Wdpost,
+    Batching,
 }
 
 impl MinerTestCommand {
@@ -59,6 +61,7 @@ fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
         Group::Wdpost => wdpost::tests(),
+        Group::Batching => batching::tests(),
     }
 }
 
