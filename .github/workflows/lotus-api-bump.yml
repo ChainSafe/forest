@@ -26,7 +26,7 @@ jobs:
             for env in ./scripts/tests/api_compare/.env ./scripts/tests/bootstrapper/.env ./scripts/tests/snapshot_parity/.env; do
               sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-calibnet/" "$env"
             done
-            for env in ./scripts/devnet/.env ./scripts/devnet-forest-miner/.env; do
+            for env in ./scripts/devnet/.env ./scripts/devnet-forest-miner/.env ./scripts/devnet-forest-curio/.env; do
               sed -i "s/\(LOTUS_IMAGE=filecoin.*\):.*/\1:$TAG-2k/" "$env"
             done
           else

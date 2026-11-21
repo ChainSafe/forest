@@ -17,8 +17,9 @@ validates and follows.
 mise run test:devnet:forest-miner
 ```
 
-The Lotus Miner suites (`forest-dev devnet miner`) run only against this devnet:
+The miner suites (`forest-dev devnet miner`) run against this Lotus Miner stack and against [`../devnet-forest-curio`](../devnet-forest-curio):
 
 ```shell
-mise run test:devnet:miner
+mise run test:devnet:miner:lotus
+mise run test:devnet:miner:curio
 ```
