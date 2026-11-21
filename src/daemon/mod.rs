@@ -7,6 +7,7 @@ pub mod db_util;
 mod extended_snapshot;
 pub mod main;
 
+use crate::beacon::gossipsub::DrandGossip;
 use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainFollower;
@@ -312,6 +313,12 @@ async fn create_p2p_service(
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
+    // The state manager's schedule, so gossiped entries fill the cache block validation reads.
+    let drand_gossip =
+        DrandGossip::new(ctx.state_manager.beacon_schedule().clone()).map(|(gossip, listener)| {
+            services.spawn(listener.run());
+            gossip
+        });
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -320,6 +327,7 @@ async fn create_p2p_service(
         ctx.net_keypair.clone(),
         config.chain.genesis_name(),
         *ctx.state_manager.chain_store().genesis_block_header().cid(),
+        drand_gossip,
     )
     .await?;
     Ok(p2p_service)
