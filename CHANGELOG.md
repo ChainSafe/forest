@@ -57,6 +57,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 
 - [#7729](https://github.com/ChainSafe/forest/issues/7729): Blocks built by `Filecoin.MinerCreateBlock` set the header `ForkSignaling` field to `0xF02E57ED` to mark them as produced through Forest. Set `FOREST_BLOCK_FORK_SIGNALING` to override it, or to `0` to opt out.
 
+- [#7790](https://github.com/ChainSafe/forest/issues/7790): Implemented the `Filecoin.ID` RPC method for Lotus API compatibility. It returns the node's peer ID, which `lotus net id` and `lotus-miner info all` read.
+
 ### Changed
 
 - [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand and other outgoing HTTP requests (snapshot, proof parameter and actor bundle downloads) contain a `User-Agent` header defined as `forest/<version>`.
