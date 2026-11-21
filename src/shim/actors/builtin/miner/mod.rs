@@ -1435,6 +1435,43 @@ impl DeadlineInfo {
         )
     }
 
+    /// Next instance of this deadline whose challenge is still ahead.
+    ///
+    /// [`Self::next_not_elapsed`] rolls forward at the close, after the miner has already read the sector.
+    pub(crate) fn next_not_challenged(self) -> Self {
+        if self.current_epoch < self.challenge {
+            return self;
+        }
+        let gap = self
+            .current_epoch
+            .checked_sub(self.challenge)
+            .expect("challenge epoch is ahead of the current epoch");
+        let periods = gap
+            .checked_div(self.w_post_proving_period)
+            .expect("Window PoSt proving period is zero");
+        let delta_periods = periods
+            .checked_add(1)
+            .expect("proving periods to skip overflowed");
+        let advanced = self
+            .w_post_proving_period
+            .checked_mul(delta_periods)
+            .expect("proving period offset overflowed");
+        let period_start = self
+            .period_start
+            .checked_add(advanced)
+            .expect("next proving period start overflowed");
+        Self::new(
+            period_start,
+            self.index,
+            self.current_epoch,
+            self.w_post_period_deadlines,
+            self.w_post_proving_period,
+            self.w_post_challenge_window,
+            self.w_post_challenge_lookback,
+            self.fault_declaration_cutoff,
+        )
+    }
+
     pub fn quant_spec(&self) -> QuantSpec {
         QuantSpec {
             unit: self.w_post_proving_period,
@@ -1897,5 +1934,21 @@ mod tests {
         );
         let next = first.next_not_elapsed();
         assert_eq!((next.challenge, next.open, next.close), (638, 658, 718));
+    }
+
+    #[test]
+    fn next_not_challenged_stays_or_rolls_one_period() {
+        // Deadline 0 opens at epoch 1000. The challenge is one lookback (20) earlier.
+        let ahead = DeadlineInfo::new(1_000, 0, 970, 48, 2_880, 60, 20, 70);
+        let stayed = ahead.next_not_challenged();
+        assert_eq!(stayed.period_start, ahead.period_start);
+        assert_eq!(stayed.challenge, ahead.challenge);
+        assert!(stayed.current_epoch < stayed.challenge);
+
+        let at_challenge = DeadlineInfo::new(1_000, 0, ahead.challenge, 48, 2_880, 60, 20, 70);
+        let rolled = at_challenge.next_not_challenged();
+        assert_eq!(rolled.period_start, ahead.period_start + 2_880);
+        assert_eq!(rolled.challenge, ahead.challenge + 2_880);
+        assert!(rolled.current_epoch < rolled.challenge);
     }
 }

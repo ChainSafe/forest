@@ -6,14 +6,22 @@
 
 mod api;
 mod devnet;
+mod faults;
 mod onboarding;
 mod wdpost;
 
 use crate::dev::subcommands::tests_cmd::helpers::harness_env;
 use crate::lotus_json::HasLotusJson;
+use crate::rpc::prelude::*;
+use crate::rpc::types::MessageFilter;
 use crate::rpc::{Client, Request, humanize_rpc_error};
+use crate::shim::actors::miner::DeadlineInfo;
+use crate::shim::address::Address;
+use crate::shim::message::Message;
 use anyhow::{Context as _, ensure};
+use cid::Cid;
 use clap::ValueEnum as _;
+use fil_actor_miner_state::v19::{Method, SubmitWindowedPoStParams};
 use libtest_mimic::{Arguments, Trial};
 use std::fmt::Debug;
 use std::path::Path;
@@ -33,6 +41,7 @@ pub struct MinerTestCommand {
 enum Group {
     Onboarding,
     Wdpost,
+    Faults,
 }
 
 impl MinerTestCommand {
@@ -59,7 +68,38 @@ fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
         Group::Wdpost => wdpost::tests(),
+        Group::Faults => faults::tests(),
     }
+}
+
+/// `SubmitWindowedPoSt` messages both nodes list for `deadline` since it opened.
+async fn submit_windowed_posts(
+    at: &devnet::At<'_>,
+    miner: Address,
+    deadline: &DeadlineInfo,
+) -> anyhow::Result<Vec<(Cid, SubmitWindowedPoStParams)>> {
+    let to_miner = MessageFilter {
+        from: None,
+        to: Some(miner),
+    };
+    let mut posts = Vec::new();
+    for cid in at
+        .same(|tsk| StateListMessages::request((to_miner.clone(), tsk, deadline.open)))
+        .await?
+    {
+        let message: Message = at.same(|_| ChainGetMessage::request((cid,))).await?;
+        if message.method_num() != Method::SubmitWindowedPoSt as u64 {
+            continue;
+        }
+        let params: SubmitWindowedPoStParams = message
+            .params()
+            .deserialize()
+            .with_context(|| format!("decoding the parameters of {cid}"))?;
+        if params.deadline == deadline.index {
+            posts.push((cid, params));
+        }
+    }
+    Ok(posts)
 }
 
 /// Calls `request` on `node`, naming the node and the method in the error.
