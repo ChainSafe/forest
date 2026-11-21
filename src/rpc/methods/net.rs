@@ -47,6 +47,26 @@ impl RpcMethod<0> for NetAddrsListen {
     }
 }
 
+pub enum ID {}
+impl RpcMethod<0> for ID {
+    const NAME: &'static str = "Filecoin.ID";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the node's libp2p peer ID.";
+
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx,
+        (): Self::Params,
+        ext: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(NetAddrsListen::handle(ctx, (), ext).await?.id)
+    }
+}
+
 pub enum NetPeers {}
 impl RpcMethod<0> for NetPeers {
     const NAME: &'static str = "Filecoin.NetPeers";
