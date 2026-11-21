@@ -14,7 +14,7 @@ use crate::prelude::*;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::import_car_blocks;
 use crate::utils::io::progress_log::Progress;
-use crate::utils::net::{DownloadFileOption, download_to};
+use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
 use anyhow::Context;
 use regex::Regex;
 use serde::Deserialize;
@@ -99,7 +99,12 @@ async fn download_extended_snapshot(
 
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
-    download_to(&url, &path, DownloadFileOption::Resumable, None)
+    let opts = DownloadOpts {
+        destination: path.to_path_buf(),
+        option: DownloadFileOption::Resumable,
+        timeout: Some(Duration::from_mins(10)),
+    };
+    download_to(&url, opts, None)
         .await
         .with_context(|| format!("failed to download {}", file.filename))?;
 
@@ -508,6 +513,31 @@ mod test {
         if let Ok(path) = result {
             assert_eq!(std::fs::read(path).unwrap(), dummy_content);
         }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn download_extended_snapshot_times_out() {
+        let app = axum::Router::new().route(
+            "/companion.forest.car.zst",
+            axum::routing::get(|| async { std::future::pending::<()>().await }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await });
+
+        let snapshot_url = Url::parse(&format!("http://{addr}/base.forest.car.zst")).unwrap();
+        let file = ExtendedSnapshotFile {
+            filename: "companion.forest.car.zst".into(),
+            sha256: [0; 32],
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+        let err = download_extended_snapshot(&snapshot_url, &file, temp_dir.path())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.downcast_ref(),
+            Some(&crate::utils::RetryError::TimeoutExceeded)
+        );
     }
 
     #[test]
