@@ -2360,6 +2360,19 @@
       "paramStructure": "by-position"
     },
     {
+      "name": "Filecoin.ID",
+      "description": "Returns the node's libp2p peer ID.",
+      "params": [],
+      "result": {
+        "name": "Filecoin.ID.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
       "name": "Filecoin.MarketAddBalance",
       "description": "Adds funds to the market actor escrow balance for the given address and returns the message CID.",
       "params": [
