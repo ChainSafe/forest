@@ -87,22 +87,12 @@ impl FakeDrandSigner {
     }
 }
 
-// Two consecutive `quicknet` rounds captured from drand's `api.drand.sh` relay over gossipsub
-// Decoded:
-// [
-//   {
-//     "round": 33233273,
-//     "signature": "86665198ae4cc688d5612997d9a2d544ca83cf7ea72861038fad1992497fe95fd8d13c4ffd9474d55d79c46c8a95e737",
-//     "randomness": "713a75c9c5b1c3aef49ba4d9f4e7261b99d3871ed3b430dfc882bcffe2835687"
-//   },
-//   {
-//     "round": 33233274,
-//     "signature": "a5081cfe5ef2c4d72288af2d931e1189adc1cf6eedddbd838a79aa742b44b0eecea6fb608c1cdd35b87551d4a843e5d7",
-//     "randomness": "525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75"
-//   }
-// ]
+// Two consecutive `quicknet` rounds captured from drand's `api.drand.sh` relay over gossipsub.
+// The bytes also carry `randomness`, the field we skip.
 const RELAY_PAYLOADS: [&str; 2] = [
+    // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/33233273
     "08f9b2ec0f123086665198ae4cc688d5612997d9a2d544ca83cf7ea72861038fad1992497fe95fd8d13c4ffd9474d55d79c46c8a95e7372220713a75c9c5b1c3aef49ba4d9f4e7261b99d3871ed3b430dfc882bcffe2835687",
+    // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/33233274
     "08fab2ec0f1230a5081cfe5ef2c4d72288af2d931e1189adc1cf6eedddbd838a79aa742b44b0eecea6fb608c1cdd35b87551d4a843e5d72220525fb5ec54032812a9091770c20f101706c93e3c8334edec80a2eadf43930f75",
 ];
 
