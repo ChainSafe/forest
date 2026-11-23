@@ -247,12 +247,10 @@ mod tests {
     use crate::chain::store::index::tests::persist_tipset;
     use crate::db::MemoryDB;
     use crate::make_height;
-    use crate::networks::{Height, HeightInfo};
+    use crate::networks::{Height, HeightInfo, mainnet};
     use crate::shim::version::NetworkVersion;
     use crate::test_utils::dummy_ticket;
     use rstest::rstest;
-
-    use crate::networks::mainnet::GENESIS_TIMESTAMP as MAINNET_GENESIS_TIMESTAMP;
 
     fn tipset_at(parent: Option<&Tipset>, epoch: ChainEpoch, rounds: &[u64]) -> Tipset {
         Tipset::from(CachingBlockHeader::new(RawBlockHeader {
@@ -289,7 +287,7 @@ mod tests {
     #[test]
     fn beacon_entry_at_genesis_should_return_latest_tipset_entry() {
         let chain_config = ChainConfig::mainnet();
-        let beacon: BeaconSchedule = chain_config.get_beacon_schedule(MAINNET_GENESIS_TIMESTAMP);
+        let beacon: BeaconSchedule = chain_config.get_beacon_schedule(mainnet::GENESIS_TIMESTAMP);
         let genesis = tipset_at(None, 0, &[0]);
 
         let entry = chain_rand(chain_config, beacon, &[genesis])

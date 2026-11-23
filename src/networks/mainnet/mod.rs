@@ -38,6 +38,8 @@ pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
         .expect("hardcoded genesis CID is valid")
 });
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
+/// Genesis block timestamp in Unix seconds: 24 August 2020, 22:00 UTC.
+pub const GENESIS_TIMESTAMP: u64 = 1598306400;
 
 pub static DEFAULT_BOOTSTRAP: LazyLock<Vec<Multiaddr>> =
     LazyLock::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/mainnet")));
@@ -51,9 +53,6 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 2880 * 21;
 pub const ETH_CHAIN_ID: EthChainId = 314;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
-
-/// Genesis block timestamp in Unix seconds: 24 August 2020, 22:00 UTC.
-pub const GENESIS_TIMESTAMP: u64 = 1598306400;
 
 /// Height epochs.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {

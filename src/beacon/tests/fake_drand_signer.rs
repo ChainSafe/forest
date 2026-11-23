@@ -4,6 +4,7 @@
 use quick_protobuf::{BytesReader, MessageRead as _, MessageWrite as _, Writer};
 
 use super::drand::new_beacon_quicknet;
+use crate::beacon::signatures::PublicKeyOnG2;
 use crate::beacon::{
     Beacon, BeaconEntry, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork,
     drand_pb::PublicRandResponse, signatures::sign_unchained,
@@ -12,11 +13,10 @@ use crate::networks::{QUICKNET_CHAIN_INFO, mainnet};
 use crate::shim::clock::EPOCH_DURATION_SECONDS;
 use crate::utils::encoding::hex;
 use blstrs::{G2Projective, Scalar};
-use group::{Curve, Group};
+use group::Group;
 
-/// Signs any round of a `quicknet`-like chain with a made-up key, and encodes it as `drand`
-/// gossips it, uses:
-/// <https://github.com/drand/drand/blob/v2.1.7/crypto/schemes.go#L212-L240>.
+/// Signs any round of a `quicknet`-like chain with a made-up key
+/// using bls-unchained-g1-rfc9380 signature scheme then encodes it as [`BeaconEntry`]
 pub struct FakeDrandSigner {
     secret: Scalar,
     config: DrandConfig<'static>,
@@ -27,7 +27,7 @@ impl FakeDrandSigner {
         // Arbitrary: any non-zero scalar makes a valid key pair.
         let secret = Scalar::from(0xC0FFEEu64);
         let public = G2Projective::generator() * secret;
-        let public_key = hex::encode(public.to_affine().to_compressed());
+        let public_key = hex::encode(PublicKeyOnG2::from(public).as_bytes());
         // Real `quicknet` timing, so rounds map to epochs as on mainnet; the key and hashes
         // are made up.
         let quicknet = QUICKNET_CHAIN_INFO;
