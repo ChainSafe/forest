@@ -3,6 +3,7 @@
 
 //! Middleware layer for logging RPC calls.
 
+use crate::utils;
 use std::{
     borrow::Cow,
     fmt::Display,
@@ -61,7 +62,7 @@ impl<S> Logging<S> {
         });
         tracing::debug!(
             "RPC#{id} {result}: {method_name}. Took {}",
-            humantime::format_duration(elapsed)
+            utils::format_duration(elapsed)
         );
         resp
     }

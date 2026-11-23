@@ -3,6 +3,7 @@
 
 #![allow(dead_code)]
 
+use crate::utils;
 use crate::utils::encoding::hex;
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -426,7 +427,7 @@ impl Beacon for DrandBeacon {
             .notify(|err, dur| {
                 debug!(
                     "retrying fetch_entry after {}: {err:#}",
-                    humantime::format_duration(dur)
+                    utils::format_duration(dur)
                 );
             })
             .await?;

@@ -55,16 +55,16 @@ jobs:
           fi
           echo "SCCACHE_S3_KEY_PREFIX=macos" >> "$GITHUB_ENV"
       - name: Checkout Sources
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       - run: cargo check
       # Reuses the `cargo check` artifacts above; the lint job builds deps with dev-dependency features.
       - run: mise lint:rustdoc
@@ -84,20 +84,20 @@ jobs:
               echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}"
             } >> "$GITHUB_ENV"
           fi
-      - uses: rui314/setup-mold@v1
+      - uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
         with:
           make-default: false
       - name: Checkout Sources
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       - name: Go tests
         run: |
           go test -v ./tools/prometheus_metrics_validator
@@ -106,7 +106,7 @@ jobs:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
         run: mise run install --slim quick
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: |
@@ -118,12 +118,12 @@ jobs:
     name: Forest CLI checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -139,12 +139,12 @@ jobs:
     name: Calibnet check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -152,11 +152,11 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
@@ -169,13 +169,13 @@ jobs:
     name: Calibnet stateless mode check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -190,13 +190,13 @@ jobs:
     name: Calibnet stateless RPC check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -215,12 +215,12 @@ jobs:
     name: Wallet tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -238,14 +238,14 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: "go.work"
           cache-dependency-path: "**/go.sum"
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       - name: Wallet commands check
         env:
           CALIBNET_WALLET: "${{ secrets.CALIBNET_WALLET }}"
@@ -258,12 +258,12 @@ jobs:
     name: V1 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -280,12 +280,12 @@ jobs:
     name: V2 snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -302,12 +302,12 @@ jobs:
     name: Diff snapshot export checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -323,12 +323,12 @@ jobs:
     name: Calibnet no discovery checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -343,12 +343,12 @@ jobs:
     name: Calibnet kademlia checks
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -363,13 +363,13 @@ jobs:
     name: Calibnet eth mapping check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -391,13 +391,13 @@ jobs:
     name: Calibnet api test-stateful check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
       - name: Checkout Sources
-        uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -414,12 +414,12 @@ jobs:
       - build-ubuntu
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
           key: proof-params-keys
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
           path: ~/.cargo/bin
@@ -447,7 +447,7 @@ jobs:
     env: # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: cache
         with:
           path: "${{ env.FIL_PROOFS_PARAMETER_CACHE }}"
@@ -461,8 +461,8 @@ jobs:
             -v "$FIL_PROOFS_PARAMETER_CACHE":/cache \
             "$SHELL_IMAGE" \
             sh -c "cp /cache/* /proofs"
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
       - name: Devnet setup
@@ -485,7 +485,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
-        uses: jwalton/gh-docker-logs@v2
+        uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2
       - name: Prepare cache folder for uploading
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
@@ -504,8 +504,8 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
       - name: Run bootstrap tests
@@ -513,7 +513,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
-        uses: jwalton/gh-docker-logs@v2
+        uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2
   bootstrap-checks-lotus:
     needs:
       - build-ubuntu
@@ -523,8 +523,8 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
       - run: ./scripts/optimize_disk_space_gh_worker.sh
@@ -533,7 +533,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
-        uses: jwalton/gh-docker-logs@v2
+        uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2
   calibnet-rpc-checks:
     if: ${{ contains(github.event.pull_request.labels.*.name, 'RPC') || contains(github.event.pull_request.labels.*.name, 'Release') }}
     needs:
@@ -544,8 +544,8 @@ jobs:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "forest-${{ runner.os }}"
       - name: Run api compare tests
@@ -553,7 +553,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}
       - name: Dump docker logs
         if: always()
-        uses: jwalton/gh-docker-logs@v2
+        uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2
       - name: Dump Docker usage
         if: always()
         run: |
@@ -603,13 +603,13 @@ jobs:
     if: ${{ failure() && github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set WORKFLOW_URL
         run: |
           export WORKFLOW_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           echo "${WORKFLOW_URL}"
           echo "WORKFLOW_URL=${WORKFLOW_URL}" >> "$GITHUB_ENV"
-      - uses: JasonEtco/create-an-issue@v2
+      - uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2.9.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

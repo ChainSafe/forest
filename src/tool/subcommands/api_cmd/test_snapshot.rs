@@ -297,7 +297,7 @@ pub(super) async fn drain_mpool_services(mut services: JoinSet<anyhow::Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::proofs_api::ensure_proof_params_downloaded;
+    use crate::utils::{self, proofs_api::ensure_proof_params_downloaded};
     use ahash::HashSet;
     use std::sync::LazyLock;
     use std::time::{Duration, Instant};
@@ -334,14 +334,14 @@ mod tests {
             run_test_from_snapshot(&path).await.unwrap();
             println!(
                 "  succeeded, took {}.",
-                humantime::format_duration(start.elapsed())
+                utils::format_duration(start.elapsed())
             );
         })
         .await
         .unwrap_or_else(|_| {
             panic!(
                 "rpc regression test {name} timed out after {}",
-                humantime::format_duration(RPC_REGRESSION_TEST_TIMEOUT)
+                utils::format_duration(RPC_REGRESSION_TEST_TIMEOUT)
             )
         });
     }
