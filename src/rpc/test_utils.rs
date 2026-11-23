@@ -17,6 +17,7 @@ use crate::state_manager::StateManager;
 use crate::test_utils::dummy_ticket;
 use crate::utils::ShallowClone as _;
 use crate::utils::db::CborStoreExt as _;
+use crate::utils::time::Timestamp;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -72,7 +73,7 @@ impl RPCState {
             sync_status: Default::default(),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             eth_logs_feed: Default::default(),
-            start_time: chrono::Utc::now(),
+            start_time: Timestamp::now(),
             shutdown: mpsc::channel(1).0,
             tipset_send,
             block_validation_subscriber: Default::default(),

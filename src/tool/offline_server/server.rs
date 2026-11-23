@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::JWT_IDENTIFIER;
-use crate::auth::generate_priv_key;
+use crate::auth::{ADMIN, NON_EXPIRING_TOKEN_LIFETIME, create_token, generate_priv_key};
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncStatusReport;
 use crate::chain_sync::network_context::SyncNetworkContext;
@@ -22,6 +22,7 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::state_manager::StateManager;
 use crate::utils::net::{DownloadFileOption, download_to};
 use crate::utils::proofs_api::{self, ensure_proof_params_downloaded};
+use crate::utils::time::Timestamp;
 
 use arc_swap::ArcSwap;
 use jsonrpsee::server::stop_channel;
@@ -78,14 +79,10 @@ pub async fn offline_rpc_state(
     let mut keystore = KeyStore::new(KeyStoreConfig::Memory)?;
     keystore.put(JWT_IDENTIFIER, generate_priv_key())?;
     let ki = keystore.get(JWT_IDENTIFIER)?;
-    // Lotus admin tokens do not expire but Forest requires all JWT tokens to
-    // have an expiration date. So we set the expiration date to 100 years in
-    // the future to match user-visible behavior of Lotus.
-    let token_exp = chrono::Duration::days(365 * 100);
-    let token = crate::auth::create_token(
-        crate::auth::ADMIN.iter().map(ToString::to_string).collect(),
+    let token = create_token(
+        ADMIN.iter().map(ToString::to_string).collect(),
         ki.private_key(),
-        token_exp,
+        NON_EXPIRING_TOKEN_LIFETIME,
     )?;
     if let Some(path) = save_jwt_token {
         crate::utils::io::write_new_sensitive_file(token.as_bytes(), path)?;
@@ -118,7 +115,7 @@ pub async fn offline_rpc_state(
             eth_event_handler,
             eth_logs_feed: Default::default(),
             sync_network_context,
-            start_time: chrono::Utc::now(),
+            start_time: Timestamp::now(),
             shutdown,
             tipset_send,
             block_validation_subscriber: Default::default(),

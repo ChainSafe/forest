@@ -27,6 +27,7 @@ use crate::{
         clock::ChainEpoch,
     },
     state_manager::StateManager,
+    utils::time::Timestamp,
 };
 use ahash::HashMap;
 use arc_swap::ArcSwap;
@@ -266,7 +267,7 @@ async fn ctx(
         eth_event_handler,
         eth_logs_feed: Default::default(),
         sync_network_context,
-        start_time: chrono::Utc::now(),
+        start_time: Timestamp::now(),
         shutdown,
         tipset_send,
         block_validation_subscriber: Default::default(),

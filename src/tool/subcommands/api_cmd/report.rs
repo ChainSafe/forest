@@ -8,10 +8,10 @@ use super::ReportMode;
 use crate::prelude::*;
 use crate::rpc::{self, ApiPaths, FilterList, Permission};
 use crate::tool::subcommands::api_cmd::api_compare_tests::TestSummary;
+use crate::utils::time::Timestamp;
 use ahash::{HashMap, HashSet};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_with::{DisplayFromStr, DurationMilliSeconds, DurationSeconds, serde_as};
+use serde_with::{DurationMilliSeconds, DurationSeconds, serde_as};
 use similar::{ChangeTag, TextDiff};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -150,8 +150,7 @@ struct MethodReport {
 #[serde(rename_all = "snake_case")]
 pub struct ApiTestReport {
     /// timestamp of when the test execution started
-    #[serde_as(as = "DisplayFromStr")]
-    execution_datetime_utc: DateTime<Utc>,
+    execution_datetime_utc: Timestamp,
 
     /// Total duration of the test run in seconds
     #[serde_as(as = "DurationSeconds<u64>")]
@@ -402,7 +401,7 @@ impl ReportBuilder {
         methods.sort_by(|a, b| a.name.cmp(&b.name));
 
         let report = ApiTestReport {
-            execution_datetime_utc: Utc::now(),
+            execution_datetime_utc: Timestamp::now(),
             total_duration_secs: self.start_time.elapsed(),
             methods,
         };

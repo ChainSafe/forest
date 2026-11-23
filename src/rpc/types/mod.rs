@@ -35,7 +35,7 @@ use crate::shim::{
     message::Message,
     sector::{ExtendedSectorInfo, RegisteredSealProof, SectorNumber, SectorSize, StoragePower},
 };
-use chrono::Utc;
+use crate::utils::time::Timestamp;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
@@ -587,7 +587,7 @@ pub struct ApiExportStatus {
     pub progress: f64,
     pub start_epoch: ChainEpoch,
     pub current_epoch: ChainEpoch,
-    pub start_time: Option<chrono::DateTime<Utc>>,
+    pub start_time: Option<Timestamp>,
 }
 
 lotus_json_with_self!(ApiExportStatus);

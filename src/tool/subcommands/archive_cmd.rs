@@ -51,8 +51,8 @@ use crate::state_manager::{ExecutedTipset, NO_CALLBACK, apply_block_messages_blo
 use crate::tool::subcommands::api_cmd::generate_test_snapshot::ReadOpsTrackingStore;
 use crate::utils::db::car_stream::{CarBlock, CarBlockWrite as _, CarStream};
 use crate::utils::multihash::MultihashCode;
+use crate::utils::time::{Date, Timestamp};
 use anyhow::{Context as _, bail};
-use chrono::DateTime;
 use clap::{Subcommand, ValueEnum};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use futures::{StreamExt as _, TryStreamExt as _};
@@ -539,10 +539,7 @@ fn build_output_path(
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
-                .unwrap_or_default()
-                .naive_utc()
-                .date(),
+            epoch_to_date(genesis_timestamp, epoch),
             epoch,
             true,
         )),
@@ -896,37 +893,26 @@ fn steps_in_range(
         .take_while(move |&x| x <= range.end)
 }
 
-fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> anyhow::Result<String> {
-    Ok(
-        DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
-            .unwrap_or_default()
-            .format("%Y-%m-%d")
-            .to_string(),
+fn epoch_to_date(genesis_timestamp: u64, epoch: ChainEpoch) -> Date {
+    Timestamp::from_unix_secs(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS)
+        .unwrap_or_default()
+        .utc_date()
+}
+
+fn format_lite_snapshot(network: &str, genesis_timestamp: u64, epoch: ChainEpoch) -> String {
+    format!(
+        "forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst",
+        date = epoch_to_date(genesis_timestamp, epoch),
+        epoch = epoch
     )
 }
 
-fn format_lite_snapshot(
-    network: &str,
-    genesis_timestamp: u64,
-    epoch: ChainEpoch,
-) -> anyhow::Result<String> {
-    Ok(format!(
-        "forest_snapshot_{network}_{date}_height_{epoch}.forest.car.zst",
-        date = epoch_to_date(genesis_timestamp, epoch)?,
-        epoch = epoch
-    ))
-}
-
-fn format_diff_snapshot(
-    network: &str,
-    genesis_timestamp: u64,
-    epoch: ChainEpoch,
-) -> anyhow::Result<String> {
-    Ok(format!(
+fn format_diff_snapshot(network: &str, genesis_timestamp: u64, epoch: ChainEpoch) -> String {
+    format!(
         "forest_diff_{network}_{date}_height_{epoch}+3000.forest.car.zst",
-        date = epoch_to_date(genesis_timestamp, epoch)?,
+        date = epoch_to_date(genesis_timestamp, epoch),
         epoch = epoch - 3000
-    ))
+    )
 }
 
 // Check if
@@ -940,7 +926,7 @@ async fn bucket_has_lite_snapshot(
     let url = format!(
         "https://forest-internal.chainsafe.dev/{}/lite/{}",
         network,
-        format_lite_snapshot(network, genesis_timestamp, epoch)?
+        format_lite_snapshot(network, genesis_timestamp, epoch)
     );
     let response = reqwest::Client::new().get(url).send().await?;
     Ok(response.status().is_success())
@@ -957,7 +943,7 @@ async fn bucket_has_diff_snapshot(
     let url = format!(
         "https://forest-internal.chainsafe.dev/{}/diff/{}",
         network,
-        format_diff_snapshot(network, genesis_timestamp, epoch)?
+        format_diff_snapshot(network, genesis_timestamp, epoch)
     );
     let response = reqwest::Client::new().head(url).send().await?;
     Ok(response.status().is_success())
@@ -1026,7 +1012,7 @@ async fn export_lite_snapshot<DB>(
 where
     DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
 {
-    let output_path: PathBuf = format_lite_snapshot(network, genesis_timestamp, epoch)?.into();
+    let output_path: PathBuf = format_lite_snapshot(network, genesis_timestamp, epoch).into();
 
     // Skip if file already exists
     if output_path.exists() {
@@ -1064,7 +1050,7 @@ async fn export_diff_snapshot<DB>(
 where
     DB: Blockstore + ShallowClone + Into<DbImpl> + Unpin + Send + Sync + 'static,
 {
-    let output_path: PathBuf = format_diff_snapshot(network, genesis_timestamp, epoch)?.into();
+    let output_path: PathBuf = format_diff_snapshot(network, genesis_timestamp, epoch).into();
 
     // Skip if file already exists
     if output_path.exists() {
