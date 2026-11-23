@@ -1430,7 +1430,6 @@ impl RpcMethod<2> for StateSearchMsgLimited {
         else {
             return Ok(None);
         };
-        // Lotus leaves ReturnDec unset on StateSearchMsg; keep it null for parity.
         Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
