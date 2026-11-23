@@ -52,6 +52,9 @@ pub const ETH_CHAIN_ID: EthChainId = 314;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
+/// Genesis block timestamp in Unix seconds: 24 August 2020, 22:00 UTC.
+pub const GENESIS_TIMESTAMP: u64 = 1598306400;
+
 /// Height epochs.
 pub static HEIGHT_INFOS: LazyLock<IndexMap<Height, HeightInfo>> = LazyLock::new(|| {
     IndexMap::from_iter([
