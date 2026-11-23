@@ -51,7 +51,7 @@ impl FakeDrandSigner {
 
     pub fn entry(&self, round: u64) -> BeaconEntry {
         let signature = sign_unchained(self.secret, BeaconEntry::message_unchained(round).as_ref());
-        BeaconEntry::new(round, signature.0.to_compressed().to_vec())
+        BeaconEntry::new(round, signature.as_bytes().to_vec())
     }
 
     /// `round`, signed, as a gossiped `PublicRandResponse`.
