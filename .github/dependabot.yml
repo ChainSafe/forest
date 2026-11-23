@@ -38,17 +38,13 @@ updates:
   # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot#enabling-dependabot-version-updates-for-actions
   - package-ecosystem: "github-actions"
     directory: "/"
-    open-pull-requests-limit: 1
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
-      artifact:
-        patterns:
-          - "actions/upload-artifact"
-          - "actions/download-artifact"
-      docker:
-        patterns:
-          - "docker/*"
+      github-actions:
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/docs" # Location of package manifests

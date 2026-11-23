@@ -866,7 +866,7 @@ fn warmup_in_background(ctx: &AppContext) {
         ) {
             Ok(n_repaired) => tracing::info!(
                 "Successfully verified tipset lookup table, {n_repaired} entries repaired, took {}.",
-                humantime::format_duration(start.elapsed()),
+                utils::format_duration(start.elapsed()),
             ),
             Err(e) => warn!("failed to verify tipset lookup table: {e:#}"),
         }

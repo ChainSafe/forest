@@ -22,7 +22,6 @@ ignore = [
   "RUSTSEC-2026-0531", # hickory-*, waiting for libp2p to update and release
   "RUSTSEC-2026-0532", # hickory-*, waiting for libp2p to update and release
   "RUSTSEC-2026-0534", # libp2p-gossipsub, waiting for libp2p to update and release
-  "RUSTSEC-2026-0542", # humantime is unmaintained, no safe upgrade
   "RUSTSEC-2026-0543", # chrono is unmaintained, also pulled in by schemars and serde_with
   "RUSTSEC-2026-0549", # hickory-*, waiting for libp2p to update and release
   "RUSTSEC-2026-0550", # hickory-*, waiting for libp2p to update and release
