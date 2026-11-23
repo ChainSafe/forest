@@ -19,7 +19,7 @@ const CSUITE_G2: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 /// Signs `message` on G1 with `secret`, as an unchained `drand` network signs a round.
 #[cfg(test)]
 pub(in crate::beacon) fn sign_unchained(secret: blstrs::Scalar, message: &[u8]) -> SignatureOnG1 {
-    SignatureOnG1((G1Projective::hash_to_curve(message, CSUITE_G1, &[]) * secret).to_affine())
+    (G1Projective::hash_to_curve(message, CSUITE_G1, &[]) * secret).into()
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, derive_more::Deref)]
