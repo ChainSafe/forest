@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#7885](https://github.com/ChainSafe/forest/issues/7885): Added the `--skip-enriched` daemon flag to skip downloading the enriched snapshots when importing a snapshot from a URL.
+
 ### Changed
 
 ### Removed
