@@ -531,14 +531,18 @@ pub async fn download_to(
         option,
         timeout,
     } = opts;
-    Ok(retry(
+    let result = retry(
         RetryArgs {
             timeout,
             ..Default::default()
         },
         || download_http(url, &destination, option, callback.clone()),
     )
-    .await?)
+    .await;
+    if result.is_err() {
+        let _ = std::fs::remove_file(gen_tmp_download_path(&destination));
+    }
+    Ok(result?)
 }
 
 #[cfg(test)]
@@ -592,6 +596,12 @@ mod test {
                             .header(header::CONTENT_LENGTH, content.len())
                             .body(Body::from(content))
                             .unwrap()
+                    }),
+                )
+                .route(
+                    "/test-file-stalled-body",
+                    get(|| async {
+                        Body::from_stream(stream::pending::<std::io::Result<bytes::Bytes>>())
                     }),
                 )
                 .route(
@@ -863,6 +873,27 @@ mod test {
         );
 
         println!("Progress updates: {updates:?}");
+    }
+
+    #[tokio::test]
+    async fn test_download_to_removes_partial_file_on_timeout() {
+        let server = TestServer::start().await;
+        let temp_dir = tempfile::tempdir().unwrap();
+        let opts = DownloadOpts {
+            destination: temp_dir.path().join("stalled.dat"),
+            option: DownloadFileOption::NonResumable,
+            timeout: Some(Duration::from_secs(1)),
+        };
+
+        let err = download_to(&server.url("/test-file-stalled-body"), opts, None)
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            err.downcast_ref(),
+            Some(&crate::utils::RetryError::TimeoutExceeded)
+        );
+        assert!(std::fs::read_dir(temp_dir.path()).unwrap().next().is_none());
     }
 
     #[tokio::test]
