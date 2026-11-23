@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#7917](https://github.com/ChainSafe/forest/pull/7917): `StateSearchMsg` and `StateSearchMsgLimited` leave `ReturnDec` null, matching Lotus.
+
 ## Forest v0.40.0 "Copperhead"
 
 Non-mandatory release for all node operators. Highlights: importing enriched snapshots (receipts, events and the tipset lookup) from a URL, verification of downloaded actor bundles, peer pruning so well-connected nodes keep accepting new peers, and stricter, Lotus-aligned validation of Ethereum and Filecoin JSON-RPC inputs. Note that this release contains breaking changes, so please read the changelog carefully before upgrading.
