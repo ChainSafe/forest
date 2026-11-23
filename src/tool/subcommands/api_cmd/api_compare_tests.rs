@@ -725,6 +725,7 @@ fn net_tests() -> Vec<RpcTest> {
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(NetAddrsListen::request(()).unwrap()),
+        RpcTest::basic(ID::request(()).unwrap()),
         RpcTest::basic(NetPeers::request(()).unwrap()),
         RpcTest::identity(NetListening::request(()).unwrap()),
         // Tests with a known peer id tend to be flaky, use a random peer id to test the unhappy path only

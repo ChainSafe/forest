@@ -59,6 +59,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 
 - [#7729](https://github.com/ChainSafe/forest/issues/7729): Blocks built by `Filecoin.MinerCreateBlock` set the header `ForkSignaling` field to `0xF02E57ED` to mark them as produced through Forest. Set `FOREST_BLOCK_FORK_SIGNALING` to override it, or to `0` to opt out.
 
+- [#7790](https://github.com/ChainSafe/forest/issues/7790): Implemented the `Filecoin.ID` RPC method for Lotus API compatibility. It returns the node's peer ID, which `lotus net id` and `lotus-miner info all` read.
+
 ### Changed
 
 - [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand and other outgoing HTTP requests (snapshot, proof parameter and actor bundle downloads) contain a `User-Agent` header defined as `forest/<version>`.
@@ -86,6 +88,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 - [#7809](https://github.com/ChainSafe/forest/pull/7809): Fixed a possible panic in message pool selection (`Filecoin.MpoolSelect`, block production) caused by an inconsistent ordering of message chains ([#4490](https://github.com/ChainSafe/forest/issues/4490)).
 
 - [#7857](https://github.com/ChainSafe/forest/pull/7857): The message pool uses the new network version's gas prices starting at the upgrade epoch itself, matching Lotus. Previously the switch happened one epoch late.
+
+- [#7842](https://github.com/ChainSafe/forest/pull/7842): `Filecoin.MinerGetBaseInfo` now reads the worker key from the lookback state, as Lotus does. Previously it returned the current worker, so for the 900 epochs after a worker key change took effect, blocks mined through Forest carried ticket and election proofs signed with a key validators did not yet accept.
 
 ## Forest v0.39.0 "Vijayadashami"
 
