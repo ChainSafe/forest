@@ -48,6 +48,7 @@ jobs:
               - '**/Dockerfile*'
               - '**/*.dockerfile'
               - '.hadolint.yaml'
+              - 'mise.toml'
               - 'monitored-stack/docker-compose.yml'
               - 'monitored-stack/.env.example'
               - '.github/workflows/docker-lint.yml'
@@ -61,5 +62,5 @@ jobs:
         run: |
           cp monitored-stack/.env.example monitored-stack/.env
           docker compose -f monitored-stack/docker-compose.yml config
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       - run: mise lint:dockerfile
