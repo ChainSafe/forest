@@ -59,6 +59,13 @@ impl FakeDrandSigner {
         Self::encode_raw(round, self.entry(round).signature())
     }
 
+    fn decode(payload: &[u8]) -> BeaconEntry {
+        let response =
+            PublicRandResponse::from_reader(&mut BytesReader::from_bytes(payload), payload)
+                .unwrap();
+        BeaconEntry::new(response.round, response.signature)
+    }
+
     /// A gossiped `PublicRandResponse` with any signature.
     pub fn encode_raw(round: u64, signature: &[u8]) -> Vec<u8> {
         let mut out = Vec::new();
@@ -69,13 +76,6 @@ impl FakeDrandSigner {
         .write_message(&mut Writer::new(&mut out))
         .unwrap();
         out
-    }
-
-    pub fn decode(payload: &[u8]) -> BeaconEntry {
-        let response =
-            PublicRandResponse::from_reader(&mut BytesReader::from_bytes(payload), payload)
-                .unwrap();
-        BeaconEntry::new(response.round, response.signature)
     }
 
     pub fn beacon(&self) -> DrandBeacon {
