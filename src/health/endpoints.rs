@@ -9,6 +9,7 @@ use super::{AppError, ForestState};
 use crate::chain_sync::NodeSyncStatus;
 use crate::networks::calculate_expected_epoch;
 use crate::rpc::f3::F3IsRunning;
+use crate::utils::time;
 
 /// Query parameter for verbose responses
 const VERBOSE_PARAM: &str = "verbose";
@@ -122,7 +123,7 @@ fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> 
     const MAX_EPOCH_DIFF: i64 = 5;
 
     let now_epoch = calculate_expected_epoch(
-        chrono::Utc::now().timestamp() as u64,
+        time::now_unix_secs(),
         state.genesis_timestamp,
         state.chain_config.block_delay_secs,
     );

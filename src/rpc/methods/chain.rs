@@ -35,6 +35,7 @@ use crate::utils::encoding::hex;
 use crate::utils::io::VoidAsyncWriter;
 use crate::utils::misc::env::is_env_truthy;
 use crate::utils::spawn_blocking_with_timeout;
+use crate::utils::time::Timestamp;
 use anyhow::{Context as _, Result};
 use digest::Digest as _;
 use enumflags2::{BitFlags, make_bitflags};
@@ -648,7 +649,7 @@ pub struct ApiIndexBackfillStatus {
     pub target_epoch: ChainEpoch,
     pub indexed: u64,
     pub skipped: u64,
-    pub start_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub start_time: Option<Timestamp>,
 }
 lotus_json_with_self!(ApiIndexBackfillStatus);
 

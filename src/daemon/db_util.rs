@@ -18,6 +18,7 @@ use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
+use crate::utils::time::Timestamp;
 use anyhow::{Context, bail};
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -168,7 +169,7 @@ pub async fn import_chain_as_forest_car(
 
     let forest_car_db_path = forest_car_db_dir.join(format!(
         "{}{FOREST_CAR_FILE_EXTENSION}",
-        chrono::Utc::now().timestamp_millis()
+        Timestamp::now().unix_millis()
     ));
 
     let move_or_copy = |mode: ImportMode| {
@@ -423,7 +424,7 @@ struct BackfillStatusInner {
     /// `None` while running and before the first run.
     outcome: Option<ChainExportState>,
     error: Option<String>,
-    start_time: Option<chrono::DateTime<chrono::Utc>>,
+    start_time: Option<Timestamp>,
     cancellation_token: Option<CancellationToken>,
     counters: Arc<BackfillCounters>,
 }
@@ -446,7 +447,7 @@ pub struct BackfillStatus {
 pub struct BackfillStatusSnapshot {
     pub state: ChainExportState,
     pub error: Option<String>,
-    pub start_time: Option<chrono::DateTime<chrono::Utc>>,
+    pub start_time: Option<Timestamp>,
     pub start_epoch: ChainEpoch,
     pub current_epoch: ChainEpoch,
     pub target_epoch: ChainEpoch,
@@ -497,7 +498,7 @@ impl BackfillStatus {
         *inner = BackfillStatusInner {
             outcome: None,
             error: None,
-            start_time: Some(chrono::Utc::now()),
+            start_time: Some(Timestamp::now()),
             cancellation_token: Some(cancellation_token),
             counters: counters.clone(),
         };

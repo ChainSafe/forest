@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "forest",
-    "version": "0.39.0"
+    "version": "0.40.0"
   },
   "methods": [
     {
@@ -2355,6 +2355,19 @@
           "items": {
             "$ref": "#/components/schemas/ActorEvent"
           }
+        }
+      },
+      "paramStructure": "by-position"
+    },
+    {
+      "name": "Filecoin.ID",
+      "description": "Returns the node's libp2p peer ID.",
+      "params": [],
+      "result": {
+        "name": "Filecoin.ID.Result",
+        "required": true,
+        "schema": {
+          "type": "string"
         }
       },
       "paramStructure": "by-position"

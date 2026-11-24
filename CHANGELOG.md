@@ -27,13 +27,21 @@
 
 ### Breaking
 
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `Filecoin.AuthNew` returns an error when `expirationSecs` puts the expiry before 1970 or past the year 9999; previously a pre-1970 expiry produced a token that never expires, and some far-future values crashed the node.
+
 ### Added
 
 ### Changed
 
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli sync status` and the `forest-tool api compare` report print timestamps in RFC 3339 with a `Z` suffix.
+
 ### Removed
 
 ### Fixed
+
+- [#7917](https://github.com/ChainSafe/forest/pull/7917): `StateSearchMsg` and `StateSearchMsgLimited` leave `ReturnDec` null, matching Lotus.
+
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli info show` no longer crashes when the client's clock is behind the node's start time.
 
 ## Forest v0.40.0 "Copperhead"
 
@@ -57,6 +65,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 
 - [#7729](https://github.com/ChainSafe/forest/issues/7729): Blocks built by `Filecoin.MinerCreateBlock` set the header `ForkSignaling` field to `0xF02E57ED` to mark them as produced through Forest. Set `FOREST_BLOCK_FORK_SIGNALING` to override it, or to `0` to opt out.
 
+- [#7790](https://github.com/ChainSafe/forest/issues/7790): Implemented the `Filecoin.ID` RPC method for Lotus API compatibility. It returns the node's peer ID, which `lotus net id` and `lotus-miner info all` read.
+
 ### Changed
 
 - [#7869](https://github.com/ChainSafe/forest/pull/7869): Drand and other outgoing HTTP requests (snapshot, proof parameter and actor bundle downloads) contain a `User-Agent` header defined as `forest/<version>`.
@@ -68,6 +78,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048. An enabled upgrade below genesis keeps its own version.
 
 ### Fixed
+
+- [#7767](https://github.com/ChainSafe/forest/issues/7767): `Filecoin.MpoolPushMessage` returns the message already pushed for the same non-zero `MsgUuid`.
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
 
@@ -84,6 +96,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 - [#7809](https://github.com/ChainSafe/forest/pull/7809): Fixed a possible panic in message pool selection (`Filecoin.MpoolSelect`, block production) caused by an inconsistent ordering of message chains ([#4490](https://github.com/ChainSafe/forest/issues/4490)).
 
 - [#7857](https://github.com/ChainSafe/forest/pull/7857): The message pool uses the new network version's gas prices starting at the upgrade epoch itself, matching Lotus. Previously the switch happened one epoch late.
+
+- [#7842](https://github.com/ChainSafe/forest/pull/7842): `Filecoin.MinerGetBaseInfo` now reads the worker key from the lookback state, as Lotus does. Previously it returned the current worker, so for the 900 epochs after a worker key change took effect, blocks mined through Forest carried ticket and election proofs signed with a key validators did not yet accept.
 
 ## Forest v0.39.0 "Vijayadashami"
 

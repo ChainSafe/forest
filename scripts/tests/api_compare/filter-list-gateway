@@ -13,6 +13,7 @@
 !Filecoin.F3
 !Filecoin.GasEstimateGasLimit
 !Filecoin.GasEstimateFeeCap
+!Filecoin.ID
 !Filecoin.MinerCreateBlock
 !Filecoin.MpoolGetConfig
 !Filecoin.MpoolSelect

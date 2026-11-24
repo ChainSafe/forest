@@ -5,8 +5,8 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::networks::calculate_expected_epoch;
 use crate::shim::clock::ChainEpoch;
 use crate::state_manager::StateManager;
+use crate::utils::time::Timestamp;
 use arc_swap::ArcSwap;
-use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -97,9 +97,9 @@ pub struct ForkSyncInfo {
     /// This shows overall node progress, distinct from fork-specific progress.
     pub(crate) validated_chain_head_epoch: ChainEpoch,
     /// When processing for this fork started.
-    pub(crate) start_time: Option<DateTime<Utc>>,
+    pub(crate) start_time: Option<Timestamp>,
     /// Last time status for this fork was updated.
-    pub(crate) last_updated: Option<DateTime<Utc>>,
+    pub(crate) last_updated: Option<Timestamp>,
 }
 
 pub type SyncStatus = Arc<ArcSwap<SyncStatusReport>>;
@@ -124,9 +124,9 @@ pub struct SyncStatusReport {
     /// List of active fork synchronization tasks the node is currently handling.
     pub(crate) active_forks: Vec<ForkSyncInfo>,
     /// When the node process started.
-    pub(crate) node_start_time: DateTime<Utc>,
+    pub(crate) node_start_time: Timestamp,
     /// Last time this status report was generated.
-    pub(crate) last_updated: DateTime<Utc>,
+    pub(crate) last_updated: Timestamp,
 }
 
 lotus_json_with_self!(SyncStatusReport);
@@ -134,7 +134,7 @@ lotus_json_with_self!(SyncStatusReport);
 impl SyncStatusReport {
     pub(crate) fn init() -> Self {
         Self {
-            node_start_time: Utc::now(),
+            node_start_time: Timestamp::now(),
             ..Default::default()
         }
     }
@@ -151,8 +151,8 @@ impl SyncStatusReport {
         let current_head_epoch = heaviest.epoch();
         let current_head_key = Some(heaviest.key().clone());
 
-        let last_updated = Utc::now();
-        let last_updated_ts = last_updated.timestamp() as u64;
+        let last_updated = Timestamp::now();
+        let last_updated_ts = last_updated.unix_secs() as u64;
         let seconds_per_epoch = state_manager.chain_config().block_delay_secs;
         let network_head_epoch = calculate_expected_epoch(
             last_updated_ts,

@@ -13,7 +13,7 @@ This document lists every command line option and sub-command for Forest.
 ## `forest`
 
 ```
-forest-filecoin 0.39.0
+forest-filecoin 0.40.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -105,7 +105,7 @@ OPTIONS:
 ## `forest-wallet`
 
 ```
-forest-filecoin 0.39.0
+forest-filecoin 0.40.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -352,7 +352,7 @@ Options:
 ## `forest-cli`
 
 ```
-forest-filecoin 0.39.0
+forest-filecoin 0.40.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -1438,7 +1438,7 @@ Options:
 ## `forest-tool`
 
 ```
-forest-filecoin 0.39.0
+forest-filecoin 0.40.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2680,7 +2680,7 @@ Options:
 ## `forest-dev`
 
 ```
-forest-filecoin 0.39.0
+forest-filecoin 0.40.0
 ChainSafe Systems <info@chainsafe.io>
 Rust Filecoin implementation.
 
@@ -2983,7 +2983,8 @@ Arguments:
   [FILTER]  Run only the tests whose name contains this string
 
 Options:
-      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding, wdpost]
+      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding, wdpost, worker-key]
+      --ignored        Run only the ignored tests: the long variants
   -h, --help           Print help
 ```
 
