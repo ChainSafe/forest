@@ -37,6 +37,7 @@ Filecoin.F3Participate
 Filecoin.GasEstimateFeeCap
 Filecoin.GasEstimateGasPremium
 Filecoin.GasEstimateMessageGas
+Filecoin.ID
 Filecoin.MarketAddBalance
 Filecoin.MinerCreateBlock
 Filecoin.MpoolBatchPush

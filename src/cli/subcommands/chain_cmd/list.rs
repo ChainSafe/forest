@@ -16,6 +16,7 @@ use crate::{
         },
     },
     shim::econ::{BLOCK_GAS_LIMIT, TokenAmount},
+    utils::time::Timestamp,
 };
 
 /// View a segment of the chain
@@ -109,9 +110,9 @@ impl ChainListCommand {
                 }
             } else {
                 let epoch = ts.epoch();
-                let time = chrono::DateTime::from_timestamp(ts.min_timestamp() as _, 0)
+                let time = Timestamp::from_unix_secs(ts.min_timestamp() as _)
                     .context("invalid timestamp")?
-                    .format("%b %e %X");
+                    .strftime("%b %e %X");
                 let tsk = ts
                     .block_headers()
                     .iter()

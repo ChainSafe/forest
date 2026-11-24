@@ -25,7 +25,7 @@ use crate::daemon::{
 use crate::db::gc::SnapshotGarbageCollector;
 use crate::db::ttl::EthMappingCollector;
 use crate::libp2p::{Libp2pService, PeerManager};
-use crate::message_pool::{MessagePool, MpoolConfig, MpoolLocker, NonceTracker};
+use crate::message_pool::{MessagePool, MpoolConfig, MpoolPushGuards};
 use crate::networks::{self, ChainConfig};
 use crate::prelude::*;
 use crate::rpc::RPCState;
@@ -37,6 +37,7 @@ use crate::shim::state_tree::StateTree;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
 use crate::utils::misc::env::is_env_truthy;
+use crate::utils::time::Timestamp;
 use crate::utils::{self};
 use crate::utils::{proofs_api::ensure_proof_params_downloaded, version::FOREST_VERSION_STRING};
 use anyhow::{Context as _, bail};
@@ -84,7 +85,7 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
 pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
-    let start_time = chrono::Utc::now();
+    let start_time = Timestamp::now();
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let (rpc_stop_handle, rpc_server_handle) = jsonrpsee::server::stop_channel();
@@ -166,13 +167,15 @@ async fn maybe_import_snapshot(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
         );
-        maybe_import_extended_snapshots(
-            &ctx.state_manager,
-            &ts,
-            &path,
-            &ctx.db_meta_data.get_forest_car_db_dir(),
-        )
-        .await;
+        if !opts.skip_enriched {
+            maybe_import_extended_snapshots(
+                &ctx.state_manager,
+                &ts,
+                &path,
+                &ctx.db_meta_data.get_forest_car_db_dir(),
+            )
+            .await;
+        }
     }
 
     // If the snapshot progress state is not completed,
@@ -547,7 +550,7 @@ fn maybe_start_rpc_service(
     config: &Config,
     mpool: MessagePool<ChainStore>,
     chain_follower: &ChainFollower,
-    start_time: chrono::DateTime<chrono::Utc>,
+    start_time: Timestamp,
     shutdown: mpsc::Sender<()>,
     rpc_stop_handle: jsonrpsee::server::StopHandle,
     ctx: &AppContext,
@@ -587,8 +590,6 @@ fn maybe_start_rpc_service(
             let block_validation_subscriber = chain_follower.block_validation_subscriber();
             let keystore = ctx.keystore.shallow_clone();
             let snapshot_progress_tracker = ctx.snapshot_progress_tracker.clone();
-            let nonce_tracker = NonceTracker::new();
-            let mpool_locker = MpoolLocker::new();
             let temp_dir = Arc::new(ctx.temp_dir.clone());
             async move {
                 let rpc_listener = crate::utils::net::bind_tcp_listener(
@@ -611,8 +612,7 @@ fn maybe_start_rpc_service(
                         tipset_send,
                         block_validation_subscriber,
                         snapshot_progress_tracker,
-                        mpool_locker,
-                        nonce_tracker,
+                        mpool_push_guards: MpoolPushGuards::default(),
                         temp_dir,
                     },
                     rpc_listener,
@@ -767,7 +767,7 @@ fn maybe_start_indexer_service(
 
 /// Starts daemon process
 pub(super) async fn start(
-    start_time: chrono::DateTime<chrono::Utc>,
+    start_time: Timestamp,
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
@@ -789,7 +789,7 @@ pub(super) async fn start(
 }
 
 pub(super) async fn start_services(
-    start_time: chrono::DateTime<chrono::Utc>,
+    start_time: Timestamp,
     opts: &CliOpts,
     mut config: Config,
     shutdown_send: mpsc::Sender<()>,

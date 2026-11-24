@@ -6,6 +6,7 @@ use crate::lotus_json::{LotusJson, NotNullVec, lotus_json_with_self};
 use crate::message::{MessageRead as _, SignedMessage};
 use crate::prelude::*;
 use crate::rpc::error::ServerError;
+use crate::rpc::eth::types::EthAddress;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::{
@@ -291,6 +292,32 @@ impl RpcMethod<2> for MpoolPushMessage {
         extensions: &http::Extensions,
     ) -> Result<Self::Ok, ServerError> {
         let from = message.from();
+        let to = message.to();
+        // Sanity before MsgUuid lookup.
+        // https://github.com/filecoin-project/lotus/blob/v1.39.1/node/impl/full/mpool.go
+        if to.protocol() == Protocol::Delegated && EthAddress::from_filecoin_address(&to).is_err() {
+            return Err(anyhow::anyhow!(
+                "message from {from} failed sanity check: message recipient {to} is a delegated address but not a valid Eth Address"
+            )
+            .into());
+        }
+
+        // Lock order: UUID → sender → nonce. Nil/missing UUID skips dedup (no mint).
+        let uuid_guard = match send_spec
+            .as_ref()
+            .map(|spec| spec.msg_uuid)
+            .filter(|uuid| !uuid.is_nil())
+        {
+            Some(uuid) => {
+                let guard = ctx.mpool_push_guards.msg_uuid_records.take_lock(uuid).await;
+                if let Some(rec) = ctx.mpool_push_guards.msg_uuid_records.get(&guard) {
+                    tracing::warn!("Message already processed. cid={}", rec.message.cid());
+                    return Ok(rec.message);
+                }
+                Some(guard)
+            }
+            None => None,
+        };
 
         let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
@@ -298,14 +325,15 @@ impl RpcMethod<2> for MpoolPushMessage {
             .resolve_to_deterministic_address(from, &heaviest_tipset)
             .await?;
 
+        let _sender_guard = ctx.mpool_push_guards.mpool_locker.take_lock(key_addr).await;
+
         if message.sequence() != 0 {
             return Err(anyhow::anyhow!(
-                "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
+                "MpoolPushMessage expects message nonce to be 0, was {}",
+                message.sequence()
             )
             .into());
         }
-
-        let _sender_guard = ctx.mpool_locker.take_lock(key_addr).await;
 
         let message = estimate_message_gas(&ctx, message, send_spec, Default::default()).await?;
         if message.gas_premium() > message.gas_fee_cap() {
@@ -339,10 +367,13 @@ impl RpcMethod<2> for MpoolPushMessage {
         let eth_chain_id = ctx.chain_config().eth_chain_id;
 
         let smsg = ctx
+            .mpool_push_guards
             .nonce_tracker
             .sign_and_push(&ctx.mpool, message, &key, eth_chain_id)
             .await?;
-
+        if let Some(guard) = uuid_guard.as_ref() {
+            ctx.mpool_push_guards.msg_uuid_records.record(guard, &smsg);
+        }
         Ok(smsg)
     }
 }
@@ -358,17 +389,70 @@ mod tests {
     use crate::shim::crypto::{SECP_SIG_LEN, Signature};
     use crate::test_utils::dummy_ticket;
     use fvm_ipld_blockstore::Blockstore;
+    use uuid::Uuid;
+
+    fn secp_signed(unsigned: Message) -> SignedMessage {
+        SignedMessage::new_unchecked(unsigned, Signature::new_secp256k1(vec![0; SECP_SIG_LEN]))
+    }
 
     /// A secp message, unique per `sequence`.
     fn secp_message(sequence: u64) -> SignedMessage {
-        SignedMessage::new_unchecked(
+        secp_signed(
             Message::builder()
                 .from(Address::new_id(100))
                 .to(Address::new_id(101))
                 .sequence(sequence)
                 .build(),
-            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
         )
+    }
+
+    /// Unknown ID sender so the hit path must return before resolution.
+    fn recorded_for_unknown_id() -> (Message, SignedMessage) {
+        let unsigned = Message::builder()
+            .from(Address::new_id(999_999))
+            .to(Address::new_id(101))
+            .sequence(1)
+            .build();
+        let recorded = secp_signed(unsigned.clone());
+        (unsigned, recorded)
+    }
+
+    fn genesis_ctx() -> Arc<RPCState> {
+        let cs = chain_store();
+        let genesis = cs.genesis_tipset();
+        ctx_on(cs, &genesis)
+    }
+
+    async fn push_with_uuid(
+        ctx: Arc<RPCState>,
+        unsigned: Message,
+        uuid: Uuid,
+    ) -> Result<SignedMessage, ServerError> {
+        let extensions = http::Extensions::default();
+        MpoolPushMessage::handle(
+            ctx,
+            (unsigned, Some(MessageSendSpec::with_uuid(uuid))),
+            &extensions,
+        )
+        .await
+    }
+
+    async fn seed_uuid(ctx: &RPCState, uuid: Uuid, recorded: &SignedMessage) {
+        let lock = ctx.mpool_push_guards.msg_uuid_records.take_lock(uuid).await;
+        ctx.mpool_push_guards
+            .msg_uuid_records
+            .record(&lock, recorded);
+    }
+
+    /// Delegated `To` that fails the Eth-address sanity check (non-EAM namespace).
+    fn bad_delegated_to() -> Address {
+        // EAM is actor id 10; any other namespace is not a valid Eth address.
+        Address::new_delegated(42, &[7u8; 20]).unwrap()
+    }
+
+    /// Resolves without state lookup (`Protocol::Secp256k1`).
+    fn resolvable_secp_from() -> Address {
+        Address::new_secp256k1(&[0x04; 65]).unwrap()
     }
 
     /// A persisted single-block child of `parent` at an explicit `epoch`. A gap over
@@ -532,5 +616,123 @@ mod tests {
 
         let ctx = ctx_on(cs, &mpool_ts);
         assert_eq!(pending_at(ctx, &fork_ts).await, vec![only_in_fork]);
+    }
+
+    #[tokio::test]
+    async fn retry_waiting_on_uuid_lock_returns_recorded_message() {
+        let ctx = genesis_ctx();
+        let (unsigned, recorded) = recorded_for_unknown_id();
+        let uuid = crate::utils::rand::new_uuid_v4();
+
+        let in_flight = ctx.mpool_push_guards.msg_uuid_records.take_lock(uuid).await;
+        let mut retry = std::pin::pin!(push_with_uuid(ctx.clone(), unsigned, uuid));
+        assert!(futures::poll!(retry.as_mut()).is_pending());
+
+        ctx.mpool_push_guards
+            .msg_uuid_records
+            .record(&in_flight, &recorded);
+        drop(in_flight);
+
+        assert_eq!(retry.await.unwrap(), recorded);
+    }
+
+    #[tokio::test]
+    async fn reused_uuid_returns_recorded_not_new_body() {
+        let ctx = genesis_ctx();
+        let (_, recorded) = recorded_for_unknown_id();
+        let different = Message::builder()
+            .from(Address::new_id(999_999))
+            .to(Address::new_id(202))
+            .sequence(99)
+            .value(crate::shim::econ::TokenAmount::from_atto(7))
+            .build();
+        let uuid = crate::utils::rand::new_uuid_v4();
+        seed_uuid(&ctx, uuid, &recorded).await;
+
+        assert_eq!(
+            push_with_uuid(ctx, different, uuid).await.unwrap(),
+            recorded
+        );
+    }
+
+    /// Nil UUID skips record lookup.
+    #[tokio::test]
+    async fn nil_uuid_skips_dedup_hit() {
+        let ctx = genesis_ctx();
+        let (_, recorded) = recorded_for_unknown_id();
+        let different = Message::builder()
+            .from(Address::new_id(999_999))
+            .to(Address::new_id(202))
+            .sequence(0)
+            .build();
+        seed_uuid(&ctx, Uuid::nil(), &recorded).await;
+
+        let result = push_with_uuid(ctx, different, Uuid::nil()).await;
+        assert_ne!(
+            result.ok(),
+            Some(recorded),
+            "nil MsgUuid must not hit UUID records"
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_attempt_records_nothing() {
+        let ctx = genesis_ctx();
+        let uuid = crate::utils::rand::new_uuid_v4();
+        // Resolvable From so failure is past resolve (nonzero nonce), before sign_and_push.
+        let unsigned = Message::builder()
+            .from(resolvable_secp_from())
+            .to(Address::new_id(101))
+            .sequence(7)
+            .build();
+
+        let _ = push_with_uuid(ctx.clone(), unsigned, uuid)
+            .await
+            .unwrap_err();
+
+        let lock = ctx.mpool_push_guards.msg_uuid_records.take_lock(uuid).await;
+        assert!(
+            ctx.mpool_push_guards.msg_uuid_records.get(&lock).is_none(),
+            "a failed attempt must not record a MsgUuid"
+        );
+    }
+
+    #[tokio::test]
+    async fn nonzero_nonce_returns_lotus_error() {
+        let ctx = genesis_ctx();
+        let unsigned = Message::builder()
+            .from(resolvable_secp_from())
+            .to(Address::new_id(101))
+            .sequence(7)
+            .build();
+        let err = MpoolPushMessage::handle(ctx, (unsigned, None), &http::Extensions::default())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.message(),
+            "MpoolPushMessage expects message nonce to be 0, was 7"
+        );
+    }
+
+    /// Sanity runs before MsgUuid lookup: a bad `To` on a retry must not return the stored message.
+    #[tokio::test]
+    async fn bad_delegated_to_on_retry_errors_before_uuid_hit() {
+        let ctx = genesis_ctx();
+        let (_, recorded) = recorded_for_unknown_id();
+        let uuid = crate::utils::rand::new_uuid_v4();
+        seed_uuid(&ctx, uuid, &recorded).await;
+
+        let bad_to = bad_delegated_to();
+        let retry = Message::builder()
+            .from(Address::new_id(999_999))
+            .to(bad_to)
+            .sequence(0)
+            .build();
+        let err = push_with_uuid(ctx, retry, uuid).await.unwrap_err();
+        let expected = format!(
+            "message from {} failed sanity check: message recipient {bad_to} is a delegated address but not a valid Eth Address",
+            Address::new_id(999_999)
+        );
+        assert_eq!(err.message(), expected);
     }
 }

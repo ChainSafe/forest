@@ -96,6 +96,8 @@ OPTIONS:
           Check your command-line options and configuration file if one is used
       --skip-load-actors
           Skip loading actors from the actors bundle
+      --skip-enriched
+          Skip downloading the enriched snapshots (receipts, events and tipset lookup) published next to a snapshot imported from a URL
   -h, --help
           Print help
   -V, --version
@@ -2983,7 +2985,8 @@ Arguments:
   [FILTER]  Run only the tests whose name contains this string
 
 Options:
-      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding, wdpost]
+      --group <GROUP>  Run only this group; all groups run by default [possible values: onboarding, wdpost, worker-key]
+      --ignored        Run only the ignored tests: the long variants
   -h, --help           Print help
 ```
 
