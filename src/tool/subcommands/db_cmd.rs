@@ -168,7 +168,8 @@ impl DBCommands {
                     db
                 };
                 let tsk = HeaviestTipsetKeyProvider::heaviest_tipset_key(&db)?.context(
-                    "chain head must be present in the database before importing a tipset lookup",
+                    "chain head must be present in the database before importing a tipset lookup; \
+                     import a chain snapshot first",
                 )?;
                 let head = Tipset::load_required(&db, &tsk)?;
                 println!("Validating and importing tipset lookup hamt...");

@@ -508,10 +508,6 @@ where
 }
 
 /// Imports a tipset lookup snapshot into `db`, calling `on_imported` after each entry is written.
-///
-/// Two guards apply per entry:
-/// 1. Entries above `head.epoch() - CHAIN_FINALITY` (not yet finalized) are skipped.
-/// 2. Entries the db already holds are skipped to preserve canonical data.
 pub fn import_tipset_lookup_snapshot<DB>(
     db: &DB,
     path: &Path,

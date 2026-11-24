@@ -605,9 +605,6 @@ async fn ensure_recent_roots_present_checks_oldest_walked_tipset(
     );
 }
 
-// Imports a lookup table with the given `hamt_epoch -> tipset at tipset_epoch` entries into a
-// chain of tipsets at epochs 20, 21 and 40; `None` points at a tipset missing from the chain.
-// On an error nothing may have been written, so one invalid entry rejects the valid ones too.
 #[rstest]
 #[case::checkpoint(&[(40, Some(40))], None)]
 #[case::two_checkpoints(&[(20, Some(20)), (40, Some(40))], None)]
