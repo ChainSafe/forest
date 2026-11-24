@@ -167,13 +167,15 @@ async fn maybe_import_snapshot(
             "Loaded car DB at {} and set current head to epoch {ts_epoch}",
             car_db_path.display(),
         );
-        maybe_import_extended_snapshots(
-            &ctx.state_manager,
-            &ts,
-            &path,
-            &ctx.db_meta_data.get_forest_car_db_dir(),
-        )
-        .await;
+        if !opts.skip_enriched {
+            maybe_import_extended_snapshots(
+                &ctx.state_manager,
+                &ts,
+                &path,
+                &ctx.db_meta_data.get_forest_car_db_dir(),
+            )
+            .await;
+        }
     }
 
     // If the snapshot progress state is not completed,

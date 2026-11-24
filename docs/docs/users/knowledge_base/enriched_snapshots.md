@@ -68,7 +68,8 @@ When Forest imports a snapshot from a URL on startup, with `--auto-download-snap
 imported receipts and events (block `logsBloom` and Ethereum mappings), so
 `FOREST_ETH_RPC_COMPUTE_BLOOM_ON_MISS=1` is only needed for the manual recipe below.
 This step is best-effort: if a companion file can't be downloaded, verified, or
-imported, Forest logs a warning and starts without it.
+imported, Forest logs a warning and starts without it. Pass
+`--skip-enriched` to import only the base snapshot.
 
 ### Manually
 

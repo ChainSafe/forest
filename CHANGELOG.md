@@ -31,6 +31,8 @@
 
 ### Added
 
+- [#7885](https://github.com/ChainSafe/forest/issues/7885): Added the `--skip-enriched` daemon flag to skip downloading the enriched snapshots when importing a snapshot from a URL.
+
 ### Changed
 
 - [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli sync status` and the `forest-tool api compare` report print timestamps in RFC 3339 with a `Z` suffix.
