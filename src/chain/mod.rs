@@ -531,12 +531,16 @@ where
     tracing::info!("Validating tipset lookup entries against the chain, this can take a while");
     let finality_boundary = head.epoch() - CHAIN_FINALITY;
     let mut to_write: Vec<(ChainEpoch, TipsetKey)> = Vec::new();
+    let mut skipped_unfinalized: u64 = 0;
+    let mut skipped_existing: u64 = 0;
     hamt.for_each_cacheless(|&epoch, tsk| {
         if epoch > finality_boundary {
+            skipped_unfinalized += 1;
             return Ok(());
         }
 
         if db.tipset_key_by_epoch(epoch)?.is_some() {
+            skipped_existing += 1;
             return Ok(());
         }
 
@@ -563,7 +567,10 @@ where
         on_imported();
     }
     tracing::info!(
-        "Imported tipset lookup entries in {:.1}s",
+        "Imported {} tipset lookup entries, skipped {} unfinalized, {} already present, in {:.1}s",
+        to_write.len(),
+        skipped_unfinalized,
+        skipped_existing,
         started.elapsed().as_secs_f64()
     );
     Ok(())
