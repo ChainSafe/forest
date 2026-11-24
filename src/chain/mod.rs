@@ -508,7 +508,10 @@ where
 }
 
 /// Imports a tipset lookup snapshot into `db`, calling `on_imported` after each entry is written.
-/// Every entry is validated against the stored chain before the first write.
+///
+/// Two guards apply per entry:
+/// 1. Entries above `head.epoch() - CHAIN_FINALITY` (not yet finalized) are skipped.
+/// 2. Entries the db already holds are skipped to preserve canonical data.
 pub fn import_tipset_lookup_snapshot<DB>(
     db: &DB,
     path: &Path,
@@ -528,7 +531,6 @@ where
     let hamt: Hamt<_, TipsetKey, ChainEpoch> =
         Hamt::load_with_bit_width(&hamt_root, hamt_car, TIPSET_LOOKUP_HAMT_BIT_WIDTH)
             .context("failed to load tipset lookup HAMT")?;
-    tracing::info!("Validating tipset lookup entries against the chain, this can take a while");
     let finality_boundary = head.epoch() - CHAIN_FINALITY;
     let mut to_write: Vec<(ChainEpoch, TipsetKey)> = Vec::new();
     let mut skipped_unfinalized: u64 = 0;
@@ -548,20 +550,6 @@ where
         to_write.push((epoch, tsk.clone()));
         Ok(())
     })?;
-
-    to_write.sort_unstable_by_key(|&(epoch, _)| std::cmp::Reverse(epoch));
-
-    let mut cursor = head.shallow_clone();
-    for (epoch, tsk) in &to_write {
-        while cursor.epoch() > *epoch {
-            let parent_key = cursor.parents().clone();
-            cursor = Tipset::load_required(db, &parent_key)?;
-        }
-        anyhow::ensure!(
-            cursor.epoch() == *epoch && cursor.key() == tsk,
-            "tipset at epoch {epoch} in the snapshot is not on the canonical chain"
-        );
-    }
     for (epoch, tsk) in &to_write {
         db.set_tipset_key_at_epoch_raw(*epoch, tsk)?;
         on_imported();
