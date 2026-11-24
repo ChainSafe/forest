@@ -610,6 +610,7 @@ async fn ensure_recent_roots_present_checks_oldest_walked_tipset(
 // On an error nothing may have been written, so one invalid entry rejects the valid ones too.
 #[rstest]
 #[case::checkpoint(&[(40, Some(40))], None)]
+#[case::two_checkpoints(&[(20, Some(20)), (40, Some(40))], None)]
 #[case::non_checkpoint_epoch(
     &[(20, Some(20)), (21, Some(21)), (40, Some(40))],
     Some("is not a tipset lookup checkpoint")
