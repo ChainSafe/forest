@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{cli_shared::read_config, networks::NetworkChain};
+use crate::{cli_shared::read_config, networks::NetworkChain, utils::time::Timestamp};
 
 #[derive(Subcommand)]
 pub enum BackupCommands {
@@ -87,7 +87,7 @@ impl BackupCommands {
                 } else {
                     let path = PathBuf::from(format!(
                         "forest-backup-{}.tar",
-                        chrono::Utc::now().format("%Y-%m-%d_%H-%M-%S")
+                        Timestamp::now().strftime("%Y-%m-%d_%H-%M-%S")
                     ));
                     if path.exists() {
                         bail!("Backup file already exists at {}", path.display());

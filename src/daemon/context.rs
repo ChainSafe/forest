@@ -1,7 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::auth::{ADMIN, create_token, generate_priv_key};
+use crate::auth::{ADMIN, NON_EXPIRING_TOKEN_LIFETIME, create_token, generate_priv_key};
 use crate::chain::ChainStore;
 use crate::cli_shared::chain_path;
 use crate::cli_shared::cli::CliOpts;
@@ -324,14 +324,10 @@ fn handle_admin_token(
     keystore: &KeyStore,
 ) -> anyhow::Result<String> {
     let ki = keystore.get(JWT_IDENTIFIER)?;
-    // Lotus admin tokens do not expire but Forest requires all JWT tokens to
-    // have an expiration date. So we set the expiration date to 100 years in
-    // the future to match user-visible behavior of Lotus.
-    let token_exp = chrono::Duration::days(365 * 100);
     let token = create_token(
         ADMIN.iter().map(ToString::to_string).collect(),
         ki.private_key(),
-        token_exp,
+        NON_EXPIRING_TOKEN_LIFETIME,
     )?;
     let default_token_path = config.client.default_rpc_token_path();
     if let Err(e) =

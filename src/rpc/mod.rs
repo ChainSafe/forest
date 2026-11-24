@@ -27,6 +27,7 @@ use crate::prelude::*;
 use crate::rpc::eth::types::RandomHexStringIdProvider;
 use crate::rpc::methods::eth::pubsub_trait::EthPubSubApiServer;
 use crate::shim::clock::ChainEpoch;
+use crate::utils::time::Timestamp;
 use ahash::HashMap;
 use clap::ValueEnum as _;
 pub use client::{Client, humanize_rpc_error};
@@ -531,11 +532,10 @@ pub struct RPCState {
     pub sync_network_context: SyncNetworkContext,
     pub tipset_send: flume::Sender<FullTipset>,
     pub block_validation_subscriber: crate::chain_sync::BlockValidationSubscriber,
-    pub start_time: chrono::DateTime<chrono::Utc>,
+    pub start_time: Timestamp,
     pub snapshot_progress_tracker: SnapshotProgressTracker,
     pub shutdown: mpsc::Sender<()>,
-    pub mpool_locker: crate::message_pool::MpoolLocker,
-    pub nonce_tracker: crate::message_pool::NonceTracker,
+    pub mpool_push_guards: crate::message_pool::MpoolPushGuards,
     pub temp_dir: Arc<std::path::PathBuf>,
 }
 
@@ -837,6 +837,7 @@ mod tests {
         networks::NetworkChain,
         rpc::{client::UrlClient, common::ShiftingVersion},
         tool::offline_server::server::offline_rpc_state,
+        utils::time::SignedDuration,
     };
     use jsonrpsee::{
         core::{
@@ -1122,7 +1123,7 @@ mod tests {
         let jwt_read_permissions = vec!["read".to_owned()];
         let jwt_read = super::methods::auth::AuthNew::create_token(
             &state.keystore.read(),
-            chrono::Duration::hours(1),
+            SignedDuration::from_hours(1),
             jwt_read_permissions.clone(),
         )
         .unwrap();

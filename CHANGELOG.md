@@ -27,15 +27,23 @@
 
 ### Breaking
 
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `Filecoin.AuthNew` returns an error when `expirationSecs` puts the expiry before 1970 or past the year 9999; previously a pre-1970 expiry produced a token that never expires, and some far-future values crashed the node.
+
 ### Added
 
 - [#7885](https://github.com/ChainSafe/forest/issues/7885): Added the `--skip-enriched` daemon flag to skip downloading the enriched snapshots when importing a snapshot from a URL.
 
 ### Changed
 
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli sync status` and the `forest-tool api compare` report print timestamps in RFC 3339 with a `Z` suffix.
+
 ### Removed
 
 ### Fixed
+
+- [#7917](https://github.com/ChainSafe/forest/pull/7917): `StateSearchMsg` and `StateSearchMsgLimited` leave `ReturnDec` null, matching Lotus.
+
+- [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli info show` no longer crashes when the client's clock is behind the node's start time.
 
 ## Forest v0.40.0 "Copperhead"
 
@@ -72,6 +80,8 @@ Non-mandatory release for all node operators. Highlights: importing enriched sna
 - [#7805](https://github.com/ChainSafe/forest/pull/7805): Devnet defaults match Lotus v1.38.0 2k builds: the genesis network version defaults to 28, the upgrade heights follow Lotus, and the minimum consensus power is 2048. An enabled upgrade below genesis keeps its own version.
 
 ### Fixed
+
+- [#7767](https://github.com/ChainSafe/forest/issues/7767): `Filecoin.MpoolPushMessage` returns the message already pushed for the same non-zero `MsgUuid`.
 
 - [#7833](https://github.com/ChainSafe/forest/pull/7833): `eth_sendRawTransaction` and `eth_sendRawTransactionUntrusted` validate transaction amounts and integer encodings like Lotus and return an error for invalid ones.
 
