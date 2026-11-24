@@ -78,8 +78,9 @@ pub async fn fetch(
         destination: directory.join(&filename),
         option: DownloadFileOption::Resumable,
         timeout: None,
+        callback: None,
     };
-    download_to(&url, opts, None).await
+    download_to(&url, opts).await
 }
 
 /// Returns

@@ -298,8 +298,9 @@ async fn handle_snapshots(
         destination: downloaded_snapshot_path.clone(),
         option: DownloadFileOption::Resumable,
         timeout: None,
+        callback: None,
     };
-    download_to(&snapshot_url, opts, None).await?;
+    download_to(&snapshot_url, opts).await?;
     info!("Snapshot downloaded");
     Ok(vec![downloaded_snapshot_path])
 }

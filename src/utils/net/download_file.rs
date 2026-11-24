@@ -26,8 +26,9 @@
 //!     destination: "./large-file.zst".into(),
 //!     option: DownloadFileOption::Resumable,
 //!     timeout: None,
+//!     callback: None,
 //! };
-//! download_to(&url, opts, None).await?;
+//! download_to(&url, opts).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -114,11 +115,12 @@ pub enum DownloadFileOption {
     Resumable,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DownloadOpts {
     pub destination: PathBuf,
     pub option: DownloadFileOption,
     pub timeout: Option<Duration>,
+    pub callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
 }
 
 #[derive(Debug, Clone)]
@@ -169,8 +171,9 @@ pub async fn download_file_with_cache(
             destination: cache_file_path.clone(),
             option,
             timeout: None,
+            callback: None,
         };
-        download_to(url, opts, None).await?;
+        download_to(url, opts).await?;
     }
 
     Ok(DownloadFileResult {
@@ -520,15 +523,12 @@ pub async fn download_http(
     }
 }
 
-pub async fn download_to(
-    url: &Url,
-    opts: DownloadOpts,
-    callback: Option<Arc<dyn Fn(String) + Sync + Send>>,
-) -> anyhow::Result<PathBuf> {
+pub async fn download_to(url: &Url, opts: DownloadOpts) -> anyhow::Result<PathBuf> {
     let DownloadOpts {
         destination,
         option,
         timeout,
+        callback,
     } = opts;
     let result = retry(
         RetryArgs {
@@ -882,9 +882,10 @@ mod test {
             destination: temp_dir.path().join("stalled.dat"),
             option: DownloadFileOption::NonResumable,
             timeout: Some(Duration::from_secs(1)),
+            callback: None,
         };
 
-        let err = download_to(&server.url("/test-file-stalled-body"), opts, None)
+        let err = download_to(&server.url("/test-file-stalled-body"), opts)
             .await
             .unwrap_err();
 

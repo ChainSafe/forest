@@ -158,8 +158,9 @@ async fn fetch_verify_params(
                 destination: path.clone(),
                 option: DownloadFileOption::NonResumable,
                 timeout: None,
+                callback: None,
             };
-            download_to(&url, opts, None)
+            download_to(&url, opts)
                 .await
                 .with_context(|| format!("failed to download {url}"))?;
             check_parameter_file(&path, info).await

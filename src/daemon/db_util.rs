@@ -182,8 +182,9 @@ pub async fn import_chain_as_forest_car(
                         destination: downloaded_car_temp_path.to_path_buf(),
                         option: DownloadFileOption::Resumable,
                         timeout: None,
+                        callback: snapshot_progress_tracker.create_callback(),
                     };
-                    download_to(url, opts, snapshot_progress_tracker.create_callback()).await?;
+                    download_to(url, opts).await?;
 
                     snapshot_progress_tracker.completed();
                 }

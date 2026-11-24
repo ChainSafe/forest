@@ -103,8 +103,9 @@ async fn download_extended_snapshot(
         destination: path.to_path_buf(),
         option: DownloadFileOption::Resumable,
         timeout: Some(Duration::from_mins(10)),
+        callback: None,
     };
-    download_to(&url, opts, None)
+    download_to(&url, opts)
         .await
         .with_context(|| format!("failed to download {}", file.filename))?;
 
