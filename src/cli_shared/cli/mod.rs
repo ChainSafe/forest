@@ -155,6 +155,10 @@ pub struct CliOpts {
     /// Skip loading actors from the actors bundle.
     #[arg(long)]
     pub skip_load_actors: bool,
+    /// Skip downloading the enriched snapshots (receipts, events and tipset lookup)
+    /// published next to a snapshot imported from a URL.
+    #[arg(long)]
+    pub skip_enriched: bool,
 }
 
 impl CliOpts {

@@ -12,7 +12,7 @@ use crate::rpc::chain::ForestChainExportDiffParams;
 use crate::rpc::types::ApiExportResult;
 use crate::rpc::{self, chain::ForestChainExportParams, prelude::*};
 use crate::shim::policy::policy_constants::CHAIN_FINALITY;
-use chrono::DateTime;
+use crate::utils::time::Timestamp;
 use clap::Subcommand;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{path::PathBuf, time::Duration};
@@ -130,10 +130,9 @@ impl SnapshotCommands {
                     true => output_path.join(snapshot::filename(
                         TrustedVendor::Forest,
                         chain_name,
-                        DateTime::from_timestamp(tipset.min_ticket_block().timestamp as i64, 0)
+                        Timestamp::from_unix_secs(tipset.min_ticket_block().timestamp as i64)
                             .unwrap_or_default()
-                            .naive_utc()
-                            .date(),
+                            .utc_date(),
                         tipset.epoch(),
                         true,
                     )),
@@ -213,9 +212,8 @@ impl SnapshotCommands {
                     return Ok(());
                 }
                 let watched_start_time = result.start_time;
-                let elapsed = chrono::Utc::now()
-                    .signed_duration_since(watched_start_time.unwrap_or_default())
-                    .to_std()
+                let elapsed = Timestamp::now()
+                    .duration_since(watched_start_time.unwrap_or_default())
                     .unwrap_or(Duration::ZERO);
                 let pb = ProgressBar::new(10000)
                     .with_elapsed(elapsed)

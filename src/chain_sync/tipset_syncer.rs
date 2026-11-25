@@ -17,6 +17,7 @@ use crate::shim::{
 };
 use crate::state_manager::ExecutedTipset;
 use crate::state_manager::{Error as StateManagerError, StateManager, utils::is_valid_for_sending};
+use crate::utils::time;
 use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
@@ -575,7 +576,7 @@ fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), TipsetSyncerEr
 
 /// Check the clock drift.
 fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetSyncerError> {
-    let time_now = chrono::Utc::now().timestamp() as u64;
+    let time_now = time::now_unix_secs();
     if header.timestamp > time_now.saturating_add(ALLOWABLE_CLOCK_DRIFT) {
         return Err(TipsetSyncerError::TimeTravellingBlock(
             time_now,

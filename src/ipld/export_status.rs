@@ -5,7 +5,7 @@
 //! exports and the automatic snapshot GC.
 
 use crate::shim::clock::ChainEpoch;
-use chrono::{DateTime, Utc};
+use crate::utils::time::Timestamp;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::{self, AtomicI64};
@@ -63,7 +63,7 @@ struct StatusInner {
     /// `None` while running and before the first export.
     outcome: Option<ChainExportState>,
     kind: Option<ChainExportKind>,
-    start_time: Option<DateTime<Utc>>,
+    start_time: Option<Timestamp>,
     error: Option<String>,
     cancellation_token: Option<CancellationToken>,
     /// See [`ProgressReporter`].
@@ -93,7 +93,7 @@ pub struct StatusSnapshot {
     pub state: ChainExportState,
     pub kind: Option<ChainExportKind>,
     pub error: Option<String>,
-    pub start_time: Option<DateTime<Utc>>,
+    pub start_time: Option<Timestamp>,
     pub epoch: ChainEpoch,
     pub initial_epoch: ChainEpoch,
 }
@@ -103,9 +103,9 @@ pub fn kind_label(kind: Option<ChainExportKind>) -> String {
         .unwrap_or_else(|| "unknown".into())
 }
 
-pub fn format_start_time(start_time: Option<DateTime<Utc>>) -> String {
+pub fn format_start_time(start_time: Option<Timestamp>) -> String {
     start_time
-        .map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+        .map(Timestamp::to_rfc3339_secs)
         .unwrap_or_else(|| "unknown".into())
 }
 
@@ -153,7 +153,7 @@ impl ExportStatus {
         *inner = StatusInner {
             outcome: None,
             kind: Some(kind),
-            start_time: Some(Utc::now()),
+            start_time: Some(Timestamp::now()),
             error: None,
             cancellation_token: Some(cancellation_token),
             counters: Arc::new(ProgressCounters::default()),

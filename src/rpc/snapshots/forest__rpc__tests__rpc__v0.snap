@@ -2285,6 +2285,15 @@ methods:
       schema:
         $ref: "#/components/schemas/AddrInfo"
     paramStructure: by-position
+  - name: Filecoin.ID
+    description: "Returns the node's libp2p peer ID."
+    params: []
+    result:
+      name: Filecoin.ID.Result
+      required: true
+      schema:
+        type: string
+    paramStructure: by-position
   - name: Filecoin.NetAgentVersion
     description: Returns the agent version string.
     params:

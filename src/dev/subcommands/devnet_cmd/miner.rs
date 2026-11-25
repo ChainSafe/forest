@@ -9,6 +9,7 @@ mod devnet;
 mod onboarding;
 mod terminate;
 mod wdpost;
+mod worker_key;
 
 use crate::dev::subcommands::tests_cmd::helpers::harness_env;
 use crate::lotus_json::HasLotusJson;
@@ -27,6 +28,9 @@ pub struct MinerTestCommand {
     group: Option<Group>,
     /// Run only the tests whose name contains this string
     filter: Option<String>,
+    /// Run only the ignored tests: the long variants
+    #[arg(long)]
+    ignored: bool,
 }
 
 /// Tests that share one devnet. CI runs each group as a separate job on its own devnet.
@@ -35,6 +39,7 @@ enum Group {
     Onboarding,
     Wdpost,
     Terminate,
+    WorkerKey,
 }
 
 impl MinerTestCommand {
@@ -50,6 +55,7 @@ impl MinerTestCommand {
         };
         let args = Arguments {
             filter: self.filter,
+            ignored: self.ignored,
             test_threads: Some(1),
             ..Default::default()
         };
@@ -62,6 +68,7 @@ fn tests(group: Group) -> Vec<Trial> {
         Group::Onboarding => onboarding::tests(),
         Group::Wdpost => wdpost::tests(),
         Group::Terminate => terminate::tests(),
+        Group::WorkerKey => worker_key::tests(),
     }
 }
 

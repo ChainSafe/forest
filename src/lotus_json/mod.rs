@@ -123,6 +123,7 @@
 
 use crate::shim::actors::miner::DeadlineInfo;
 use crate::shim::fvm_shared_latest::piece::PaddedPieceSize;
+use crate::utils::time::Timestamp;
 use derive_more::From;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -555,7 +556,7 @@ lotus_json_with_self!(
     i64,
     f64,
     String,
-    chrono::DateTime<chrono::Utc>,
+    Timestamp,
     serde_json::Value,
     (),
     std::path::PathBuf,

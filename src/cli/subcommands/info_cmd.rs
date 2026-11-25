@@ -10,7 +10,7 @@ use crate::rpc::{self, prelude::*};
 use crate::shim::address::Address;
 use crate::shim::clock::{BLOCKS_PER_EPOCH, ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
-use chrono::{DateTime, Utc};
+use crate::utils::time::Timestamp;
 use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
@@ -33,7 +33,7 @@ pub struct NodeStatusInfo {
     pub base_fee: TokenAmount,
     pub sync_status: SyncStatus,
     /// Start time of the node
-    pub start_time: DateTime<Utc>,
+    pub start_time: Timestamp,
     pub network: String,
     pub default_wallet_address: Option<Address>,
     pub default_wallet_address_balance: Option<TokenAmount>,
@@ -52,7 +52,7 @@ impl NodeStatusInfo {
         cur_duration: Duration,
         blocks_per_tipset_last_finality: f64,
         head: &Tipset,
-        start_time: DateTime<Utc>,
+        start_time: Timestamp,
         network: String,
         default_wallet_address: Option<Address>,
         default_wallet_address_balance: Option<TokenAmount>,
@@ -91,18 +91,16 @@ impl NodeStatusInfo {
         }
     }
 
-    fn format(&self, now: DateTime<Utc>) -> String {
+    fn format(&self, now: Timestamp) -> String {
         let network = format!("Network: {}", self.network);
 
         let uptime = {
-            let uptime = (now - self.start_time)
-                .to_std()
-                .expect("failed converting to std duration");
+            let uptime = now.duration_since(self.start_time).unwrap_or_default();
             let uptime = Duration::from_secs(uptime.as_secs());
             let fmt_uptime = utils::format_duration(uptime);
             format!(
                 "Uptime: {fmt_uptime} (Started at: {})",
-                self.start_time.with_timezone(&chrono::offset::Local)
+                self.start_time.to_local_string()
             )
         };
 
@@ -174,7 +172,7 @@ impl InfoCommand {
             default_wallet_address_balance,
         );
 
-        println!("{}", node_status_info.format(Utc::now()));
+        println!("{}", node_status_info.format(Timestamp::now()));
 
         Ok(())
     }
@@ -187,7 +185,6 @@ mod tests {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use crate::shim::{address::Address, econ::TokenAmount};
-    use chrono::DateTime;
     use quickcheck_macros::quickcheck;
     use std::{str::FromStr, time::Duration};
 
@@ -207,7 +204,7 @@ mod tests {
             epoch: ChainEpoch::MAX,
             base_fee: TokenAmount::from_whole(1),
             sync_status: SyncStatus::Ok,
-            start_time: DateTime::<chrono::Utc>::MIN_UTC,
+            start_time: Timestamp::UNIX_EPOCH,
             network: "calibnet".to_string(),
             default_wallet_address: None,
             default_wallet_address_balance: None,
@@ -219,7 +216,7 @@ mod tests {
             duration,
             20.,
             tipset,
-            DateTime::<chrono::Utc>::MIN_UTC,
+            Timestamp::UNIX_EPOCH,
             "calibnet".to_string(),
             None,
             None,
@@ -267,22 +264,14 @@ mod tests {
         let tipset = mock_tipset_at(duration.as_secs() - 10);
         let status = node_status(duration, &tipset);
 
-        assert!(
-            status
-                .format(DateTime::<chrono::Utc>::MIN_UTC)
-                .contains("10s behind")
-        );
+        assert!(status.format(Timestamp::UNIX_EPOCH).contains("10s behind"));
     }
 
     #[test]
     fn test_lag_uptime_ahead() {
         let mut status = mock_node_status();
         status.lag = -360;
-        assert!(
-            status
-                .format(DateTime::<chrono::Utc>::MIN_UTC)
-                .contains("6m ahead")
-        );
+        assert!(status.format(Timestamp::UNIX_EPOCH).contains("6m ahead"));
     }
 
     #[test]
@@ -294,7 +283,7 @@ mod tests {
             "[sync: Slow! (59s behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
         assert!(
             status
-                .format(DateTime::<chrono::Utc>::MIN_UTC)
+                .format(Timestamp::UNIX_EPOCH)
                 .contains(&expected_status_fmt)
         );
 
@@ -305,7 +294,7 @@ mod tests {
             "[sync: Behind! (8h 20m behind)] [basefee: 0 FIL] [epoch: 0]".to_string();
         assert!(
             status
-                .format(DateTime::<chrono::Utc>::MIN_UTC)
+                .format(Timestamp::UNIX_EPOCH)
                 .contains(&expected_status_fmt)
         );
     }

@@ -1,0 +1,5 @@
+ignored:
+  # https://github.com/hadolint/hadolint/wiki/DL3008
+  - DL3008
+  # https://github.com/hadolint/hadolint/wiki/DL3018
+  - DL3018

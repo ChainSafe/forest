@@ -3,34 +3,27 @@
 
 use crate::eth::EthChainId;
 use crate::key_management::{Key, sign_message};
+use crate::message::SignedMessage;
 use crate::message_pool::MessagePool;
 use crate::message_pool::msgpool::provider::Provider;
 use crate::shim::message::Message;
 use tokio::sync::Mutex;
 
-/// Serializes nonce assignment globally. The global mutex prevents concurrent
-/// nonce assignment across all senders, ensuring sequential nonce values.
-///
-/// See also [`MpoolLocker`](super::MpoolLocker), the outer per-sender lock.
+/// Global nonce lock for `MpoolPushMessage`.
+#[derive(Default)]
 pub struct NonceTracker {
     lock: Mutex<()>,
 }
 
 impl NonceTracker {
-    pub fn new() -> Self {
-        Self {
-            lock: Mutex::new(()),
-        }
-    }
-
-    /// Acquire the global lock, assign a nonce, sign, and push to `mpool`.
+    /// Lock, assign nonce, sign, and [`MessagePool::push`].
     pub async fn sign_and_push<T: Provider + Send + Sync + 'static>(
         &self,
         mpool: &MessagePool<T>,
         message: Message,
         key: &Key,
         eth_chain_id: EthChainId,
-    ) -> anyhow::Result<crate::message::SignedMessage> {
+    ) -> anyhow::Result<SignedMessage> {
         let _guard = self.lock.lock().await;
 
         let nonce = mpool.get_sequence(&message.from()).await?;
@@ -94,7 +87,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_and_push_assigns_sequential_nonces() {
-        let tracker = NonceTracker::new();
+        let tracker = NonceTracker::default();
         let (mpool, mut wallet, sender, _rx) = make_test_pool_and_wallet();
 
         let key = wallet.find_key(&sender).unwrap();
@@ -118,7 +111,7 @@ mod tests {
     #[tokio::test]
     async fn test_concurrent_push_no_nonce_duplicates() {
         const N: usize = 10;
-        let tracker = Arc::new(NonceTracker::new());
+        let tracker = Arc::new(NonceTracker::default());
         let (mpool, mut wallet, sender, _rx) = make_test_pool_and_wallet();
         let key = Arc::new(wallet.find_key(&sender).unwrap());
         let eth_chain_id: EthChainId = crate::networks::calibnet::ETH_CHAIN_ID;
