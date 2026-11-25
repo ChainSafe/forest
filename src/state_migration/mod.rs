@@ -1,6 +1,7 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils;
 use std::sync::{
     Arc, LazyLock,
     atomic::{self, AtomicBool},
@@ -171,12 +172,12 @@ where
                     crate::utils::misc::reveal_upgrade_logo(height.into());
                     tracing::info!(
                         "State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}.",
-                        elapsed = humantime::format_duration(elapsed)
+                        elapsed = utils::format_duration(elapsed)
                     );
                 } else {
                     anyhow::bail!(
                         "State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}.",
-                        elapsed = humantime::format_duration(elapsed)
+                        elapsed = utils::format_duration(elapsed)
                     );
                 }
                 Ok(new_state)

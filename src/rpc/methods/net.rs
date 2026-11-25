@@ -4,6 +4,7 @@
 mod types;
 pub use types::*;
 
+use crate::utils;
 use std::num::NonZeroU64;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -43,6 +44,26 @@ impl RpcMethod<0> for NetAddrsListen {
         let (id, addrs) = rx.recv_async().await?;
 
         Ok(AddrInfo::new(id, addrs))
+    }
+}
+
+pub enum ID {}
+impl RpcMethod<0> for ID {
+    const NAME: &'static str = "Filecoin.ID";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: BitFlags<ApiPaths> = ApiPaths::all();
+    const PERMISSION: Permission = Permission::Read;
+    const DESCRIPTION: &'static str = "Returns the node's libp2p peer ID.";
+
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx,
+        (): Self::Params,
+        ext: &http::Extensions,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(NetAddrsListen::handle(ctx, (), ext).await?.id)
     }
 }
 
@@ -451,7 +472,7 @@ impl RpcMethod<3> for NetChainExchange {
         Ok(format!(
             "fetched {} tipsets, took {}",
             result.len(),
-            humantime::format_duration(timer.elapsed())
+            utils::format_duration(timer.elapsed())
         ))
     }
 }

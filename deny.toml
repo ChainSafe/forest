@@ -18,6 +18,13 @@ ignore = [
   "RUSTSEC-2026-0511", # hickory-*, waiting for libp2p to update and release
   "RUSTSEC-2026-0512", # hickory-*, waiting for libp2p to update and release
   "RUSTSEC-2026-0514", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0530", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0531", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0532", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0534", # libp2p-gossipsub, waiting for libp2p to update and release
+  "RUSTSEC-2026-0549", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0550", # hickory-*, waiting for libp2p to update and release
+  "RUSTSEC-2026-0551", # hickory-*, waiting for libp2p to update and release
 ]
 
 [licenses]

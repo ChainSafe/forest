@@ -17,6 +17,7 @@
 //! handled by an external actor.
 
 use super::network_context::SyncNetworkContext;
+use crate::utils::time::{self, Timestamp};
 use crate::{
     blocks::{Block, FullTipset, Tipset, TipsetKey},
     chain::{ChainStore, index::ResolveNullTipset},
@@ -33,10 +34,9 @@ use crate::{
     prelude::*,
     shim::clock::ChainEpoch,
     state_manager::StateManager,
-    utils::misc::env::env_or_default_logged,
+    utils::{self, misc::env::env_or_default_logged},
 };
 use arc_swap::ArcSwap;
-use chrono::Utc;
 use hashbrown::{HashMap, HashSet};
 use libp2p::PeerId;
 use nonzero_ext::nonzero;
@@ -170,7 +170,7 @@ impl ChainFollower {
         }
         tracing::info!(
             "chain follower reset, took {}",
-            humantime::format_duration(start.elapsed())
+            utils::format_duration(start.elapsed())
         );
     }
 
@@ -412,7 +412,7 @@ async fn chain_follower(
                 let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
                 let heaviest_epoch = heaviest_tipset.epoch();
                 let expected_head = calculate_expected_epoch(
-                    Utc::now().timestamp() as u64,
+                    time::now_unix_secs(),
                     state_manager.chain_store().genesis_block_header().timestamp,
                     state_manager.chain_config().block_delay_secs,
                 );
@@ -1038,7 +1038,7 @@ impl SyncStateMachine {
     pub fn tasks(&self) -> (Vec<SyncTask>, Vec<ForkSyncInfo>) {
         // Get the node's current validated head epoch once, as it's the same for all forks.
         let current_validated_epoch = self.cs.heaviest_tipset().epoch();
-        let now = Utc::now();
+        let now = Timestamp::now();
 
         let mut active_sync_info = Vec::new();
         let mut tasks = Vec::new();

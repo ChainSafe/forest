@@ -4,6 +4,7 @@
 use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::error::ServerError;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
+use crate::utils::time::Timestamp;
 use enumflags2::BitFlags;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -92,7 +93,7 @@ impl RpcMethod<0> for StartTime {
     const DESCRIPTION: &'static str = "Returns the time at which the node was started.";
 
     type Params = ();
-    type Ok = chrono::DateTime<chrono::Utc>;
+    type Ok = Timestamp;
 
     async fn handle(
         ctx: Ctx,

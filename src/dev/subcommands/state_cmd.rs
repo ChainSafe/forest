@@ -13,6 +13,7 @@ use crate::{
     shim::clock::ChainEpoch,
     state_manager::{ExecutedTipset, StateManager},
     tool::subcommands::api_cmd::generate_test_snapshot,
+    utils,
 };
 use human_repr::HumanCount as _;
 use nonzero_ext::nonzero;
@@ -268,7 +269,7 @@ impl ReplayValidateCommand {
             validate_tipset(&sm, fts, None).await?;
             println!(
                 "epoch: {epoch}, took {}.",
-                humantime::format_duration(start.elapsed())
+                utils::format_duration(start.elapsed())
             );
         }
         Ok(())

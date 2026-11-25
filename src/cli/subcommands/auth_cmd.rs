@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::{self, auth::AuthNewParams, prelude::*};
-use chrono::Duration;
+use crate::utils;
 use clap::Subcommand;
 use libp2p::multiaddr;
+use std::time::Duration;
 
 use super::print_rpc_res_bytes;
 
@@ -16,8 +17,8 @@ pub enum AuthCommands {
         #[arg(short, long)]
         perm: String,
         /// Token is revoked after this duration
-        #[arg(long, default_value = "2 months")]
-        expire_in: humantime::Duration,
+        #[arg(long, default_value = "2 months", value_parser = utils::parse_duration)]
+        expire_in: Duration,
     },
     /// Get RPC API Information
     ApiInfo {
@@ -25,8 +26,8 @@ pub enum AuthCommands {
         #[arg(short, long)]
         perm: String,
         /// Token is revoked after this duration
-        #[arg(long, default_value = "2 months")]
-        expire_in: humantime::Duration,
+        #[arg(long, default_value = "2 months", value_parser = utils::parse_duration)]
+        expire_in: Duration,
     },
 }
 
@@ -34,23 +35,32 @@ impl AuthCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm, expire_in } => {
-                let perm: String = perm.parse()?;
-                let perms = AuthNewParams::process_perms(perm)?;
-                let token_exp = Duration::from_std(expire_in.into())?;
-                let res = AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?;
-                print_rpc_res_bytes(res)
+                print_rpc_res_bytes(new_token(&client, perm, expire_in).await?)
             }
             Self::ApiInfo { perm, expire_in } => {
-                let perm: String = perm.parse()?;
-                let perms = AuthNewParams::process_perms(perm)?;
-                let token_exp = Duration::from_std(expire_in.into())?;
-                let token = String::from_utf8(
-                    AuthNew::call(&client, AuthNewParams { perms, token_exp }.into()).await?,
-                )?;
+                let token = String::from_utf8(new_token(&client, perm, expire_in).await?)?;
                 let addr = multiaddr::from_url(client.base_url().as_str())?;
                 println!("FULLNODE_API_INFO=\"{token}:{addr}\"");
                 Ok(())
             }
         }
     }
+}
+
+async fn new_token(
+    client: &rpc::Client,
+    perm: String,
+    expire_in: Duration,
+) -> anyhow::Result<Vec<u8>> {
+    let perms = AuthNewParams::process_perms(perm)?;
+    let lifetime_secs = i64::try_from(expire_in.as_secs())?;
+    Ok(AuthNew::call(
+        client,
+        AuthNewParams {
+            perms,
+            lifetime_secs,
+        }
+        .into(),
+    )
+    .await?)
 }

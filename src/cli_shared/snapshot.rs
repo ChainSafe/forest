@@ -5,13 +5,14 @@ use std::{
     fmt::Display,
     path::{Path, PathBuf},
     str::FromStr,
+    time::Duration,
 };
 
 use crate::prelude::*;
+use crate::utils::time::Date;
 use crate::{cli_shared::snapshot::parse::ParsedFilename, utils::net::download_file_with_retry};
 use crate::{networks::NetworkChain, utils::net::DownloadFileOption};
 use anyhow::bail;
-use chrono::NaiveDate;
 use url::Url;
 
 /// Who hosts the snapshot on the web?
@@ -40,7 +41,7 @@ pub enum TrustedVendor {
 pub fn filename(
     vendor: impl Display,
     chain: impl Display,
-    date: NaiveDate,
+    date: Date,
     height: ChainEpoch,
     forest_format: bool,
 ) -> String {
@@ -112,6 +113,24 @@ pub async fn peek(
     ))
 }
 
+/// Returns the final URL after redirection(s).
+/// if server rejects `HEAD` requests returns the `url` itself
+pub async fn peek_url(url: Url) -> Url {
+    let response = crate::utils::net::global_http_client()
+        .head(url.clone())
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await
+        .and_then(|response| response.error_for_status());
+    match response {
+        Ok(response) => response.url().clone(),
+        Err(e) => {
+            tracing::debug!("Couldn't follow the redirects of {url}: {e:#}");
+            url
+        }
+    }
+}
+
 // Extract file paths from content-disposition values:
 //   "attachment; filename=\"911520_2023_09_14T06_13_00Z.car.zst\""
 // => "911520_2023_09_14T06_13_00Z.car.zst"
@@ -167,8 +186,8 @@ mod parse {
 
     use std::{fmt::Display, str::FromStr};
 
+    use crate::utils::time::{Date, Time};
     use anyhow::{anyhow, bail};
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
     use nom::{
         Err, Parser,
         branch::alt,
@@ -186,14 +205,14 @@ mod parse {
     #[derive(PartialEq, Debug, Clone, Hash)]
     pub(super) enum ParsedFilename<'a> {
         Short {
-            date: NaiveDate,
-            time: NaiveTime,
+            date: Date,
+            time: Time,
             height: ChainEpoch,
         },
         Full {
             vendor: &'a str,
             chain: &'a str,
-            date: NaiveDate,
+            date: Date,
             height: ChainEpoch,
             forest_format: bool,
         },
@@ -203,8 +222,13 @@ mod parse {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 ParsedFilename::Short { date, time, height } => f.write_fmt(format_args!(
-                    "{height}_{}.car.zst",
-                    NaiveDateTime::new(*date, *time).format("%Y_%m_%dT%H_%M_%SZ")
+                    "{height}_{:04}_{:02}_{:02}T{:02}_{:02}_{:02}Z.car.zst",
+                    date.year(),
+                    date.month(),
+                    date.day(),
+                    time.hour(),
+                    time.minute(),
+                    time.second()
                 )),
                 ParsedFilename::Full {
                     vendor,
@@ -214,7 +238,7 @@ mod parse {
                     forest_format,
                 } => f.write_fmt(format_args!(
                     "{vendor}_snapshot_{chain}_{}_height_{height}{}.car.zst",
-                    date.format("%Y-%m-%d"),
+                    date,
                     if *forest_format { ".forest" } else { "" }
                 )),
             }
@@ -222,7 +246,7 @@ mod parse {
     }
 
     impl<'a> ParsedFilename<'a> {
-        pub fn date_and_height_and_forest(&self) -> (NaiveDate, i64, bool) {
+        pub fn date_and_height_and_forest(&self) -> (Date, i64, bool) {
             match self {
                 ParsedFilename::Short { date, height, .. } => (*date, *height, false),
                 ParsedFilename::Full {
@@ -248,11 +272,11 @@ mod parse {
     }
 
     /// Create a parser for `YYYY-MM-DD` etc
-    fn ymd(separator: &str) -> impl Fn(&str) -> nom::IResult<&str, NaiveDate> + '_ {
+    fn ymd(separator: &str) -> impl Fn(&str) -> nom::IResult<&str, Date> + '_ {
         move |input| {
             let (rest, (year, _, month, _, day)) =
                 (number, tag(separator), number, tag(separator), number).parse(input)?;
-            match NaiveDate::from_ymd_opt(year, month, day) {
+            match Date::new(year, month, day) {
                 Some(date) => Ok((rest, date)),
                 None => Err(Err::Error(error_position!(input, ErrorKind::Verify))),
             }
@@ -260,12 +284,12 @@ mod parse {
     }
 
     /// Create a parser for `HH_MM_SS` etc
-    fn hms(separator: &str) -> impl Fn(&str) -> nom::IResult<&str, NaiveTime> + '_ {
+    fn hms(separator: &str) -> impl Fn(&str) -> nom::IResult<&str, Time> + '_ {
         move |input| {
             let (rest, (hour, _, minute, _, second)) =
                 (number, tag(separator), number, tag(separator), number).parse(input)?;
-            match NaiveTime::from_hms_opt(hour, minute, second) {
-                Some(date) => Ok((rest, date)),
+            match Time::new(hour, minute, second) {
+                Some(time) => Ok((rest, time)),
                 None => Err(Err::Error(error_position!(input, ErrorKind::Verify))),
             }
         }
@@ -393,16 +417,16 @@ mod parse {
             /// - If `ymd`/`hms` aren't valid
             fn short(
                 height: ChainEpoch,
-                year: i32,
-                month: u32,
-                day: u32,
-                hour: u32,
-                min: u32,
-                sec: u32,
+                year: i16,
+                month: i8,
+                day: i8,
+                hour: i8,
+                min: i8,
+                sec: i8,
             ) -> Self {
                 Self::Short {
-                    date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
-                    time: NaiveTime::from_hms_opt(hour, min, sec).unwrap(),
+                    date: Date::new(year, month, day).unwrap(),
+                    time: Time::new(hour, min, sec).unwrap(),
                     height,
                 }
             }
@@ -414,16 +438,16 @@ mod parse {
             fn full(
                 vendor: &'a str,
                 chain: &'a str,
-                year: i32,
-                month: u32,
-                day: u32,
+                year: i16,
+                month: i8,
+                day: i8,
                 height: ChainEpoch,
                 forest_format: bool,
             ) -> Self {
                 Self::Full {
                     vendor,
                     chain,
-                    date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
+                    date: Date::new(year, month, day).unwrap(),
                     height,
                     forest_format,
                 }
@@ -434,8 +458,41 @@ mod parse {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_content_disposition;
+    use super::{parse_content_disposition, peek_url};
     use reqwest::header::HeaderValue;
+    use url::Url;
+
+    #[rstest::rstest]
+    #[case::follows_redirect("/latest", "/snapshot.forest.car.zst")]
+    #[case::head_rejected("/post-only", "/post-only")]
+    #[case::not_found("/missing", "/missing")]
+    #[case::redirect_to_rejected("/stale", "/stale")]
+    #[tokio::test]
+    async fn peek_url_falls_back_to_given_url(#[case] path: &str, #[case] expected: &str) {
+        use axum::{
+            Router,
+            response::Redirect,
+            routing::{get, post},
+        };
+
+        let app = Router::new()
+            .route(
+                "/latest",
+                get(|| async { Redirect::temporary("/snapshot.forest.car.zst") }),
+            )
+            .route("/snapshot.forest.car.zst", get(|| async { "snapshot" }))
+            .route("/post-only", post(|| async { "post" }))
+            .route(
+                "/stale",
+                get(|| async { Redirect::temporary("/post-only") }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await });
+
+        let url = Url::parse(&format!("http://{addr}{path}")).unwrap();
+        assert_eq!(peek_url(url).await.path(), expected);
+    }
 
     #[test]
     fn content_disposition_forest() {

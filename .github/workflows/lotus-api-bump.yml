@@ -13,7 +13,7 @@ jobs:
   update-lotus:
     runs-on: ubuntu-slim
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Update dependencies
         run: |
           TAG=$(curl --silent https://api.github.com/repos/filecoin-project/lotus/releases | jq -r 'first | .tag_name')
@@ -33,13 +33,13 @@ jobs:
             echo "Lotus version is already up to date"
           fi
       # This is needed in order to have the commits signed.
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: generate-token
         with:
           client-id: ${{ secrets.LESHY_APP_ID }}
           private-key: ${{ secrets.LESHY_APP_PRIVATE_KEY }}
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
           base: main
           branch: leshy/update-lotus-version
