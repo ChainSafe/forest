@@ -15,7 +15,7 @@ use crate::{
     genesis::read_genesis_header,
     libp2p::{NetworkMessage, PeerManager},
     lotus_json::HasLotusJson,
-    message_pool::{MessagePool, MpoolLocker, NonceTracker},
+    message_pool::{MessagePool, MpoolPushGuards},
     networks::{ChainConfig, NetworkChain},
     prelude::*,
     rpc::{
@@ -27,6 +27,7 @@ use crate::{
         clock::ChainEpoch,
     },
     state_manager::StateManager,
+    utils::time::Timestamp,
 };
 use ahash::HashMap;
 use arc_swap::ArcSwap;
@@ -252,7 +253,6 @@ async fn ctx(
     let sync_network_context =
         SyncNetworkContext::new(network_send, peer_manager, state_manager.db_owned());
     let (shutdown, shutdown_recv) = mpsc::channel(1);
-    let nonce_tracker = NonceTracker::new();
     let eth_event_handler = Arc::new(EthEventHandler::from_config(
         &crate::cli_shared::cli::EventsConfig::default(),
         state_manager.chain_config().eth_chain_id,
@@ -267,13 +267,12 @@ async fn ctx(
         eth_event_handler,
         eth_logs_feed: Default::default(),
         sync_network_context,
-        start_time: chrono::Utc::now(),
+        start_time: Timestamp::now(),
         shutdown,
         tipset_send,
         block_validation_subscriber: Default::default(),
         snapshot_progress_tracker: Default::default(),
-        mpool_locker: MpoolLocker::new(),
-        nonce_tracker,
+        mpool_push_guards: MpoolPushGuards::default(),
         temp_dir: Arc::new(std::env::temp_dir()),
     });
     Ok((rpc_state, network_rx, shutdown_recv))

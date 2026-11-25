@@ -106,7 +106,7 @@ pub(super) struct At<'a> {
 }
 
 impl At<'_> {
-    pub(super) fn epoch(&self) -> ChainEpoch {
+    pub fn epoch(&self) -> ChainEpoch {
         self.head.epoch()
     }
 

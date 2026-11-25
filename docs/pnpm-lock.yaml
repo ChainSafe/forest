@@ -35,8 +35,8 @@ importers:
         specifier: ^11.16.0
         version: 11.16.1
       prettier:
-        specifier: ^3.10.0
-        version: 3.10.0
+        specifier: ^3.10.1
+        version: 3.10.1
       prism-react-renderer:
         specifier: ^2.4.1
         version: 2.4.1(react@19.3.1)
@@ -5359,8 +5359,8 @@ packages:
     resolution: {integrity: sha512-DTPx3RWSSnWyzLxQnlH0rJP+EW5ekl16ZU4/psbIhA0e53kJfdgaN5vKM+xP7yJtXVu+nfdVFmlgFDEKAe4Pyw==}
     engines: {node: ^10 || ^12 || >=14}
 
-  prettier@3.10.0:
-    resolution: {integrity: sha512-mBi4765LgjO1PFjlEs7pUeK0nb1bw71c+N4/ItfeUWNdY5cV2pRKaFpbbFRYmDJMO+5ZwzGxHRqHxFZna7iv5w==}
+  prettier@3.10.1:
+    resolution: {integrity: sha512-70vp3ZUYoPlFbF9uiTdXHUUCGEIp7d4+6p+8DYbkm2jP7x/3i/paXVF6dopSI3zd/CEitrZN1rc4i85xWmmXlg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -13619,7 +13619,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  prettier@3.10.0: {}
+  prettier@3.10.1: {}
 
   pretty-error@4.0.0:
     dependencies:
@@ -14985,7 +14985,7 @@ time:
   '@types/react@19.3.0': '2026-09-09T18:08:49.750Z'
   mdx-mermaid@2.0.4: '2026-06-13T09:30:38.762Z'
   mermaid@11.16.1: '2026-08-04T15:09:06.734Z'
-  prettier@3.10.0: '2026-11-11T12:30:48.716Z'
+  prettier@3.10.1: '2026-11-12T07:06:22.298Z'
   prism-react-renderer@2.4.1: '2024-12-11T17:04:56.357Z'
   react-dom@19.3.1: '2026-10-14T16:49:10.081Z'
   react@19.3.1: '2026-10-14T16:47:15.290Z'

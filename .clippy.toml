@@ -67,3 +67,43 @@ reason = """Avoid unbounded lru cache for potential memory leak, use SizeTrackin
 [[disallowed-methods]]
 path = "prometheus_client::registry::Registry::register_collector"
 reason = """use crate::metrics::register_collector instead."""
+
+[[disallowed-types]]
+path = "jiff::Timestamp"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::Zoned"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::Span"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::SignedDuration"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::civil::Date"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::civil::Time"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::civil::DateTime"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::tz::TimeZone"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::Unit"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."
+
+[[disallowed-types]]
+path = "jiff::SpanRound"
+reason = "use crate::utils::time, the only module allowed to depend on the date-time library."

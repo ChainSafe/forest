@@ -3,7 +3,8 @@
 
 use crate::key_management::KeyInfo;
 use crate::shim::crypto::SignatureType;
-use chrono::{Duration, Utc};
+use crate::utils::time::{SignedDuration, Timestamp};
+use anyhow::Context as _;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, decode, encode, errors::Result as JWTResult};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -29,14 +30,28 @@ struct Claims {
     exp: Option<usize>,
 }
 
+/// Lotus admin tokens do not expire, but Forest requires an expiration date, so it uses 100 years.
+pub const NON_EXPIRING_TOKEN_LIFETIME: SignedDuration = SignedDuration::from_hours(100 * 365 * 24);
+
 /// Create a new JWT Token
-pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTResult<String> {
-    let exp_time = Utc::now() + token_exp;
+pub fn create_token(
+    perms: Vec<String>,
+    key: &[u8],
+    lifetime: SignedDuration,
+) -> anyhow::Result<String> {
+    let exp = Timestamp::now()
+        .checked_add(lifetime)
+        .and_then(|exp_time| usize::try_from(exp_time.unix_secs()).ok())
+        .with_context(|| format!("token expiration out of range: {}s", lifetime.as_secs()))?;
     let payload = Claims {
         allow: perms,
-        exp: Some(exp_time.timestamp() as usize),
+        exp: Some(exp),
     };
-    encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
+    Ok(encode(
+        &Header::default(),
+        &payload,
+        &EncodingKey::from_secret(key),
+    )?)
 }
 
 /// Verify JWT Token and return the allowed permissions from token
@@ -64,6 +79,7 @@ pub fn generate_priv_key() -> KeyInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::time;
     use serial_test::serial;
 
     /// Create a new JWT Token without expiration
@@ -73,6 +89,17 @@ mod tests {
             exp: None,
         };
         encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
+    }
+
+    #[rstest::rstest]
+    #[case(NON_EXPIRING_TOKEN_LIFETIME, true)]
+    #[case(-SignedDuration::from_secs(time::now_unix_secs() as i64 + 3600), false)]
+    fn create_token_expiration_range(#[case] lifetime: SignedDuration, #[case] ok: bool) {
+        let key = generate_priv_key();
+        assert_eq!(
+            create_token(vec![], key.private_key(), lifetime).is_ok(),
+            ok
+        );
     }
 
     #[test]
@@ -88,7 +115,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            Duration::hours(1),
+            SignedDuration::from_hours(1),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
@@ -98,7 +125,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::hours(1),
+            -SignedDuration::from_hours(1),
         )
         .unwrap();
         assert!(verify_token(&token, key.private_key()).is_err());
@@ -108,7 +135,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::seconds(10),
+            -SignedDuration::from_secs(10),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();
@@ -138,7 +165,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
-            -Duration::hours(1),
+            -SignedDuration::from_hours(1),
         )
         .unwrap();
         let perms = verify_token(&token, key.private_key()).unwrap();

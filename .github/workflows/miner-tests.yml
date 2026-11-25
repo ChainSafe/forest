@@ -84,11 +84,18 @@ jobs:
       fail-fast: false
       matrix:
         # The `forest-dev devnet miner --group` values. Add groups as more Lotus itests are ported.
-        group: [onboarding, wdpost, batching]
+        group: [onboarding, wdpost, worker-key, batching]
+        include:
+          # The worker-key window takes about 1 h and opens 1 h after the proposal: pull requests
+          # stop at its start, scheduled and manual runs check all of it, about 2 h.
+          - group: worker-key
+            args: ${{ github.event_name != 'pull_request' && '--ignored' || '' }}
+            timeout: 240
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
       MINER_TEST_GROUP: ${{ matrix.group }}
+      MINER_TEST_ARGS: ${{ matrix.args }}
     steps:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: cache
@@ -126,8 +133,8 @@ jobs:
           export DEVNET_DIR=scripts/devnet-forest-miner
           source ./scripts/devnet/test_harness.sh
           devnet_test_env_init
-          forest-dev devnet miner --group "$MINER_TEST_GROUP"
-        timeout-minutes: 120
+          forest-dev devnet miner --group "$MINER_TEST_GROUP" ${MINER_TEST_ARGS:+"$MINER_TEST_ARGS"}
+        timeout-minutes: ${{ matrix.timeout || 120 }}
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2

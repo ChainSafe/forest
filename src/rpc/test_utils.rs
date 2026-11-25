@@ -9,7 +9,7 @@ use crate::chain_sync::network_context::SyncNetworkContext;
 use crate::db::MemoryDB;
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::libp2p::{NetworkMessage, PeerManager};
-use crate::message_pool::{MessagePool, MpoolLocker, NonceTracker};
+use crate::message_pool::{MessagePool, MpoolPushGuards};
 use crate::networks::ChainConfig;
 use crate::rpc::RPCState;
 use crate::rpc::eth::filter::EthEventHandler;
@@ -17,6 +17,7 @@ use crate::state_manager::StateManager;
 use crate::test_utils::dummy_ticket;
 use crate::utils::ShallowClone as _;
 use crate::utils::db::CborStoreExt as _;
+use crate::utils::time::Timestamp;
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -72,13 +73,12 @@ impl RPCState {
             sync_status: Default::default(),
             eth_event_handler: Arc::new(EthEventHandler::new()),
             eth_logs_feed: Default::default(),
-            start_time: chrono::Utc::now(),
+            start_time: Timestamp::now(),
             shutdown: mpsc::channel(1).0,
             tipset_send,
             block_validation_subscriber: Default::default(),
             snapshot_progress_tracker: Default::default(),
-            mpool_locker: MpoolLocker::new(),
-            nonce_tracker: NonceTracker::new(),
+            mpool_push_guards: MpoolPushGuards::default(),
             temp_dir: Arc::new(std::env::temp_dir()),
         });
         Ok((state, network_rx))

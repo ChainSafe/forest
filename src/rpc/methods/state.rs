@@ -1385,8 +1385,6 @@ impl RpcMethod<4> for StateSearchMsg {
         else {
             return Ok(None);
         };
-        // Lotus leaves ReturnDec unset on search; only StateWaitMsg decodes it.
-        // <https://github.com/filecoin-project/lotus/blob/v1.39.1/node/impl/full/state.go#L664-L670>
         Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
@@ -1432,8 +1430,6 @@ impl RpcMethod<2> for StateSearchMsgLimited {
         else {
             return Ok(None);
         };
-        // Lotus leaves ReturnDec unset on search; only StateWaitMsg decodes it.
-        // <https://github.com/filecoin-project/lotus/blob/v1.39.1/node/impl/full/state.go#L664-L670>
         Ok(Some(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
