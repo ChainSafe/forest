@@ -14,7 +14,7 @@ use crate::prelude::*;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::import_car_blocks;
 use crate::utils::io::progress_log::Progress;
-use crate::utils::net::{DownloadFileOption, download_to};
+use crate::utils::net::{DownloadFileOption, DownloadOpts, download_to};
 use anyhow::Context;
 use regex::Regex;
 use serde::Deserialize;
@@ -99,7 +99,13 @@ async fn download_extended_snapshot(
 
     let path = new_forest_car_temp_path_in(temp_dir)?;
     info!("Downloading extended snapshot: {url}");
-    download_to(&url, &path, DownloadFileOption::Resumable, None)
+    let opts = DownloadOpts {
+        destination: path.to_path_buf(),
+        option: DownloadFileOption::Resumable,
+        timeout: Some(Duration::from_mins(10)),
+        callback: None,
+    };
+    download_to(&url, opts)
         .await
         .with_context(|| format!("failed to download {}", file.filename))?;
 

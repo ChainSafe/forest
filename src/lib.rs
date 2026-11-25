@@ -118,7 +118,7 @@ pub mod doctest_private {
             version::NetworkVersion,
         },
         utils::io::progress_log::WithProgress,
-        utils::net::{DownloadFileOption, download_to},
+        utils::net::{DownloadFileOption, DownloadOpts, download_to},
         utils::{encoding::blake2b_256, encoding::keccak_256, io::read_toml},
     };
 }

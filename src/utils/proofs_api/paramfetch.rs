@@ -14,7 +14,7 @@ use std::{
 
 use crate::{
     shim::sector::SectorSize,
-    utils::net::{DownloadFileOption, download_to},
+    utils::net::{DownloadFileOption, DownloadOpts, download_to},
 };
 use anyhow::Context as _;
 use futures::{TryStreamExt, stream::FuturesUnordered};
@@ -154,7 +154,13 @@ async fn fetch_verify_params(
             path = path.display()
         );
         let fetched = async {
-            download_to(&url, &path, DownloadFileOption::NonResumable, None)
+            let opts = DownloadOpts {
+                destination: path.clone(),
+                option: DownloadFileOption::NonResumable,
+                timeout: None,
+                callback: None,
+            };
+            download_to(&url, opts)
                 .await
                 .with_context(|| format!("failed to download {url}"))?;
             check_parameter_file(&path, info).await
