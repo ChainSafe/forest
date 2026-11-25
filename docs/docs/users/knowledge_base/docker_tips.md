@@ -113,6 +113,62 @@ Sample output:
 12D3KooWFWUqE9jgXvcKHWieYs9nhyp6NF4ftwLGAHm4sCv73jjK, [/dns4/bootstrap-3.calibration.fildev.network/tcp/1347]
 ```
 
+### Make the node reachable by other peers
+
+By default, Forest listens on random ports, and the default Docker bridge network
+publishes none of them. Such a node can still connect to other peers, but no
+peer can connect to it, and it advertises only its container address (e.g.
+`172.17.0.2`), which can't be dialed from outside. Such a node doesn't show up
+in network measurements either.
+
+To make the node reachable, listen on fixed ports for both TCP and QUIC, and
+open both TCP and UDP on that port in the host's firewall. If the host is behind
+a NAT router, also forward TCP and UDP on that port from the router to the
+host's LAN address. Alternatively, with host networking and UPnP enabled on the
+router, Forest requests the mapping itself, but this doesn't work with every
+router.
+
+The examples below reuse the container name `forest`, so remove any container
+started earlier (`docker rm -f forest`). Its data is removed with it, unless it
+is stored in a volume, see [shared volume](#use-a-shared-volume-to-utilize-across-different-forest-images).
+
+On Linux, host networking is the most reliable option, as the node then sees
+the host's addresses directly:
+
+```shell
+docker run --init -it --rm --network host --name forest ghcr.io/chainsafe/forest:latest \
+  --chain calibnet --auto-download-snapshot \
+  --p2p-listen-address /ip4/0.0.0.0/tcp/34000 \
+  --p2p-listen-address /ip4/0.0.0.0/udp/34000/quic-v1
+```
+
+Rootless `podman` supports this too. With rootless Docker older than Engine
+v29.5, `--network host` still uses a separate network namespace, so use the
+bridge network setup below instead.
+
+If the public IP is assigned to one of the host's interfaces,
+`docker exec forest forest-cli net listen` includes it. Behind a NAT router, it
+shows only local addresses, so use `forest-cli net reachability` or the check
+from a different machine described below.
+
+With the bridge network, publish the same port number on the host as inside
+the container, for both protocols:
+
+```shell
+docker run --init -it --rm -p 34000:34000/tcp -p 34000:34000/udp --name forest ghcr.io/chainsafe/forest:latest \
+  --chain calibnet --auto-download-snapshot \
+  --p2p-listen-address /ip4/0.0.0.0/tcp/34000 \
+  --p2p-listen-address /ip4/0.0.0.0/udp/34000/quic-v1
+```
+
+In that case, the node only advertises its public address after other peers
+confirm that it is reachable. `docker exec forest forest-cli net reachability`
+then reports `Public` together with that address.
+
+Either way, the reliable check is to connect to the node from a different
+machine, see
+[network reachability](../guides/running_bootstrap_node.md#network-reachability).
+
 ### Use a shared volume to utilize across different Forest images
 
 Create the volume
