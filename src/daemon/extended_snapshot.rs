@@ -232,9 +232,10 @@ pub(super) async fn maybe_import_extended_snapshots(
         let result = async {
             let path = download_extended_snapshot(snapshot_url, file, temp_dir).await?;
             let db = state_manager.db_owned();
+            let head = head.shallow_clone();
             tokio::task::spawn_blocking(move || {
                 let mut progress = Progress::new("Importing tipset lookup entries");
-                import_tipset_lookup_snapshot(&db, &path, || progress.inc(1))
+                import_tipset_lookup_snapshot(&db, &path, &head, || progress.inc(1))
             })
             .await?
         }

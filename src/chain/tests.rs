@@ -605,11 +605,9 @@ async fn ensure_recent_roots_present_checks_oldest_walked_tipset(
     );
 }
 
-// Imports a lookup table with the given `hamt_epoch -> tipset at tipset_epoch` entries into a
-// chain of tipsets at epochs 20, 21 and 40; `None` points at a tipset missing from the chain.
-// On an error nothing may have been written, so one invalid entry rejects the valid ones too.
 #[rstest]
 #[case::checkpoint(&[(40, Some(40))], None)]
+#[case::two_checkpoints(&[(20, Some(20)), (40, Some(40))], None)]
 #[case::non_checkpoint_epoch(
     &[(20, Some(20)), (21, Some(21)), (40, Some(40))],
     Some("is not a tipset lookup checkpoint")
@@ -631,6 +629,11 @@ async fn import_tipset_lookup(
         let ts = tipset_child(&parent, epoch);
         persist_tipset(&ts, &db);
         chain.push(ts.shallow_clone());
+        parent = ts;
+    }
+    for epoch in 41..=940 {
+        let ts = tipset_child(&parent, epoch);
+        persist_tipset(&ts, &db);
         parent = ts;
     }
 
@@ -661,7 +664,7 @@ async fn import_tipset_lookup(
     let car_path = temp_dir.path().join("tipset_lookup.forest.car.zst");
     std::fs::write(&car_path, car).unwrap();
 
-    let result = import_tipset_lookup_snapshot(&db, &car_path, || {});
+    let result = import_tipset_lookup_snapshot(&db, &car_path, &parent, || {});
     match expected_err {
         None => result.unwrap(),
         Some(expected) => {
