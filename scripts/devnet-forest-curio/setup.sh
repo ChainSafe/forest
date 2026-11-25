@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bring up Forest+Curio; build Curio image if missing.
+# Bring up Forest+Curio. Compose builds the Curio image from curio.dockerfile.
 
 set -euxo pipefail
 
@@ -14,8 +14,6 @@ set +a
 # shellcheck source=/dev/null
 source "${PARENT_PATH}/../devnet/chain_height.sh"
 
-./build_image.sh
-
 docker compose down --remove-orphans
 docker compose rm -f
 docker volume rm -f \
@@ -24,7 +22,7 @@ docker volume rm -f \
   devnet-forest-curio_curio-data \
   devnet-forest-curio_yugabyte-data
 
-# Curio image is prebuilt (`pull_policy: never`); --build only refreshes Forest.
+# Rebuilds Forest, and Curio when curio.dockerfile or CURIO_COMMIT changed.
 docker compose up --build --force-recreate --detach
 
 wait_forest_rpc

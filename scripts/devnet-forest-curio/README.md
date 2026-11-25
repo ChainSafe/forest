@@ -10,7 +10,7 @@ Same chain topology as [`../devnet-forest-miner`](../devnet-forest-miner), with 
 
 `NETWORK_NAME=localnet` — Curio rejects names that do not start with `local` or `test`. Upgrade heights are shared via [`../devnet/upgrade_heights.env`](../devnet/upgrade_heights.env) (a plain `2k` Curio binary assumes the wrong genesis schedule).
 
-`setup.sh` builds `forest/curio-devnet:<CURIO_COMMIT>` once from that release tag (about 15 minutes) and reuses it afterward.
+`setup.sh` builds `forest/curio-devnet:<CURIO_COMMIT>` from `curio.dockerfile` (about 15 minutes the first time). Later runs reuse the Docker build cache until `CURIO_COMMIT` or that Dockerfile changes.
 
 ```shell
 mise run test:devnet:miner:curio

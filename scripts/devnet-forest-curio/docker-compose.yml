@@ -97,6 +97,11 @@ services:
     image: forest/curio-devnet:${CURIO_COMMIT}
     platform: linux/amd64
     pull_policy: never
+    build:
+      context: .
+      dockerfile: curio.dockerfile
+      args:
+        CURIO_COMMIT: ${CURIO_COMMIT}
     init: true
     # Cap restarts so a broken attach does not loop forever while check.sh waits.
     restart: on-failure:5
