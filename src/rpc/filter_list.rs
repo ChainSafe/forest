@@ -22,7 +22,13 @@ impl FilterList {
     pub fn authorize(&self, entry: impl AsRef<str>) -> bool {
         let entry = entry.as_ref();
         (self.allow.is_empty() || self.allow.iter().any(|a| entry.contains(a)))
-            && !self.reject.iter().any(|r| entry.contains(r))
+            && !self.is_rejected(entry)
+    }
+
+    /// Returns whether the method name matches the reject list.
+    pub fn is_rejected(&self, entry: impl AsRef<str>) -> bool {
+        let entry = entry.as_ref();
+        self.reject.iter().any(|r| entry.contains(r))
     }
 
     pub fn allow(mut self, entry: String) -> Self {
