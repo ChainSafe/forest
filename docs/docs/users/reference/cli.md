@@ -2692,7 +2692,7 @@ USAGE:
 SUBCOMMANDS:
   fetch-test-snapshots  Fetch test snapshots to the local cache
   state                 Interact with Filecoin chain state
-  update-checkpoints    Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC endpoints
+  update-checkpoints    Update known blocks (checkpoints), normally in `build/known_blocks.json`, by querying RPC endpoints
   archive-missing       Find missing archival snapshots on the Forest Archive for a given epoch range
   export-tipset-lookup  Exports epoch to tipset key mapping AMT as a `ForestCAR` file for a given epoch range. The exported AMT can be used to quickly look up the tipset key for a given epoch without traversing the chain, which is useful for tools that need to access historical tipsets frequently
   export-state-tree     Exports N consecutive parent state trees(together with messages, message receipts and events) of the tipset at the given epoch
@@ -2800,15 +2800,15 @@ Options:
 ### `forest-dev update-checkpoints`
 
 ```
-Update known blocks (checkpoints), normally in `build/known_blocks.yaml`, by querying RPC endpoints
+Update known blocks (checkpoints), normally in `build/known_blocks.json`, by querying RPC endpoints
 
 Usage: forest-dev update-checkpoints [OPTIONS]
 
 Options:
       --known-blocks-file <KNOWN_BLOCKS_FILE>
-          Path to `known_blocks.yaml` file
+          Path to `known_blocks.json` file
 
-          [default: build/known_blocks.yaml]
+          [default: build/known_blocks.json]
 
       --mainnet-rpc <MAINNET_RPC>
           Mainnet RPC endpoint (Filfox recommended for full historical data)

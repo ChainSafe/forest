@@ -1,8 +1,6 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
-use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -114,31 +112,51 @@ fn rpc_regression_tests_gen() {
     }
 }
 
+/// Snapshot epochs checked by `state_compute_test_run`, normally the epoch right after a network upgrade.
+const STATE_COMPUTE_TESTS: &[(&str, i64)] = &[
+    // FVM@4
+    ("mainnet", 5709604),
+    // FVM@4
+    ("calibnet", 3408952),
+    // Shark state migration with FVM@2
+    ("calibnet", 16801),
+    // Hygge state migration with FVM@2
+    ("calibnet", 322355),
+    // Lightning state migration with FVM@3
+    ("calibnet", 489095),
+    // Watermelon state migration with FVM@3
+    ("calibnet", 1013135),
+    // Dragon state migration with FVM@4
+    ("calibnet", 1427975),
+    // Waffle state migration with FVM@4
+    ("calibnet", 1779095),
+    // TukTuk state migration with FVM@4
+    ("calibnet", 2078795),
+    // Teep state migration with FVM@4
+    ("calibnet", 2523455),
+    // GoldenWeek state migration with FVM@4
+    ("calibnet", 3007295),
+    // FireHorse state migration with FVM@4
+    ("calibnet", 3694535),
+    // Solstice state migration with FVM@4
+    ("calibnet", 4109134),
+];
+
 fn state_compute_tests_gen() {
-    println!("cargo:rerun-if-changed=src/state_manager/state_compute_tests.yaml");
-    let StateComputeTests { tests } =
-        serde_saphyr::from_str(include_str!("src/state_manager/state_compute_tests.yaml")).unwrap();
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let out_path = out_dir.join("__state_compute_tests_gen.rs");
     let mut w = BufWriter::new(File::create(&out_path).unwrap());
-    for (chain, epochs) in tests {
-        for epoch in epochs {
-            writeln!(
-                w,
-                r#"
-                    #[tokio::test(flavor = "multi_thread")]
-                    #[fickle::fickle]
-                    async fn cargo_test_state_compute_{chain}_{epoch}() {{
-                        state_compute_test_run("{chain}".parse().unwrap(), {epoch}).await
-                    }}
-                "#,
-            )
-            .unwrap();
-        }
+    for (chain, epoch) in STATE_COMPUTE_TESTS {
+        writeln!(
+            w,
+            r#"
+                #[tokio::test(flavor = "multi_thread")]
+                #[fickle::fickle]
+                async fn cargo_test_state_compute_{chain}_{epoch}() {{
+                    state_compute_test_run("{chain}".parse().unwrap(), {epoch}).await
+                }}
+            "#,
+        )
+        .unwrap();
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct StateComputeTests {
-    tests: HashMap<String, Vec<i64>>,
 }

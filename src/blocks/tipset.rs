@@ -19,9 +19,9 @@ use crate::{
         multihash::MultihashCode,
     },
 };
-use ahash::HashMap;
 use fvm_ipld_encoding::CborStore;
 use get_size2::GetSize;
+use indexmap::IndexMap;
 use multihash_derive::MultihashDigest as _;
 use num::BigInt;
 use nunny::{Vec as NonEmpty, vec as nonempty};
@@ -444,27 +444,18 @@ impl Tipset {
         // slow. Let's use a list of known blocks to short-circuit the search.
         // The blocks are hash-chained together and known blocks are guaranteed
         // to have a known genesis.
-        #[derive(Serialize, Deserialize)]
-        struct KnownHeaders {
-            calibnet: HashMap<ChainEpoch, String>,
-            mainnet: HashMap<ChainEpoch, String>,
-        }
-
-        static KNOWN_HEADERS: OnceLock<KnownHeaders> = OnceLock::new();
-        let headers = KNOWN_HEADERS.get_or_init(|| {
-            serde_saphyr::from_str(include_str!("../../build/known_blocks.yaml"))
-                .expect("bundled known_blocks.yaml is valid")
+        static KNOWN_BLOCKS: OnceLock<KnownBlocks> = OnceLock::new();
+        let known = KNOWN_BLOCKS.get_or_init(|| {
+            serde_json::from_str(KnownBlocks::BUNDLED).expect("bundled known_blocks.json is valid")
         });
 
         for tipset in self.shallow_clone().chain(store) {
             // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
-                (*calibnet::GENESIS_CID, &headers.calibnet),
-                (*mainnet::GENESIS_CID, &headers.mainnet),
+                (*calibnet::GENESIS_CID, &known.calibnet),
+                (*mainnet::GENESIS_CID, &known.mainnet),
             ] {
-                if let Some(known_block_cid) = known_blocks.get(&tipset.epoch())
-                    && known_block_cid == &tipset.min_ticket_block().cid().to_string()
-                {
+                if known_blocks.get(&tipset.epoch()) == Some(tipset.min_ticket_block().cid()) {
                     let genesis_block: CachingBlockHeader = store
                         .get_cbor(&genesis_cid)?
                         .context("Genesis block missing from database")?;
@@ -479,6 +470,20 @@ impl Tipset {
         }
         anyhow::bail!("Genesis block not found")
     }
+}
+
+/// Checkpoints from `build/known_blocks.json`, written by `forest-dev update-checkpoints`.
+#[serde_with::serde_as]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KnownBlocks {
+    #[serde_as(as = "IndexMap<_, serde_with::DisplayFromStr>")]
+    pub calibnet: IndexMap<ChainEpoch, Cid>,
+    #[serde_as(as = "IndexMap<_, serde_with::DisplayFromStr>")]
+    pub mainnet: IndexMap<ChainEpoch, Cid>,
+}
+
+impl KnownBlocks {
+    const BUNDLED: &str = include_str!("../../build/known_blocks.json");
 }
 
 impl TipsetLike for Tipset {
@@ -784,6 +789,17 @@ mod test {
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::iter;
+
+    #[test]
+    fn bundled_known_blocks_round_trip() {
+        let known: KnownBlocks = serde_json::from_str(KnownBlocks::BUNDLED).unwrap();
+        assert!(!known.calibnet.is_empty());
+        assert!(!known.mainnet.is_empty());
+        assert_eq!(
+            serde_json::to_string_pretty(&known).unwrap() + "\n",
+            KnownBlocks::BUNDLED
+        );
+    }
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
         let addr = Address::new_id(id);

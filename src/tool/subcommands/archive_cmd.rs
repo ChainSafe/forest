@@ -494,8 +494,7 @@ impl ArchiveInfo {
     }
 }
 
-// Print a mapping of epochs to block headers in yaml format. This mapping can
-// be used by Forest to quickly identify tipsets.
+// Print a mapping of epochs to checkpoint block CIDs in the `build/known_blocks.json` format.
 fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
@@ -504,10 +503,11 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let chain_name = NetworkChain::from_genesis(genesis.min_ticket_block().cid())
         .context("Unrecognizable genesis block")?;
 
-    println!("{chain_name}:");
-    for (epoch, cid) in list_checkpoints(&store, root) {
-        println!("  {epoch}: {cid}");
-    }
+    let checkpoints: indexmap::IndexMap<_, _> = list_checkpoints(&store, root)
+        .map(|(epoch, cid)| (epoch, cid.to_string()))
+        .collect();
+    let by_chain = std::collections::BTreeMap::from([(chain_name.to_string(), checkpoints)]);
+    println!("{}", serde_json::to_string_pretty(&by_chain)?);
     Ok(())
 }
 
