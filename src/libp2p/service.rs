@@ -40,7 +40,7 @@ use super::{
     connection_manager::{ConnectionManager, PeerValue},
     discovery::{DerivedDiscoveryBehaviourEvent, PeerInfo},
 };
-use crate::beacon::gossipsub::{DrandGossip, Round};
+use crate::beacon::gossipsub::{DrandGossipRound, PUBSUB_DRAND_STR};
 use crate::libp2p::{
     PeerManager, PeerOperation,
     chain_exchange::ChainExchangeBehaviour,
@@ -166,6 +166,7 @@ pub enum NetworkMessage {
     JSONRPCRequest {
         method: NetRPCMethods,
     },
+    GossipVerdict(Verdict),
 }
 
 /// Network RPC API methods used to gather data from libp2p node.
@@ -188,7 +189,6 @@ pub enum NetRPCMethods {
 pub struct Libp2pService {
     swarm: Swarm<ForestBehaviour>,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
-    drand: Option<DrandGossip>,
     connection_manager: ConnectionManager,
     cs: ChainStore,
     peer_manager: Arc<PeerManager>,
@@ -196,6 +196,8 @@ pub struct Libp2pService {
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: flume::Receiver<NetworkEvent>,
     network_sender_out: Sender<NetworkEvent>,
+    drand_gossip_receiver_out: flume::Receiver<DrandGossipRound>,
+    drand_gossip_sender_out: Sender<DrandGossipRound>,
     network_name: String,
     genesis_cid: Cid,
 }
@@ -208,7 +210,6 @@ impl Libp2pService {
         net_keypair: Keypair,
         network_name: GenesisNetworkName,
         genesis_cid: Cid,
-        drand: Option<DrandGossip>,
     ) -> anyhow::Result<Self> {
         let behaviour =
             ForestBehaviour::new(&net_keypair, &config, &network_name, peer_manager.clone())
@@ -242,6 +243,7 @@ impl Libp2pService {
 
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
+        let (drand_gossip_sender_out, drand_gossip_receiver_out) = flume::bounded(16);
 
         // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
         // peer's multiaddress. Useful if others want to use this node to bootstrap
@@ -282,7 +284,6 @@ impl Libp2pService {
         Ok(Libp2pService {
             swarm,
             bootstrap_peers,
-            drand,
             connection_manager: ConnectionManager::new(config.target_peer_count),
             cs,
             peer_manager,
@@ -290,6 +291,8 @@ impl Libp2pService {
             network_sender_in,
             network_receiver_out,
             network_sender_out,
+            drand_gossip_receiver_out,
+            drand_gossip_sender_out,
             network_name: network_name.into(),
             genesis_cid,
         })
@@ -304,12 +307,6 @@ impl Libp2pService {
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
             warn!("Failed to bootstrap with Kademlia: {e:#}");
         }
-
-        let mut drand_verdicts = match &self.drand {
-            Some(drand) => drand.verdicts.clone().into_stream().left_stream(),
-            None => futures::stream::pending().right_stream(),
-        }
-        .fuse();
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
@@ -361,7 +358,7 @@ impl Libp2pService {
                             cx_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,
-                            self.drand.as_ref()).await;
+                            &self.drand_gossip_sender_out).await;
                     },
                     Some(SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. }) => {
                         self.connection_manager.on_connection_established(peer_id, endpoint.is_dialer(), Instant::now());
@@ -418,14 +415,6 @@ impl Libp2pService {
                 _ = bootstrap_peer_dialer_interval_stream.next() => {
                     dial_to_bootstrap_peers_if_needed(swarm_stream.get_mut(), &self.bootstrap_peers);
                 }
-                verdict = drand_verdicts.next() => {
-                    if let Some(Verdict { message_id, source, acceptance }) = verdict {
-                        swarm_stream
-                            .get_mut()
-                            .behaviour_mut()
-                            .report_message_validation_result(&message_id, &source, acceptance);
-                    }
-                }
             };
         }
         Ok(())
@@ -439,6 +428,11 @@ impl Libp2pService {
     /// Returns a receiver to listen to network events emitted from the service.
     pub fn network_receiver(&self) -> flume::Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
+    }
+
+    /// Returns a receiver to listen to the `drand` rounds gossiped to the service.
+    pub fn drand_gossip_receiver(&self) -> flume::Receiver<DrandGossipRound> {
+        self.drand_gossip_receiver_out.clone()
     }
 
     pub fn peer_manager(&self) -> &Arc<PeerManager> {
@@ -573,6 +567,17 @@ async fn handle_network_message(
                 BITSWAP_TIMEOUT,
                 Some(response_channel),
                 None,
+            );
+        }
+        NetworkMessage::GossipVerdict(Verdict {
+            message_id,
+            source,
+            acceptance,
+        }) => {
+            swarm.behaviour_mut().report_message_validation_result(
+                &message_id,
+                &source,
+                acceptance,
             );
         }
         NetworkMessage::JSONRPCRequest { method } => {
@@ -716,14 +721,14 @@ pub(crate) struct Verdict {
     pub(crate) acceptance: MessageAcceptance,
 }
 
-/// Decodes a `gossipsub` message and emits it. Returns its verdict, or `None` when the `drand`
-/// listener reports it later.
+/// Decodes a `gossipsub` message and emits it. Returns its verdict, or `None` for a `drand` round,
+/// whose verdict comes later as a [`NetworkMessage::GossipVerdict`].
 pub(in crate::libp2p) async fn handle_gossip_event(
     e: gossipsub::Event,
     network_sender_out: &Sender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
-    drand: Option<&DrandGossip>,
+    drand_gossip_sender_out: &Sender<DrandGossipRound>,
 ) -> Option<Verdict> {
     let gossipsub::Event::Message {
         propagation_source: source,
@@ -737,18 +742,16 @@ pub(in crate::libp2p) async fn handle_gossip_event(
     let topic = message.topic.as_str();
     let message = message.data;
 
-    if let Some(drand) = drand
-        && topic == drand.topic.as_str()
-    {
-        let round = Round {
+    if topic.starts_with(PUBSUB_DRAND_STR) {
+        let round = DrandGossipRound {
             message_id,
             source,
             data: message,
         };
-        return match drand.rounds.try_send(round) {
+        return match drand_gossip_sender_out.try_send(round) {
             Ok(()) => None,
             Err(dropped) => {
-                debug!(%source, "drand round dropped, the listener queue is full");
+                debug!(%source, "drand round dropped, the queue is full");
                 Some(Verdict {
                     message_id: dropped.into_inner().message_id,
                     source,
@@ -1014,7 +1017,7 @@ async fn handle_forest_behaviour_event(
     )>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
-    drand: Option<&DrandGossip>,
+    drand_gossip_sender_out: &Sender<DrandGossipRound>,
 ) {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
@@ -1036,7 +1039,7 @@ async fn handle_forest_behaviour_event(
                 network_sender_out,
                 pubsub_block_str,
                 pubsub_msg_str,
-                drand,
+                drand_gossip_sender_out,
             )
             .await
             {

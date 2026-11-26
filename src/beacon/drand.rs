@@ -295,28 +295,23 @@ impl DrandBeacon {
         }
     }
 
-    /// Whether `entry` is the verified entry cached for its round.
     fn is_verified(&self, entry: &BeaconEntry) -> bool {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
     }
 
-    /// Chain hash identifying the `drand` network.
     pub fn chain_hash(&self) -> &str {
         &self.hash
     }
 
-    /// Whether a verified entry is cached for `round`.
     pub(crate) fn has_round(&self, round: u64) -> bool {
         self.verified_beacons.get(&round).is_some()
     }
 
     /// Whether some block can carry `round`. Assumes the nv16+ round mapping.
     pub(crate) fn is_epoch_round(&self, round: u64) -> bool {
-        // Chained blocks carry every round elapsed since the parent.
         if !self.network.is_unchained() {
             return true;
         }
-        // Unchained: the round whose period holds an epoch's randomness timestamp.
         let Some(since_genesis) = self
             .beacon_round_timestamp(round)
             .and_then(|round_ts| round_ts.checked_sub(self.fil_gen_time))
@@ -410,8 +405,10 @@ impl Beacon for DrandBeacon {
                 tracing::warn!(%capacity, validated_len=%validated.len(), "verified_beacons.capacity() is too small");
             }
             for entry in validated {
-                self.verified_beacons
-                    .insert(entry.round(), Arc::new(entry.clone()));
+                if self.is_epoch_round(entry.round()) {
+                    self.verified_beacons
+                        .insert(entry.round(), Arc::new(entry.clone()));
+                }
             }
         }
 

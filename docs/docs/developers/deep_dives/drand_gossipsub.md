@@ -3,7 +3,7 @@ title: Drand over Gossipsub
 sidebar_position: 2
 ---
 
-Forest listens to the `drand` relays over `gossipsub` and caches the valid rounds it receives, so block validation stops fetching them over HTTP. HTTP remains the fallback for a cache miss.
+Forest listens to the `drand` relays over `gossipsub`, verifies every round it receives and caches the ones a block can carry, so block validation stops fetching them over HTTP. HTTP remains the fallback for a cache miss.
 
 Five views, from the outside in: who Forest talks to, what runs inside it, how the network service is put together, when a verdict is decided, and what happens to one gossiped round.
 
@@ -31,7 +31,7 @@ flowchart TB
 
 ## Zoom-in on Forest
 
-Two parts of Forest take part. The network service talks to the mesh and reports every verdict. The beacon's gossip listener verifies and caches the rounds the service hands it, and sends the verdicts back; the beacon also talks to the HTTP API. Block validation reads the same cache.
+Two parts of Forest take part. The network service talks to the mesh and reports every verdict. The beacon's `DrandGossip` service verifies and caches the rounds the service hands it, and sends the verdicts back; the beacon also talks to the HTTP API. Block validation reads the same cache.
 
 ```mermaid
 flowchart LR
@@ -41,7 +41,7 @@ flowchart LR
   subgraph forest["Forest<br><i>Holds a cache of Drand rounds and answers round lookups from it</i>"]
     direction TB
     libp2p["Libp2p Service<br><i>Subscribes to the drand topic. Receives rounds from the mesh, reports a verdict for each, forwards the accepted ones</i>"]
-    beacon["Beacon<br><i>Its gossip listener verifies rounds against the Drand public key and caches the verified ones. Fetches over HTTP on a cache miss</i>"]
+    beacon["Beacon<br><i>Its gossip service verifies rounds against the Drand public key and caches the verified ones. Fetches over HTTP on a cache miss</i>"]
     libp2p -- "Verify & cache this round" --> beacon
     beacon -- "Verdict" --> libp2p
   end
@@ -53,7 +53,7 @@ flowchart LR
 
 ## Components of the `libp2p` service
 
-The service touches the listener at two points: a bounded channel in, fed by the gossip handler, and a channel out, carrying the verdict. Everything `drand`-specific lives in `beacon::gossipsub`.
+The service touches `DrandGossip` at two points: a bounded channel in, fed by the gossip handler, and the service's own message channel out, carrying the verdict. Everything `drand`-specific lives in `beacon::gossipsub`.
 
 ```mermaid
 flowchart LR
@@ -63,21 +63,21 @@ flowchart LR
   subgraph libp2p["Libp2p Service [Component]<br><i>Subscribes to the drand topic. Receives rounds from the mesh, reports a verdict for each, forwards the accepted ones</i>"]
     direction TB
     gs["Gossipsub Behaviour<br><i>Keeps the mesh and delivers each message once. Holds a message until a verdict is reported, then forwards or drops it. Scores peers</i>"]
-    handler["Gossip event handler<br><i>Dispatches each message by topic. The Drand topic goes to the listener's queue</i>"]
+    handler["Gossip event handler<br><i>Dispatches each message by topic. The Drand topic goes to the Drand Gossip queue</i>"]
     gs -- "Gossipsub message goes to the event handler" --> handler
   end
 
-  listener["Drand Gossip Listener [Component, beacon::gossipsub]<br><i>Owns the topic. Runs the cheap checks, verifies against the beacon, records the verdict metric and sends the verdict back</i>"]
+  gossip["Drand Gossip [Component, beacon::gossipsub]<br><i>Runs the cheap checks, verifies against the beacon, records the verdict metric and sends the verdict back</i>"]
 
   mesh -- "Publishes rounds" --> gs
-  handler -- "Round, over a bounded channel" --> listener
-  listener -- "Verdict, reported by the service loop" --> gs
-  listener -- "Verifies & caches this entry" --> beacon
+  handler -- "Round, over a bounded channel" --> gossip
+  gossip -- "Verdict, reported by the service loop" --> gs
+  gossip -- "Verifies & caches this entry" --> beacon
 ```
 
 ## When the verdict is decided
 
-The `gossipsub` behaviour holds every message until a verdict is reported. A `drand` round is queued for the listener, which runs the cheap checks and one BLS verification on its own task and sends the verdict back; a later `select!` iteration reports it. When the queue is full the handler waits for the listener.
+The `gossipsub` behaviour holds every message until a verdict is reported. A `drand` round is queued for `DrandGossip`, which runs the cheap checks and one BLS verification on its own task and sends the verdict back; a later `select!` iteration reports it. When the queue is full the round is ignored.
 
 ```mermaid
 flowchart TB
@@ -94,14 +94,14 @@ flowchart TB
     event["Gossip message event<br>[handle_gossip_event]"]
     topic{"Which topic"}
     decode["Decode & emit to chain sync or mpool"]
-    offer["Queue it for the listener<br>[emit_event]"]
-    verdict["Verdict arrives<br>[drand_verdicts arm]"]
+    offer["Queue it for Drand Gossip<br>[try_send]"]
+    verdict["Verdict arrives<br>[GossipVerdict message]"]
     event --> topic
     topic -- "/fil/blocks or /fil/msgs" --> decode
     topic -- "/drand/pubsub/..." --> offer
   end
 
-  subgraph drand["Drand Gossip Listener [beacon::gossipsub task]"]
+  subgraph drand["Drand Gossip [beacon::gossipsub task]"]
     direction LR
     run["Next round<br>[run]"]
     checks["Cheap checks"]
@@ -115,7 +115,7 @@ flowchart TB
 
   hold --> event
   offer -- "bounded channel" --> run
-  decided -- "verdict channel" --> verdict
+  decided -- "network message channel" --> verdict
   verdict --> report
   decode -- "Some(Verdict)" --> report
 
@@ -124,10 +124,10 @@ flowchart TB
 
 ## Verdicts
 
-| Verdict | Forwarded | Sender penalised | Used for                                                                        |
-| ------- | --------- | ---------------- | ------------------------------------------------------------------------------- |
-| Accept  | yes       | no               | a round that verifies against the chain's public key and wasn't cached yet      |
-| Ignore  | no        | no               | anything an honest peer may send that we can't use: off-epoch, stale, duplicate |
-| Reject  | no        | yes              | what no honest peer sends: undecodable payloads, bad or forged signatures       |
+| Verdict | Forwarded | Sender penalised | Used for                                                                   |
+| ------- | --------- | ---------------- | -------------------------------------------------------------------------- |
+| Accept  | yes       | no               | a round that verifies against the chain's public key and wasn't cached yet |
+| Ignore  | no        | no               | anything an honest peer may send that we can't use: stale, duplicate       |
+| Reject  | no        | yes              | what no honest peer sends: undecodable payloads, bad or forged signatures  |
 
 Only unchained networks (`quicknet`) are gossiped. As in Lotus there is no time window: a round only has to be newer than the last one accepted, so a slow local clock never loses a round, and a forged one is rejected by its signature.

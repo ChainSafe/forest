@@ -54,7 +54,6 @@ impl FakeDrandSigner {
         BeaconEntry::new(round, signature.as_bytes().to_vec())
     }
 
-    /// `round`, signed, as a gossiped `PublicRandResponse`.
     pub fn encode(&self, round: u64) -> Vec<u8> {
         Self::encode_raw(round, self.entry(round).signature())
     }

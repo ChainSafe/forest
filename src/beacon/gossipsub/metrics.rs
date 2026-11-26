@@ -16,7 +16,6 @@ pub(super) enum Reason {
     Verified,
     InvalidSignature,
     Malformed,
-    OffEpoch,
     Stale,
     Duplicate,
 }

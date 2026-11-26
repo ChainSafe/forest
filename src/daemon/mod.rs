@@ -303,12 +303,6 @@ async fn create_p2p_service(
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
-    // The state manager's schedule, so gossiped entries fill the cache block validation reads.
-    let drand_gossip =
-        DrandGossip::new(ctx.state_manager.beacon_schedule().clone()).map(|(gossip, listener)| {
-            services.spawn(listener.run());
-            gossip
-        });
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -317,7 +311,6 @@ async fn create_p2p_service(
         ctx.net_keypair.clone(),
         config.chain.genesis_name(),
         *ctx.state_manager.chain_store().genesis_block_header().cid(),
-        drand_gossip,
     )
     .await?;
     Ok(p2p_service)
@@ -356,6 +349,16 @@ fn create_chain_follower(
     ))
 }
 
+fn create_drand_gossip(p2p_service: &Libp2pService, ctx: &AppContext) -> Option<DrandGossip> {
+    let schedule = ctx.state_manager.beacon_schedule();
+    schedule.unchained_beacon()?;
+    Some(DrandGossip::new(
+        schedule.clone(),
+        p2p_service.drand_gossip_receiver(),
+        p2p_service.network_sender(),
+    ))
+}
+
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
@@ -367,6 +370,15 @@ fn start_chain_follower_service(
         async move { chain_follower.run().await }
     });
     maybe_prefill_rpc_caches(services, opts, config, chain_follower);
+}
+
+fn start_drand_gossip_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    drand_gossip: Option<DrandGossip>,
+) {
+    if let Some(drand_gossip) = drand_gossip {
+        services.spawn(drand_gossip.run());
+    }
 }
 
 fn maybe_prefill_rpc_caches(
@@ -813,6 +825,7 @@ pub(super) async fn start_services(
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
     let chain_follower = create_chain_follower(opts, &p2p_service, mpool.shallow_clone(), &ctx)?;
+    let drand_gossip = create_drand_gossip(&p2p_service, &ctx);
 
     maybe_start_rpc_service(
         &mut services,
@@ -844,6 +857,7 @@ pub(super) async fn start_services(
     }
     services.spawn(p2p_service.run());
     start_chain_follower_service(&mut services, opts, &config, chain_follower);
+    start_drand_gossip_service(&mut services, drand_gossip);
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await

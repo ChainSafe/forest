@@ -3,66 +3,69 @@
 
 use std::time::Duration;
 
-use libp2p::gossipsub::MessageAcceptance;
+use libp2p::gossipsub::{MessageAcceptance, TopicHash};
 
 use super::gossip_validation_test::gossip_message_event;
 use crate::{
     beacon::gossipsub::{
-        DrandGossip,
+        DrandGossip, PUBSUB_DRAND_STR,
         test_utils::{EPOCH_ROUND, assert_verdict, fake_drand_schedule},
     },
-    libp2p::service::handle_gossip_event,
+    libp2p::{NetworkMessage, service::handle_gossip_event},
 };
 
-/// `drand` rounds are decided by the listener, and nothing reaches the node.
+fn drand_topic() -> TopicHash {
+    TopicHash::from_raw(format!("{PUBSUB_DRAND_STR}/chain-hash"))
+}
+
 #[tokio::test]
-async fn drand_gossip_is_handed_to_the_listener() {
+async fn drand_round_is_handed_to_drand_gossip() {
     let (drand, schedule) = fake_drand_schedule();
-    let (gossip, listener) = DrandGossip::new(schedule).unwrap();
-    tokio::spawn(listener.run());
+    let (rounds_tx, rounds_rx) = flume::bounded(1);
+    let (network_tx, network_rx) = flume::unbounded();
+    tokio::spawn(DrandGossip::new(schedule, rounds_rx, network_tx).run());
     let (tx, rx) = flume::unbounded();
 
     let verdict = handle_gossip_event(
-        gossip_message_event(drand.encode(EPOCH_ROUND), gossip.topic.clone()),
+        gossip_message_event(drand.encode(EPOCH_ROUND), drand_topic()),
         &tx,
         "",
         "",
-        Some(&gossip),
+        &rounds_tx,
     )
     .await;
 
-    assert!(verdict.is_none(), "the listener reports it");
+    assert!(verdict.is_none(), "reported later");
     assert!(rx.try_recv().is_err(), "nothing is emitted to the node");
-    let verdict = tokio::time::timeout(Duration::from_secs(5), gossip.verdicts.recv_async())
+    let message = tokio::time::timeout(Duration::from_secs(5), network_rx.recv_async())
         .await
         .expect("no verdict reported")
         .unwrap();
+    let NetworkMessage::GossipVerdict(verdict) = message else {
+        panic!("unexpected message: {message:?}");
+    };
     assert_verdict(&verdict.acceptance, MessageAcceptance::Accept);
 }
 
-/// A full listener queue drops the round instead of blocking the service.
+/// A full queue drops the round instead of blocking the service.
 #[tokio::test]
-async fn full_listener_queue_ignores_the_round() {
-    let (drand, schedule) = fake_drand_schedule();
-    let (gossip, _listener) = DrandGossip::new(schedule).unwrap();
+async fn full_queue_ignores_the_round() {
+    let (rounds_tx, _rounds_rx) = flume::bounded(1);
     let (tx, _rx) = flume::unbounded();
-    let payload = drand.encode(EPOCH_ROUND);
     let send = || {
         handle_gossip_event(
-            gossip_message_event(payload.clone(), gossip.topic.clone()),
+            gossip_message_event(vec![], drand_topic()),
             &tx,
             "",
             "",
-            Some(&gossip),
+            &rounds_tx,
         )
     };
 
-    for _ in 0..gossip.rounds.capacity().unwrap() {
-        assert!(send().await.is_none(), "queued for the listener");
-    }
+    assert!(send().await.is_none(), "queued");
     let verdict = tokio::time::timeout(Duration::from_secs(5), send())
         .await
-        .expect("the service must not wait for the listener")
+        .expect("the service must not wait for the queue")
         .expect("a verdict");
     assert_verdict(&verdict.acceptance, MessageAcceptance::Ignore);
 }
