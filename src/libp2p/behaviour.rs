@@ -104,6 +104,9 @@ pub(in crate::libp2p) fn build_gossipsub(
     gs_config_builder.validation_mode(ValidationMode::Strict);
     // Forward messages only once validated.
     gs_config_builder.validate_messages();
+    // The decoder defaults (500 messages, 16 KiB of control per RPC) reject go-libp2p RPCs, which answer an IWANT of up to 5000 IDs in one RPC and batch control up to 512 KiB.
+    gs_config_builder.max_publish_messages(5000);
+    gs_config_builder.max_control_message_size(512 * 1024);
     gs_config_builder.message_id_fn(|msg: &gossipsub::Message| {
         let s = blake2b_256(&msg.data);
         MessageId::from(s)

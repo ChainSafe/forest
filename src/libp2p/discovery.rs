@@ -10,6 +10,8 @@ use std::{
 };
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use anyhow::Context as _;
+use hickory_resolver::proto::rr::{RData, rdata::TXT};
 use libp2p::{
     StreamProtocol, autonat,
     core::Multiaddr,
@@ -455,11 +457,17 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         }
                         DerivedDiscoveryBehaviourEvent::Autonat(_) => {}
                         DerivedDiscoveryBehaviourEvent::Upnp(ev) => match ev {
-                            upnp::Event::NewExternalAddr(addr) => {
-                                info!("UPnP NewExternalAddr: {addr}");
+                            upnp::Event::NewExternalAddr {
+                                local_addr,
+                                external_addr,
+                            } => {
+                                info!("UPnP NewExternalAddr: {local_addr} -> {external_addr}");
                             }
-                            upnp::Event::ExpiredExternalAddr(addr) => {
-                                info!("UPnP ExpiredExternalAddr: {addr}");
+                            upnp::Event::ExpiredExternalAddr {
+                                local_addr,
+                                external_addr,
+                            } => {
+                                info!("UPnP ExpiredExternalAddr: {local_addr} -> {external_addr}");
                             }
                             upnp::Event::GatewayNotFound => {
                                 info!("UPnP GatewayNotFound");
@@ -550,25 +558,32 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 // Note: The function is async because the sync API `hickory_resolver::Resolver` is a wrapper of
 // the async API and does not work inside another tokio runtime
 async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multiaddr)>> {
-    let resolver = hickory_resolver::TokioResolver::builder_tokio()?.build();
+    let resolver = hickory_resolver::TokioResolver::builder_tokio()
+        .context("failed to read the system DNS configuration")?
+        .build()
+        .context("failed to build the DNS resolver")?;
 
     let name = ["_dnsaddr.", name].concat();
-    let txts = resolver.txt_lookup(name).await?;
+    let lookup = resolver
+        .txt_lookup(name.as_str())
+        .await
+        .with_context(|| format!("TXT lookup failed for {name}"))?;
 
     let mut pairs = vec![];
-    for txt in txts {
-        if let Some(chars) = txt.txt_data().first() {
-            match parse_dnsaddr_txt(chars) {
-                Err(e) => {
-                    // Skip over seemingly invalid entries.
-                    tracing::debug!("Invalid TXT record: {e}");
-                }
-                Ok(mut addr) => {
-                    if let Some(Protocol::P2p(peer_id)) = addr.pop() {
-                        pairs.push((peer_id, addr))
-                    } else {
-                        tracing::debug!("Failed to parse peer id from {addr}")
-                    }
+    for record in lookup.answers() {
+        let RData::TXT(txt) = &record.data else {
+            continue;
+        };
+        match parse_dnsaddr_txt(txt) {
+            Err(e) => {
+                // Skip over seemingly invalid entries.
+                tracing::debug!("Invalid TXT record: {e}");
+            }
+            Ok(mut addr) => {
+                if let Some(Protocol::P2p(peer_id)) = addr.pop() {
+                    pairs.push((peer_id, addr))
+                } else {
+                    tracing::debug!("Failed to parse peer id from {addr}")
                 }
             }
         }
@@ -576,9 +591,13 @@ async fn resolve_libp2p_dnsaddr(name: &str) -> anyhow::Result<Vec<(PeerId, Multi
     Ok(pairs)
 }
 
-/// Parses a `<character-string>` of a `dnsaddr` `TXT` record.
-fn parse_dnsaddr_txt(txt: &[u8]) -> io::Result<Multiaddr> {
-    let s = str::from_utf8(txt).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+/// Parses a `dnsaddr` `TXT` record.
+///
+/// A record may hold several character-strings; they are joined without a separator, as Go's
+/// resolver does for Lotus: <https://github.com/golang/go/blob/6e676ab2b809d46623acb5988248d95d1eb7939c/src/net/lookup.go#L889-L903>
+fn parse_dnsaddr_txt(txt: &TXT) -> io::Result<Multiaddr> {
+    let joined = txt.txt_data.concat();
+    let s = str::from_utf8(&joined).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     match s.strip_prefix("dnsaddr=") {
         None => Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -600,6 +619,40 @@ mod tests {
     };
     use libp2p_swarm_test::SwarmExt as _;
     use std::str::FromStr as _;
+
+    const DNSADDR_TXT: &str = "dnsaddr=/dns/bootstrap.filecoin.chain.love/tcp/1235/p2p/12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt";
+
+    fn txt<'a>(segments: impl IntoIterator<Item = &'a [u8]>) -> TXT {
+        TXT::try_new(segments.into_iter()).unwrap()
+    }
+
+    fn expected_bootstrap_addr() -> Multiaddr {
+        DNSADDR_TXT
+            .strip_prefix("dnsaddr=")
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+
+    #[rstest::rstest]
+    #[case::single_string(&[DNSADDR_TXT])]
+    #[case::split_across_strings(&[
+        "dnsaddr=/dns/bootstrap.filecoin.chain.love/tcp/1235/p2p/",
+        "12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt",
+    ])]
+    fn parse_dnsaddr_txt_accepts_a_bootstrap_record(#[case] segments: &[&str]) {
+        assert_eq!(
+            parse_dnsaddr_txt(&txt(segments.iter().map(|s| s.as_bytes()))).unwrap(),
+            expected_bootstrap_addr()
+        );
+    }
+
+    #[test]
+    fn parse_dnsaddr_txt_rejects_non_dnsaddr_records() {
+        parse_dnsaddr_txt(&txt([b"v=spf1 -all".as_slice()])).unwrap_err();
+        parse_dnsaddr_txt(&txt([b"dnsaddr=not-a-multiaddr".as_slice()])).unwrap_err();
+        parse_dnsaddr_txt(&txt([[0xff].as_slice()])).unwrap_err();
+    }
 
     #[tokio::test]
     async fn resolve_libp2p_dnsaddr_test() {
