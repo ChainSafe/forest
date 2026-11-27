@@ -241,6 +241,15 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.writer.put_keyed(k, block)
     }
+
+    fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
+    where
+        Self: Sized,
+        D: AsRef<[u8]>,
+        I: IntoIterator<Item = (Cid, D)>,
+    {
+        self.writer.put_many_keyed(blocks)
+    }
 }
 
 impl<WriterT: PersistentStore> PersistentStore for ManyCar<WriterT> {
