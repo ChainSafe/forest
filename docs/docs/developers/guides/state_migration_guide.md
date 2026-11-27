@@ -212,7 +212,7 @@ forest --chain calibnet --encrypt-keystore false --halt-after-import --height=-2
 ```
 
 Once the upgrade has happened, add a state compute test for the epoch right after
-the upgrade to `src/state_manager/state_compute_tests.yaml`, so the migration
+the upgrade to `STATE_COMPUTE_TESTS` in `build.rs`, so the migration
 stays covered in CI.
 
 ### Performance considerations

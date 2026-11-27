@@ -22,6 +22,7 @@ pub use election_proof::ElectionProof;
 pub use gossip_block::GossipBlock;
 pub use header::{CachingBlockHeader, RawBlockHeader};
 pub use ticket::Ticket;
+pub(crate) use tipset::KnownBlocks;
 pub use tipset::{CreateTipsetError, FullTipset, Tipset, TipsetKey, TipsetLike};
 pub use vrf_proof::VRFProof;
 
