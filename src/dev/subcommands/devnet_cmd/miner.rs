@@ -7,6 +7,7 @@
 mod api;
 mod devnet;
 mod onboarding;
+mod terminate;
 mod wdpost;
 mod worker_key;
 
@@ -37,6 +38,7 @@ pub struct MinerTestCommand {
 enum Group {
     Onboarding,
     Wdpost,
+    Terminate,
     WorkerKey,
 }
 
@@ -65,6 +67,7 @@ fn tests(group: Group) -> Vec<Trial> {
     match group {
         Group::Onboarding => onboarding::tests(),
         Group::Wdpost => wdpost::tests(),
+        Group::Terminate => terminate::tests(),
         Group::WorkerKey => worker_key::tests(),
     }
 }
