@@ -7,6 +7,7 @@ use libp2p::{
 };
 
 use crate::{
+    beacon::gossipsub::test_utils::assert_verdict,
     blocks::{CachingBlockHeader, GossipBlock, RawBlockHeader},
     libp2p::{
         NetworkEvent, PubsubMessage, PubsubTopic,
@@ -23,16 +24,7 @@ use crate::{
 
 const NETWORK: &str = "testgossipvalidation";
 
-// `MessageAcceptance` doesn't implement `PartialEq`.
-fn assert_verdict(actual: &MessageAcceptance, expected: MessageAcceptance) {
-    assert_eq!(
-        std::mem::discriminant(actual),
-        std::mem::discriminant(&expected),
-        "verdict {actual:?}, expected {expected:?}"
-    );
-}
-
-fn gossip_message_event(data: Vec<u8>, topic: TopicHash) -> gossipsub::Event {
+pub(super) fn gossip_message_event(data: Vec<u8>, topic: TopicHash) -> gossipsub::Event {
     gossipsub::Event::Message {
         propagation_source: PeerId::random(),
         message_id: MessageId::new(b"test"),
@@ -72,7 +64,8 @@ fn gossip_message() -> Vec<u8> {
     .unwrap()
 }
 
-/// Blocks and messages are accepted once decoded; anything else is ignored.
+/// Blocks and messages are accepted once decoded; anything else is ignored. None of them is
+/// queued as a `drand` round.
 #[rstest::rstest]
 #[case::block(
     Some(PubsubTopic::Blocks),
@@ -103,6 +96,7 @@ async fn filecoin_gossip_verdicts(
         None => "/unknown/topic".into(),
     });
     let (tx, rx) = flume::unbounded();
+    let (drand_tx, drand_rx) = flume::bounded(1);
 
     let Verdict {
         acceptance: verdict,
@@ -112,11 +106,13 @@ async fn filecoin_gossip_verdicts(
         &tx,
         &block_topic,
         &msg_topic,
+        &drand_tx,
     )
     .await
     .expect("an immediate verdict");
 
     assert_verdict(&verdict, expected);
+    assert!(drand_rx.is_empty(), "nothing is queued for drand");
     match rx.try_recv() {
         Ok(NetworkEvent::PubsubMessage {
             message: PubsubMessage::Block(_) | PubsubMessage::Message(_),

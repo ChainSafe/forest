@@ -54,6 +54,10 @@ impl FakeDrandSigner {
         BeaconEntry::new(round, signature.as_bytes().to_vec())
     }
 
+    pub fn encode(&self, round: u64) -> Vec<u8> {
+        Self::encode_raw(round, self.entry(round).signature())
+    }
+
     fn decode(payload: &[u8]) -> BeaconEntry {
         let response =
             PublicRandResponse::from_reader(&mut BytesReader::from_bytes(payload), payload)

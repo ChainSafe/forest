@@ -142,6 +142,14 @@ impl BeaconSchedule {
         }
     }
 
+    /// The first unchained beacon in schedule order.
+    pub fn unchained_beacon(&self) -> Option<&DrandBeacon> {
+        self.0.iter().find_map(|point| match &point.beacon {
+            BeaconImpl::Drand(beacon) if beacon.network().is_unchained() => Some(beacon),
+            _ => None,
+        })
+    }
+
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &BeaconImpl)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
         self.0
@@ -292,6 +300,30 @@ impl DrandBeacon {
         self.verified_beacons.get(&entry.round()).as_deref() == Some(entry)
     }
 
+    pub fn chain_hash(&self) -> &str {
+        &self.hash
+    }
+
+    pub(crate) fn has_round(&self, round: u64) -> bool {
+        self.verified_beacons.get(&round).is_some()
+    }
+
+    /// Whether some block can carry `round`. Assumes the nv16+ round mapping.
+    pub(crate) fn is_epoch_round(&self, round: u64) -> bool {
+        if !self.network.is_unchained() {
+            return true;
+        }
+        let Some(since_genesis) = self
+            .beacon_round_timestamp(round)
+            .and_then(|round_ts| round_ts.checked_sub(self.fil_gen_time))
+        else {
+            return false;
+        };
+        let until_epoch_ts =
+            (self.fil_round_time - since_genesis % self.fil_round_time) % self.fil_round_time;
+        until_epoch_ts < self.interval
+    }
+
     /// Verify-and-cache a freshly fetched entry: `verify_entries` inserts verified rounds
     /// into `verified_beacons`. Only unchained rounds verify standalone, so chained ones are skipped.
     fn cache_fetched_entry(&self, entry: &BeaconEntry) {
@@ -374,8 +406,10 @@ impl Beacon for DrandBeacon {
                 tracing::warn!(%capacity, validated_len=%validated.len(), "verified_beacons.capacity() is too small");
             }
             for entry in validated {
-                self.verified_beacons
-                    .insert(entry.round(), Arc::new(entry.clone()));
+                if self.is_epoch_round(entry.round()) {
+                    self.verified_beacons
+                        .insert(entry.round(), Arc::new(entry.clone()));
+                }
             }
         }
 

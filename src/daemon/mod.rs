@@ -7,6 +7,7 @@ pub mod db_util;
 mod extended_snapshot;
 pub mod main;
 
+use crate::beacon::gossipsub::DrandGossip;
 use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainFollower;
@@ -361,6 +362,16 @@ fn create_chain_follower(
     ))
 }
 
+fn create_drand_gossip(p2p_service: &Libp2pService, ctx: &AppContext) -> Option<DrandGossip> {
+    let schedule = ctx.state_manager.beacon_schedule();
+    schedule.unchained_beacon()?;
+    Some(DrandGossip::new(
+        schedule.clone(),
+        p2p_service.drand_gossip_receiver(),
+        p2p_service.network_sender(),
+    ))
+}
+
 fn start_chain_follower_service(
     services: &mut JoinSet<anyhow::Result<()>>,
     opts: &CliOpts,
@@ -372,6 +383,15 @@ fn start_chain_follower_service(
         async move { chain_follower.run().await }
     });
     maybe_prefill_rpc_caches(services, opts, config, chain_follower);
+}
+
+fn start_drand_gossip_service(
+    services: &mut JoinSet<anyhow::Result<()>>,
+    drand_gossip: Option<DrandGossip>,
+) {
+    if let Some(drand_gossip) = drand_gossip {
+        services.spawn(drand_gossip.run());
+    }
 }
 
 fn maybe_prefill_rpc_caches(
@@ -815,6 +835,7 @@ pub(super) async fn start_services(
     let p2p_service = create_p2p_service(&mut services, &mut config, &ctx).await?;
     let mpool = create_mpool(&mut services, &p2p_service, &ctx)?;
     let chain_follower = create_chain_follower(opts, &p2p_service, mpool.shallow_clone(), &ctx)?;
+    let drand_gossip = create_drand_gossip(&p2p_service, &ctx);
 
     maybe_start_rpc_service(
         &mut services,
@@ -846,6 +867,7 @@ pub(super) async fn start_services(
     }
     services.spawn(p2p_service.run());
     start_chain_follower_service(&mut services, opts, &config, chain_follower);
+    start_drand_gossip_service(&mut services, drand_gossip);
     // blocking until any of the services returns an error,
     propagate_error(&mut services)
         .await
