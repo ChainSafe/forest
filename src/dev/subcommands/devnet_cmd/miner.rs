@@ -7,6 +7,7 @@
 mod api;
 mod devnet;
 mod onboarding;
+mod operator;
 mod wdpost;
 mod worker_key;
 
@@ -63,7 +64,10 @@ impl MinerTestCommand {
 
 fn tests(group: Group) -> Vec<Trial> {
     match group {
-        Group::Onboarding => onboarding::tests(),
+        Group::Onboarding => [onboarding::tests(), operator::tests()]
+            .into_iter()
+            .flatten()
+            .collect(),
         Group::Wdpost => wdpost::tests(),
         Group::WorkerKey => worker_key::tests(),
     }
