@@ -11,6 +11,7 @@ title: Metrics
 | `head_epoch`                   | Gauge     | Epoch        | Latest epoch synchronized to the node                                                        |
 | `rpc_method_failure`           | Counter   | Count        | Number of failed RPC calls. Indexed by `method`                                              |
 | `rpc_processing_time`          | Histogram | Milliseconds | Duration of RPC method processing. Indexed by `method`                                       |
+| `rpc_message_search_queued`    | Gauge     | Count        | Number of RPC message searches waiting for a `FOREST_RPC_MESSAGE_SEARCH_CONCURRENCY` permit  |
 | `peer_failure_total`           | Counter   | Count        | Total number of failed peer requests                                                         |
 | `full_peers`                   | Gauge     | Count        | Number of healthy peers recognized by the node                                               |
 | `bad_peers`                    | Gauge     | Count        | Number of bad peers recognized by the node                                                   |

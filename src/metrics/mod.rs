@@ -65,6 +65,16 @@ pub static RPC_IN_FLIGHT: LazyLock<Gauge> = LazyLock::new(|| {
     metric
 });
 
+pub static RPC_MESSAGE_SEARCH_QUEUED: LazyLock<Gauge> = LazyLock::new(|| {
+    let metric = Gauge::default();
+    DEFAULT_REGISTRY.write().register(
+        "rpc_message_search_queued",
+        "Number of RPC message searches waiting for a FOREST_RPC_MESSAGE_SEARCH_CONCURRENCY permit",
+        metric.clone(),
+    );
+    metric
+});
+
 pub static RPC_METHOD_TIME: LazyLock<Family<RpcMethodLabel, Histogram>> = LazyLock::new(|| {
     let metric = Family::<RpcMethodLabel, Histogram>::new_with_constructor(|| {
         // Histogram with 5 buckets starting from 0.1ms going to 1s, each bucket 10 times as big as the last.

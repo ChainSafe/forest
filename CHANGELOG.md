@@ -41,6 +41,8 @@
 
 ### Fixed
 
+- [#7862](https://github.com/ChainSafe/forest/pull/7862): Fixed chain sync stalling under heavy `eth_getTransactionReceipt`, `eth_getTransactionByHash`, `StateSearchMsg`, `StateWaitMsg` or `StateGetReceipt` load. Chain walks for message receipts are now bounded to the available CPUs by default, configurable via `FOREST_RPC_MESSAGE_SEARCH_CONCURRENCY`, so they can no longer take every blocking thread that sync needs. Lookups waiting for a walk slot are counted by the `rpc_message_search_queued` metric.
+
 - [#7917](https://github.com/ChainSafe/forest/pull/7917): `StateSearchMsg` and `StateSearchMsgLimited` leave `ReturnDec` null, matching Lotus.
 
 - [#7887](https://github.com/ChainSafe/forest/issues/7887): `forest-cli info show` no longer crashes when the client's clock is behind the node's start time.
