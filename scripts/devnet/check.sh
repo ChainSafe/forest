@@ -4,19 +4,12 @@
 
 set -eux
 
-# Path to the directory containing this script.
-PARENT_PATH=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+PARENT_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 pushd "${PARENT_PATH}"
+# shellcheck source=/dev/null
 source .env
-
-# Forest check - assert that we sync past the genesis block.
-# Allow for 360 seconds of sync time.
-function get_sync_height {
-  local port=$1
-  curl --silent -X POST -H "Content-Type: application/json" \
-       --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
-       "http://127.0.0.1:${port}/rpc/v1" | jq '.result.Height'
-}
+# shellcheck source=/dev/null
+source "${PARENT_PATH}/chain_height.sh"
 
 function get_f3_latest_cert_instance {
   local port=$1
@@ -35,8 +28,8 @@ docker exec \
   timeout 6m \
   forest-cli sync wait --target "$target_height"
 
-# Check the offline RPC, which should be initialized at that point. It should be at the genesis height, so 0.
-height=$(get_sync_height ${FOREST_OFFLINE_RPC_PORT})
+# Offline RPC should be at genesis height 0.
+height=$(get_sync_height "${FOREST_OFFLINE_RPC_PORT}")
 if [ "$height" != "0" ]; then
   echo "Offline RPC height is not zero: $height"
   exit 1

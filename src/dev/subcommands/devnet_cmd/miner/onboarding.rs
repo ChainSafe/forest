@@ -1,11 +1,11 @@
 // Copyright 2019-2026 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Lotus Miner creating a miner and pledging a sector through Forest's RPC. Mirrors the creation
-//! step of Lotus `testNonGenesisMiner` (which also starts the new miner) and `TestPledgeSectors`
-//! (single sector, real 2 KiB proofs).
+//! Create-miner + pledge-sector (Lotus `testNonGenesisMiner` / `TestPledgeSectors`).
 
+use super::MinerBackend;
 use super::api::TestMiner;
+use super::curio;
 use super::devnet::Devnet;
 use crate::dev::subcommands::tests_cmd::helpers::*;
 use crate::key_management::generate_key;
@@ -46,31 +46,41 @@ async fn create_miner() -> anyhow::Result<()> {
         .await?;
 
     let before = list_miners(&net.forest).await?;
-    let repo = format!(
-        "/tmp/forest-onboarding-{}",
-        SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis()
-    );
-    let init = init_miner(&repo, owner_key, worker_key);
-    let _ = docker(&["exec", "lotus-miner", "rm", "-rf", &repo]);
-    init?;
+    let backend = MinerBackend::from_env()?;
+    match backend {
+        MinerBackend::Curio => curio::create_miner(owner_key, worker_key)?,
+        MinerBackend::Lotus => {
+            let repo = format!(
+                "/tmp/forest-onboarding-{}",
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis()
+            );
+            let init = init_lotus_miner(&repo, owner_key, worker_key);
+            let _ = docker(&["exec", "lotus-miner", "rm", "-rf", &repo]);
+            init?;
+        }
+    }
 
-    let created: Vec<Address> = list_miners(&net.forest)
-        .await?
-        .difference(&before)
-        .copied()
-        .collect();
-    let [miner] = created.as_slice() else {
-        bail!("expected exactly one new miner after `lotus-miner init`, found {created:?}");
-    };
+    // Wait until the new actor shows up (sptool --confidence 1 can still race a tipset).
+    let miner = poll("new miner to appear on Forest", || async {
+        let created: Vec<Address> = list_miners(&net.forest)
+            .await?
+            .difference(&before)
+            .copied()
+            .collect();
+        match created.as_slice() {
+            [] => Ok(None),
+            [miner] => Ok(Some(*miner)),
+            other => bail!("expected exactly one new miner, found {other:?}"),
+        }
+    })
+    .await?;
 
     let worker_id = net
         .forest
         .call(StateLookupID::request((worker_key, ApiTipsetKey(None)))?)
         .await?;
     let at = net.synced().await?;
-    let info = at
-        .same(|tsk| StateMinerInfo::request((*miner, tsk)))
-        .await?;
+    let info = at.same(|tsk| StateMinerInfo::request((miner, tsk))).await?;
     ensure!(
         info.owner == owner_id && info.worker == worker_id,
         "miner {miner}: owner {} and worker {}, expected {owner_id} and {worker_id}",
@@ -82,12 +92,19 @@ async fn create_miner() -> anyhow::Result<()> {
         "miner {miner}: sector size {:?}, expected 2 KiB",
         info.sector_size
     );
-    ensure!(
-        !info.peer_id.is_empty(),
-        "miner {miner}: no peer ID recorded"
-    );
+    match backend {
+        MinerBackend::Curio => ensure!(
+            info.peer_id.is_empty(),
+            "miner {miner}: Curio should leave peer_id empty, got {} bytes",
+            info.peer_id.len()
+        ),
+        MinerBackend::Lotus => ensure!(
+            !info.peer_id.is_empty(),
+            "miner {miner}: no peer ID recorded"
+        ),
+    }
     let power = at
-        .same(|tsk| StateMinerPower::request((*miner, tsk)))
+        .same(|tsk| StateMinerPower::request((miner, tsk)))
         .await?;
     ensure!(
         !power.has_min_power,
@@ -96,12 +113,11 @@ async fn create_miner() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Pledges one CC sector; the chain verifies the seal proof on prove-commit.
 async fn pledge_sector() -> anyhow::Result<()> {
     let net = Devnet::connect()?;
     let miner = TestMiner::genesis()?;
-    let sector = miner.api.pledge_sector().await?;
-    miner.api.wait_until_proving(sector).await?;
+    let sector = miner.pledge_sector().await?;
+    miner.wait_until_proving(sector).await?;
     net.synced()
         .await?
         .same(|tsk| StateSectorGetInfo::request((miner.actor, sector, tsk)))
@@ -118,12 +134,11 @@ async fn list_miners(client: &Client) -> anyhow::Result<HashSet<Address>> {
         .collect())
 }
 
-fn init_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
-    let port = harness_env("FOREST_RPC_PORT")?;
-    let data_dir = harness_env("FOREST_DATA_DIR")?;
+fn init_lotus_miner(repo: &str, owner: Address, worker: Address) -> anyhow::Result<()> {
+    let api = super::forest_fullnode_api_info_shell()?;
     let script = format!(
         "export LOTUS_MINER_PATH='{repo}' \
-         FULLNODE_API_INFO=\"$(cat '{data_dir}/token.jwt'):/dns/forest/tcp/{port}/http\" && \
+         FULLNODE_API_INFO=\"{api}\" && \
          exec lotus-miner init --owner='{owner}' --worker='{worker}' --sector-size=2KiB \
          --no-local-storage --nosync"
     );
