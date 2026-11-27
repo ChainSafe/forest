@@ -34,6 +34,8 @@ pub static GENESIS_CID: LazyLock<Cid> = LazyLock::new(|| {
         .expect("hardcoded genesis CID is valid")
 });
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
+/// Genesis block timestamp in Unix seconds: 1 November 2022, 18:13 UTC.
+pub const GENESIS_TIMESTAMP: u64 = 1667326380;
 
 /// Default bootstrap peer ids.
 pub static DEFAULT_BOOTSTRAP: LazyLock<Vec<Multiaddr>> =

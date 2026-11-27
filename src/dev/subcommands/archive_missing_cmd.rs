@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 use std::time::SystemTime;
 use url::Url;
 
-use crate::networks::{NetworkChain, calculate_expected_epoch};
+use crate::networks::{NetworkChain, calculate_expected_epoch, calibnet, mainnet};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::utils::net::global_http_client;
 
@@ -18,10 +18,6 @@ const LIST_BASE: &str = "https://forest-archive.chainsafe.dev/list";
 
 const LITE_INTERVAL: ChainEpoch = 30_000;
 const DIFF_INTERVAL: ChainEpoch = 3_000;
-
-/// Well-known genesis timestamps (Unix seconds).
-const MAINNET_GENESIS_TIMESTAMP: u64 = 1598306400; // 2020-08-24T22:00:00Z
-const CALIBNET_GENESIS_TIMESTAMP: u64 = 1667326380; // 2022-11-01T14:13:00Z
 
 #[derive(Debug, Args)]
 pub struct ArchiveMissingCommand {
@@ -128,8 +124,8 @@ async fn fetch_available_heights(
 impl ArchiveMissingCommand {
     pub async fn run(self) -> anyhow::Result<()> {
         let (network, genesis_ts) = match &self.chain {
-            NetworkChain::Mainnet => ("mainnet", MAINNET_GENESIS_TIMESTAMP),
-            NetworkChain::Calibnet => ("calibnet", CALIBNET_GENESIS_TIMESTAMP),
+            NetworkChain::Mainnet => ("mainnet", mainnet::GENESIS_TIMESTAMP),
+            NetworkChain::Calibnet => ("calibnet", calibnet::GENESIS_TIMESTAMP),
             other => bail!("network {other} is not supported"),
         };
 
